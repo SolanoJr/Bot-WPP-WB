@@ -1,4 +1,5 @@
 const { handleKeywords } = require('./keywordHandler');
+const { handleModeration } = require('./moderationService');
 
 /**
  * Handler centralizado para todas as mensagens recebidas
@@ -13,11 +14,18 @@ async function processMessage(msg, client, commands) {
     console.log(`Conteúdo: ${msg.body}`);
     console.log(`---------------------\n`);
 
-    // 2. Lógica de Palavras-Chave e Auto-Moderação (Separada)
+    // 2. Auto-Moderação de Spam/Links/Apostas
+    const moderated = await handleModeration(client, msg);
+    if (moderated) {
+        console.log(`🛡️ [MODERATION] Mensagem moderada: ${msg.body}`);
+        return;
+    }
+
+    // 3. Lógica de Palavras-Chave e Auto-Moderação (Separada)
     const intercepted = await handleKeywords(msg, client);
     if (intercepted) return;
 
-    // 3. Processamento de Comandos
+    // 4. Processamento de Comandos
     const COMMAND_PREFIX = process.env.COMMAND_PREFIX || '!';
     
     if (!msg.body.startsWith(COMMAND_PREFIX)) return;
