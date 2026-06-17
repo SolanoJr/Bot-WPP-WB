@@ -195,7 +195,11 @@ class WhatsAppSingleton {
             
             // Salvar QR em arquivo para download
             try {
-                const qrFile = path.join(__dirname, '../scripts/logs/last-qr.txt');
+                const logsDir = path.join(__dirname, '../scripts/logs');
+                if (!fs.existsSync(logsDir)) {
+                    fs.mkdirSync(logsDir, { recursive: true });
+                }
+                const qrFile = path.join(logsDir, 'last-qr.txt');
                 fs.writeFileSync(qrFile, qr);
                 console.log(`📄 [SINGLETON-${this.instanceId}] QR salvo em: ${qrFile}`);
             } catch (err) {
