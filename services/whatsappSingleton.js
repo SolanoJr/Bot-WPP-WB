@@ -183,8 +183,24 @@ class WhatsAppSingleton {
     // 📝 Configurar logging detalhado
     setupLogging() {
         this.client.on('qr', (qr) => {
+            const fs = require('fs');
+            const path = require('path');
+            const qrcodeTerminal = require('qrcode-terminal');
+            
             console.log(`📱 [SINGLETON-${this.instanceId}] QR Code gerado`);
             console.log(`📱 [SINGLETON-${this.instanceId}] Escaneie com seu WhatsApp`);
+            
+            // Exibir QR no terminal
+            qrcodeTerminal.generate(qr, { small: true });
+            
+            // Salvar QR em arquivo para download
+            try {
+                const qrFile = path.join(__dirname, '../scripts/logs/last-qr.txt');
+                fs.writeFileSync(qrFile, qr);
+                console.log(`📄 [SINGLETON-${this.instanceId}] QR salvo em: ${qrFile}`);
+            } catch (err) {
+                console.log(`⚠️  [SINGLETON-${this.instanceId}] Erro ao salvar QR: ${err.message}`);
+            }
         });
 
         this.client.on('authenticated', () => {
