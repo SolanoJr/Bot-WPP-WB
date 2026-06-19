@@ -7,7 +7,7 @@
     "dev:relay": "tsx watch src/relay/server.ts",
     "build": "npm run build:relay && npm run build:bot",
     "build:relay": "tsup src/relay/server.ts --out-dir dist/relay --format cjs --clean --minify",
-    "build:bot": "tsup src/bot/index.ts src/bot/config.ts src/bot/customCommands.ts src/bot/relayClient.ts --out-dir dist/bot --format cjs --clean --minify",
+    "build:bot": "tsup src/bot/index.ts src/bot/config.ts src/bot/customCommands.ts src/bot/relayClient.ts src/bot/commands/*.ts --out-dir dist/bot --format cjs --clean --minify",
     "start": "node dist/relay/server.js",
     "bot:start": "node index.js",
     "test": "vitest run",
