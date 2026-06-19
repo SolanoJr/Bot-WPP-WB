@@ -35,6 +35,10 @@ export async function initDatabase() {
     CREATE TABLE IF NOT EXISTS feedbacks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id TEXT,
+      user_name TEXT,
+      user_number TEXT,
+      group_id TEXT,
+      group_name TEXT,
       message TEXT,
       timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     );
