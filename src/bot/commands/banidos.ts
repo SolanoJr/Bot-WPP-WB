@@ -1,6 +1,6 @@
 import { ICommand } from './types';
 import axios from 'axios';
-import { isMaster } from '../../../services/permissions';
+import { isMaster } from '../../services/permissions';
 
 export const banidosCommand: ICommand = {
     name: 'banidos',

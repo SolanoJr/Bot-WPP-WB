@@ -1,6 +1,6 @@
 import { ICommand } from './types';
 import axios from 'axios';
-import { isMaster, cleanId } from '../../../services/permissions';
+import { isMaster, cleanId } from '../../services/permissions';
 
 export const setwelcomeCommand: ICommand = {
     name: 'setwelcome',

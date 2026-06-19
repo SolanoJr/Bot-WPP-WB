@@ -1,6 +1,6 @@
 import { ICommand } from './types';
 import logger from '../../services/loggerService';
-import { isMaster } from '../../../services/permissions';
+import { isMaster } from '../../services/permissions';
 
 /**
  * Command: $sendmsg <numero> <mensagem>

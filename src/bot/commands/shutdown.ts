@@ -1,5 +1,5 @@
 import { ICommand } from './types';
-import { isMaster } from '../../../services/permissions';
+import { isMaster } from '../../services/permissions';
 
 export const shutdownCommand: ICommand = {
     name: 'shutdown',

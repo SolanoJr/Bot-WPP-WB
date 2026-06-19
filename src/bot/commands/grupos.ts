@@ -1,5 +1,5 @@
 import { ICommand } from './types';
-import { isMaster, cleanId } from '../../../services/permissions';
+import { isMaster, cleanId } from '../../services/permissions';
 
 export const gruposCommand: ICommand = {
     name: 'grupos',
