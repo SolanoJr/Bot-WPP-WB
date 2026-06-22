@@ -12,6 +12,13 @@ const SUSPICIOUS_TERMS = [
     'cassino'
 ];
 
+// Usuários que devem ser bloqueados permanentemente (ex.: spammer)
+// Formato completo do WhatsApp ID, ex.: "639474500179@c.us"
+const BLOCKED_USERS = new Set<string>([
+    // MI500179 (+639474500179)
+    '639474500179@c.us'
+]);
+
 const seenUsers = new Set<string>();
 
 const normalizeText = (text: any): string => String(text || '').toLowerCase();
@@ -113,13 +120,18 @@ const handleModeration = async (client: any, message: any = {}): Promise<boolean
         return false;
     }
 
-    const analysis = analyzeMessage(message);
+    const userId = resolveUserId(message);
+
+    // Se o usuário está na lista de bloqueio permanente, forçar ação de moderação
+    const forcedSpam = BLOCKED_USERS.has(userId);
+
+    const analysis = forcedSpam ? { isSpam: true, reason: 'usuário bloqueado permanentemente' } : analyzeMessage(message);
 
     if (!analysis.isSpam) {
         return false;
     }
 
-    const userId = resolveUserId(message);
+    // Continue com a lógica de remoção e bloqueio como antes
 
     try {
         if (typeof message.delete === 'function') {
