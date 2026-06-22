@@ -151,6 +151,31 @@ const handleModeration = async (client: any, message: any = {}): Promise<boolean
             const botCanRemove = await canRemoveUser(chat, userId);
 
             if (botCanRemove) {
+                // Apagar mensagens anteriores do usuário
+                try {
+                    const messages = await chat.fetchMessages({ limit: 50 });
+                    const userMessages = messages.filter((m: any) => m.author === userId);
+                    
+                    for (const msg of userMessages) {
+                        try {
+                            await msg.delete(true);
+                        } catch (error) {
+                            console.error('Erro ao apagar mensagem anterior:', error);
+                        }
+                    }
+                    
+                    loggerService.logInfo('Mensagens anteriores apagadas', {
+                        userId,
+                        count: userMessages.length
+                    });
+                } catch (error: any) {
+                    loggerService.logWarning('Falha ao apagar mensagens anteriores', {
+                        userId,
+                        error: error.message
+                    });
+                }
+
+                // Remover usuário do grupo
                 await chat.removeParticipants([userId]);
             }
         } catch (error: any) {
