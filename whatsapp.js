@@ -7,7 +7,7 @@ require('dotenv').config();
 // 🚯 USAR SINGLETON GLOBAL - ÚNICO PONTO DE CRIAÇÃO DO CLIENT
 const whatsappSingleton = require('./services/whatsappSingleton');
 const { isMaster } = require('./services/permissions');
-const { processMessage } = require('./dist/services/messageHandler');
+const { processMessage } = require('./services/messageHandler');
 
 // Importar carregador de comandos compilados (o bundle está em dist/bot/index.js)
 const { loadCommands } = require('./dist/bot/index.js');
