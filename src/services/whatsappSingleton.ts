@@ -113,10 +113,17 @@ class WhatsAppSingleton {
             console.log(`🔒 [SINGLETON] Lock criado: PID ${process.pid}`);
             console.log(`🔒 [SINGLETON] Instance ID: ${this.instanceId}`);
             
-            // Setup cleanup ao sair
-            process.on('SIGINT', () => this.cleanup());
-            process.on('SIGTERM', () => this.cleanup());
-            process.on('exit', () => this.cleanup());
+            // Setup cleanup ao sair - Apenas em sinais de encerramento real
+            process.on('SIGINT', () => {
+                console.log('🛑 [SINGLETON] Recebido SIGINT');
+                this.cleanup();
+                process.exit(0);
+            });
+            process.on('SIGTERM', () => {
+                console.log('🛑 [SINGLETON] Recebido SIGTERM');
+                this.cleanup();
+                process.exit(0);
+            });
             
             return true;
         } catch (error: any) {
