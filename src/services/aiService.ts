@@ -69,7 +69,13 @@ async function askAI(prompt: string, userId: string = 'unknown'): Promise<string
         return "🤖 A IA não soube responder no momento.";
     } catch (error: any) {
         if (error.response) {
-            console.error('❌ Erro na API do Gemini (Resposta Completa):', JSON.stringify(error.response.data, null, 2));
+            const errorData = error.response.data;
+            console.error('❌ Erro na API do Gemini:', JSON.stringify(errorData, null, 2));
+            
+            // Fallback amigável para erro de cota (Rate Limit)
+            if (error.response.status === 429 || (errorData.error && errorData.error.code === 429)) {
+                return "🤖 Minha cota diária de inteligência acabou (Limite da API Gemini). Voltarei a responder amanhã ou quando a cota resetar!";
+            }
         } else {
             console.error('❌ Erro na API do Gemini:', error.message);
         }

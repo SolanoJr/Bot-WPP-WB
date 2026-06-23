@@ -188,15 +188,13 @@ const handleModeration = async (client: any, message: any = {}): Promise<boolean
     }
 
     try {
-        if (typeof client?.blockContact === 'function') {
-            await client.blockContact(userId);
+        // No WWebJS, o bloqueio é feito através do contato
+        const contact = await client.getContactById(userId);
+        if (contact && typeof contact.block === 'function') {
+            await contact.block();
         }
     } catch (error: any) {
-        loggerService.logWarning('Falha ao bloquear contato suspeito', {
-            reason: analysis.reason,
-            userId,
-            error: error.message
-        });
+        console.error(`[MODERATION] Erro ao bloquear contato ${userId}:`, error.message);
     }
 
     loggerService.logInfo('Moderacao automatica aplicada', {
