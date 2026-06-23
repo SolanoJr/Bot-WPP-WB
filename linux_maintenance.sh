@@ -60,12 +60,12 @@ fi
 # 5. Verificar e (re)iniciar o bot via PM2
 log "Verificando e reiniciando o bot via PM2…"
 if pm2 list | grep -q "bot-wpp"; then
-  log "Processo 'bot-wpp' encontrado. Reiniciando…"
-  pm2 restart bot-wpp || error_exit "Falha ao reiniciar 'bot-wpp' via PM2."
-else
-  log "Processo 'bot-wpp' não encontrado. Iniciando…"
-  pm2 start ecosystem.config.js || error_exit "Falha ao iniciar 'bot-wpp' via PM2."
+  log "Processo 'bot-wpp' encontrado no PM2. Deletando para recarregar configurações atualizadas…"
+  pm2 delete bot-wpp || log "Aviso: Falha ao deletar processo 'bot-wpp'."
 fi
+
+log "Iniciando 'bot-wpp' via PM2 usando ecosystem.config.js…"
+pm2 start ecosystem.config.js || error_exit "Falha ao iniciar 'bot-wpp' via PM2."
 pm2 save || log "Aviso: Falha ao salvar configuração do PM2."
 log "Bot-wpp gerenciado pelo PM2 com sucesso."
 

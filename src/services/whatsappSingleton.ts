@@ -26,7 +26,7 @@ class WhatsAppSingleton {
     private instanceId: string;
 
     constructor() {
-        this.lockFile = path.join(__dirname, '..', '.whatsapp-instance.lock');
+        this.lockFile = path.join(process.cwd(), '.whatsapp-instance.lock');
         this.instanceId = `instance_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     }
 
@@ -227,7 +227,7 @@ class WhatsAppSingleton {
             
             // Salvar QR em arquivo para download
             try {
-                const logsDir = path.join(__dirname, '../scripts/logs');
+                const logsDir = path.join(process.cwd(), 'logs');
                 if (!fs.existsSync(logsDir)) {
                     fs.mkdirSync(logsDir, { recursive: true });
                 }

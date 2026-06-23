@@ -2,7 +2,9 @@ import qrcode from 'qrcode-terminal';
 import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
-import 'dotenv/config';
+// import 'dotenv/config'; // Removido para evitar conflito com dotenvx no terminal
+import dotenv from 'dotenv';
+dotenv.config();
 
 // 🚯 USAR SINGLETON GLOBAL - ÚNICO PONTO DE CRIAÇÃO DO CLIENT
 import whatsappSingleton from './services/whatsappSingleton';
