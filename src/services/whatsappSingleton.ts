@@ -178,6 +178,7 @@ class WhatsAppSingleton {
             }),
             puppeteer: {
                 headless: true,
+                executablePath: process.platform === 'linux' ? '/usr/bin/google-chrome-stable' : undefined,
                 handleSIGINT: false,
                 handleSIGTERM: false,
                 args: [
