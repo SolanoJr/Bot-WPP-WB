@@ -320,6 +320,6 @@ async function initializeClient() {
         console.log('🚀 [WHATSAPP] Bot está pronto e conectado');
     });
 
-    // Inicializa a sessão do WhatsApp
-    client.initialize();
+    // O initialize já é chamado no singleton com tratamento de erro
+    console.log('⏳ [WHATSAPP] Aguardando inicialização do Puppeteer...');
 }

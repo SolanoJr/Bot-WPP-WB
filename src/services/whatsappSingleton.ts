@@ -169,6 +169,8 @@ class WhatsAppSingleton {
 
         console.log(`🆕 [SINGLETON] Criando NOVA instância: ${this.instanceId}`);
         
+        console.log('🌐 [SINGLETON] Iniciando Puppeteer com debug habilitado...');
+        
         // Criar client COM CONFIGURAÇÃO ÚNICA
         this.client = new Client({
             authStrategy: new LocalAuth({
@@ -176,6 +178,8 @@ class WhatsAppSingleton {
             }),
             puppeteer: {
                 headless: true,
+                handleSIGINT: false,
+                handleSIGTERM: false,
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
@@ -184,9 +188,15 @@ class WhatsAppSingleton {
                     '--no-first-run',
                     '--no-zygote',
                     '--single-process',
-                    '--disable-gpu'
+                    '--disable-gpu',
+                    '--disable-software-rasterizer'
                 ],
             }
+        });
+
+        // Debug de erro de inicialização
+        this.client.initialize().catch(err => {
+            console.error('❌ [SINGLETON] FALHA CRÍTICA NA INICIALIZAÇÃO DO PUPPETEER:', err);
         });
 
         // Configurar eventos de logging
