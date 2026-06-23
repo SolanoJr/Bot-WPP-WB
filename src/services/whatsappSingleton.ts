@@ -11,6 +11,29 @@ import path from 'path';
 import { execSync } from 'child_process';
 import qrcodeTerminal from 'qrcode-terminal';
 
+const PUPPETEER_LAUNCH_TIMEOUT_MS = 90_000;
+
+function resolveChromeExecutablePath(): string | undefined {
+    if (process.platform !== 'linux') {
+        return undefined;
+    }
+
+    const candidates = [
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/chromium-browser',
+        '/usr/bin/chromium',
+        '/snap/bin/chromium',
+    ];
+
+    for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+            return candidate;
+        }
+    }
+
+    return undefined;
+}
+
 interface LockData {
     pid: number;
     instanceId: string;
@@ -171,14 +194,22 @@ class WhatsAppSingleton {
         
         console.log('🌐 [SINGLETON] Iniciando Puppeteer com debug habilitado...');
         
+        const chromePath = resolveChromeExecutablePath();
+        if (chromePath) {
+            console.log(`🌐 [SINGLETON] Chrome detectado em: ${chromePath}`);
+        }
+
         // Criar client COM CONFIGURAÇÃO ÚNICA
         this.client = new Client({
             authStrategy: new LocalAuth({
                 clientId: 'bot-wpp-session' // ÚNICO clientId em todo sistema
             }),
+            authTimeoutMs: 120_000,
+            qrMaxRetries: 5,
             puppeteer: {
                 headless: true,
-                executablePath: process.platform === 'linux' ? '/usr/bin/google-chrome-stable' : undefined,
+                executablePath: chromePath,
+                timeout: PUPPETEER_LAUNCH_TIMEOUT_MS,
                 handleSIGINT: false,
                 handleSIGTERM: false,
                 args: [
@@ -187,25 +218,30 @@ class WhatsAppSingleton {
                     '--disable-dev-shm-usage',
                     '--disable-accelerated-2d-canvas',
                     '--no-first-run',
-                    '--no-zygote',
-                    '--single-process',
                     '--disable-gpu',
-                    '--disable-software-rasterizer'
+                    '--disable-software-rasterizer',
+                    '--disable-extensions',
+                    '--disable-background-networking',
                 ],
             }
         });
 
-        // Debug de erro de inicialização
-        this.client.initialize().catch(err => {
-            console.error('❌ [SINGLETON] FALHA CRÍTICA NA INICIALIZAÇÃO DO PUPPETEER:', err);
-        });
-
-        // Configurar eventos de logging
+        // Configurar eventos de logging antes do initialize
         this.setupLogging();
-        
-        this.isInitialized = true;
-        
-        console.log(`✅ [SINGLETON] Client criado com sucesso: ${this.instanceId}`);
+
+        try {
+            console.log(`⏳ [SINGLETON] Inicializando Puppeteer (timeout ${PUPPETEER_LAUNCH_TIMEOUT_MS / 1000}s)...`);
+            await this.client.initialize();
+            this.isInitialized = true;
+            console.log(`✅ [SINGLETON] Client inicializado com sucesso: ${this.instanceId}`);
+        } catch (err) {
+            this.isInitialized = false;
+            this.client = null;
+            this.cleanup();
+            console.error('❌ [SINGLETON] FALHA CRÍTICA NA INICIALIZAÇÃO DO PUPPETEER:', err);
+            throw err;
+        }
+
         return this.client;
     }
 

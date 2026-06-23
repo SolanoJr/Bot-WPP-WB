@@ -327,6 +327,6 @@ async function initializeClient() {
         console.log('🚀 [WHATSAPP] Bot está pronto e conectado');
     });
 
-    // O initialize já é chamado no singleton com tratamento de erro
-    console.log('⏳ [WHATSAPP] Aguardando inicialização do Puppeteer...');
+    // O initialize já é concluído dentro do singleton antes de retornar o client
+    console.log('⏳ [WHATSAPP] Cliente inicializado, aguardando evento ready...');
 }
