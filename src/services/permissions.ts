@@ -7,8 +7,8 @@
 require('dotenv').config();
 
 // Configuração de usuários
-const MASTER_USER = process.env.MASTER_USER || '558581344211@c.us';
-const MASTER_NUMBER = process.env.MASTER_NUMBER || ''; // Novo número pessoal/testes
+const MASTER_USER = process.env.MASTER_USER || '5588998314322@c.us';
+const MASTER_NUMBER = process.env.MASTER_NUMBER || '5588998314322';
 const ADMINS = new Set((process.env.ADMINS || '').split(',').filter(Boolean));
 
 // Níveis de permissão
@@ -83,16 +83,15 @@ function hasPermission(userId: string, requiredLevel: PermissionLevel): boolean 
  */
 function isMaster(userId: string): boolean {
     if (!userId) return false;
-    
+  
     // OFICIAL - MAPEAMENTO LID (Linked ID)
     if (userId === '202658048684056@lid') return true;
 
-    // HARDCODE DE EMERGÊNCIA - PODER NA MARRA
-    if (userId.includes('88998314322')) return true;
-
     const clean = cleanId(userId);
-    // Comparação por sufixo para ignorar o 9º dígito e prefixos (55)
-    return clean.endsWith('88998314322');
+    const masterClean = cleanId(MASTER_USER);
+    const masterNumClean = cleanId(MASTER_NUMBER);
+
+    return clean === masterClean || clean === masterNumClean || userId.includes('88998314322');
 }
 
 /**

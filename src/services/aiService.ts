@@ -1,6 +1,6 @@
 import axios from 'axios';
 require('dotenv').config();
-import { getDb } from '../../services/databaseService'; // Importando DB para memória
+import { getDb } from './databaseService'; // Caminho corrigido para o mesmo diretório
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
@@ -28,7 +28,9 @@ async function askAI(prompt: string, userId: string = 'unknown'): Promise<string
             context = history.reverse().map((h: any) => `Usuário: ${h.prompt}\nIA: ${h.response}`).join('\n\n');
         }
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+        // Use the Gemini Pro model via the stable v1 endpoint.
+        // The previous v1beta endpoint returned NOT_FOUND for gemini-pro.
+        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
         
         // Personalidade: Estratégico, inteligente, levemente sarcástico e direto.
         const systemPrompt = `Você é o Bot-WPP, um assistente ultra-inteligente, estratégico e direto. 

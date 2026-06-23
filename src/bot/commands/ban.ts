@@ -1,5 +1,5 @@
 import { ICommand } from "./types";
-import { cleanId } from "../../services/permissions";
+import { cleanId, isMaster } from "../../services/permissions";
 
 export const banCommand: ICommand = {
   name: "ban",
@@ -27,7 +27,9 @@ export const banCommand: ICommand = {
       const botId = cleanId(client?.info?.wid?._serialized || "");
 
       // Verificar se quem mandou é admin (não o bot)
-      const senderId = cleanId(msg.author || msg.from);
+      // ID bruto (com @c.us) para verificação de MASTER
+      const senderIdRaw = msg.author || msg.from;
+      const senderId = cleanId(senderIdRaw);
 
       const senderParticipant = participants.find(
         (p: any) => cleanId(p.id?._serialized || "") === senderId,
@@ -59,7 +61,8 @@ export const banCommand: ICommand = {
         return;
       }
 
-      if (!isSenderAdmin) {
+      // Permitir que o MASTER do bot execute o ban mesmo não sendo admin no grupo
+      if (!isSenderAdmin && !isMaster(senderIdRaw)) {
         await msg.reply(
           "❌ Você precisa ser administrador para usar este comando.",
         );

@@ -70,7 +70,8 @@ async function askAI(prompt, userId = 'unknown') {
         } else {
             console.error('❌ Erro na API do Gemini:', error.message);
         }
-        return "⚠️ Desculpe, ocorreu um erro ao processar sua pergunta na IA.";
+        // Fallback: resposta sarcástica para evitar erro silencioso
+        return getSarcasticResponse();
     }
 }
 

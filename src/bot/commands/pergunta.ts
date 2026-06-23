@@ -1,6 +1,7 @@
 import { ICommand } from './types';
-const { askAI } = require('../../../services/aiService');
-const { getDb } = require('../../../services/databaseService');
+// Correct relative path to services (src/services)
+import { askAI } from '../../services/aiService';
+import { getDb } from '../../services/databaseService';
 import logger from '../../services/loggerService';
 
 export const perguntaCommand: ICommand = {
