@@ -5,8 +5,9 @@
   "main": "index.js",
   "scripts": {
     "dev:relay": "tsx watch src/relay/server.ts",
-    "build": "npm run build:relay && npm run build:bot && npm run build:main",
+    "build": "npm run build:relay && npm run build:services && npm run build:bot && npm run build:main",
     "build:relay": "tsup src/relay/server.ts --out-dir dist/relay --format cjs --clean",
+    "build:services": "tsup src/services/*.ts --out-dir dist/services --format cjs --clean",
     "build:bot": "tsup src/bot/index.ts src/bot/config.ts src/bot/customCommands.ts src/bot/relayClient.ts src/bot/commands/*.ts --out-dir dist/bot --format cjs --clean",
     "build:main": "tsup src/whatsapp.ts --out-dir dist --format cjs --clean",
     "start": "node dist/relay/server.js",
