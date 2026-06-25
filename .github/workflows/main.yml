@@ -1,0 +1,21 @@
+name: Deploy Automático
+on:
+  push:
+    branches:
+      - main
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Executar SSH e Deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/bot-wpp
+            git pull origin main
+            npm install
+            npm run build
+            pm2 restart bot-wpp
