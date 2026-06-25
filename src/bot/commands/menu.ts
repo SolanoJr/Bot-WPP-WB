@@ -34,7 +34,7 @@ export const menuCommand: ICommand = {
             "║ ▸ $ondeestou - Enviar localização",
             "║",
             "║ 🧠 INTELIGÊNCIA",
-            "║ ▸ $pergunta - Falar com IA (Gemini 2.5 Flash)",
+            "║ ▸ $pergunta - Falar com IA (Gemini 1.5 Flash)",
             "║",
             "║ 🎮 JOGOS E DIVERSÃO",
             "║ ▸ $jogos - Lista de jogos",

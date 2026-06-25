@@ -326,8 +326,8 @@ async function initializeClient() {
     
     client.on('message_create', async (msg: any) => {
         if (msg.fromMe) {
-            console.log(`[EVENTO] Mensagem enviada por mim para ${msg.to}: ${msg.body.substring(0, 20)}...`);
-            await processMessage(msg, client, commands);
+            // Log apenas para auditoria, não processar como comando para evitar loop
+            console.log(`[EVENTO-OUT] Mensagem enviada por mim para ${msg.to}: ${msg.body.substring(0, 20)}...`);
         }
     });
 

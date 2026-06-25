@@ -29,12 +29,10 @@ async function askAI(prompt: string, userId: string = 'unknown'): Promise<string
             context = history.reverse().map((h: any) => `Usuário: ${h.prompt}\nIA: ${h.response}`).join('\n\n');
         }
 
-        // Modelo definido pelo usuário como funcional: gemini-2.5-flash
-        // Nota: O modelo 2.5-flash tem cota limitada a 20 req/dia no tier gratuito.
-        // Se precisar de mais cota, considere usar gemini-1.5-flash ou gemini-2.0-flash.
-        const model = "gemini-2.5-flash";
-        // Usando v1 para maior estabilidade conforme testes
-        const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+        // Migrado para gemini-1.5-flash para maior estabilidade de cota (1500 req/dia vs 20 req/dia do 2.5).
+        const model = "gemini-1.5-flash";
+        // Usando v1beta para suporte total ao modelo 1.5-flash
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
 
         const now = new Date();
         const dateTimeStr = now.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
@@ -90,7 +88,7 @@ ${context}`;
             if (status === 429 || (errorData.error && errorData.error.code === 429)) {
                 const isQuotaExceeded = errorData.error?.message?.toLowerCase().includes('quota exceeded');
                 if (isQuotaExceeded) {
-                    return "🤖 Minha cota diária de inteligência para este modelo (Gemini 2.5 Flash) acabou. Volto a responder amanhã ou quando a cota resetar!";
+                    return "🤖 Minha cota diária de inteligência acabou. Volto a responder amanhã ou quando a cota resetar!";
                 }
                 return "🤖 Estou processando muitas informações no momento. Aguarde uns segundos e tente novamente!";
             }
