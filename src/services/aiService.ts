@@ -2,7 +2,7 @@ import axios from 'axios';
 require('dotenv').config();
 import { getDb } from './databaseService'; // Caminho corrigido para o mesmo diretório
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 /**
  * Envia uma pergunta para a IA do Gemini com suporte a memória de contexto
@@ -12,8 +12,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
  */
 async function askAI(prompt: string, userId: string = 'unknown'): Promise<string> {
     if (!GEMINI_API_KEY) {
-        console.error('❌ Erro: Chave da API (GEMINI_API_KEY ou GOOGLE_API_KEY) não encontrada.');
-        return "⚠️ Erro: API_KEY não configurada. Verifique o arquivo .env.";
+        return "⚠️ Erro: GEMINI_API_KEY não configurada. Configure a chave no .env para usar a IA.";
     }
 
     try {
@@ -29,45 +28,34 @@ async function askAI(prompt: string, userId: string = 'unknown'): Promise<string
             context = history.reverse().map((h: any) => `Usuário: ${h.prompt}\nIA: ${h.response}`).join('\n\n');
         }
 
-        // Modelo definido pelo usuário como funcional: gemini-2.5-flash
-        // Nota: O modelo 2.5-flash tem cota limitada a 20 req/dia no tier gratuito.
-        // Se precisar de mais cota, considere usar gemini-1.5-flash ou gemini-2.0-flash.
-        const model = "gemini-2.5-flash";
-        // Usando v1 para maior estabilidade conforme testes
-        const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+        // Use the Gemini Pro model via the stable v1 endpoint.
+        // The previous v1beta endpoint returned NOT_FOUND for gemini-pro.
+        // Updated to use Gemini 2.5 Flash model with stable v1 endpoint.
+        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
-        const now = new Date();
-        const dateTimeStr = now.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
-
+        
         // Personalidade: Estratégico, inteligente, levemente sarcástico e direto.
-        const systemInstruction = `Você é o Bot-WPP, um assistente ultra-inteligente, estratégico e direto.
-Sua personalidade é profissional, mas com um toque de sarcasmo inteligente.
-Evite respostas infantis ou excessivamente longas.
-Seja útil, mas mantenha sua postura de "superioridade tecnológica".
+        const systemPrompt = `Você é o Bot-WPP, um assistente ultra-inteligente, estratégico e direto. 
+        Sua personalidade é profissional, mas com um toque de sarcasmo inteligente. 
+        Evite respostas infantis ou excessivamente longas. 
+        Seja útil, mas mantenha sua postura de "superioridade tecnológica".
+        
+        Contexto da conversa anterior:
+        ${context}
+        \n\n`;
 
-Data/Hora atual: ${dateTimeStr}
-
-Contexto da conversa anterior:
-${context}`;
+        const fullPrompt = systemPrompt + `Pergunta atual: ${prompt}`;
 
         const response = await axios.post(url, {
-            contents: [
-                {
-                    parts: [{ text: `${systemInstruction}\n\nPergunta atual: ${prompt}` }]
-                }
-            ],
-            generationConfig: {
-                temperature: 0.7,
-                topK: 40,
-                topP: 0.95,
-                maxOutputTokens: 1024,
-            }
+            contents: [{
+                parts: [{ text: fullPrompt }]
+            }]
         }, {
             headers: { 'Content-Type': 'application/json' },
-            timeout: 15000
+            timeout: 10000
         });
 
-        if (response.data && response.data.candidates && response.data.candidates[0].content && response.data.candidates[0].content.parts) {
+        if (response.data && response.data.candidates && response.data.candidates[0].content) {
             const aiResponse = response.data.candidates[0].content.parts[0].text;
             
             // 2. Salvar a interação no banco de dados para memória futura
@@ -79,31 +67,18 @@ ${context}`;
             return aiResponse;
         }
 
-        console.error('⚠️ Resposta inesperada da API Gemini:', JSON.stringify(response.data, null, 2));
-        return "🤖 A IA recebeu a mensagem, mas não gerou uma resposta válida.";
+        return "🤖 A IA não soube responder no momento.";
     } catch (error: any) {
         if (error.response) {
             const errorData = error.response.data;
-            const status = error.response.status;
-            console.error(`❌ Erro na API do Gemini (Status ${status}):`, JSON.stringify(errorData, null, 2));
-
-            if (status === 429 || (errorData.error && errorData.error.code === 429)) {
-                const isQuotaExceeded = errorData.error?.message?.toLowerCase().includes('quota exceeded');
-                if (isQuotaExceeded) {
-                    return "🤖 Minha cota diária de inteligência para este modelo (Gemini 2.5 Flash) acabou. Volto a responder amanhã ou quando a cota resetar!";
-                }
-                return "🤖 Estou processando muitas informações no momento. Aguarde uns segundos e tente novamente!";
-            }
-
-            if (status === 400) {
-                return "⚠️ Erro na requisição (400). Isso pode ser devido ao tamanho do contexto ou formato do prompt.";
-            }
+            console.error('❌ Erro na API do Gemini:', JSON.stringify(errorData, null, 2));
             
-            if (status === 403) {
-                return "🚫 Erro de permissão (403). Verifique se sua API Key é válida e tem permissão para o modelo selecionado.";
+            // Fallback amigável para erro de cota (Rate Limit)
+            if (error.response.status === 429 || (errorData.error && errorData.error.code === 429)) {
+                return "🤖 Minha cota diária de inteligência acabou (Limite da API Gemini). Voltarei a responder amanhã ou quando a cota resetar!";
             }
         } else {
-            console.error('❌ Erro na comunicação com Gemini:', error.message);
+            console.error('❌ Erro na API do Gemini:', error.message);
         }
         return "⚠️ Desculpe, ocorreu um erro ao processar sua pergunta na IA.";
     }
