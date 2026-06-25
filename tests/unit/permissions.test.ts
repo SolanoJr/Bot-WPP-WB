@@ -7,13 +7,13 @@ describe('permissions service', () => {
     expect(isMaster('88998314322')).toBe(true);
     expect(isMaster('5588998314322@c.us')).toBe(true);
     expect(isMaster('202658048684056@lid')).toBe(true);
-    expect(isMaster('558581344211@c.us')).toBe(false);
+    expect(isMaster('5511999999999@c.us')).toBe(false);
   });
 
   it('verifica permissões por nível', () => {
     expect(getUserPermission('88998314322')).toBe(PERMISSIONS.MASTER);
     expect(getUserPermission('5588998314322@c.us')).toBe(PERMISSIONS.MASTER);
-    expect(getUserPermission('558581344211@c.us')).toBe(PERMISSIONS.USER);
+    expect(getUserPermission('5511999999999@c.us')).toBe(PERMISSIONS.USER);
   });
 
   it('retorna níveis de permissão corretos', () => {
