@@ -30,15 +30,22 @@ async function askAI(prompt: string, userId: string = 'unknown'): Promise<string
         }
 
         // Modelo definido pelo usuário como funcional: gemini-2.5-flash
+        // Nota: O modelo 2.5-flash tem cota limitada a 20 req/dia no tier gratuito.
+        // Se precisar de mais cota, considere usar gemini-1.5-flash ou gemini-2.0-flash.
         const model = "gemini-2.5-flash";
         // Usando v1 para maior estabilidade conforme testes
         const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+
+        const now = new Date();
+        const dateTimeStr = now.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 
         // Personalidade: Estratégico, inteligente, levemente sarcástico e direto.
         const systemInstruction = `Você é o Bot-WPP, um assistente ultra-inteligente, estratégico e direto.
 Sua personalidade é profissional, mas com um toque de sarcasmo inteligente.
 Evite respostas infantis ou excessivamente longas.
 Seja útil, mas mantenha sua postura de "superioridade tecnológica".
+
+Data/Hora atual: ${dateTimeStr}
 
 Contexto da conversa anterior:
 ${context}`;
@@ -81,7 +88,11 @@ ${context}`;
             console.error(`❌ Erro na API do Gemini (Status ${status}):`, JSON.stringify(errorData, null, 2));
 
             if (status === 429 || (errorData.error && errorData.error.code === 429)) {
-                return "🤖 Minha cota diária de inteligência acabou ou está temporariamente limitada. Tente novamente em alguns instantes ou use uma chave com maior limite.";
+                const isQuotaExceeded = errorData.error?.message?.toLowerCase().includes('quota exceeded');
+                if (isQuotaExceeded) {
+                    return "🤖 Minha cota diária de inteligência para este modelo (Gemini 2.5 Flash) acabou. Volto a responder amanhã ou quando a cota resetar!";
+                }
+                return "🤖 Estou processando muitas informações no momento. Aguarde uns segundos e tente novamente!";
             }
 
             if (status === 400) {
