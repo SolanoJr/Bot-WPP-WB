@@ -1,4 +1,4 @@
-const loggerService = require('../../services/loggerService');
+import loggerService from './loggerService';
 
 const SUSPICIOUS_TERMS = [
     'http',
@@ -16,7 +16,9 @@ const SUSPICIOUS_TERMS = [
 // Formato completo do WhatsApp ID, ex.: "639474500179@c.us"
 const BLOCKED_USERS = new Set<string>([
     // MI500179 (+639474500179)
-    '639474500179@c.us'
+    '639474500179@c.us',
+    // MI438722 (+639971438722)
+    '639971438722@c.us'
 ]);
 
 const seenUsers = new Set<string>();
@@ -177,6 +179,9 @@ const handleModeration = async (client: any, message: any = {}): Promise<boolean
 
                 // Remover usuário do grupo
                 await chat.removeParticipants([userId]);
+
+                // Mensagem de aviso no grupo
+                await message.reply('🚫 **Sistema de Segurança:** Usuário removido por spam/link suspeito.');
             }
         } catch (error: any) {
             loggerService.logWarning('Falha ao remover usuario suspeito', {
