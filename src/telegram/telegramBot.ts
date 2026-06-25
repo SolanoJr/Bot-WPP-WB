@@ -8,16 +8,24 @@ dotenv.config();
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const telegramGroupId = process.env.TELEGRAM_GROUP_ID;
 
+let telegramBotInstance: TelegramBot | null = null;
+
 if (!token) {
     console.error('❌ [TELEGRAM] TELEGRAM_BOT_TOKEN não configurado no .env');
 }
 
+const getBotInstance = () => {
+    if (!telegramBotInstance && token) {
+        telegramBotInstance = new TelegramBot(token, { polling: true });
+    }
+    return telegramBotInstance;
+};
+
 const commands = loadCommands();
 
 export const startTelegramBot = () => {
-    if (!token) return;
-
-    const bot = new TelegramBot(token, { polling: true });
+    const bot = getBotInstance();
+    if (!bot) return;
 
     console.log('🚀 [TELEGRAM] Bot iniciado e aguardando mensagens...');
 
@@ -55,8 +63,14 @@ export const startTelegramBot = () => {
  * Função para encaminhar mensagens do WhatsApp para o Telegram
  */
 export const sendToTelegram = async (text: string) => {
-    if (!token || !telegramGroupId) return;
-    const bot = new TelegramBot(token);
+    if (!telegramGroupId) return;
+
+    // Usar polling: false para instâncias de envio único se o bot principal não estiver rodando,
+    // mas aqui o bot principal já deve estar rodando via startTelegramBot().
+    const bot = telegramBotInstance || (token ? new TelegramBot(token) : null);
+
+    if (!bot) return;
+
     try {
         await bot.sendMessage(telegramGroupId, text);
         console.log('✅ [TELEGRAM] Mensagem encaminhada com sucesso.');

@@ -13,12 +13,10 @@ const SUSPICIOUS_TERMS = [
 ];
 
 // Usuários que devem ser bloqueados permanentemente (ex.: spammer)
-// Formato completo do WhatsApp ID, ex.: "639474500179@c.us"
-const BLOCKED_USERS = new Set<string>([
-    // MI500179 (+639474500179)
-    '639474500179@c.us',
-    // MI438722 (+639971438722)
-    '639971438722@c.us'
+// Mudei para detecção numérica para ser infalível (funciona com @c.us e @lid)
+const BLOCKED_NUMBERS = new Set<string>([
+    '639474500179',
+    '639971438722' // MI438722
 ]);
 
 const seenUsers = new Set<string>();
@@ -36,6 +34,8 @@ const hasSuspiciousKeyword = (text: string): boolean => {
 const resolveUserId = (message: any): string => {
     return message?.author || message?.from || 'usuario-desconhecido';
 };
+
+const cleanNumber = (id: string): string => id.split('@')[0].replace(/\D/g, '');
 
 interface AnalysisResult {
     isSpam: boolean;
@@ -123,9 +123,10 @@ const handleModeration = async (client: any, message: any = {}): Promise<boolean
     }
 
     const userId = resolveUserId(message);
+    const userNumber = cleanNumber(userId);
 
-    // Se o usuário está na lista de bloqueio permanente, forçar ação de moderação
-    const forcedSpam = BLOCKED_USERS.has(userId);
+    // Se o número está na lista de bloqueio permanente, forçar ação de moderação
+    const forcedSpam = BLOCKED_NUMBERS.has(userNumber);
 
     const analysis = forcedSpam ? { isSpam: true, reason: 'usuário bloqueado permanentemente' } : analyzeMessage(message);
 
