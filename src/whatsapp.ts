@@ -10,6 +10,7 @@ dotenv.config();
 import whatsappSingleton from './services/whatsappSingleton';
 import { isMaster } from './services/permissions';
 import { processMessage } from './services/messageHandler';
+import telegramBotSingleton from './telegram/telegramBot';
 
 // Importar carregador de comandos compilados (o bundle está em dist/bot/index.js)
 // Como estamos migrando tudo, podemos importar direto do src ou usar o carregador dinâmico
@@ -321,6 +322,10 @@ async function initializeClient() {
     // Registro de eventos de mensagem usando o handler centralizado
     client.on('message', async (msg: any) => {
         console.log(`[EVENTO] Mensagem recebida de ${msg.from}: ${msg.body.substring(0, 20)}...`);
+
+        // 📋 Lógica de Espelhamento (WhatsApp -> Telegram)
+        await handleMirroring(msg);
+
         await processMessage(msg, client, commands);
     });
     
@@ -338,4 +343,41 @@ async function initializeClient() {
 
     // O initialize já é concluído dentro do singleton antes de retornar o client
     console.log('⏳ [WHATSAPP] Cliente inicializado, aguardando evento ready...');
+}
+
+/**
+ * Detecta apresentações no WhatsApp e envia para o Telegram
+ */
+async function handleMirroring(msg: any) {
+    try {
+        const body = (msg.body || '').toLowerCase();
+        const patterns = ['nome:', 'idade:', 'cidade:'];
+        const matches = patterns.every(p => body.includes(p));
+
+        if (matches) {
+            console.log('📋 [MIRROR] Apresentação detectada, espelhando para o Telegram...');
+            const telegramBot = telegramBotSingleton.getBotInstance();
+            const telegramGroupId = process.env.TELEGRAM_GROUP_ID || process.env.TELEGRAM_CHAT_ID;
+
+            if (telegramGroupId) {
+                const chat = await msg.getChat();
+                const contact = await msg.getContact();
+                const groupName = chat.isGroup ? chat.name : 'Privado';
+                const userName = contact.pushname || contact.number;
+
+                const mirrorMsg = [
+                    '📋 **NOVA APRESENTAÇÃO (WPP)**',
+                    `👥 **Grupo:** ${groupName}`,
+                    `👤 **Usuário:** ${userName}`,
+                    '━━━━━━━━━━━━━━━━━━━━',
+                    msg.body
+                ].join('\n');
+
+                await telegramBot.sendMessage(telegramGroupId, mirrorMsg);
+                console.log('✅ [MIRROR] Mensagem espelhada com sucesso');
+            }
+        }
+    } catch (error: any) {
+        console.error('❌ [MIRROR] Erro ao espelhar mensagem:', error.message);
+    }
 }
