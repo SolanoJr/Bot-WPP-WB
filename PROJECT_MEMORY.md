@@ -347,6 +347,34 @@ Antes de deploy para produção:
 
 ---
 
-**Última Atualização:** 2026-07-01
-**Responsável:** WarriorBlack
-**Versão:** 1.0.0
+## 🔄 AUDITORIA 2026-07-01 (Sessão 2)
+
+### Status do Sistema
+- ✅ **Bot Online no Linux** (PM2: online, uptime estável)
+- ✅ **WhatsApp**: Gerando QR Code (pronto para escanear)
+- ✅ **Telegram**: Adapter registrado com sucesso
+- ⚠️ **Discord**: Não inicializou nos logs (verificar configuração de intents)
+- ✅ **45 Comandos carregados** incluindo `$menu`
+
+### Limpezas Realizadas
+- 🧹 **Core dumps removidos**: ~1.38TB de arquivos de crash limpos
+- 🧹 **Logs PM2 limpos**: Mensagens de erro antigas removidas
+- 🧹 **Build limpo**: `dist/` completamente reconstruído
+- 🧹 **Git sincronizado**: Windows e Linux no commit 6e33806
+
+### Correções Aplicadas
+1. **.env Windows atualizado**: Adicionados `TELEGRAM_BOT_TOKEN` e `DISCORD_BOT_TOKEN`
+2. **Rebuild completo**: Removidos arquivos compilados obsoletos
+3. **PM2 logs flush**: Eliminadas mensagens de erro fantasma
+
+### Próximos Passos para Uso
+1. Escanear QR Code do WhatsApp no celular
+2. Testar comando `$menu` no WhatsApp
+3. Testar comando `$menu` no Telegram (após conexão)
+4. Investigar inicialização do Discord (verificar logs de erro)
+
+---
+
+**Última Atualização:** 2026-07-01 (Auditoria Completa)
+**Responsável:** WarriorBlack  
+**Versão:** 1.0.1
