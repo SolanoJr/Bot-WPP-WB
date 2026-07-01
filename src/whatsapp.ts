@@ -107,7 +107,7 @@ const preFlightCheck = async () => {
 
 // 🔄 POLLING DO RELAY PARA LOCALIZAÇÕES PENDENTES
 const startLocationPolling = () => {
-    const RELAY_URL = 'https://bot-wpp-relay.onrender.com';
+    const RELAY_URL = process.env.RELAY_URL || 'https://bot-wpp-relay.onrender.com';
     const POLLING_INTERVAL = 15000; // 15 segundos (equilíbrio)
     const processedLocations = new Set(); // Evitar duplicação
     const pendingChatIds = new Set<string>(); // Rastrear chatIds que esperam localização

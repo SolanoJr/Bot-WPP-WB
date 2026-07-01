@@ -1,11 +1,18 @@
-import { Message } from 'whatsapp-web.js';
+import { CommandContext, PlatformType } from '../../../platforms/base/PlatformTypes';
 
-// Interface simplificada para comandos. O handler de mensagens já fornece
-// os parâmetros individuais (msg, client, args). Mantemos a assinatura
-// compatível para evitar a criação de objetos de contexto extra.
+// Interface para comandos - usa CommandContext unificado
 export interface ICommand {
     name: string;
     description: string;
-    // Recebe a mensagem, o cliente do WhatsApp e os argumentos já parseados.
-    execute: (msg: any, client: any, args: string[]) => Promise<void> | void;
+    platforms?: PlatformType[];    // Se undefined, disponível em todas
+    execute(ctx: CommandContext): Promise<void> | void;
+}
+
+// Tipo para compatibilidade com comandos legados (msg, client, args)
+export type LegacyCommandExecute = (msg: any, client: any, args: string[]) => Promise<void> | void;
+
+export interface ILegacyCommand {
+    name: string;
+    description: string;
+    execute: LegacyCommandExecute;
 }

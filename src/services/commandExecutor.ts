@@ -1,5 +1,6 @@
 import { sendError } from './replyService';
 import { registerUsage } from './usageService';
+import { commandConfigService } from './commandConfigService';
 
 interface CommandContext {
     message: any;
@@ -20,6 +21,26 @@ const executeCommand = async (command: any, context: CommandContext): Promise<Co
     console.log(`Executando comando: ${commandName}`);
 
     try {
+        // Check per‑group enable/disable before executing
+        const groupId = context.message?.chat?.id || context.message?.chatId || '';
+        if (groupId) {
+            const enabled = await commandConfigService.isEnabled(groupId, commandName);
+            if (!enabled) {
+                // Notify user that command is disabled in this group
+                if (typeof context.reply === 'function') {
+                    await context.reply(`⚠️ O comando \`${commandName}\` está desativado neste grupo.`);
+                } else if (typeof context.message?.reply === 'function') {
+                    await context.message.reply(`⚠️ O comando \`${commandName}\` está desativado neste grupo.`);
+                }
+                return {
+                    success: false,
+                    commandName,
+                    value: null,
+                    error: new Error('Command disabled for group'),
+                };
+            }
+        }
+
         const value = await command.execute(context.message, context.args, context);
 
         registerUsage(command.name, context.message.from);
@@ -30,7 +51,7 @@ const executeCommand = async (command: any, context: CommandContext): Promise<Co
             success: true,
             commandName,
             value,
-            error: null
+            error: null,
         };
     } catch (error: any) {
         console.error(`Erro ao executar comando ${commandName}:`, error);
@@ -40,11 +61,11 @@ const executeCommand = async (command: any, context: CommandContext): Promise<Co
             success: false,
             commandName,
             value: null,
-            error
+            error,
         };
     }
 };
 
 export {
-    executeCommand
+    executeCommand,
 };

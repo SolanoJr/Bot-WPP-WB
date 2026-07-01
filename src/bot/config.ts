@@ -1,6 +1,11 @@
 import 'dotenv/config';
 import { WarriorKey } from '../shared/types.js';
 
+// Import adapters so they register themselves via side‑effects
+// Removed side-effect imports of adapters to avoid unnecessary initialization during config loading.
+// Platform adapters are imported where needed, not here.
+
+
 export const WARRIOR_AUTH_KEY_LENGTH = 16;
 
 export interface IBotConfig {
@@ -31,7 +36,7 @@ export function loadBotConfig(env: NodeJS.ProcessEnv = process.env): IBotConfig 
         relayUrl: (env.RELAY_URL || 'https://bot-wpp-relay.onrender.com').trim(),
         commandPrefix: (env.COMMAND_PREFIX || '$').trim(),
         masterUser: env.MASTER_USER,
-        geminiApiKey: env.GEMINI_API_KEY
+        geminiApiKey: env.GEMINI_API_KEY,
     };
 }
 

@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  # Serviço principal do bot
+  bot-wpp:
+    build: .
+    environment:
+      - TELEGRAM_BOT_TOKEN=8980550439:AAHXFpJRKQ_aHMzclMqous5rC5D9y2HITvA
+      - DISCORD_BOT_TOKEN=1307158493907652648
+      - DISCORD_BOT_SECRET=tmSQjstaQvmlC6FCAcyQeZdYoMCqjAuQ
+    ports:
+      - "3000:3000"
+    depends_on:
+      - telegram-mock
+      - discord-mock
+
+  telegram-mock:
+    image: node:18-alpine
+    working_dir: /mock
+    volumes:
+      - ./scripts/mocks/telegram:/mock
+    command: node telegramMock.js
+    ports:
+      - "3001:3000"
+
+  discord-mock:
+    image: node:18-alpine
+    working_dir: /mock
+    volumes:
+      - ./scripts/mocks/discord:/mock
+    command: node discordMock.js
+    ports:
+      - "3002:3000"
