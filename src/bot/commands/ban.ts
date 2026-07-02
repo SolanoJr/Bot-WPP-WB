@@ -1,5 +1,5 @@
 import { ICommand } from "./types";
-import { cleanId, isMaster } from "../../services/permissions";
+import { cleanId, isMaster, isAdmin } from "../../services/permissions";
 
 export const banCommand: ICommand = {
   name: "ban",
@@ -54,11 +54,12 @@ export const banCommand: ICommand = {
 
       console.log("Debug ban - Sender Participant Found:", !!senderParticipant);
       
-      // Se não encontrou pelo ID, mas o remetente é MASTER, permitimos
+      // Se não encontrou pelo ID, mas o remetente é MASTER ou está na lista ADMINS, permitimos
       const isSenderMaster = isMaster(senderIdRaw);
+      const isSenderInAdminList = isAdmin(senderIdRaw);
 
       const isSenderAdmin = Boolean(
-        senderParticipant?.isAdmin || senderParticipant?.isSuperAdmin || isSenderMaster
+        senderParticipant?.isAdmin || senderParticipant?.isSuperAdmin || isSenderMaster || isSenderInAdminList
       );
 
       const botParticipant = participants.find((p: any) => {
