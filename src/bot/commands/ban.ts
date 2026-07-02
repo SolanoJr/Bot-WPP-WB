@@ -1,17 +1,27 @@
 import { ICommand } from "./types";
+import { CommandContext } from "../../../platforms/base/PlatformTypes";
 import { cleanId, isMaster, isAdmin } from "../../services/permissions";
 
 export const banCommand: ICommand = {
   name: "ban",
   description: "Bane um usuário do grupo, remove suas mensagens e o expulsa.",
+  platforms: ['whatsapp'], // Apenas para WhatsApp
 
-  async execute(msg, client, args) {
+  async execute(ctx: CommandContext) {
     try {
+      if (ctx.platform !== 'whatsapp') {
+        await ctx.reply("❌ Este comando só funciona no WhatsApp.");
+        return;
+      }
+
+      const msg = ctx.msg.raw; // Objeto raw do WhatsApp
+      const client = (ctx.client as any).getClient(); // Cliente WhatsApp interno
+
       const chat = await msg.getChat();
       const { isGroup } = chat;
 
       if (!isGroup) {
-        await msg.reply("❌ Este comando só funciona em grupos.");
+        await ctx.reply("❌ Este comando só funciona em grupos.");
         return;
       }
 
@@ -78,17 +88,13 @@ export const banCommand: ICommand = {
       console.log("Debug ban - Is bot admin:", isBotAdmin);
 
       if (!isBotAdmin) {
-        await msg.reply(
-          "❌ O bot precisa ser administrador para usar este comando.",
-        );
+        await ctx.reply("❌ O bot precisa ser administrador para usar este comando.");
         return;
       }
 
       // Permitir que o MASTER do bot execute o ban mesmo não sendo admin no grupo
       if (!isSenderAdmin && !isMaster(senderIdRaw)) {
-        await msg.reply(
-          "❌ Você precisa ser administrador para usar este comando.",
-        );
+        await ctx.reply("❌ Você precisa ser administrador para usar este comando.");
         return;
       }
 
@@ -96,7 +102,7 @@ export const banCommand: ICommand = {
       const mentioned = msg.mentionedIds;
 
       if (!mentioned || mentioned.length === 0) {
-        await msg.reply("❌ Marque o usuário a ser banido com @usuario.");
+        await ctx.reply("❌ Marque o usuário a ser banido com @usuario.");
         return;
       }
 
@@ -116,7 +122,7 @@ export const banCommand: ICommand = {
       );
 
       if (isUserAdmin) {
-        await msg.reply("❌ Não é possível banir administradores.");
+        await ctx.reply("❌ Não é possível banir administradores.");
         return;
       }
 
@@ -150,7 +156,7 @@ export const banCommand: ICommand = {
         console.log("Debug ban - User removed successfully");
       } catch (error: any) {
         console.error("Erro ao remover usuário:", error);
-        await msg.reply(`⚠️ Erro ao remover usuário: ${error.message}`);
+        await ctx.reply(`⚠️ Erro ao remover usuário: ${error.message}`);
         return;
       }
 
@@ -169,14 +175,14 @@ export const banCommand: ICommand = {
         console.error("Erro ao bloquear contato:", error);
       }
 
-      await msg.reply(
+      await ctx.reply(
         `✅ Usuário banido com sucesso!\n` +
         `🗑️ ${deletedCount > 0 ? 'Última mensagem apagada' : 'Nenhuma mensagem encontrada'}\n` +
         `🚫 Contato bloqueado`,
       );
     } catch (error: any) {
       console.error("Erro ao executar comando ban:", error);
-      await msg.reply(`❌ Erro ao banir usuário: ${error.message}`);
+      await ctx.reply(`❌ Erro ao banir usuário: ${error.message}`);
     }
   },
 };

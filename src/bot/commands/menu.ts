@@ -1,9 +1,10 @@
 import { ICommand } from './types';
+import { CommandContext } from '../../../platforms/base/PlatformTypes';
 
 export const menuCommand: ICommand = {
     name: 'menu',
     description: 'Exibe o menu principal do bot',
-    async execute(msg, client, args) {
+    async execute(ctx: CommandContext) {
         const uptimeSeconds = process.uptime();
         const hours = Math.floor(uptimeSeconds / 3600);
         const minutes = Math.floor((uptimeSeconds % 3600) / 60);
@@ -65,6 +66,6 @@ export const menuCommand: ICommand = {
             "_Dica: o bot aceita somente comandos iniciados com $_"
         ].join('\n');
 
-        await msg.reply(menu);
+        await ctx.reply(menu);
     }
 };
