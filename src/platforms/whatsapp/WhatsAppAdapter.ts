@@ -102,6 +102,67 @@ export class WhatsAppClient implements PlatformClient {
         await this.messageHandler(platformMsg);
       }
     });
+
+    // Evento de entrada de novos membros no grupo
+    this.client.on('group_join', async (notification: any) => {
+      try {
+        await this.handleMemberJoin(notification);
+      } catch (error) {
+        console.error('[WhatsApp] Erro ao processar entrada de membro:', error);
+      }
+    });
+
+    // Fallback: monitorar mudanças de participantes
+    this.client.on('group_update', async (notification: any) => {
+      try {
+        if (notification.type === 'add') {
+          await this.handleMemberJoin(notification);
+        }
+      } catch (error) {
+        console.error('[WhatsApp] Erro ao processar atualização de grupo:', error);
+      }
+    });
+  }
+
+  private async handleMemberJoin(notification: any): Promise<void> {
+    try {
+      const groupId = notification.chatId || notification.id.remote;
+      const newMembers = notification.recipientIds || notification.recipients || [];
+      
+      console.log('[WhatsApp] Novo(s) membro(s) entrando:', { groupId, members: newMembers });
+
+      // Importar função para obter mensagem personalizada
+      const { getWelcomeMessage } = await import('../../bot/commands/welcome');
+      const customMessage = getWelcomeMessage(groupId);
+
+      // Verificar histórico de membros para detectar se é retorno
+      // TODO: implementar storage de histórico de membros
+
+      for (const memberId of newMembers) {
+        const isRejoining = false; // TODO: verificar no histórico
+        const welcomeText = isRejoining
+          ? `Bem-vindo(a) de volta @${memberId.split('@')[0]}! 🎉`
+          : `Bem-vindo(a) @${memberId.split('@')[0]}! 🎉`;
+
+        // Adicionar mensagem personalizada se configurada
+        const fullMessage = customMessage 
+          ? `${welcomeText}\n\n${customMessage}`
+          : welcomeText;
+
+        // Enviar mensagem de boas-vindas mencionando o usuário
+        await this.client.sendMessage(
+          groupId,
+          fullMessage,
+          {
+            mentions: [memberId]
+          }
+        );
+
+        console.log(`[WhatsApp] Boas-vindas enviadas para ${memberId} no grupo ${groupId}`);
+      }
+    } catch (error) {
+      console.error('[WhatsApp] Erro ao enviar boas-vindas:', error);
+    }
   }
 
   private normalizeMessage(msg: Message): PlatformMessage {

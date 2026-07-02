@@ -44,6 +44,12 @@ import { banidosCommand } from './banidos';
 import { setwelcomeCommand } from './setwelcome';
 import { cantadaCommand, fakechatCommand } from './interacao';
 import { cmdToggleCommand } from './cmdToggle';
+import { welcomeCommand } from './welcome';
+import {
+  lista1Command, lista1AddCommand, lista1DelCommand, lista1EditCommand,
+  lista2Command, lista2AddCommand, lista2DelCommand, lista2EditCommand,
+  lista3Command, lista3AddCommand, lista3DelCommand, lista3EditCommand,
+} from './lists';
 
 // Lista de comandos legados para migrar
 const legacyCommands: Array<{ name: string; description: string; execute: any }> = [
@@ -94,7 +100,22 @@ const legacyCommands: Array<{ name: string; description: string; execute: any }>
   // Alias commands for vote functionality matching tests
   { name: 'votar', description: 'Cria votação.', execute: voteCommand.execute },
   { name: 'voto', description: 'Vota em opção.', execute: votoCommand.execute },
-  { name: 'delvoto', description: 'Deleta votação.', execute: delVoteCommand.execute }
+  { name: 'delvoto', description: 'Deleta votação.', execute: delVoteCommand.execute },
+  // Welcome command
+  { name: 'bemvindo', description: 'Configura mensagem de boas-vindas.', execute: welcomeCommand.execute },
+  // List commands
+  { name: 'lista1', description: 'Exibe lista 1.', execute: lista1Command.execute },
+  { name: 'lista1add', description: 'Adiciona item na lista 1.', execute: lista1AddCommand.execute },
+  { name: 'lista1del', description: 'Apaga lista 1.', execute: lista1DelCommand.execute },
+  { name: 'lista1edit', description: 'Edita lista 1.', execute: lista1EditCommand.execute },
+  { name: 'lista2', description: 'Exibe lista 2.', execute: lista2Command.execute },
+  { name: 'lista2add', description: 'Adiciona item na lista 2.', execute: lista2AddCommand.execute },
+  { name: 'lista2del', description: 'Apaga lista 2.', execute: lista2DelCommand.execute },
+  { name: 'lista2edit', description: 'Edita lista 2.', execute: lista2EditCommand.execute },
+  { name: 'lista3', description: 'Exibe lista 3.', execute: lista3Command.execute },
+  { name: 'lista3add', description: 'Adiciona item na lista 3.', execute: lista3AddCommand.execute },
+  { name: 'lista3del', description: 'Apaga lista 3.', execute: lista3DelCommand.execute },
+  { name: 'lista3edit', description: 'Edita lista 3.', execute: lista3EditCommand.execute },
 ];
 
 /**

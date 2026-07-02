@@ -31,9 +31,29 @@ export const banCommand: ICommand = {
       const senderIdRaw = msg.author || msg.from;
       const senderId = cleanId(senderIdRaw);
 
-      const senderParticipant = participants.find(
-        (p: any) => cleanId(p.id?._serialized || "") === senderId,
-      );
+      console.log("Debug ban - Sender ID Raw:", senderIdRaw);
+      console.log("Debug ban - Sender ID Clean:", senderId);
+      console.log("Debug ban - Participants:", participants.map((p: any) => ({
+        id: p.id?._serialized,
+        isAdmin: p.isAdmin,
+        isSuperAdmin: p.isSuperAdmin
+      })));
+
+      // Tentar encontrar participant comparando de todas as formas possíveis
+      const senderParticipant = participants.find((p: any) => {
+        const pId = p.id?._serialized || "";
+        const pIdClean = cleanId(pId);
+        // Comparar tanto IDs limpos quanto brutos
+        return pIdClean === senderId || pId === senderIdRaw || pIdClean === cleanId(senderIdRaw);
+      });
+
+      console.log("Debug ban - Sender Participant:", senderParticipant);
+      console.log("Debug ban - Participant IDs for comparison:", participants.slice(0, 3).map((p: any) => ({
+        raw: p.id?._serialized,
+        clean: cleanId(p.id?._serialized || ''),
+        isAdmin: p.isAdmin,
+        isSuperAdmin: p.isSuperAdmin
+      })));
 
       const isSenderAdmin = Boolean(
         senderParticipant?.isAdmin || senderParticipant?.isSuperAdmin,

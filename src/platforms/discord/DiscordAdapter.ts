@@ -31,21 +31,38 @@ class DiscordClient implements PlatformClient {
   private disconnectedHandler: ((reason: string) => void) | null = null;
 
   constructor(token: string) {
-    // Intents needed para receber mensagens
-    // Intents needed for receiving messages; fallback to empty array if Intents is undefined in test mocks
-    // Safely acquire Intents if available (mock may omit it)
-    let intents:any[] = [];
+    // Discord.js v14+ usa GatewayIntentBits
+    let intents: any[] = [];
     try {
       const discordPkg = require('discord.js');
-      const Intents = discordPkg.Intents;
-      if (Intents?.FLAGS) {
-        intents = [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.DIRECT_MESSAGES];
+      const { GatewayIntentBits } = discordPkg;
+      
+      if (GatewayIntentBits) {
+        // Discord.js v14+
+        intents = [
+          GatewayIntentBits.Guilds,
+          GatewayIntentBits.GuildMessages,
+          GatewayIntentBits.MessageContent, // ESSENCIAL para ler conteúdo de mensagens
+          GatewayIntentBits.DirectMessages,
+        ];
+      } else {
+        // Fallback para discord.js v13 (caso esteja usando versão antiga)
+        const Intents = discordPkg.Intents;
+        if (Intents?.FLAGS) {
+          intents = [
+            Intents.FLAGS.GUILDS,
+            Intents.FLAGS.GUILD_MESSAGES,
+            Intents.FLAGS.DIRECT_MESSAGES,
+          ];
+        }
       }
-    } catch (_) {
-      // fallback to empty intents for tests without Intents mock
+    } catch (err) {
+      console.error('[DiscordAdapter] Erro ao configurar intents:', err);
     }
+    
     this.client = new Client({ intents });
 
+    console.log('[DiscordAdapter] Fazendo login...');
     this.client.login(token).catch(err => {
       console.error('[DiscordAdapter] Falha ao fazer login:', err);
       if (this.disconnectedHandler) this.disconnectedHandler(err.message);
@@ -58,10 +75,16 @@ class DiscordClient implements PlatformClient {
       this.isReady = true;
       this.userId = this.client.user?.id ?? '';
       this.userName = this.client.user?.username ?? 'DiscordBot';
+      console.log(`[Discord] ✅ Pronto como ${this.userName} (${this.userId})`);
       if (this.readyHandler) this.readyHandler();
     });
 
     this.client.on('messageCreate', async (msg) => {
+      console.log(`[Discord] Mensagem recebida de ${msg.author.username}: ${msg.content}`);
+      
+      // Ignorar mensagens do próprio bot
+      if (msg.author.bot) return;
+      
       if (this.messageHandler) {
         const platformMsg = this.normalizeMessage(msg);
         await this.messageHandler(platformMsg);
@@ -78,7 +101,12 @@ class DiscordClient implements PlatformClient {
   private normalizeMessage(msg: any): PlatformMessage {
     const chatId = `dc:${msg.channel.id}`;
     const userId = `dc:${msg.author.id}`;
-    const isGroup = msg.channel.type === 'GUILD_TEXT' || msg.channel.type === 'GUILD_VOICE';
+    
+    // Discord.js v14 usa ChannelType enum (números), não strings
+    // 0 = GUILD_TEXT, 2 = GUILD_VOICE, 11 = GUILD_PUBLIC_THREAD, etc.
+    const isGroup = msg.channel.type === 0 || msg.channel.type === 2 || 
+                    msg.channel.type === 'GUILD_TEXT' || msg.channel.type === 'GUILD_VOICE';
+    
     const hasMedia = !!msg.attachments?.size;
     let mediaType: PlatformMessage['mediaType'] | undefined = undefined;
     if (hasMedia) {
@@ -109,7 +137,12 @@ class DiscordClient implements PlatformClient {
   async sendMessage(chatId: string, text: string, options?: SendOptions): Promise<PlatformMessage> {
     const cleanChatId = chatId.replace(/^dc:/, '');
     const channel = await this.client.channels.fetch(cleanChatId);
-    if (!channel?.isText()) throw new Error('Canal de texto não encontrado para Discord');
+    
+    // Discord.js v14: usar isTextBased() ao invés de isText()
+    if (!channel || !(channel as any).isTextBased?.()) {
+      throw new Error('Canal de texto não encontrado para Discord');
+    }
+    
     const sent = await (channel as any).send(text);
     return this.normalizeMessage(sent);
   }
@@ -150,7 +183,8 @@ class DiscordClient implements PlatformClient {
     const chats: PlatformChat[] = [];
     this.client.guilds.cache.forEach(guild => {
       guild.channels.cache.forEach(ch => {
-        if (ch.isText()) {
+        // Discord.js v14: usar isTextBased() ao invés de isText()
+        if ((ch as any).isTextBased?.()) {
           chats.push({
             id: `dc:${ch.id}`,
             name: (ch as any).name,
