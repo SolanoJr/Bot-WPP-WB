@@ -17,6 +17,7 @@ import {
   MediaPayload,
   MessageHandler
 } from './base/PlatformTypes';
+import { rateLimiter } from '../services/rateLimiter';
 
 type AdapterFactory = () => Promise<PlatformAdapter>;
 
@@ -249,6 +250,16 @@ export class PlatformManager {
       await adapter.client.sendMessage(message.chatId, `⚠️ Comando \`${message.commandName}\` não disponível no ${adapter.platform}.`);
       return;
     }
+
+    // 🔒 RATE LIMITING - Verificar limite de comandos
+    const { limitExceeded, remaining, resetTime } = rateLimiter.checkLimit(message.userId);
+    if (limitExceeded) {
+      const resetSeconds = Math.ceil((resetTime - Date.now()) / 1000);
+      await adapter.client.sendMessage(message.chatId, `🚫 Você excedeu o limite de comandos! Tente novamente em ${resetSeconds} segundos.`);
+      console.log(`[RateLimiter] Usuário ${message.userId} excedeu o limite!`);
+      return;
+    }
+    console.log(`[RateLimiter] Usuário ${message.userId} - ${remaining} comandos restantes`);
 
     // Verificar permissões
     const hasPermission = await this.checkPermissions(message, command);
