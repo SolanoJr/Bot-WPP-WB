@@ -157,16 +157,16 @@ export function loadCommands(): Map<string, ICommand> {
   return commands;
 }
 
-function createLegacyMessage(msg: any, ctx?: any): any {
+function createLegacyMessage(msg: any, ctx: any): any {
   if (!msg) {
     // Guard clause for undefined message
     return {} as any;
   }
   return {
     id: msg.id,
-    from: msg.chatId.replace(/^wpp:/, ''),
-    to: msg.chatId.replace(/^wpp:/, ''),
-    author: msg.userId.replace(/^wpp:/, ''),
+    from: msg.chatId.replace(/^wpp:/, '').replace(/^tg:/, '').replace(/^dc:/, ''),
+    to: msg.chatId.replace(/^wpp:/, '').replace(/^tg:/, '').replace(/^dc:/, ''),
+    author: msg.userId.replace(/^wpp:/, '').replace(/^tg:/, '').replace(/^dc:/, ''),
     body: msg.text,
     timestamp: Math.floor(msg.timestamp.getTime() / 1000),
     fromMe: msg.isFromMe,
@@ -174,13 +174,11 @@ function createLegacyMessage(msg: any, ctx?: any): any {
     type: msg.mediaType,
     _data: { notifyName: msg.userName },
     reply: async (text: string, options?: any) => {
-      // Usar o reply do contexto se disponível, caso contrário tenta da mensagem
-      if (ctx && ctx.reply) {
+      // Sempre usar o reply do contexto
+      if (ctx && typeof ctx.reply === 'function') {
         await ctx.reply(text, options);
-      } else if (msg.reply) {
-        await msg.reply(text, options);
       } else {
-        console.error('[createLegacyMessage] Nenhum método reply disponível');
+        console.error('[createLegacyMessage] Contexto sem método reply');
       }
     },
     getChat: async () => {
@@ -188,7 +186,12 @@ function createLegacyMessage(msg: any, ctx?: any): any {
         const chat = await ctx.getChat();
         return chat.raw || chat;
       }
-      return { id: msg.chatId };
+      // Fallback simples
+      return { 
+        id: { _serialized: msg.chatId.replace(/^wpp:/, '').replace(/^tg:/, '').replace(/^dc:/, '') },
+        isGroup: msg.raw?.isGroup || false,
+        participants: []
+      };
     },
   };
 }
