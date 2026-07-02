@@ -63,14 +63,24 @@ export const banCommand: ICommand = {
       });
 
       console.log("Debug ban - Sender Participant Found:", !!senderParticipant);
+      console.log("Debug ban - Sender Participant isAdmin:", senderParticipant?.isAdmin);
+      console.log("Debug ban - Sender Participant isSuperAdmin:", senderParticipant?.isSuperAdmin);
       
-      // Se não encontrou pelo ID, mas o remetente é MASTER ou está na lista ADMINS, permitimos
+      // Se quem mandou é MASTER, permitir sempre
       const isSenderMaster = isMaster(senderIdRaw);
       const isSenderInAdminList = isAdmin(senderIdRaw);
 
+      // Determinar se o sender é admin (procura em múltiplas fontes)
       const isSenderAdmin = Boolean(
-        senderParticipant?.isAdmin || senderParticipant?.isSuperAdmin || isSenderMaster || isSenderInAdminList
+        senderParticipant?.isAdmin || 
+        senderParticipant?.isSuperAdmin || 
+        isSenderMaster || 
+        isSenderInAdminList
       );
+
+      console.log("Debug ban - isSenderMaster:", isSenderMaster);
+      console.log("Debug ban - isSenderInAdminList:", isSenderInAdminList);
+      console.log("Debug ban - Final isSenderAdmin:", isSenderAdmin);
 
       const botParticipant = participants.find((p: any) => {
         const participantId = cleanId(p.id?._serialized || "");
@@ -92,9 +102,16 @@ export const banCommand: ICommand = {
         return;
       }
 
-      // Permitir que o MASTER do bot execute o ban mesmo não sendo admin no grupo
-      if (!isSenderAdmin && !isMaster(senderIdRaw)) {
-        await ctx.reply("❌ Você precisa ser administrador para usar este comando.");
+      // Verificar se sender é admin: pode ser MASTER, estar na lista de ADMINs, ou ser admin do grupo
+      // Isso garante que qualquer admin do grupo possa usar o comando
+      const hasPermission = isSenderAdmin || isSenderMaster || isSenderInAdminList;
+      
+      if (!hasPermission) {
+        console.log("Debug ban - Permission denied. Debug info:");
+        console.log("  - isSenderAdmin:", isSenderAdmin);
+        console.log("  - isSenderMaster:", isSenderMaster);
+        console.log("  - isSenderInAdminList:", isSenderInAdminList);
+        await ctx.reply("❌ Apenas administradores do grupo podem usar este comando.");
         return;
       }
 
