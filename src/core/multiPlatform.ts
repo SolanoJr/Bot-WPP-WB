@@ -15,6 +15,20 @@ import { loadCommands } from '../bot/commands';
 // Carregar variáveis de ambiente
 dotenv.config();
 
+// Helper function to add timeout to a promise
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMsg: string): Promise<T> {
+  let timeoutId: NodeJS.Timeout | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(timeoutMsg)), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
 async function initializePlatforms() {
   console.log('🚀 Inicializando Bot-WPP Multi-Platform...');
 
@@ -27,7 +41,11 @@ async function initializePlatforms() {
   try {
     const whatsappAdapter = new WhatsAppAdapter();
     platformManager.registerAdapter(whatsappAdapter);
-    await whatsappAdapter.initialize();
+    await withTimeout(
+      whatsappAdapter.initialize(),
+      60000,
+      'Timeout ao inicializar WhatsApp'
+    );
     console.log('✅ WhatsApp inicializado');
   } catch (error) {
     console.error('❌ Erro ao inicializar WhatsApp:', error);
@@ -39,7 +57,11 @@ async function initializePlatforms() {
     try {
       const telegramAdapter = new TelegramAdapter(telegramToken);
       platformManager.registerAdapter(telegramAdapter);
-      await telegramAdapter.initialize();
+      await withTimeout(
+        telegramAdapter.initialize(),
+        30000,
+        'Timeout ao inicializar Telegram'
+      );
       console.log('✅ Telegram inicializado');
     } catch (error) {
       console.error('❌ Erro ao inicializar Telegram:', error);
@@ -54,7 +76,11 @@ async function initializePlatforms() {
     try {
       const discordAdapter = new DiscordAdapter(discordToken);
       platformManager.registerAdapter(discordAdapter);
-      await discordAdapter.initialize();
+      await withTimeout(
+        discordAdapter.initialize(),
+        30000,
+        'Timeout ao inicializar Discord'
+      );
       console.log('✅ Discord inicializado');
     } catch (error) {
       console.error('❌ Erro ao inicializar Discord:', error);
