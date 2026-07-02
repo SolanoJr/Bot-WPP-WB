@@ -39,24 +39,26 @@ export const banCommand: ICommand = {
         isSuperAdmin: p.isSuperAdmin
       })));
 
-      // Tentar encontrar participant comparando de todas as formas possíveis
+      // Tentar encontrar participant comparando de todas as formas possíveis (incluindo LID)
       const senderParticipant = participants.find((p: any) => {
         const pId = p.id?._serialized || "";
         const pIdClean = cleanId(pId);
-        // Comparar tanto IDs limpos quanto brutos
-        return pIdClean === senderId || pId === senderIdRaw || pIdClean === cleanId(senderIdRaw);
+        const pLid = p.id?.lid || "";
+        
+        return pIdClean === senderId || 
+               pId === senderIdRaw || 
+               pIdClean === cleanId(senderIdRaw) ||
+               (pLid && senderIdRaw.includes(pLid)) ||
+               (pLid && pLid === senderIdRaw);
       });
 
-      console.log("Debug ban - Sender Participant:", senderParticipant);
-      console.log("Debug ban - Participant IDs for comparison:", participants.slice(0, 3).map((p: any) => ({
-        raw: p.id?._serialized,
-        clean: cleanId(p.id?._serialized || ''),
-        isAdmin: p.isAdmin,
-        isSuperAdmin: p.isSuperAdmin
-      })));
+      console.log("Debug ban - Sender Participant Found:", !!senderParticipant);
+      
+      // Se não encontrou pelo ID, mas o remetente é MASTER, permitimos
+      const isSenderMaster = isMaster(senderIdRaw);
 
       const isSenderAdmin = Boolean(
-        senderParticipant?.isAdmin || senderParticipant?.isSuperAdmin,
+        senderParticipant?.isAdmin || senderParticipant?.isSuperAdmin || isSenderMaster
       );
 
       const botParticipant = participants.find((p: any) => {
@@ -154,8 +156,14 @@ export const banCommand: ICommand = {
       try {
         // Bloquear contato
         const contact = await client.getContactById(userToBan);
-        await contact.block();
-        console.log("Debug ban - Contact blocked successfully");
+        if (contact && typeof contact.block === 'function') {
+          await contact.block();
+          console.log("Debug ban - Contact blocked successfully");
+        } else {
+          // Fallback via interface se o objeto contact estiver incompleto
+          await (client as any).interface?.performAction('blockContact', { contactId: userToBan });
+          console.log("Debug ban - Contact blocked via interface fallback");
+        }
       } catch (error) {
         console.error("Erro ao bloquear contato:", error);
       }

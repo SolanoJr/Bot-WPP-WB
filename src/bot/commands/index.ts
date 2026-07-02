@@ -149,11 +149,11 @@ export function loadCommands(): Map<string, ICommand> {
     };
 
     commands.set(legacy.name, migrated);
-    platformManager.registerCommand(migrated);
-    console.log(`[Commands] ✅ Registrado: ${legacy.name}`);
+    // platformManager.registerCommand(migrated); // REMOVIDO: multiPlatform.ts já faz isso após loadCommands()
+    console.log(`[Commands] ✅ Carregado: ${legacy.name}`);
   }
 
-  console.log(`[Commands] Total: ${commands.size} comandos carregados`);
+  console.log(`[Commands] Total: ${commands.size} comandos preparados`);
   return commands;
 }
 
@@ -167,32 +167,42 @@ function createLegacyMessage(msg: any, ctx: any): any {
     to: msg.chatId.replace(/^(wpp:|tg:|dc:)/, ''),
     author: msg.userId.replace(/^(wpp:|tg:|dc:)/, ''),
     body: msg.text,
-    timestamp: msg.timestamp ? Math.floor(msg.timestamp.getTime() / 1000) : Math.floor(Date.now() / 1000),
+    timestamp: msg.timestamp instanceof Date ? Math.floor(msg.timestamp.getTime() / 1000) : Math.floor(Date.now() / 1000),
     fromMe: msg.isFromMe,
     hasMedia: msg.hasMedia,
     type: msg.mediaType,
+    mentionedIds: msg.raw?.mentionedIds || [], // ESSENCIAL para comandos de moderação
     _data: { notifyName: msg.userName },
   };
 
-  // Adicionar métodos com bind para garantir o 'this' se necessário, 
-  // embora aqui estejamos usando arrow functions que capturam o escopo.
-  
-  legacyMsg.reply = async (text: string, options?: any) => {
+  // Método reply unificado e robusto
+  const robustReply = async (text: string, options?: any) => {
     console.log(`[LegacyMessage] Replying to ${msg.platform}...`);
-    if (ctx && typeof ctx.reply === 'function') {
-      return await ctx.reply(text, options);
+    try {
+      if (ctx && typeof ctx.reply === 'function') {
+        return await ctx.reply(text, options);
+      }
+      if (ctx && ctx.client && typeof ctx.client.sendMessage === 'function') {
+        return await ctx.client.sendMessage(msg.chatId, text, options);
+      }
+      // Fallback extremo via PlatformManager
+      const { platformManager: pm } = await import('../../platforms/PlatformManager');
+      return await pm.getInstance().sendMessage(msg.platform, msg.chatId, text, options);
+    } catch (err) {
+      console.error('[LegacyMessage] Falha crítica ao responder:', err);
     }
-    // Fallback para o client se o ctx falhar
-    if (ctx && ctx.client && typeof ctx.client.sendMessage === 'function') {
-      return await ctx.client.sendMessage(msg.chatId, text, options);
-    }
-    return console.error('[LegacyMessage] No reply method available');
   };
 
+  legacyMsg.reply = robustReply;
+
   legacyMsg.getChat = async () => {
-    if (ctx && typeof ctx.getChat === 'function') {
-      const chat = await ctx.getChat();
-      return chat.raw || chat;
+    try {
+      if (ctx && typeof ctx.getChat === 'function') {
+        const chat = await ctx.getChat();
+        return chat.raw || chat;
+      }
+    } catch (err) {
+      console.error('[LegacyMessage] Erro ao obter chat:', err);
     }
     return { 
       id: { _serialized: legacyMsg.from },
@@ -201,12 +211,12 @@ function createLegacyMessage(msg: any, ctx: any): any {
     };
   };
 
-  // Se o comando legado tentar acessar msg.raw.reply (comum em alguns scripts)
+  // Injetar em raw para compatibilidade profunda
   if (msg.raw) {
     legacyMsg.raw = { ...msg.raw };
-    if (typeof legacyMsg.reply === 'function') {
-      legacyMsg.raw.reply = legacyMsg.reply;
-    }
+    legacyMsg.raw.reply = robustReply;
+  } else {
+    legacyMsg.raw = { reply: robustReply };
   }
 
   return legacyMsg;

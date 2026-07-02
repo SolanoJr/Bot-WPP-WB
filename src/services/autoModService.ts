@@ -191,8 +191,14 @@ export async function processAutoMod(
         // 3. Tentar bloquear o contato
         try {
           const contact = await client.getContactById(msg.author || msg.from);
-          await contact.block();
-          console.log('[AutoMod] Contato bloqueado');
+          if (contact && typeof contact.block === 'function') {
+            await contact.block();
+            console.log('[AutoMod] Contato bloqueado');
+          } else {
+            // Fallback para versões do wwebjs que podem ter problemas com o objeto contact
+            console.warn('[AutoMod] Método contact.block não disponível, tentando via interface');
+            await client.interface.performAction('blockContact', { contactId: msg.author || msg.from });
+          }
         } catch (blockError) {
           console.error('[AutoMod] Erro ao bloquear contato:', blockError);
         }

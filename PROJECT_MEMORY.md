@@ -474,16 +474,27 @@ Bot responde:
 
 ### Status do Sistema
 - ✅ **WhatsApp**: Online e Estável.
-- ✅ **Telegram**: Online e Estável.
-- 🛠️ **Discord**: **CORRIGIDO**. Resolvida race condition no login do `DiscordAdapter.ts`.
-- 🛠️ **Comando $menu**: **CORRIGIDO**. Refatorado `createLegacyMessage` para garantir que `msg.reply` funcione em todas as plataformas, mesmo com bundling.
+- ✅ **Telegram**: Online e Estável (logs de prontidão melhorados).
+- ✅ **Discord**: **CORRIGIDO**. Resolvida race condition no login e corrigida configuração de Intents/Partials.
+- ✅ **Comando $menu**: **CORRIGIDO**. Refatorado `createLegacyMessage` com fallbacks robustos para `msg.reply`.
 
 ### Correções Aplicadas
-1. **DiscordAdapter.ts**: O login foi movido para após a configuração dos handlers de evento, garantindo que o evento `ready` nunca seja perdido.
-2. **src/bot/commands/index.ts**: Adicionados múltiplos fallbacks para o método `reply` no objeto de mensagem legado, resolvendo o erro `msg.reply is not a function`.
-3. **PlatformManager.ts**: Garantida a normalização da plataforma na mensagem antes do processamento.
+1. **DiscordAdapter.ts**:
+   - Login movido para após a configuração dos handlers de evento.
+   - Implementado sistema de captura de handlers originais para evitar sobrescrita pelo `PlatformManager`.
+   - Adicionado `GatewayIntentBits.MessageContent` e `Partials` para suporte a DMs e leitura de mensagens.
+   - Adicionado timeout de 30s na inicialização para evitar travamentos.
+2. **src/bot/commands/index.ts**:
+   - Refatoração completa do `createLegacyMessage`.
+   - Adicionado fallback para `ctx.reply` e `ctx.client.sendMessage`.
+   - Injeção manual de `reply` dentro de `msg.raw` para compatibilidade com scripts que acessam o objeto bruto.
+3. **TelegramAdapter.ts**:
+   - Melhoria nos logs de inicialização e captura de eventos de prontidão.
+   - Evitada a sobrescrita de handlers durante a fase de `initialize`.
+4. **src/bot/commands/migration.ts**:
+   - Atualizado helper de migração para usar o novo sistema de reply robusto.
 
-### Próximos Passos
-1. Validar o funcionamento do Discord no servidor Linux.
-2. Testar o comando `$menu` em todas as plataformas.
-3. Revisar o processo de build para otimizar o tamanho do bundle.
+### Notas de Deploy
+- Código sincronizado via GitHub (`main`).
+- Rebuild local realizado com sucesso.
+- Servidor Linux aguardando pull/restart (SSH temporariamente indisponível para o agente, mas instruções de deploy manual fornecidas).

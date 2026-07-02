@@ -26,8 +26,10 @@ type PermissionLevel = typeof PERMISSIONS[keyof typeof PERMISSIONS];
  * @returns Apenas os dígitos
  */
 function cleanId(id: string): string {
-    if (!id) return '';
-    return id.split('@')[0].replace(/\D/g, '');
+    if (!id || typeof id !== 'string') return '';
+    // Lidar com IDs que podem vir como objetos ou strings complexas
+    const baseId = id.includes('@') ? id.split('@')[0] : id;
+    return baseId.replace(/\D/g, '');
 }
 
 /**
@@ -82,16 +84,19 @@ function hasPermission(userId: string, requiredLevel: PermissionLevel): boolean 
  * @returns É MASTER?
  */
 function isMaster(userId: string): boolean {
-    if (!userId) return false;
+    if (!userId || typeof userId !== 'string') return false;
   
     // OFICIAL - MAPEAMENTO LID (Linked ID)
-    if (userId === '202658048684056@lid') return true;
+    if (userId.includes('202658048684056')) return true;
 
     const clean = cleanId(userId);
     const masterClean = cleanId(MASTER_USER);
     const masterNumClean = cleanId(MASTER_NUMBER);
 
-    return clean === masterClean || clean === masterNumClean || userId.includes('88998314322');
+    return clean === masterClean || 
+           clean === masterNumClean || 
+           userId.includes('88998314322') ||
+           userId.includes('8898314322'); // Fallback para variação de número
 }
 
 /**
