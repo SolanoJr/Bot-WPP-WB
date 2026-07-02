@@ -45,6 +45,7 @@ class DiscordClient implements PlatformClient {
           GatewayIntentBits.MessageContent, // ESSENCIAL para ler conteúdo de mensagens
           GatewayIntentBits.DirectMessages,
         ];
+        console.log('[Discord] Usando intents do Discord.js v14+');
       } else {
         // Fallback para discord.js v13 (caso esteja usando versão antiga)
         const Intents = discordPkg.Intents;
@@ -54,17 +55,18 @@ class DiscordClient implements PlatformClient {
             Intents.FLAGS.GUILD_MESSAGES,
             Intents.FLAGS.DIRECT_MESSAGES,
           ];
+          console.log('[Discord] Usando intents do Discord.js v13');
         }
       }
     } catch (err) {
-      console.error('[DiscordAdapter] Erro ao configurar intents:', err);
+      console.error('[Discord] Erro ao configurar intents:', err);
     }
     
     this.client = new Client({ intents });
 
-    console.log('[DiscordAdapter] Fazendo login...');
+    console.log('[Discord] Fazendo login...');
     this.client.login(token).catch(err => {
-      console.error('[DiscordAdapter] Falha ao fazer login:', err);
+      console.error('[Discord] ❌ Falha ao fazer login:', err);
       if (this.disconnectedHandler) this.disconnectedHandler(err.message);
     });
     this.setupEventHandlers();

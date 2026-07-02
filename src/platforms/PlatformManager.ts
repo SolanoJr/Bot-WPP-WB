@@ -190,14 +190,10 @@ export class PlatformManager {
 
   /**
    * Obtém prefixo de comando por plataforma
+   * TODOS usam $ para consistência
    */
   private getCommandPrefix(platform: PlatformType): string {
-    switch (platform) {
-      case 'whatsapp': return '$';
-      case 'telegram': return '/';
-      case 'discord': return '!';
-      default: return '$';
-    }
+    return '$'; // Todos usam o mesmo prefixo
   }
 
   /**
@@ -263,10 +259,37 @@ export class PlatformManager {
 
     try {
       console.log(`[PlatformManager] Executando ${message.commandName} em ${adapter.platform} para ${message.userName}`);
+      
+      // Registrar uso no banco de dados
+      await this.logCommandUsage(message.commandName!, message.userId, message.chatId);
+      
       await command.execute(ctx);
     } catch (error: any) {
       console.error(`[PlatformManager] Erro no comando ${message.commandName}:`, error);
       await ctx.reply('⚠️ Ocorreu um erro interno ao executar este comando.');
+    }
+  }
+
+  /**
+   * Registra uso de comando no banco de dados
+   */
+  private async logCommandUsage(commandName: string, userId: string, groupId: string): Promise<void> {
+    try {
+      // Importar dinamicamente para evitar dependência circular
+      const { getDb } = await import('../services/databaseService');
+      const db = await getDb();
+      
+      // Limpar prefixos de plataforma dos IDs
+      const cleanUserId = userId.replace(/^(wpp:|tg:|dc:)/, '');
+      const cleanGroupId = groupId.replace(/^(wpp:|tg:|dc:)/, '');
+      
+      await db.run(
+        'INSERT INTO command_logs (command_name, user_id, group_id) VALUES (?, ?, ?)',
+        [commandName, cleanUserId, cleanGroupId]
+      );
+    } catch (error) {
+      // Não falhar o comando se logging falhar
+      console.error('[PlatformManager] Erro ao registrar log de comando:', error);
     }
   }
 

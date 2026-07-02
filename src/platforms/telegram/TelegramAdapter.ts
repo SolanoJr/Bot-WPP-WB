@@ -43,10 +43,12 @@ class TelegramClient implements PlatformClient {
     this.bot.launch().then(() => {
       this.isReady = true;
       // Bot does not expose a dedicated "ready" event, we treat launch success as ready.
-      this.userId = this.bot.botInfo.id?.toString() ?? '';
-      this.userName = this.bot.botInfo.username ?? 'TelegramBot';
+      this.userId = this.bot.botInfo?.id?.toString() ?? '';
+      this.userName = this.bot.botInfo?.username ?? 'TelegramBot';
+      console.log(`[Telegram] ✅ Pronto como ${this.userName} (${this.userId})`);
       if (this.readyHandler) this.readyHandler();
     }).catch(err => {
+      console.error('[Telegram] Erro ao fazer login:', err);
       this.isReady = false;
       if (this.disconnectedHandler) this.disconnectedHandler(err.message);
     });
