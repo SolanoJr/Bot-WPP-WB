@@ -198,15 +198,32 @@ export class TelegramAdapter implements PlatformAdapter {
   }
 
   async initialize(): Promise<void> {
-    // Initialization happens in TelegramClient constructor.
-    // We just wait until the client reports ready.
+    console.log('[TelegramAdapter] Inicializando...');
+    
     return new Promise((resolve, reject) => {
-      if ((this.client as any).isReady) {
+      if (this.client.isReady) {
+        console.log('[TelegramAdapter] Já estava pronto');
         resolve();
         return;
       }
-      (this.client as any).onReady(() => resolve());
-      (this.client as any).onDisconnected(reason => reject(new Error(reason)));
+      
+      const originalReady = (this.client as any).readyHandler;
+      const originalDisconnected = (this.client as any).disconnectedHandler;
+
+      const onReady = () => {
+        console.log('[TelegramAdapter] Evento Ready recebido na inicialização');
+        if (typeof originalReady === 'function') originalReady();
+        resolve();
+      };
+      
+      const onDisconnect = (reason: string) => {
+        console.error('[TelegramAdapter] Falha na inicialização:', reason);
+        if (typeof originalDisconnected === 'function') originalDisconnected(reason);
+        reject(new Error(reason));
+      };
+
+      this.client.onReady(onReady);
+      this.client.onDisconnected(onDisconnect);
     });
   }
 

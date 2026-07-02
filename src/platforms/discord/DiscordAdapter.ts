@@ -30,46 +30,57 @@ class DiscordClient implements PlatformClient {
   private readyHandler: (() => void) | null = null;
   private disconnectedHandler: ((reason: string) => void) | null = null;
 
+  private token: string;
+
   constructor(token: string) {
+    this.token = token;
     // Discord.js v14+ usa GatewayIntentBits
     let intents: any[] = [];
     try {
-      const discordPkg = require('discord.js');
-      const { GatewayIntentBits } = discordPkg;
+      const { GatewayIntentBits, Partials } = require('discord.js');
       
       if (GatewayIntentBits) {
-        // Discord.js v14+
-        intents = [
-          GatewayIntentBits.Guilds,
-          GatewayIntentBits.GuildMessages,
-          GatewayIntentBits.MessageContent, // ESSENCIAL para ler conteúdo de mensagens
-          GatewayIntentBits.DirectMessages,
-        ];
-        console.log('[Discord] Usando intents do Discord.js v14+');
+        // Discord.js v14+ usa bitwise OR ou array
+        this.client = new Client({ 
+          intents: [
+            GatewayIntentBits.Guilds,
+            GatewayIntentBits.GuildMessages,
+            GatewayIntentBits.MessageContent,
+            GatewayIntentBits.DirectMessages,
+          ],
+          partials: [Partials.Channel, Partials.Message] // Necessário para DMs
+        });
+        console.log('[Discord] Cliente v14 inicializado com intents e partials');
       } else {
-        // Fallback para discord.js v13 (caso esteja usando versão antiga)
-        const Intents = discordPkg.Intents;
-        if (Intents?.FLAGS) {
-          intents = [
+        // Fallback v13
+        const { Intents } = require('discord.js');
+        this.client = new Client({ 
+          intents: [
             Intents.FLAGS.GUILDS,
             Intents.FLAGS.GUILD_MESSAGES,
             Intents.FLAGS.DIRECT_MESSAGES,
-          ];
-          console.log('[Discord] Usando intents do Discord.js v13');
-        }
+          ] 
+        });
+        console.log('[Discord] Cliente v13 inicializado');
       }
     } catch (err) {
-      console.error('[Discord] Erro ao configurar intents:', err);
+      console.error('[Discord] Erro ao configurar cliente:', err);
+      // Fallback mínimo
+      this.client = new Client({ intents: [] });
     }
-    
-    this.client = new Client({ intents });
-
-    console.log('[Discord] Fazendo login...');
-    this.client.login(token).catch(err => {
-      console.error('[Discord] ❌ Falha ao fazer login:', err);
-      if (this.disconnectedHandler) this.disconnectedHandler(err.message);
-    });
     this.setupEventHandlers();
+  }
+
+  async login(): Promise<void> {
+    console.log('[Discord] Iniciando login...');
+    try {
+      await this.client.login(this.token);
+      console.log('[Discord] Chamada de login concluída');
+    } catch (err: any) {
+      console.error('[Discord] ❌ Falha crítica no login:', err);
+      if (this.disconnectedHandler) this.disconnectedHandler(err.message);
+      throw err;
+    }
   }
 
   private setupEventHandlers() {
@@ -228,15 +239,52 @@ export class DiscordAdapter implements PlatformAdapter {
   }
 
   async initialize(): Promise<void> {
-    // Espera o cliente ficar ready
-    return new Promise((resolve, reject) => {
-      if ((this.client as any).isReady) {
+    console.log('[DiscordAdapter] Inicializando...');
+    
+    // Configurar timeout para evitar que o bot fique travado se o Discord não conectar
+    const timeout = 30000; // 30 segundos
+    
+    const readyPromise = new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(`Timeout de ${timeout}ms aguardando conexão do Discord`));
+      }, timeout);
+
+      if (this.client.isReady) {
+        clearTimeout(timer);
+        console.log('[DiscordAdapter] Já estava pronto');
         resolve();
         return;
       }
-      (this.client as any).onReady(() => resolve());
-      (this.client as any).onDisconnected(reason => reject(new Error(reason)));
+      
+      // Capturar o handler original se existir (do PlatformManager)
+      const originalReady = (this.client as any).readyHandler;
+      const originalDisconnected = (this.client as any).disconnectedHandler;
+
+      const onReady = () => {
+        clearTimeout(timer);
+        console.log('[DiscordAdapter] Evento Ready recebido na inicialização');
+        if (typeof originalReady === 'function') originalReady();
+        resolve();
+      };
+      
+      const onDisconnect = (reason: string) => {
+        clearTimeout(timer);
+        console.error('[DiscordAdapter] Falha na inicialização:', reason);
+        if (typeof originalDisconnected === 'function') originalDisconnected(reason);
+        reject(new Error(reason));
+      };
+
+      this.client.onReady(onReady);
+      this.client.onDisconnected(onDisconnect);
     });
+
+    try {
+      await (this.client as any).login();
+      return readyPromise;
+    } catch (error) {
+      console.error('[DiscordAdapter] Erro fatal no login do Discord:', error);
+      throw error;
+    }
   }
 
   async shutdown(): Promise<void> {

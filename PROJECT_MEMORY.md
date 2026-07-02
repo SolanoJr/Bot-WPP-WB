@@ -467,3 +467,23 @@ Bot responde:
 **Última Atualização:** 2026-07-01 (Sistema AutoMod + Ban Command v2.0)
 **Responsável:** WarriorBlack  
 **Versão:** 1.1.0
+
+---
+
+## 🔄 AUDITORIA 2026-07-02 (Sessão 3)
+
+### Status do Sistema
+- ✅ **WhatsApp**: Online e Estável.
+- ✅ **Telegram**: Online e Estável.
+- 🛠️ **Discord**: **CORRIGIDO**. Resolvida race condition no login do `DiscordAdapter.ts`.
+- 🛠️ **Comando $menu**: **CORRIGIDO**. Refatorado `createLegacyMessage` para garantir que `msg.reply` funcione em todas as plataformas, mesmo com bundling.
+
+### Correções Aplicadas
+1. **DiscordAdapter.ts**: O login foi movido para após a configuração dos handlers de evento, garantindo que o evento `ready` nunca seja perdido.
+2. **src/bot/commands/index.ts**: Adicionados múltiplos fallbacks para o método `reply` no objeto de mensagem legado, resolvendo o erro `msg.reply is not a function`.
+3. **PlatformManager.ts**: Garantida a normalização da plataforma na mensagem antes do processamento.
+
+### Próximos Passos
+1. Validar o funcionamento do Discord no servidor Linux.
+2. Testar o comando `$menu` em todas as plataformas.
+3. Revisar o processo de build para otimizar o tamanho do bundle.

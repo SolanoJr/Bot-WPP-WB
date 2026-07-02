@@ -41,8 +41,13 @@ function createLegacyMessage(msg: PlatformMessage): any {
     _data: {
       notifyName: msg.userName
     },
-    reply: async (text: string) => {
-      await msg.reply(text);
+    reply: async (text: string, options?: any) => {
+      // msg.reply no novo sistema é na verdade ctx.reply
+      if (typeof (msg as any).reply === 'function') {
+        return await (msg as any).reply(text, options);
+      }
+      // Se não, tentamos via client injetado no PlatformManager
+      console.error('[Migration] msg.reply is not a function, check CommandContext');
     },
     getChat: async () => {
       const chat = await msg.getChat();

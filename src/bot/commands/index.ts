@@ -158,42 +158,58 @@ export function loadCommands(): Map<string, ICommand> {
 }
 
 function createLegacyMessage(msg: any, ctx: any): any {
-  if (!msg) {
-    // Guard clause for undefined message
-    return {} as any;
-  }
-  return {
+  if (!msg) return {} as any;
+  
+  // Objeto base compatível com whatsapp-web.js
+  const legacyMsg: any = {
     id: msg.id,
-    from: msg.chatId.replace(/^wpp:/, '').replace(/^tg:/, '').replace(/^dc:/, ''),
-    to: msg.chatId.replace(/^wpp:/, '').replace(/^tg:/, '').replace(/^dc:/, ''),
-    author: msg.userId.replace(/^wpp:/, '').replace(/^tg:/, '').replace(/^dc:/, ''),
+    from: msg.chatId.replace(/^(wpp:|tg:|dc:)/, ''),
+    to: msg.chatId.replace(/^(wpp:|tg:|dc:)/, ''),
+    author: msg.userId.replace(/^(wpp:|tg:|dc:)/, ''),
     body: msg.text,
-    timestamp: Math.floor(msg.timestamp.getTime() / 1000),
+    timestamp: msg.timestamp ? Math.floor(msg.timestamp.getTime() / 1000) : Math.floor(Date.now() / 1000),
     fromMe: msg.isFromMe,
     hasMedia: msg.hasMedia,
     type: msg.mediaType,
     _data: { notifyName: msg.userName },
-    reply: async (text: string, options?: any) => {
-      // Sempre usar o reply do contexto
-      if (ctx && typeof ctx.reply === 'function') {
-        await ctx.reply(text, options);
-      } else {
-        console.error('[createLegacyMessage] Contexto sem método reply');
-      }
-    },
-    getChat: async () => {
-      if (ctx && ctx.getChat) {
-        const chat = await ctx.getChat();
-        return chat.raw || chat;
-      }
-      // Fallback simples
-      return { 
-        id: { _serialized: msg.chatId.replace(/^wpp:/, '').replace(/^tg:/, '').replace(/^dc:/, '') },
-        isGroup: msg.raw?.isGroup || false,
-        participants: []
-      };
-    },
   };
+
+  // Adicionar métodos com bind para garantir o 'this' se necessário, 
+  // embora aqui estejamos usando arrow functions que capturam o escopo.
+  
+  legacyMsg.reply = async (text: string, options?: any) => {
+    console.log(`[LegacyMessage] Replying to ${msg.platform}...`);
+    if (ctx && typeof ctx.reply === 'function') {
+      return await ctx.reply(text, options);
+    }
+    // Fallback para o client se o ctx falhar
+    if (ctx && ctx.client && typeof ctx.client.sendMessage === 'function') {
+      return await ctx.client.sendMessage(msg.chatId, text, options);
+    }
+    return console.error('[LegacyMessage] No reply method available');
+  };
+
+  legacyMsg.getChat = async () => {
+    if (ctx && typeof ctx.getChat === 'function') {
+      const chat = await ctx.getChat();
+      return chat.raw || chat;
+    }
+    return { 
+      id: { _serialized: legacyMsg.from },
+      isGroup: msg.raw?.isGroup || false,
+      participants: []
+    };
+  };
+
+  // Se o comando legado tentar acessar msg.raw.reply (comum em alguns scripts)
+  if (msg.raw) {
+    legacyMsg.raw = { ...msg.raw };
+    if (typeof legacyMsg.reply === 'function') {
+      legacyMsg.raw.reply = legacyMsg.reply;
+    }
+  }
+
+  return legacyMsg;
 }
 
 function createLegacyClient(client: any): any {

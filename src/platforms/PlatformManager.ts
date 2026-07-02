@@ -50,6 +50,8 @@ export class PlatformManager {
     
     // CRUCIAL: Conectar handler de mensagens
     adapter.client.onMessage(async (msg: PlatformMessage) => {
+      // Garantir que a plataforma esteja correta na mensagem
+      msg.platform = adapter.platform;
       await this.handleIncomingMessage(msg);
     });
     
