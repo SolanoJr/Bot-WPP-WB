@@ -1,33 +1,168 @@
 version: '3.8'
 
 services:
-  # Serviço principal do bot
+  # ============================================
+  # Bot-WPP Principal
+  # ============================================
   bot-wpp:
     build: .
+    container_name: bot-wpp
     environment:
+      - NODE_ENV=production
       - TELEGRAM_BOT_TOKEN=8980550439:AAHXFpJRKQ_aHMzclMqous5rC5D9y2HITvA
       - DISCORD_BOT_TOKEN=1307158493907652648
       - DISCORD_BOT_SECRET=tmSQjstaQvmlC6FCAcyQeZdYoMCqjAuQ
+      - METRICS_PORT=3001
+      - METRICS_PATH=/metrics
     ports:
-      - "3000:3000"
+      - "3000:3000"      # API Principal
+      - "3001:3001"      # Métricas Prometheus
     depends_on:
-      - telegram-mock
-      - discord-mock
+      - prometheus
+      - grafana
+    restart: unless-stopped
+    networks:
+      - bot-network
+    volumes:
+      - ./logs:/app/logs
+      - ./.wwebjs_auth:/app/.wwebjs_auth
 
+  # ============================================
+  # Prometheus - Coleta de Métricas
+  # ============================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: bot-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+    restart: unless-stopped
+    networks:
+      - bot-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ============================================
+  # Grafana - Visualização e Alertas
+  # ============================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: bot-grafana
+    ports:
+      - "3100:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3100
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/etc/grafana/dashboards
+    restart: unless-stopped
+    networks:
+      - bot-network
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ============================================
+  # AlertManager (Opcional - para notificações)
+  # ============================================
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: bot-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    restart: unless-stopped
+    networks:
+      - bot-network
+
+  # ============================================
+  # Node Exporter - Métricas de Servidor (opcional)
+  # ============================================
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: bot-node-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    restart: unless-stopped
+    networks:
+      - bot-network
+
+  # ============================================
+  # Mocks para Desenvolvimento (Opcional)
+  # ============================================
   telegram-mock:
     image: node:18-alpine
+    container_name: telegram-mock
     working_dir: /mock
     volumes:
       - ./scripts/mocks/telegram:/mock
     command: node telegramMock.js
     ports:
       - "3001:3000"
+    networks:
+      - bot-network
+    profiles: ["dev"]
 
   discord-mock:
     image: node:18-alpine
+    container_name: discord-mock
     working_dir: /mock
     volumes:
       - ./scripts/mocks/discord:/mock
     command: node discordMock.js
     ports:
       - "3002:3000"
+    networks:
+      - bot-network
+    profiles: ["dev"]
+
+# ============================================
+# Volumes Persistentes
+# ============================================
+volumes:
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  alertmanager_data:
+    driver: local
+
+# ============================================
+# Redes
+# ============================================
+networks:
+  bot-network:
+    driver: bridge

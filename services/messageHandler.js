@@ -1,5 +1,6 @@
 const { handleKeywords } = require('./keywordHandler');
 const { handleModeration } = require('./moderationService');
+const metricsService = require('../src/services/metricsService').default;
 
 /**
  * Handler centralizado para todas as mensagens recebidas
@@ -8,11 +9,21 @@ const { handleModeration } = require('./moderationService');
  * @param {Map} commands - Mapa de comandos carregados
  */
 async function processMessage(msg, client, commands) {
+    const startTime = Date.now();
+    
     // 1. Log de Auditoria
     console.log(`\n--- NOVA MENSAGEM ---`);
     console.log(`De (ID): ${msg.author || msg.from}`);
     console.log(`Conteúdo: ${msg.body}`);
     console.log(`---------------------\n`);
+
+    // 📊 Registrar mensagem recebida
+    try {
+        metricsService.recordMessageReceived('whatsapp');
+        metricsService.recordPlatformMessage('whatsapp', 'received');
+    } catch (metricsError) {
+        // Silencioso para não interromper fluxo
+    }
 
     // 2. Auto-Moderação de Spam/Links/Apostas
     const moderated = await handleModeration(client, msg);
@@ -41,15 +52,33 @@ async function processMessage(msg, client, commands) {
 
     if (command) {
         try {
+            const cmdStart = Date.now();
             await command.execute(msg, client, args);
+            
+            // 📊 Registrar comando executado com sucesso
+            try {
+                metricsService.recordCommandExecuted(commandName, 'whatsapp');
+                metricsService.recordCommandExecutionDuration(commandName, Date.now() - cmdStart);
+            } catch (metricsError) {}
         } catch (error) {
             console.error(`❌ Erro no comando $${commandName}:`, error.message);
             await msg.reply('⚠️ Ocorreu um erro interno ao executar este comando.');
+            
+            // 📊 Registrar erro do comando
+            try {
+                metricsService.recordCommandError(commandName, error.name || 'unknown_error', 'whatsapp');
+            } catch (metricsError) {}
         }
     } else {
         // Lógica de comandos customizados (fallback para Relay)
         await handleCustomCommands(msg, client, commandName);
     }
+    
+    // 📊 Registrar duração do processamento
+    try {
+        const duration = Date.now() - startTime;
+        metricsService.recordMessageProcessingDuration('whatsapp', duration);
+    } catch (metricsError) {}
 }
 
 /**

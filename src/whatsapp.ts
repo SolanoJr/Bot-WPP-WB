@@ -6,7 +6,10 @@ import axios from 'axios';
 import dotenv from 'dotenv';
 dotenv.config();
 
-// 🚯 USAR SINGLETON GLOBAL - ÚNICO PONTO DE CRIAÇÃO DO CLIENT
+// � METRICS - Prometheus + Grafana
+import metricsService from './services/metricsService';
+
+// �🚯 USAR SINGLETON GLOBAL - ÚNICO PONTO DE CRIAÇÃO DO CLIENT
 import whatsappSingleton from './services/whatsappSingleton';
 import { isMaster } from './services/permissions';
 import { processMessage } from './services/messageHandler';
@@ -282,6 +285,15 @@ const INIT_RETRY_DELAY_MS = 15_000;
 
 export const startBot = async () => {
     console.log('🚀 [BOT] INICIANDO PROCESSO DE START...');
+
+    // 📊 Inicializar Prometheus Metrics Server
+    try {
+        await metricsService.start();
+        metricsService.startSystemMetricsCollection(60000);
+        console.log('📊 [METRICS] Servidor de métricas iniciado com sucesso!');
+    } catch (metricsError: any) {
+        console.error('⚠️  [METRICS] Erro ao iniciar servidor de métricas:', metricsError.message);
+    }
 
     preFlightCheck().catch(err => {
         console.error('❌❌❌ [ERRO CRÍTICO NO PREFLIGHT] ❌❌❌');
