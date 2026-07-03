@@ -59,7 +59,7 @@ async function initializePlatforms() {
       platformManager.registerAdapter(telegramAdapter);
       await withTimeout(
         telegramAdapter.initialize(),
-        30000,
+        60000, // Aumentado para 60 segundos
         'Timeout ao inicializar Telegram'
       );
       console.log('✅ Telegram inicializado');
