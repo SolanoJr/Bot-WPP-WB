@@ -5,12 +5,14 @@ import { cleanId, isMaster, isAdmin } from "../../services/permissions";
 export const banCommand: ICommand = {
   name: "ban",
   description: "Bane um usuário do grupo, remove suas mensagens e o expulsa.",
-  platforms: ['whatsapp'], // Apenas para WhatsApp
+  // Removido restrição de plataforma - disponível em todas as plataformas
 
   async execute(ctx: CommandContext) {
     try {
+      // Verificação temporária: comando ban só funciona no WhatsApp por enquanto
+      // devido a dependências específicas do whatsapp-web.js
       if (ctx.platform !== 'whatsapp') {
-        await ctx.reply("❌ Este comando só funciona no WhatsApp.");
+        await ctx.reply("❌ Este comando ainda está disponível apenas no WhatsApp. Em breve para outras plataformas!");
         return;
       }
 

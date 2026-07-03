@@ -10,6 +10,31 @@
 
 **Observabilidade:** Implementar monitoramento com Prometheus + Grafana para visibilidade em tempo real.
 
+## 📝 HISTÓRICO DE CONVERSAS E PROBLEMAS
+
+### 03/07/2026 - Problema de Fallback em Comandos
+
+**Problema Identificado:**
+- Comandos `$ban` e `$lista1edit` retornando mensagens de erro incorretas no WhatsApp
+- Mensagens: "❌ Este comando só funciona no WhatsApp." (para $ban) e "❌ Apenas administradores podem editar listas." (para $lista1edit)
+- Usuários são administradores dos grupos, mas comandos não funcionam
+
+**Causa Raiz:**
+1. Há dois sistemas em paralelo:
+   - **Sistema Legado** (`src/whatsapp.ts`) - usa `processMessage()` do `messageHandler.ts`
+   - **Sistema Multi-Plataforma** (`src/core/multiPlatform.ts`) - usa `PlatformManager`
+2. O PM2 está configurado para rodar `dist/core/multiPlatform.js`
+3. Mas `src/core/index.ts` chama `startBot()` do sistema legado
+4. Os comandos têm verificações de plataforma que não funcionam corretamente
+5. O comando `$ban` tem `platforms: ['whatsapp']` mas a verificação falha
+6. Os comandos de lista (`lista1edit`) ainda usam formato legado sem `CommandContext`
+
+**Solução:**
+- Unificar os sistemas para usar apenas o `PlatformManager`
+- Atualizar entry point para usar `multiPlatform.ts` corretamente
+- Migrar comandos legados para o novo `CommandContext`
+- Corrigir verificações de permissão em comandos de lista
+
 ---
 
 ## 📊 MONITORAMENTO (Prometheus + Grafana)
@@ -164,13 +189,18 @@ Singleton que:
 - **Sudo:** `2020`
 - **PM2:** Process manager para bot
 - **Diretório:** `/home/solanojr/bot-wpp`
+- **TailScale:** Instalado no Windows para acesso
 
 ### Números e Tokens
 - **Bot WhatsApp:** +55 85 8134-4211
 - **Meu Número:** +55 88 9831-4322
-- **Telegram Token:** Configurado (ver `.env`)
-- **Discord:** App ID, PubKey, Token configurados (ver `.env`)
-- **AI (Gemini):** Key configurada (ver `.env`)
+- **Telegram Token:** Configurado em .env (TELEGRAM_BOT_TOKEN)
+- **Discord:** Configurado em .env (DISCORD_BOT_TOKEN, DISCORD_CLIENT_ID)
+- **AI (Gemini):** Configurado em .env (GEMINI_API_KEY) - gemini-2.5-flash
+
+### SSH Keys
+- SSH keys configuradas para GitHub Actions (Windows e Linux)
+- Armazenadas em GitHub Secrets para segurança
 
 **IMPORTANTE:** Credenciais sensíveis estão em `.env` e NUNCA devem ser commitadas.
 
@@ -235,6 +265,98 @@ bot-wpp/
 2. Configurar GitHub Actions para CI/CD
 3. Implementar pre-commit hooks
 4. Documentar workflow de deploy
+
+## 🔧 PROBLEMAS TÉCNICOS IDENTIFICADOS
+
+### 1. Conflito entre Sistemas Legado e Multi-Plataforma
+
+**Status:** CRÍTICO
+
+**Descrição:**
+- O projeto tem dois sistemas de processamento de comandos em paralelo
+- Sistema legado: `src/whatsapp.ts` → `processMessage()` → comandos com assinatura `(msg, client, args)`
+- Sistema novo: `src/core/multiPlatform.ts` → `PlatformManager` → comandos com `CommandContext`
+- O entry point `src/core/index.ts` chama o sistema legado, mas o PM2 espera o sistema novo
+
+**Impacto:**
+- Comandos não funcionam corretamente
+- Verificações de plataforma falham
+- Permissões de admin não são verificadas corretamente
+- Comandos de lista (`lista1edit`) retornam erros falsos
+
+**Solução Necessária:**
+1. Decidir qual sistema usar (recomendado: `PlatformManager`)
+2. Unificar entry point para usar `multiPlatform.ts`
+3. Migrar todos os comandos para `CommandContext`
+4. Remover código legado desnecessário
+
+### 2. Comandos com Restrição de Plataforma
+
+**Status:** MÉDIO
+
+**Descrição:**
+- O comando `$ban` tem `platforms: ['whatsapp']` no arquivo `ban.ts`
+- Quando executado, verifica `ctx.platform !== 'whatsapp'` e retorna erro
+- Mas a verificação pode estar falhando devido ao contexto incorreto
+
+**Comandos Afetados:**
+- `$ban` - apenas WhatsApp
+- Comandos de lista - usam formato legado
+- Outros comandos podem ter problemas similares
+
+**Solução Necessária:**
+1. Remover restrições desnecessárias de plataforma
+2. Corrigir verificações de contexto
+3. Testar comandos em diferentes plataformas
+
+### 3. Verificação de Permissões em Comandos de Lista
+
+**Status:** MÉDIO
+
+**Descrição:**
+- Comandos `lista1edit`, `lista2edit`, `lista3edit` verificam permissões de admin
+- A verificação usa `chat.participants` mas pode não estar funcionando corretamente
+- Usuários admin recebem "❌ Apenas administradores podem editar listas."
+
+**Código Problemático:**
+```typescript
+// Em lists.ts - createListEditCommand
+const participants = chat.participants || [];
+const senderId = msg.author || msg.from;
+const senderParticipant = participants.find((p: any) =>
+  p.id?._serialized === senderId || p.id === senderId
+);
+const isAdmin = senderParticipant?.isAdmin || senderParticipant?.isSuperAdmin;
+```
+
+**Solução Necessária:**
+1. Migrar para `CommandContext` que já tem verificação de permissões
+2. Usar `ctx.isAdmin` em vez de verificar manualmente
+3. Atualizar para usar as funções `isMaster()` e `isAdmin()` do `permissions.ts`
+
+## 📊 STATUS ATUAL (03/07/2026)
+
+### Build
+- ✅ Build funcionando corretamente
+- ✅ Todos os arquivos compilados para `dist/`
+- ✅ TypeScript sem erros de compilação
+
+### Servidor Linux
+- ❌ SSH não acessível (connection timeout)
+- ⚠️ Status do bot no PM2 desconhecido
+- ⚠️ Logs não disponíveis
+
+### Sistema Ativo
+- ⚠️ Sistema legado (`src/whatsapp.ts`) provavelmente ativo
+- ⚠️ Sistema multi-plataforma (`src/core/multiPlatform.ts`) configurado mas não ativo
+- ⚠️ Comandos com problemas de fallback
+
+### Próximos Passos Imediatos
+1. Corrigir entry point para usar sistema multi-plataforma
+2. Migrar comandos críticos para `CommandContext`
+3. Testar comandos `$ban` e `lista1edit`
+4. Sincronizar com servidor Linux
+5. Verificar logs no PM2
 
 ---
 

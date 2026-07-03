@@ -2,14 +2,29 @@
 
 ## Visão Geral
 
-O Bot-WPP é um sistema distribuído projetado para operar como um bot de WhatsApp multifuncional. Sua arquitetura é composta por três componentes principais que interagem para fornecer as funcionalidades de geolocalização, processamento de comandos, moderação e integração com IA:
+O Bot-WPP é um sistema distribuído projetado para operar como um bot multi-plataforma (WhatsApp, Telegram, Discord). A arquitetura está em transição entre dois sistemas:
 
-1.  **Bot (Cliente WhatsApp Web)**: O coração do sistema, responsável por interagir diretamente com o WhatsApp. Ele processa mensagens, executa comandos e gerencia a comunicação com o serviço de Relay.
-2.  **Relay (Serviço Intermediário)**: Um servidor Node.js que atua como um buffer e orquestrador. Ele gerencia a comunicação entre o Frontend e o Bot, armazena temporariamente dados de localização e pode hospedar lógica de comandos customizados.
-3.  **Frontend (Interface Web)**: Uma interface web simples para a captura de coordenadas GPS, que envia dados para o Relay.
+### Sistema Atual (Legado)
+- **Bot (Cliente WhatsApp Web)**: O coração do sistema, responsável por interagir diretamente com o WhatsApp. Ele processa mensagens, executa comandos e gerencia a comunicação com o serviço de Relay.
+- **Relay (Serviço Intermediário)**: Um servidor Node.js que atua como um buffer e orquestrador. Ele gerencia a comunicação entre o Frontend e o Bot, armazena temporariamente dados de localização e pode hospedar lógica de comandos customizados.
+- **Frontend (Interface Web)**: Uma interface web simples para a captura de coordenadas GPS, que envia dados para o Relay.
+
+### Sistema Novo (Multi-Plataforma)
+- **PlatformManager**: Orquestrador singleton que gerencia múltiplas plataformas (WhatsApp, Telegram, Discord)
+- **PlatformAdapter**: Interface unificada para cada plataforma
+- **CommandContext**: Contexto unificado para execução de comandos
+- **Entry Point**: `src/core/multiPlatform.ts` (configurado no PM2)
+
+### Estado Atual (CRÍTICO)
+⚠️ **CONFLITO DE SISTEMAS**: O projeto tem dois sistemas em paralelo:
+1. Sistema legado (`src/whatsapp.ts`) - sendo usado atualmente
+2. Sistema multi-plataforma (`src/core/multiPlatform.ts`) - configurado no PM2 mas não está sendo usado corretamente
+
+**Impacto**: Comandos não funcionam corretamente, verificações de plataforma falham, permissões de admin não são verificadas.
 
 ## Diagrama de Arquitetura
 
+### Sistema Legado (Atual)
 ```mermaid
 graph TD
     User[Usuário WhatsApp] -- Mensagem --> WhatsApp[Serviço WhatsApp]
@@ -41,12 +56,34 @@ graph TD
     I -- Envia Localização --> Bot
 ```
 
+### Sistema Multi-Plataforma (Planejado)
+```mermaid
+graph TD
+    User1[Usuário WhatsApp] --> WhatsApp[WhatsApp Adapter]
+    User2[Usuário Telegram] --> Telegram[Telegram Adapter]
+    User3[Usuário Discord] --> Discord[Discord Adapter]
+
+    subgraph PlatformManager
+        direction LR
+        WhatsApp --> PM[PlatformManager]
+        Telegram --> PM
+        Discord --> PM
+        PM --> CR[Command Registry]
+        PM --> RH[Rate Limiter]
+        PM --> DB[Database Service]
+    end
+
+    CR --> Commands[Comandos Unificados]
+    Commands --> CTX[CommandContext]
+    CTX --> Execute[Executar Comando]
+```
+
 ## Componentes Detalhados
 
-### 1. Bot (Linux VPS)
+### 1. Bot (Linux VPS) - Sistema Legado
 
 -   **Tecnologia**: Node.js, TypeScript, `whatsapp-web.js`.
--   **Funções**: 
+-   **Funções**:
     -   Conexão e autenticação com o WhatsApp.
     -   Recebimento e processamento de mensagens.
     -   Execução de comandos internos.
@@ -54,6 +91,38 @@ graph TD
     -   Moderação de conteúdo e filtragem de palavras-chave.
     -   Integração com a API Gemini para respostas inteligentes.
 -   **Gerenciamento de Processos**: PM2 para garantir alta disponibilidade e reinício automático.
+-   **Entry Point**: `src/whatsapp.ts` → `startBot()`
+-   **Comandos**: Assinatura legada `(msg, client, args)`
+
+### 2. PlatformManager (Sistema Novo)
+
+-   **Tecnologia**: Node.js, TypeScript
+-   **Funções**:
+    -   Gerenciar múltiplas plataformas simultaneamente
+    -   Normalizar IDs com prefixos (wpp:, tg:, dc:)
+    -   Executar comandos de forma agnóstica
+    -   Suportar broadcast entre plataformas
+    -   Registry de comandos global
+-   **Entry Point**: `src/core/multiPlatform.ts`
+-   **Comandos**: Assinatura nova `(ctx: CommandContext)`
+-   **Status**: Implementado mas não está sendo usado
+
+### 3. Problemas de Integração
+
+**Entry Point Conflitante:**
+- `ecosystem.config.js` aponta para `dist/core/multiPlatform.js`
+- `src/core/index.ts` chama `startBot()` do sistema legado
+- Isso causa inconsistência no sistema ativo
+
+**Comandos com Problemas:**
+- `$ban`: Tem `platforms: ['whatsapp']` mas verificação falha
+- `lista1edit`: Usa formato legado sem `CommandContext`
+- Outros comandos podem ter problemas similares
+
+**Solução Necessária:**
+1. Unificar entry point para usar `multiPlatform.ts`
+2. Migrar todos os comandos para `CommandContext`
+3. Remover código legado desnecessário
 
 ### 2. Relay (Render.com)
 

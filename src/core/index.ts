@@ -1,3 +1,3 @@
-import { startBot } from '../whatsapp';
+import { initializePlatforms } from './multiPlatform';
 
-startBot();
+initializePlatforms();
