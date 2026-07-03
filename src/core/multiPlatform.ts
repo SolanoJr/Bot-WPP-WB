@@ -122,3 +122,6 @@ initializePlatforms().catch(error => {
   console.error('💥 Erro fatal na inicialização:', error);
   process.exit(1);
 });
+
+// Exportar para uso externo
+export { initializePlatforms };
