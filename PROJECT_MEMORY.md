@@ -805,22 +805,22 @@ Bot responde:
 
 ---
 
-**Última Atualização:** 2026-07-07 (Auditoria completa + correções críticas)
+**Última Atualização:** 2026-07-07 (Correção do comando $ban + verificação de segurança)
 **Responsável:** WarriorBlack  
-**Versão:** 1.2.0
+**Versão:** 1.2.1
 
 ---
 
-## 🔄 AUDITORIA 2026-07-07 (Sessão 4)
+## 🔄 AUDITORIA 2026-07-07 (Sessão 4 - Continuação)
 
 ### Status do Sistema
 - ✅ **WhatsApp**: Online e Estável (AutoMod ativo e funcionando)
-- ⚠️ **Telegram**: **TIMEOUT** - Restrição de rede/firewall no servidor Linux bloqueia API do Telegram
+- ⚠️ **Telegram**: Timeout na inicialização mas funcional (usuário reporta funcionamento normal)
 - ✅ **Discord**: Online e Estável (login bem-sucedido)
-- ✅ **57 Comandos carregados** (incluindo comandos de lista)
+- ✅ **58 Comandos carregados** (incluindo comandos de lista)
 - ✅ **AutoMod**: Corrigido - removida tentativa de bloqueio de contato quebrado
 
-### Correções Aplicadas
+### Correções Aplicadas (Sessão 4)
 1. **AutoMod Service** (`src/services/autoModService.ts`):
    - Removida tentativa de `contact.block()` que estava causando erro
    - A API `getContactToBlockOnlyUseIfNoAssociatedChat` está quebrada no whatsapp-web.js atual
@@ -835,19 +835,32 @@ Bot responde:
    - Adicionado tratamento de erro para não falhar completamente se Telegram não conectar
    - Mensagem informativa sobre possível restrição de rede/firewall
 
-4. **Git Sync**:
-   - Windows e Linux sincronizados no commit f7e13b0
-   - Build realizado com sucesso no Linux
-   - PM2 restart aplicado
+4. **Comandos de Lista** (`src/bot/commands/lists.ts`):
+   - Adicionada função helper `checkAdminPermission()` com verificação robusta
+   - Verifica: admin do grupo, MASTER, e admin do .env
+   - Baseada na lógica do comando $ban para consistência
+
+5. **Comando $ban** (`src/bot/commands/ban.ts`):
+   - Removida verificação de plataforma desnecessária que causava erro
+   - Mensagem "Este comando ainda está disponível apenas no WhatsApp" não deve mais aparecer
+
+### Segurança
+- ✅ **Verificação de .env**: Não há vazamento de .env no git
+- ✅ **.gitignore**: .env está corretamente ignorado
+- ✅ **.env.example**: Contém apenas placeholders, não secrets reais
+
+### Git Sync
+- Windows e Linux sincronizados no commit 2a72b5d
+- Build realizado com sucesso no Linux
+- PM2 restart aplicado
 
 ### Problemas Identificados
-1. **Telegram Timeout**: O servidor Linux (100.101.218.16) tem restrição de rede/firewall que bloqueia conexões com a API do Telegram. Isso não é um problema de código, mas de infraestrutura. O bot continua funcionando sem Telegram.
+1. **Telegram Timeout**: Timeout na inicialização (120s) mas funcional segundo usuário. Pode ser latência de rede intermitente.
 2. **DeprecationWarning Discord**: Aviso sobre `ready event` renomeado para `clientReady` no discord.js v15 (não crítico)
 
 ### Próximos Passos
-1. Investigar problemas de fallback em comandos (erros de "não é adm" sendo que usuário é adm)
-2. Melhorar sistema de logs para melhor visibilidade
-3. Melhorar cobertura de testes
+1. Melhorar sistema de logs para melhor visibilidade
+2. Melhorar cobertura de testes
 
 ---
 
