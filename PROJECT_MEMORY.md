@@ -805,9 +805,49 @@ Bot responde:
 
 ---
 
-**Última Atualização:** 2026-07-01 (Sistema AutoMod + Ban Command v2.0)
+**Última Atualização:** 2026-07-07 (Auditoria completa + correções críticas)
 **Responsável:** WarriorBlack  
-**Versão:** 1.1.0
+**Versão:** 1.2.0
+
+---
+
+## 🔄 AUDITORIA 2026-07-07 (Sessão 4)
+
+### Status do Sistema
+- ✅ **WhatsApp**: Online e Estável (AutoMod ativo e funcionando)
+- ⚠️ **Telegram**: **TIMEOUT** - Restrição de rede/firewall no servidor Linux bloqueia API do Telegram
+- ✅ **Discord**: Online e Estável (login bem-sucedido)
+- ✅ **57 Comandos carregados** (incluindo comandos de lista)
+- ✅ **AutoMod**: Corrigido - removida tentativa de bloqueio de contato quebrado
+
+### Correções Aplicadas
+1. **AutoMod Service** (`src/services/autoModService.ts`):
+   - Removida tentativa de `contact.block()` que estava causando erro
+   - A API `getContactToBlockOnlyUseIfNoAssociatedChat` está quebrada no whatsapp-web.js atual
+   - Remoção do grupo já é suficiente para proteção contra spam
+
+2. **Moderation Service** (`src/services/moderationService.ts`):
+   - Removida tentativa de bloqueio de contato
+   - Substituída por log informativo
+
+3. **Multi-Platform** (`src/core/multiPlatform.ts`):
+   - Timeout do Telegram aumentado de 60s para 120s
+   - Adicionado tratamento de erro para não falhar completamente se Telegram não conectar
+   - Mensagem informativa sobre possível restrição de rede/firewall
+
+4. **Git Sync**:
+   - Windows e Linux sincronizados no commit f7e13b0
+   - Build realizado com sucesso no Linux
+   - PM2 restart aplicado
+
+### Problemas Identificados
+1. **Telegram Timeout**: O servidor Linux (100.101.218.16) tem restrição de rede/firewall que bloqueia conexões com a API do Telegram. Isso não é um problema de código, mas de infraestrutura. O bot continua funcionando sem Telegram.
+2. **DeprecationWarning Discord**: Aviso sobre `ready event` renomeado para `clientReady` no discord.js v15 (não crítico)
+
+### Próximos Passos
+1. Investigar problemas de fallback em comandos (erros de "não é adm" sendo que usuário é adm)
+2. Melhorar sistema de logs para melhor visibilidade
+3. Melhorar cobertura de testes
 
 ---
 

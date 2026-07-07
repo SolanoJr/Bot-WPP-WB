@@ -1,5 +1,6 @@
 import { ICommand } from './types';
 import { CommandContext } from '../../../platforms/base/PlatformTypes';
+import { cleanId, isMaster, isAdmin } from '../../services/permissions';
 import fs from 'fs';
 import path from 'path';
 
@@ -48,6 +49,58 @@ function initGroupLists(groupId: string) {
 
 // Carrega ao iniciar
 loadLists();
+
+/**
+ * Verificação robusta de permissão de admin (baseada no comando $ban)
+ * Verifica: admin do grupo, MASTER, ou admin do .env
+ */
+async function checkAdminPermission(ctx: CommandContext): Promise<boolean> {
+  // Se já for admin pelo contexto (do .env), permitir
+  if (ctx.isAdmin) return true;
+  
+  // Se for MASTER, permitir sempre
+  const rawUserId = ctx.userId.replace(/^(wpp:|tg:|dc:)/, '');
+  if (isMaster(rawUserId)) return true;
+  
+  // Para WhatsApp, verificar admin do grupo
+  if (ctx.platform === 'whatsapp' && ctx.isGroup) {
+    try {
+      const msg = ctx.msg.raw;
+      const client = (ctx.client as any).getClient();
+      
+      const chat = await msg.getChat();
+      const freshChat = await client.getChatById(chat.id._serialized);
+      
+      const participants = Array.isArray(freshChat?.participants)
+        ? freshChat.participants
+        : Array.isArray(freshChat?.groupMetadata?.participants)
+          ? freshChat.groupMetadata.participants
+          : [];
+      
+      const senderIdRaw = msg.author || msg.from;
+      const senderId = cleanId(senderIdRaw);
+      
+      const senderParticipant = participants.find((p: any) => {
+        const pId = p.id?._serialized || "";
+        const pIdClean = cleanId(pId);
+        const pLid = p.id?.lid || "";
+        
+        return pIdClean === senderId || 
+               pId === senderIdRaw || 
+               pIdClean === cleanId(senderIdRaw) ||
+               (pLid && senderIdRaw.includes(pLid)) ||
+               (pLid && pLid === senderIdRaw);
+      });
+      
+      return Boolean(senderParticipant?.isAdmin || senderParticipant?.isSuperAdmin);
+    } catch (error) {
+      console.error('[Lists] Erro ao verificar admin do grupo:', error);
+      return false;
+    }
+  }
+  
+  return false;
+}
 
 // Função helper para criar comandos de lista
 function createListCommand(listName: 'lista1' | 'lista2' | 'lista3'): ICommand {
@@ -129,8 +182,9 @@ function createListDelCommand(listName: 'lista1' | 'lista2' | 'lista3'): IComman
           return;
         }
 
-        // Verificar se é admin usando CommandContext
-        if (!ctx.isAdmin) {
+        // Verificação robusta de admin (igual ao comando $ban)
+        const hasPermission = await checkAdminPermission(ctx);
+        if (!hasPermission) {
           await ctx.reply('❌ Apenas administradores podem apagar listas.');
           return;
         }
@@ -165,8 +219,9 @@ function createListEditCommand(listName: 'lista1' | 'lista2' | 'lista3'): IComma
           return;
         }
 
-        // Verificar se é admin usando CommandContext
-        if (!ctx.isAdmin) {
+        // Verificação robusta de admin (igual ao comando $ban)
+        const hasPermission = await checkAdminPermission(ctx);
+        if (!hasPermission) {
           await ctx.reply('❌ Apenas administradores podem editar listas.');
           return;
         }
