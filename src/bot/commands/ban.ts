@@ -1,15 +1,17 @@
 import { ICommand } from "./types";
-import { cleanId, isMaster } from "../../services/permissions";
+import { CommandContext } from "../../../platforms/base/PlatformTypes";
+import { cleanId, isMaster, isAdmin } from "../../services/permissions";
 
 export const banCommand: ICommand = {
   name: "ban",
   description: "Bane um usuário do grupo e apaga suas mensagens recentes.",
 
-  async execute(msg, client, args) {
+  async execute(ctx: CommandContext) {
     try {
+      const { msg, client } = ctx;
       const chat = await msg.getChat();
       if (!chat.isGroup) {
-        await msg.reply("❌ Este comando só funciona em grupos.");
+        await ctx.reply("❌ Este comando só funciona em grupos.");
         return;
       }
 
@@ -22,13 +24,20 @@ export const banCommand: ICommand = {
       const botPart = participants.find((p: any) => cleanId(p.id._serialized) === botId);
       const senderPart = participants.find((p: any) => cleanId(p.id._serialized) === cleanId(senderId));
 
+      const isSenderMaster = isMaster(senderId);
+      const isSenderInAdminList = isAdmin(senderId);
+
+      const isSenderAdmin = Boolean(
+        senderPart?.isAdmin || senderPart?.isSuperAdmin || isSenderMaster || isSenderInAdminList
+      );
+
       if (!botPart?.isAdmin && !botPart?.isSuperAdmin) {
-        await msg.reply("❌ O bot precisa ser administrador para banir membros.");
+        await ctx.reply("❌ O bot precisa ser administrador para banir membros.");
         return;
       }
 
-      if (!senderPart?.isAdmin && !senderPart?.isSuperAdmin && !isMaster(senderId)) {
-        await msg.reply("❌ Você não tem permissão para usar este comando.");
+      if (!isSenderAdmin) {
+        await ctx.reply("❌ Você não tem permissão para usar este comando.");
         return;
       }
 
@@ -39,23 +48,23 @@ export const banCommand: ICommand = {
       } else if (msg.hasQuotedMsg) {
         const quoted = await msg.getQuotedMessage();
         targetId = quoted.author || quoted.from;
-      } else if (args.length > 0) {
-        targetId = args[0].replace(/\D/g, '') + '@c.us';
+      } else if (ctx.args.length > 0) {
+        targetId = ctx.args[0].replace(/\D/g, '') + '@c.us';
       }
 
       if (!targetId) {
-        await msg.reply("❌ Mencione alguém ou responda a uma mensagem para banir.");
+        await ctx.reply("❌ Mencione alguém ou responda a uma mensagem para banir.");
         return;
       }
 
       const targetPart = participants.find((p: any) => cleanId(p.id._serialized) === cleanId(targetId));
       if (targetPart?.isAdmin || targetPart?.isSuperAdmin) {
-        await msg.reply("❌ Não é possível banir um administrador.");
+        await ctx.reply("❌ Não é possível banir um administrador.");
         return;
       }
 
       // 3. Executar Punição
-      await msg.reply(`⏳ Processando banimento de @${targetId.split('@')[0]}...`, { mentions: [targetId] });
+      await ctx.reply(`⏳ Processando banimento de @${targetId.split('@')[0]}...`, { mentions: [targetId] });
 
       // Apagar mensagens (últimas 50)
       try {
@@ -79,11 +88,11 @@ export const banCommand: ICommand = {
         // Ignora erro de bloqueio
       }
 
-      await chat.sendMessage(`🚫 @${targetId.split('@')[0]} foi banido e suas mensagens recentes foram removidas.`, { mentions: [targetId] });
+      await ctx.reply(`🚫 @${targetId.split('@')[0]} foi banido e suas mensagens recentes foram removidas.`, { mentions: [targetId] });
 
     } catch (error: any) {
       console.error("Erro no comando $ban:", error);
-      await msg.reply(`❌ Falha ao executar banimento: ${error.message}`);
+      await ctx.reply(`❌ Falha ao executar banimento: ${error.message}`);
     }
   },
 };
