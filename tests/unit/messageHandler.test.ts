@@ -87,11 +87,11 @@ describe('messageHandler — roteamento de comandos', () => {
     await expect(processMessage(msg, mockClient, mockCommands)).resolves.toBeUndefined();
   });
 
-  it('prefixo $ com espaço não é tratado como comando', async () => {
+  it('prefixo $ com espaço é tratado como comando (espaço é removido)', async () => {
     const msg = { body: '$ ping', from: 'user@c.us', reply: vi.fn() };
     await processMessage(msg, mockClient, mockCommands);
-    // "$ ping" começa com $ mas o commandName seria "" — não deve executar ping
-    expect(mockCommands.get('ping').execute).not.toHaveBeenCalled();
+    // "$ ping" é normalizado para "ping" (espaço removido pelo trim)
+    expect(mockCommands.get('ping').execute).toHaveBeenCalledOnce();
   });
 
   it('comando em maiúsculo é normalizado ($PING → ping)', async () => {
