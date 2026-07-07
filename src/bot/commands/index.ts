@@ -45,6 +45,7 @@ import { setwelcomeCommand } from './setwelcome';
 import { cantadaCommand, fakechatCommand } from './interacao';
 import { cmdToggleCommand } from './cmdToggle';
 import { welcomeCommand } from './welcome';
+import { automodCommand } from './automod';
 import {
   lista1Command, lista1AddCommand, lista1DelCommand, lista1EditCommand,
   lista2Command, lista2AddCommand, lista2DelCommand, lista2EditCommand,
@@ -100,6 +101,7 @@ const legacyCommands: Array<{ name: string; description: string; execute: any }>
   { name: 'delvoto', description: 'Deleta votação.', execute: delVoteCommand.execute },
   // Welcome command
   { name: 'welcome', description: 'Configura mensagem de boas-vindas.', execute: welcomeCommand.execute },
+  { name: 'automod', description: 'Gerencia o sistema de moderação automática.', execute: automodCommand.execute },
   // List commands
   { name: 'lista1', description: 'Exibe lista 1.', execute: lista1Command.execute },
   { name: 'lista1add', description: 'Adiciona item na lista 1.', execute: lista1AddCommand.execute },

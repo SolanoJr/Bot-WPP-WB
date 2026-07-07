@@ -170,12 +170,36 @@ export class WhatsAppClient implements PlatformClient {
     const userId = `wpp:${msg.author || msg.from}`;
     const isGroup = msg.from.endsWith('@g.us');
 
+    // Extração de texto avançada para mensagens interativas/cards
+    let extractedText = msg.body || '';
+    
+    // Se o corpo estiver vazio, tentar buscar em metadados de mensagens interativas
+    if (!extractedText && msg._data) {
+      const data = msg._data;
+      // Tentar extrair de captions de mídia, botões ou templates
+      extractedText = data.caption || 
+                      data.matchedText || 
+                      data.text || 
+                      data.contentText || 
+                      data.title || '';
+                      
+      // Se ainda vazio e houver botões, extrair texto dos botões
+      if (!extractedText && data.buttons) {
+        extractedText = data.buttons.map((b: any) => b.buttonText?.displayText || '').join(' ');
+      }
+      
+      // Se houver lista, extrair títulos das opções
+      if (!extractedText && data.listResponse) {
+        extractedText = data.listResponse.title || data.listResponse.description || '';
+      }
+    }
+
     return {
       id: `wpp:${msg.id._serialized}`,
       chatId,
       userId,
       userName: msg._data?.notifyName || msg.from,
-      text: msg.body || '',
+      text: extractedText,
       timestamp: new Date(msg.timestamp * 1000),
       isFromMe: msg.fromMe,
       isCommand: false, // Será determinado pelo PlatformManager
@@ -184,7 +208,8 @@ export class WhatsAppClient implements PlatformClient {
         ...msg,
         isGroup,
         chat: msg.chat,
-        author: msg.author
+        author: msg.author,
+        _data: msg._data // Preservar dados brutos para análise profunda no AutoMod
       },
       hasMedia: msg.hasMedia,
       mediaType: this.getMediaType(msg),

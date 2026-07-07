@@ -10,11 +10,15 @@ export const menuCommand: ICommand = {
         const minutes = Math.floor((uptimeSeconds % 3600) / 60);
         const uptimeStr = `${hours}h ${minutes}m`;
 
+        const { getAutoModConfig } = await import('../../services/autoModService');
+        const amConfig = getAutoModConfig();
+        const amStatus = amConfig.enabled ? '🛡️ ATIVO' : '⚪ OFF';
+
         const menu = [
-            "╔════════════════════════╗",
-            "║          🤖 BOT         ║",
-            "╠════════════════════════╣",
-            `║ 🕒 Uptime: ${uptimeStr} | ✅ Online`,
+	            "╔════════════════════════╗",
+	            "║          🤖 BOT         ║",
+	            "╠════════════════════════╣",
+	            `║ 🕒 Uptime: ${uptimeStr} | ${amStatus}`,
             "║",
             "║ 📝 Prefixo aceito:",
             "║ ▸ $",
@@ -26,8 +30,9 @@ export const menuCommand: ICommand = {
             "║ ▸ $kick - Remover membro",
             "║ ▸ $mute - Silenciar membro",
             "║ ▸ $promover - Tornar admin",
-            "║ ▸ $bemvindo - Config boas-vindas",
-            "║ ▸ $lista1del / $lista2del / $lista3del",
+	            "║ ▸ $bemvindo - Config boas-vindas",
+	            "║ ▸ $automod - Gerenciar AutoMod",
+	            "║ ▸ $lista1del / $lista2del / $lista3del",
             "║ ▸ $lista1edit / $lista2edit / $lista3edit",
             "║",
             "║ 👤 USUÁRIO",
