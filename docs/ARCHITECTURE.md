@@ -21,9 +21,9 @@ graph TD
 
 ### 1. Bot Core (O Cérebro)
 - **Localização**: Servidor Linux (VPS) via PM2.
-- **Tecnologia**: Node.js + `whatsapp-web.js`.
-- **Função**: Gerencia comandos, integração com Gemini IA e processa as localizações recebidas do Relay.
-- **Identificador PM2**: `WarriorBlack-Bot`.
+- **Tecnologia**: Node.js + **TypeScript** (v2.0).
+- **Função**: Gerencia comandos, integração com Gemini IA, polling e o sistema **AutoMod Avançado**.
+- **Identificador PM2**: `bot-wpp`.
 
 ### 2. Relay (Render - Node.js v20)
 **Papel**: Buffer intermediário In-Memory.
@@ -56,12 +56,12 @@ graph TD
 
 ## 📂 Estrutura de Pastas (Topografia)
 
-- `/commands`: Lógica de cada comando do bot (ex: `$pergunta`, `$ondeestou`).
-- `/relay`: Código fonte do servidor intermediário (deploy no Render).
-- `/public`: Arquivos estáticos do frontend (deploy no Cloudflare).
-- `/scripts`: Ferramentas de manutenção e testes.
+- `/src/bot/commands`: Lógica de cada comando do bot (TypeScript).
+- `/src/services`: Serviços de Moderação, IA, Logger e Permissões.
+- `/src/core`: Ponto de entrada (`index.ts`) e adaptadores de plataforma.
+- `/dist`: Arquivos compilados para execução em produção.
+- `/scripts`: Ferramentas de manutenção e logs.
 - `/docs`: Documentação técnica e estratégica.
-- `/services`: Integrações externas (IA Gemini, etc).
 
 ---
 

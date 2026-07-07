@@ -4,13 +4,14 @@
 
 O Bot-WPP é um bot de WhatsApp multifuncional desenvolvido para automatizar interações, fornecer informações e gerenciar grupos. Ele integra capacidades de inteligência artificial (via Gemini API) para respostas mais inteligentes e um sistema de comandos robusto para diversas funcionalidades. O projeto é construído com Node.js e TypeScript, utilizando o `whatsapp-web.js` para interação com o WhatsApp e um serviço de relay para funcionalidades estendidas.
 
-## 🏗️ Arquitetura Atual (v1.0.0-JS-STABLE)
+## 🏗️ Arquitetura Atual (v2.0.0-TS-STABLE)
 
-O sistema utiliza uma arquitetura distribuída entre VPS (Bot), Render (Relay) e Cloudflare (Frontend) para o sistema de geolocalização.
+O sistema foi totalmente migrado para **TypeScript** e utiliza uma arquitetura distribuída e modular:
 
--   **Bot (Linux VPS)**: Cliente WhatsApp Web que processa comandos e faz o polling de localizações.
--   **Relay (Render)**: Servidor Node.js (v20.x) agindo como buffer intermediário. **Arquitetura Pure JS (In-Memory)**, sem dependências nativas para evitar erros de GLIBC. Armazena temporariamente localizações pendentes, metadados de usuários e logs de telemetria.
--   **Frontend (Cloudflare Pages)**: Interface web para captura de coordenadas GPS via navegador.
+-   **Bot (Linux VPS)**: Cliente WhatsApp Web em TypeScript que processa comandos, moderação e polling.
+-   **AutoMod Avançado**: Sistema de segurança proativo que intercepta spam interativo, filtra DDI estrangeiro e aplica punições imediatas (ban/delete).
+-   **Relay (Render)**: Servidor Node.js agindo como buffer intermediário para geolocalização e comandos customizados.
+-   **Frontend (Cloudflare Pages)**: Interface web para captura de coordenadas GPS.
 
 ## Estrutura do Projeto
 
@@ -36,10 +37,10 @@ O sistema utiliza a chave **WARRIOR_AUTH_KEY** (16 caracteres) para autenticar t
 
 ### Pré-requisitos
 
--   Node.js (versão 24.x recomendada)
+-   Node.js (versão 24.x recomendada para Windows, 20.x+ para Linux)
 -   npm (gerenciador de pacotes do Node.js)
 -   PM2 (para gerenciamento de processos em produção no Linux)
--   Conta no Google Cloud com acesso à Gemini API
+-   Conta no Google Cloud com acesso à Gemini API (Modelo: `gemini-2.0-flash`)
 
 ### Variáveis de Ambiente
 
