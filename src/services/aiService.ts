@@ -1,6 +1,5 @@
 import axios from 'axios';
-require('dotenv').config();
-import { getDb } from './databaseService'; // Caminho corrigido para o mesmo diretório
+import { getDb } from './databaseService';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 

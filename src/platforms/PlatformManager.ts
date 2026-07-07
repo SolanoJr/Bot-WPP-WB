@@ -18,6 +18,8 @@ import {
   MessageHandler
 } from './base/PlatformTypes';
 import { rateLimiter } from '../services/rateLimiter';
+import { logCommand, logPlatformStatus, logError } from '../services/loggerService';
+import { isMaster as checkIsMaster, isAdmin as checkIsAdmin, cleanId } from '../services/permissions';
 
 type AdapterFactory = () => Promise<PlatformAdapter>;
 
@@ -94,8 +96,10 @@ export class PlatformManager {
         await adapter.initialize();
         this.setupAdapterHandlers(adapter);
         console.log(`[PlatformManager] ✅ ${platform} pronto`);
-      } catch (error) {
+        logPlatformStatus(platform, 'online');
+      } catch (error: any) {
         console.error(`[PlatformManager] ❌ Falha ao iniciar ${platform}:`, error);
+        logPlatformStatus(platform, 'error', error?.message);
         // Continua com as outras plataformas
       }
     }
@@ -270,6 +274,7 @@ export class PlatformManager {
     // Criar contexto unificado
     const ctx = this.createCommandContext(message, adapter.client);
 
+    const startTime = Date.now();
     try {
       console.log(`[PlatformManager] Executando ${message.commandName} em ${adapter.platform} para ${message.userName}`);
       
@@ -277,8 +282,29 @@ export class PlatformManager {
       await this.logCommandUsage(message.commandName!, message.userId, message.chatId);
       
       await command.execute(ctx);
+      logCommand({
+        command: message.commandName!,
+        platform: adapter.platform,
+        userId: message.userId,
+        chatId: message.chatId,
+        success: true,
+        durationMs: Date.now() - startTime,
+        isMaster: ctx.isMaster,
+        isAdmin: ctx.isAdmin,
+      });
     } catch (error: any) {
-      console.error(`[PlatformManager] Erro no comando ${message.commandName}:`, error);
+      logCommand({
+        command: message.commandName!,
+        platform: adapter.platform,
+        userId: message.userId,
+        chatId: message.chatId,
+        success: false,
+        durationMs: Date.now() - startTime,
+        error: error?.message,
+        isMaster: ctx.isMaster,
+        isAdmin: ctx.isAdmin,
+      });
+      logError(`CMD:${message.commandName}`, error, { platform: adapter.platform, userId: message.userId });
       await ctx.reply('⚠️ Ocorreu um erro interno ao executar este comando.');
     }
   }
@@ -319,6 +345,11 @@ export class PlatformManager {
    * Cria CommandContext unificado
    */
   private createCommandContext(message: PlatformMessage, client: PlatformClient): CommandContext {
+    // Extrair ID limpo (sem prefixo de plataforma) para verificação de permissões
+    const rawUserId = message.userId.replace(/^(wpp:|tg:|dc:)/, '');
+    const userIsMaster = checkIsMaster(rawUserId);
+    const userIsAdmin = userIsMaster || checkIsAdmin(rawUserId);
+
     return {
       msg: message,
       client,
@@ -328,8 +359,8 @@ export class PlatformManager {
       userId: message.userId,
       userName: message.userName,
       isGroup: message.raw?.isGroup || false,
-      isMaster: false, // Será preenchido pelo requirePermission
-      isAdmin: false,
+      isMaster: userIsMaster,
+      isAdmin: userIsAdmin,
       reply: async (text: string, options?: SendOptions) => {
         await client.sendMessage(message.chatId, text, options);
       },
@@ -434,8 +465,10 @@ export class PlatformManager {
       try {
         await adapter.shutdown();
         console.log(`[PlatformManager] ✅ ${platform} desligado`);
-      } catch (error) {
+        logPlatformStatus(platform, 'offline', 'shutdown gracioso');
+      } catch (error: any) {
         console.error(`[PlatformManager] Erro ao desligar ${platform}:`, error);
+        logError(`shutdown:${platform}`, error);
       }
     }
     this.initialized = false;

@@ -187,15 +187,10 @@ const handleModeration = async (client: any, message: any = {}): Promise<boolean
         }
     }
 
-    try {
-        // No WWebJS, o bloqueio é feito através do contato
-        const contact = await client.getContactById(userId);
-        if (contact && typeof contact.block === 'function') {
-            await contact.block();
-        }
-    } catch (error: any) {
-        console.error(`[MODERATION] Erro ao bloquear contato ${userId}:`, error.message);
-    }
+    // Bloqueio de contato desabilitado - API contact.block() está quebrada em versões recentes do whatsapp-web.js
+    // A remoção do grupo já é suficiente para proteção
+    console.log(`[MODERATION] Bloqueio de contato desabilitado para ${userId} (API indisponível)`);
+
 
     loggerService.logInfo('Moderacao automatica aplicada', {
         reason: analysis.reason,

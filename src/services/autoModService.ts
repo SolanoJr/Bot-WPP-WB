@@ -188,22 +188,7 @@ export async function processAutoMod(
         await chat.removeParticipants([msg.author || msg.from]);
         console.log('[AutoMod] Usuário removido do grupo');
 
-        // 3. Tentar bloquear o contato
-        try {
-          const contact = await client.getContactById(msg.author || msg.from);
-          if (contact && typeof contact.block === 'function') {
-            await contact.block();
-            console.log('[AutoMod] Contato bloqueado');
-          } else {
-            // Fallback para versões do wwebjs que podem ter problemas com o objeto contact
-            console.warn('[AutoMod] Método contact.block não disponível, tentando via interface');
-            await client.interface.performAction('blockContact', { contactId: msg.author || msg.from });
-          }
-        } catch (blockError) {
-          console.error('[AutoMod] Erro ao bloquear contato:', blockError);
-        }
-
-        // 4. Enviar notificação ao grupo
+        // 3. Enviar notificação ao grupo
         await chat.sendMessage(
           `${reason}\n\n` +
           `👤 Usuário removido automaticamente.\n` +

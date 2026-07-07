@@ -4,8 +4,6 @@
  * Controle de acesso baseado em níveis de usuário
  */
 
-require('dotenv').config();
-
 // Configuração de usuários
 const MASTER_USER = process.env.MASTER_USER || '5588998314322@c.us';
 const MASTER_NUMBER = process.env.MASTER_NUMBER || '5588998314322';

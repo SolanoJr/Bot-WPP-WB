@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { WarriorKey } from '../shared/types.js';
 
 // Import adapters so they register themselves via side‑effects

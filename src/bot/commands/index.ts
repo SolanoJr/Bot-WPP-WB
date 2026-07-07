@@ -92,17 +92,14 @@ const legacyCommands: Array<{ name: string; description: string; execute: any }>
   { name: 'banidos', description: 'Lista banidos.', execute: banidosCommand.execute },
   { name: 'setwelcome', description: 'Define mensagem de boas‑vindas.', execute: setwelcomeCommand.execute },
   { name: 'sendmsg', description: 'Envia uma mensagem direta para o número informado.', execute: sendMessageCommand.execute },
-  { name: 'sendmsg', description: 'Envia uma mensagem direta para o número informado.', execute: sendMessageCommand.execute },
   { name: 'cantada', description: 'Cantada aleatória.', execute: cantadaCommand.execute },
   { name: 'fakechat', description: 'Fake chat.', execute: fakechatCommand.execute },
   { name: 'cmd', description: 'Ativa ou desativa comandos por grupo.', execute: cmdToggleCommand.execute },
   { name: 'piada', description: 'Piada aleatória.', execute: piadaCommand.execute },
-  // Alias commands for vote functionality matching tests
   { name: 'votar', description: 'Cria votação.', execute: voteCommand.execute },
-  { name: 'voto', description: 'Vota em opção.', execute: votoCommand.execute },
   { name: 'delvoto', description: 'Deleta votação.', execute: delVoteCommand.execute },
   // Welcome command
-  { name: 'bemvindo', description: 'Configura mensagem de boas-vindas.', execute: welcomeCommand.execute },
+  { name: 'welcome', description: 'Configura mensagem de boas-vindas.', execute: welcomeCommand.execute },
   // List commands
   { name: 'lista1', description: 'Exibe lista 1.', execute: lista1Command.execute },
   { name: 'lista1add', description: 'Adiciona item na lista 1.', execute: lista1AddCommand.execute },

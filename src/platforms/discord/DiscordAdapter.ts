@@ -84,7 +84,9 @@ class DiscordClient implements PlatformClient {
   }
 
   private setupEventHandlers() {
-    this.client.once('ready', () => {
+    // discord.js v14+ usa 'clientReady'; 'ready' foi depreciado
+    const readyEvent = 'clientReady';
+    this.client.once(readyEvent as any, () => {
       this.isReady = true;
       this.userId = this.client.user?.id ?? '';
       this.userName = this.client.user?.username ?? 'DiscordBot';

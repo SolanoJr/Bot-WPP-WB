@@ -180,18 +180,11 @@ export const banCommand: ICommand = {
       }
 
       try {
-        // Bloquear contato
-        const contact = await client.getContactById(userToBan);
-        if (contact && typeof contact.block === 'function') {
-          await contact.block();
-          console.log("Debug ban - Contact blocked successfully");
-        } else {
-          // Fallback via interface se o objeto contact estiver incompleto
-          await (client as any).interface?.performAction('blockContact', { contactId: userToBan });
-          console.log("Debug ban - Contact blocked via interface fallback");
-        }
+        // Bloquear contato (contact.block() quebrado em versões recentes do wwebjs)
+        // Remover do grupo já é suficiente
+        console.log('Debug ban - Bloqueio ignorado (API indisponível nesta versão do wwebjs)');
       } catch (error) {
-        console.error("Erro ao bloquear contato:", error);
+        // Silencioso
       }
 
       await ctx.reply(

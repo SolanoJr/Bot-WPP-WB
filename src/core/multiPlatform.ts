@@ -12,6 +12,8 @@ import { TelegramAdapter } from '../platforms/telegram/TelegramAdapter';
 import { DiscordAdapter } from '../platforms/discord/DiscordAdapter';
 import { loadCommands } from '../bot/commands';
 
+import { logHealthCheck } from '../services/loggerService';
+
 // Carregar variáveis de ambiente
 dotenv.config();
 
@@ -59,12 +61,14 @@ async function initializePlatforms() {
       platformManager.registerAdapter(telegramAdapter);
       await withTimeout(
         telegramAdapter.initialize(),
-        60000, // Aumentado para 60 segundos
+        120000, // Aumentado para 120 segundos (2 minutos) para lidar com restrições de rede
         'Timeout ao inicializar Telegram'
       );
       console.log('✅ Telegram inicializado');
-    } catch (error) {
-      console.error('❌ Erro ao inicializar Telegram:', error);
+    } catch (error: any) {
+      console.error('❌ Erro ao inicializar Telegram:', error.message);
+      // Não falhar completamente se Telegram falhar - continuar com outras plataformas
+      console.log('⚠️ Continuando sem Telegram (pode ser restrição de rede/firewall)');
     }
   } else {
     console.log('⚠️ Telegram não configurado (TELEGRAM_BOT_TOKEN não definido)');
@@ -102,6 +106,19 @@ async function initializePlatforms() {
   platformManager.onReady(() => {
     console.log('🎉 Todas as plataformas prontas!');
   });
+
+  // Health check periódico a cada 5 minutos
+  const startTime = Date.now();
+  setInterval(() => {
+    const platforms: Record<string, { online: boolean; uptime?: number }> = {};
+    for (const p of ['whatsapp', 'telegram', 'discord'] as const) {
+      platforms[p] = {
+        online: platformManager.isReady(p),
+        uptime: Math.floor((Date.now() - startTime) / 1000),
+      };
+    }
+    logHealthCheck(platforms);
+  }, 5 * 60 * 1000);
 
   // Graceful shutdown
   process.on('SIGINT', async () => {

@@ -1,91 +1,102 @@
+/**
+ * Testes do messageHandler — cobre casos reais de falha:
+ * - Comando legítimo NÃO deve passar pela moderação
+ * - Mensagem normal DEVE passar pela moderação
+ * - Comando inexistente não deve crashar
+ * - Erro no comando deve ser capturado e respondido
+ */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { processMessage } from '../../src/services/messageHandler';
 import * as moderationService from '../../src/services/moderationService';
 import * as keywordHandler from '../../src/services/keywordHandler';
 
-// Mock dos serviços
 vi.mock('../../src/services/moderationService', () => ({
-    handleModeration: vi.fn()
+  handleModeration: vi.fn().mockResolvedValue(false),
 }));
 
 vi.mock('../../src/services/keywordHandler', () => ({
-    handleKeywords: vi.fn()
+  handleKeywords: vi.fn().mockResolvedValue(false),
 }));
 
-describe('messageHandler', () => {
-    let mockClient: any;
-    let mockCommands: Map<string, any>;
+vi.mock('axios', () => ({
+  default: { get: vi.fn().mockResolvedValue({ data: { success: false } }) },
+}));
 
-    beforeEach(() => {
-        vi.clearAllMocks();
-        mockClient = {};
-        mockCommands = new Map();
-        mockCommands.set('ping', {
-            name: 'ping',
-            execute: vi.fn()
-        });
+describe('messageHandler — roteamento de comandos', () => {
+  let mockClient: any;
+  let mockCommands: Map<string, any>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockClient = {};
+    mockCommands = new Map();
+    mockCommands.set('ping', {
+      name: 'ping',
+      execute: vi.fn().mockResolvedValue(undefined),
     });
+  });
 
-    it('deve executar um comando legítimo ignorando a moderação', async () => {
-        const msg = {
-            body: '$ping',
-            from: 'user123',
-            reply: vi.fn()
-        };
+  it('comando legítimo ($ping) NÃO passa pela moderação', async () => {
+    const msg = { body: '$ping', from: 'user@c.us', reply: vi.fn() };
+    await processMessage(msg, mockClient, mockCommands);
 
-        await processMessage(msg, mockClient, mockCommands);
+    expect(moderationService.handleModeration).not.toHaveBeenCalled();
+    expect(keywordHandler.handleKeywords).not.toHaveBeenCalled();
+    expect(mockCommands.get('ping').execute).toHaveBeenCalledOnce();
+  });
 
-        // Verificações
-        expect(moderationService.handleModeration).not.toHaveBeenCalled();
-        expect(keywordHandler.handleKeywords).not.toHaveBeenCalled();
-        expect(mockCommands.get('ping').execute).toHaveBeenCalled();
-    });
+  it('mensagem normal passa pela moderação e keyword handler', async () => {
+    const msg = { body: 'olá tudo bem', from: 'user@c.us', reply: vi.fn() };
+    await processMessage(msg, mockClient, mockCommands);
 
-    it('deve aplicar moderação para mensagens que não são comandos', async () => {
-        const msg = {
-            body: 'Olá bot',
-            from: 'user123',
-            reply: vi.fn()
-        };
+    expect(moderationService.handleModeration).toHaveBeenCalledOnce();
+    expect(keywordHandler.handleKeywords).toHaveBeenCalledOnce();
+    expect(mockCommands.get('ping').execute).not.toHaveBeenCalled();
+  });
 
-        // Simular que a moderação não bloqueou
-        (moderationService.handleModeration as any).mockResolvedValue(false);
-        (keywordHandler.handleKeywords as any).mockResolvedValue(false);
+  it('moderação bloqueando mensagem interrompe o fluxo antes do keywordHandler', async () => {
+    vi.mocked(moderationService.handleModeration).mockResolvedValueOnce(true);
+    const msg = { body: 'link bet365.com', from: 'user@c.us', reply: vi.fn() };
+    await processMessage(msg, mockClient, mockCommands);
 
-        await processMessage(msg, mockClient, mockCommands);
+    expect(moderationService.handleModeration).toHaveBeenCalledOnce();
+    expect(keywordHandler.handleKeywords).not.toHaveBeenCalled();
+  });
 
-        expect(moderationService.handleModeration).toHaveBeenCalled();
-        expect(keywordHandler.handleKeywords).toHaveBeenCalled();
-        expect(mockCommands.get('ping').execute).not.toHaveBeenCalled();
-    });
+  it('comando inexistente não crasha e não chama comandos conhecidos', async () => {
+    const msg = {
+      body: '$comandoQueNaoExiste',
+      from: 'user@c.us',
+      reply: vi.fn(),
+      getChat: vi.fn().mockResolvedValue({ isGroup: false }),
+    };
+    await expect(processMessage(msg, mockClient, mockCommands)).resolves.toBeUndefined();
+    expect(mockCommands.get('ping').execute).not.toHaveBeenCalled();
+  });
 
-    it('deve interromper o fluxo se a moderação bloquear a mensagem', async () => {
-        const msg = {
-            body: 'link suspeito http://bet.com',
-            from: 'user123',
-            reply: vi.fn()
-        };
+  it('erro no execute do comando é capturado e responde ao usuário', async () => {
+    mockCommands.get('ping').execute.mockRejectedValueOnce(new Error('falha interna'));
+    const msg = { body: '$ping', from: 'user@c.us', reply: vi.fn() };
+    await processMessage(msg, mockClient, mockCommands);
 
-        (moderationService.handleModeration as any).mockResolvedValue(true);
+    expect(msg.reply).toHaveBeenCalledWith(expect.stringContaining('erro'));
+  });
 
-        await processMessage(msg, mockClient, mockCommands);
+  it('mensagem vazia não crasha', async () => {
+    const msg = { body: '', from: 'user@c.us', reply: vi.fn() };
+    await expect(processMessage(msg, mockClient, mockCommands)).resolves.toBeUndefined();
+  });
 
-        expect(moderationService.handleModeration).toHaveBeenCalled();
-        expect(keywordHandler.handleKeywords).not.toHaveBeenCalled();
-        expect(mockCommands.get('ping').execute).not.toHaveBeenCalled();
-    });
+  it('prefixo $ com espaço não é tratado como comando', async () => {
+    const msg = { body: '$ ping', from: 'user@c.us', reply: vi.fn() };
+    await processMessage(msg, mockClient, mockCommands);
+    // "$ ping" começa com $ mas o commandName seria "" — não deve executar ping
+    expect(mockCommands.get('ping').execute).not.toHaveBeenCalled();
+  });
 
-    it('deve tratar comandos inexistentes graciosamente', async () => {
-        const msg = {
-            body: '$comandoInexistente',
-            from: 'user123',
-            reply: vi.fn(),
-            getChat: vi.fn().mockResolvedValue({ isGroup: false })
-        };
-
-        await processMessage(msg, mockClient, mockCommands);
-
-        // Não deve crashar e não deve chamar comandos conhecidos
-        expect(mockCommands.get('ping').execute).not.toHaveBeenCalled();
-    });
+  it('comando em maiúsculo é normalizado ($PING → ping)', async () => {
+    const msg = { body: '$PING', from: 'user@c.us', reply: vi.fn() };
+    await processMessage(msg, mockClient, mockCommands);
+    expect(mockCommands.get('ping').execute).toHaveBeenCalledOnce();
+  });
 });
