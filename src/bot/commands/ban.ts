@@ -9,13 +9,6 @@ export const banCommand: ICommand = {
 
   async execute(ctx: CommandContext) {
     try {
-      // Verificação temporária: comando ban só funciona no WhatsApp por enquanto
-      // devido a dependências específicas do whatsapp-web.js
-      if (ctx.platform !== 'whatsapp') {
-        await ctx.reply("❌ Este comando ainda está disponível apenas no WhatsApp. Em breve para outras plataformas!");
-        return;
-      }
-
       const msg = ctx.msg.raw; // Objeto raw do WhatsApp
       const client = (ctx.client as any).getClient(); // Cliente WhatsApp interno
 
