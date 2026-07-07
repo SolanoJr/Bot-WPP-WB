@@ -10,15 +10,16 @@ export const menuCommand: ICommand = {
         const minutes = Math.floor((uptimeSeconds % 3600) / 60);
         const uptimeStr = `${hours}h ${minutes}m`;
 
-        const { getAutoModConfig } = await import('../../services/autoModService');
-        const amConfig = getAutoModConfig();
-        const amStatus = amConfig.enabled ? '🛡️ ATIVO' : '⚪ OFF';
+        const { moderationConfig } = await import('../../services/moderationService');
+        const amStatus = moderationConfig.enabled ? '🛡️ ATIVO' : '⚪ OFF';
+        const ddiStatus = moderationConfig.ddiFilterEnabled ? '🌍 DDI: ON' : '🌍 DDI: OFF';
 
         const menu = [
-	            "╔════════════════════════╗",
-	            "║          🤖 BOT         ║",
-	            "╠════════════════════════╣",
-	            `║ 🕒 Uptime: ${uptimeStr} | ${amStatus}`,
+		            "╔════════════════════════╗",
+		            "║          🤖 BOT         ║",
+		            "╠════════════════════════╣",
+		            `║ 🕒 Uptime: ${uptimeStr} | ${amStatus}`,
+                    `║ ${ddiStatus}`,
             "║",
             "║ 📝 Prefixo aceito:",
             "║ ▸ $",

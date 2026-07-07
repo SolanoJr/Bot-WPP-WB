@@ -1,215 +1,89 @@
 import { ICommand } from "./types";
-import { CommandContext } from "../../../platforms/base/PlatformTypes";
-import { cleanId, isMaster, isAdmin } from "../../services/permissions";
+import { cleanId, isMaster } from "../../services/permissions";
 
 export const banCommand: ICommand = {
   name: "ban",
-  description: "Bane um usuário do grupo, remove suas mensagens e o expulsa.",
-  // Removido restrição de plataforma - disponível em todas as plataformas
+  description: "Bane um usuário do grupo e apaga suas mensagens recentes.",
 
-  async execute(ctx: CommandContext) {
+  async execute(msg, client, args) {
     try {
-      // Obter o cliente e a mensagem raw de forma segura
-      const isWhatsApp = ctx.msg.platform === 'whatsapp';
-      const msg = ctx.msg.raw;
-      const client = isWhatsApp ? (ctx.client as any).getClient() : ctx.client;
-
-      if (!isWhatsApp) {
-        // Fallback para outras plataformas via interface comum
-        const chat = await ctx.client.getChat(ctx.msg.chatId);
-        if (!chat.isGroup) {
-          await ctx.reply("❌ Este comando só funciona em grupos.");
-          return;
-        }
-        // Lógica simplificada para outras plataformas
-        const mentioned = ctx.msg.raw?.mentionedIds || [];
-        if (mentioned.length === 0) {
-          await ctx.reply("❌ Marque o usuário a ser banido.");
-          return;
-        }
-        await ctx.reply("⏳ Implementando banimento para esta plataforma...");
-        return;
-      }
-
       const chat = await msg.getChat();
-      const { isGroup } = chat;
-
-      // REMOVIDO: A restrição de plataforma que causava erro no WhatsApp
-      // A lógica agora é agnóstica ou lida com as especificidades dentro da execução
-
-      if (!isGroup) {
+      if (!chat.isGroup) {
         await msg.reply("❌ Este comando só funciona em grupos.");
         return;
       }
 
-      // Recarrega dados para reduzir chance de status de admin desatualizado.
+      // 1. Verificação de Permissões
+      const senderId = msg.author || msg.from;
       const freshChat = await client.getChatById(chat.id._serialized);
-
-      const participants = Array.isArray(freshChat?.participants)
-        ? freshChat.participants
-        : Array.isArray(freshChat?.groupMetadata?.participants)
-          ? freshChat.groupMetadata.participants
-          : [];
-
-      const botId = cleanId(client?.info?.wid?._serialized || "");
-
-      // Verificar se quem mandou é admin (não o bot)
-      // ID bruto (com @c.us) para verificação de MASTER
-      const senderIdRaw = msg.author || msg.from;
-      const senderId = cleanId(senderIdRaw);
-
-      console.log("Debug ban - Sender ID Raw:", senderIdRaw);
-      console.log("Debug ban - Sender ID Clean:", senderId);
-      console.log("Debug ban - Participants:", participants.map((p: any) => ({
-        id: p.id?._serialized,
-        isAdmin: p.isAdmin,
-        isSuperAdmin: p.isSuperAdmin
-      })));
-
-      // Tentar encontrar participant comparando de todas as formas possíveis (incluindo LID)
-      const senderParticipant = participants.find((p: any) => {
-        const pId = p.id?._serialized || "";
-        const pIdClean = cleanId(pId);
-        const pLid = p.id?.lid || "";
-        
-        return pIdClean === senderId || 
-               pId === senderIdRaw || 
-               pIdClean === cleanId(senderIdRaw) ||
-               (pLid && senderIdRaw.includes(pLid)) ||
-               (pLid && pLid === senderIdRaw);
-      });
-
-      console.log("Debug ban - Sender Participant Found:", !!senderParticipant);
-      console.log("Debug ban - Sender Participant isAdmin:", senderParticipant?.isAdmin);
-      console.log("Debug ban - Sender Participant isSuperAdmin:", senderParticipant?.isSuperAdmin);
+      const participants = freshChat.participants || [];
       
-      // Se quem mandou é MASTER, permitir sempre
-      const isSenderMaster = isMaster(senderIdRaw);
-      const isSenderInAdminList = isAdmin(senderIdRaw);
+      const botId = cleanId(client.info.wid._serialized);
+      const botPart = participants.find((p: any) => cleanId(p.id._serialized) === botId);
+      const senderPart = participants.find((p: any) => cleanId(p.id._serialized) === cleanId(senderId));
 
-      // Determinar se o sender é admin (procura em múltiplas fontes)
-      const isSenderAdmin = Boolean(
-        senderParticipant?.isAdmin || 
-        senderParticipant?.isSuperAdmin || 
-        isSenderMaster || 
-        isSenderInAdminList
-      );
-
-      console.log("Debug ban - isSenderMaster:", isSenderMaster);
-      console.log("Debug ban - isSenderInAdminList:", isSenderInAdminList);
-      console.log("Debug ban - Final isSenderAdmin:", isSenderAdmin);
-
-      const botParticipant = participants.find((p: any) => {
-        const participantId = cleanId(p.id?._serialized || "");
-
-        return p.isMe || (!!botId && participantId === botId);
-      });
-
-      const isBotAdmin = Boolean(
-        botParticipant?.isAdmin || botParticipant?.isSuperAdmin,
-      );
-
-      console.log("Debug ban - Sender:", senderId);
-      console.log("Debug ban - Is sender admin:", isSenderAdmin);
-      console.log("Debug ban - Participants count:", participants.length);
-      console.log("Debug ban - Is bot admin:", isBotAdmin);
-
-      if (!isBotAdmin) {
-        await ctx.reply("❌ O bot precisa ser administrador para usar este comando.");
+      if (!botPart?.isAdmin && !botPart?.isSuperAdmin) {
+        await msg.reply("❌ O bot precisa ser administrador para banir membros.");
         return;
       }
 
-      // Verificar se sender é admin: pode ser MASTER, estar na lista de ADMINs, ou ser admin do grupo
-      // Isso garante que qualquer admin do grupo possa usar o comando
-      const hasPermission = isSenderAdmin || isSenderMaster || isSenderInAdminList;
-      
-      if (!hasPermission) {
-        console.log("Debug ban - Permission denied. Debug info:");
-        console.log("  - isSenderAdmin:", isSenderAdmin);
-        console.log("  - isSenderMaster:", isSenderMaster);
-        console.log("  - isSenderInAdminList:", isSenderInAdminList);
-        await ctx.reply("❌ Apenas administradores do grupo podem usar este comando.");
+      if (!senderPart?.isAdmin && !senderPart?.isSuperAdmin && !isMaster(senderId)) {
+        await msg.reply("❌ Você não tem permissão para usar este comando.");
         return;
       }
 
-      // Verificar se mencionou alguém
-      const mentioned = msg.mentionedIds;
+      // 2. Identificar Alvo
+      let targetId = '';
+      if (msg.mentionedIds && msg.mentionedIds.length > 0) {
+        targetId = msg.mentionedIds[0];
+      } else if (msg.hasQuotedMsg) {
+        const quoted = await msg.getQuotedMessage();
+        targetId = quoted.author || quoted.from;
+      } else if (args.length > 0) {
+        targetId = args[0].replace(/\D/g, '') + '@c.us';
+      }
 
-      if (!mentioned || mentioned.length === 0) {
-        await ctx.reply("❌ Marque o usuário a ser banido com @usuario.");
+      if (!targetId) {
+        await msg.reply("❌ Mencione alguém ou responda a uma mensagem para banir.");
         return;
       }
 
-      const userToBan = mentioned[0];
-
-      console.log("Debug ban - User to ban:", userToBan);
-
-      // Verificar se o usuário a ser banido é admin
-      const userToBanClean = cleanId(userToBan);
-
-      const userParticipant = participants.find(
-        (p: any) => cleanId(p.id?._serialized || "") === userToBanClean,
-      );
-
-      const isUserAdmin = Boolean(
-        userParticipant?.isAdmin || userParticipant?.isSuperAdmin,
-      );
-
-      if (isUserAdmin) {
-        await ctx.reply("❌ Não é possível banir administradores.");
+      const targetPart = participants.find((p: any) => cleanId(p.id._serialized) === cleanId(targetId));
+      if (targetPart?.isAdmin || targetPart?.isSuperAdmin) {
+        await msg.reply("❌ Não é possível banir um administrador.");
         return;
       }
 
-      let deletedCount = 0;
+      // 3. Executar Punição
+      await msg.reply(`⏳ Processando banimento de @${targetId.split('@')[0]}...`, { mentions: [targetId] });
 
+      // Apagar mensagens (últimas 50)
       try {
-        // Apagar ÚLTIMA mensagem do usuário no grupo (mais eficiente e preciso)
         const messages = await chat.fetchMessages({ limit: 50 });
-
-        // Buscar a última mensagem do usuário (pode incluir view once, mídia, etc)
-        const lastUserMessage = messages.find(
-          (m: any) => cleanId(m.author || m.from || "") === userToBanClean && !m.fromMe,
-        );
-
-        if (lastUserMessage) {
-          try {
-            await lastUserMessage.delete(true); // true = deletar para todos
-            deletedCount = 1;
-            console.log("Debug ban - Last message deleted");
-          } catch (error) {
-            console.error("Erro ao apagar última mensagem:", error);
-          }
+        const toDelete = messages.filter(m => (m.author || m.from) === targetId);
+        for (const m of toDelete) {
+          await m.delete(true);
         }
-      } catch (error) {
-        console.error("Erro ao buscar mensagens:", error);
+      } catch (e) {
+        console.error("Erro ao apagar mensagens no ban:", e);
       }
 
+      // Remover do grupo
+      await chat.removeParticipants([targetId]);
+
+      // Bloquear contato
       try {
-        // Remover usuário do grupo
-        await chat.removeParticipants([userToBan]);
-        console.log("Debug ban - User removed successfully");
-      } catch (error: any) {
-        console.error("Erro ao remover usuário:", error);
-        await ctx.reply(`⚠️ Erro ao remover usuário: ${error.message}`);
-        return;
+        const contact = await client.getContactById(targetId);
+        await contact.block();
+      } catch (e) {
+        // Ignora erro de bloqueio
       }
 
-      try {
-        // Bloquear contato (contact.block() quebrado em versões recentes do wwebjs)
-        // Remover do grupo já é suficiente
-        console.log('Debug ban - Bloqueio ignorado (API indisponível nesta versão do wwebjs)');
-      } catch (error) {
-        // Silencioso
-      }
+      await chat.sendMessage(`🚫 @${targetId.split('@')[0]} foi banido e suas mensagens recentes foram removidas.`, { mentions: [targetId] });
 
-      await ctx.reply(
-        `✅ Usuário banido com sucesso!\n` +
-        `🗑️ ${deletedCount > 0 ? 'Última mensagem apagada' : 'Nenhuma mensagem encontrada'}\n` +
-        `🚫 Contato bloqueado`,
-      );
     } catch (error: any) {
-      console.error("Erro ao executar comando ban:", error);
-      await ctx.reply(`❌ Erro ao banir usuário: ${error.message}`);
+      console.error("Erro no comando $ban:", error);
+      await msg.reply(`❌ Falha ao executar banimento: ${error.message}`);
     }
   },
 };

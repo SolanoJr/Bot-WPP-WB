@@ -1,21 +1,28 @@
-const loggerService = require('../../services/loggerService');
+import loggerService from './loggerService';
+
+// Configurações de moderação (podem ser movidas para um banco de dados futuramente)
+export const moderationConfig = {
+    enabled: true,
+    ddiFilterEnabled: true,
+    interactiveFilterEnabled: true,
+    suspiciousLinksFilterEnabled: true,
+    keywordsFilterEnabled: true
+};
 
 const SUSPICIOUS_TERMS = [
-    'http',
-    'https',
-    'wa.me',
-    't.me',
-    'aposta',
+    'taxa de vitórias',
+    'recolha contínua',
+    'bónus',
+    'recolhidos à vontade',
+    'pp7.wtf',
+    '.bet',
+    '.wtf?c=',
     'ganhar dinheiro',
     'lucro fácil',
-    'bet',
     'cassino'
 ];
 
-// Usuários que devem ser bloqueados permanentemente (ex.: spammer)
-// Formato completo do WhatsApp ID, ex.: "639474500179@c.us"
 const BLOCKED_USERS = new Set<string>([
-    // MI500179 (+639474500179)
     '639474500179@c.us'
 ]);
 
@@ -23,16 +30,49 @@ const seenUsers = new Set<string>();
 
 const normalizeText = (text: any): string => String(text || '').toLowerCase();
 
-const hasSuspiciousLink = (text: string): boolean => {
-    return text.includes('http') || text.includes('https') || text.includes('wa.me') || text.includes('t.me');
+const hasSuspiciousContent = (text: string): boolean => {
+    const normalized = normalizeText(text);
+    return SUSPICIOUS_TERMS.some(term => normalized.includes(term)) || 
+           /https?:\/\/[^\s]+(\.wtf|\.bet)/i.test(normalized);
 };
 
-const hasSuspiciousKeyword = (text: string): boolean => {
-    return ['aposta', 'ganhar dinheiro', 'lucro fácil', 'bet', 'cassino'].some((keyword) => text.includes(keyword));
+const isForeignNumber = (userId: string): boolean => {
+    // DDI brasileiro é 55. Números do WhatsApp vêm no formato 5511999999999@c.us
+    return !userId.startsWith('55');
 };
 
-const resolveUserId = (message: any): string => {
-    return message?.author || message?.from || 'usuario-desconhecido';
+const extractTextFromInteractive = (message: any): string => {
+    let text = message.body || message.caption || '';
+    
+    // Tenta extrair texto de mensagens interativas/templates (baseado na estrutura interna do whatsapp-web.js/WA Web)
+    if (message._data) {
+        const data = message._data;
+        // Captura textos de botões, títulos e descrições de templates/cards
+        const interactiveParts = [
+            data.title,
+            data.description,
+            data.footer,
+            data.caption,
+            data.body,
+            data.matchedText
+        ];
+        
+        // Se for template ou botões, busca nos arrays internos
+        if (data.buttons) {
+            data.buttons.forEach((btn: any) => {
+                if (btn.buttonText) interactiveParts.push(btn.buttonText.displayText);
+            });
+        }
+        
+        if (data.listResponse) {
+            interactiveParts.push(data.listResponse.title);
+            interactiveParts.push(data.listResponse.description);
+        }
+
+        text += ' ' + interactiveParts.filter(Boolean).join(' ');
+    }
+    
+    return text;
 };
 
 interface AnalysisResult {
@@ -40,174 +80,107 @@ interface AnalysisResult {
     reason: string;
 }
 
-const analyzeMessage = (message: any = {}): AnalysisResult => {
-    // Combine body and caption (if present) for analysis. Captions are used for media messages.
-    const rawText = `${message.body || ''} ${message.caption || ''}`;
-    const text = normalizeText(rawText);
+export const analyzeMessage = (message: any = {}): AnalysisResult => {
+    if (!moderationConfig.enabled) return { isSpam: false, reason: '' };
 
-    if (!text) {
-        // No textual content to analyze (e.g., pure sticker without caption)
-        return { isSpam: false, reason: '' };
-    }
+    const userId = message.author || message.from || '';
+    const text = extractTextFromInteractive(message);
+    const isFirstInteraction = !seenUsers.has(userId);
 
-    const userId = resolveUserId(message);
-    const isFirstMessage = !seenUsers.has(userId);
-
-    if (isFirstMessage) {
+    if (isFirstInteraction) {
         seenUsers.add(userId);
     }
 
-    // Check for suspicious keywords first
-    if (hasSuspiciousKeyword(text)) {
-        return {
-            isSpam: true,
-            reason: 'palavra-chave suspeita detectada'
-        };
-    }
-
-    // Then check for suspicious links
-    if (hasSuspiciousLink(text)) {
-        if (isFirstMessage) {
+    // 1. Filtro por DDI Estrangeiro + Conteúdo Suspeito ou Link
+    if (moderationConfig.ddiFilterEnabled && isForeignNumber(userId)) {
+        const hasLink = /https?:\/\/[^\s]+/i.test(text);
+        const isInteractive = ['buttons_response', 'list_response', 'template_button_reply', 'interactive'].includes(message.type);
+        
+        if (hasLink || isInteractive || hasSuspiciousContent(text)) {
             return {
                 isSpam: true,
-                reason: 'link enviado na primeira mensagem'
+                reason: `DDI Estrangeiro detectado (${userId.split('@')[0]}) com conteúdo suspeito/link.`
             };
         }
+    }
+
+    // 2. Filtro de Palavras-Chave e Regex
+    if (moderationConfig.keywordsFilterEnabled && hasSuspiciousContent(text)) {
         return {
             isSpam: true,
-            reason: 'link suspeito detectado'
+            reason: 'Palavra-chave ou padrão de spam detectado.'
         };
     }
 
-    // Additional safeguard for media messages with suspicious caption
-    if ((message.type === 'sticker' || message.type === 'image') && hasSuspiciousKeyword(text)) {
+    // 3. Bloqueio Permanente
+    if (BLOCKED_USERS.has(userId)) {
         return {
             isSpam: true,
-            reason: 'conteúdo suspeito em mídia (sticker ou imagem)'
+            reason: 'Usuário na lista negra de spammers.'
         };
     }
 
-    return {
-        isSpam: false,
-        reason: ''
-    };
+    return { isSpam: false, reason: '' };
 };
 
 const isGroupMessage = (message: any): boolean => String(message?.from || '').endsWith('@g.us');
 
-const canRemoveUser = async (chat: any, userId: string): Promise<boolean> => {
-    if (!chat?.isGroup || typeof chat.removeParticipants !== 'function') {
-        return false;
-    }
+export const handleModeration = async (client: any, message: any = {}): Promise<boolean> => {
+    if (message.fromMe) return false;
 
-    const participants = Array.isArray(chat?.participants)
-        ? chat.participants
-        : Array.isArray(chat?.groupMetadata?.participants)
-            ? chat.groupMetadata.participants
-            : [];
+    const analysis = analyzeMessage(message);
+    if (!analysis.isSpam) return false;
 
-    const botParticipant = participants.find((participant: any) => participant.isMe);
-    const userParticipant = participants.find((participant: any) => participant.id?._serialized === userId);
+    const userId = message.author || message.from;
 
-    const isBotAdmin = Boolean(botParticipant?.isAdmin || botParticipant?.isSuperAdmin);
-    const isUserAdmin = Boolean(userParticipant?.isAdmin || userParticipant?.isSuperAdmin);
-
-    return isBotAdmin && !isUserAdmin;
-};
-
-const handleModeration = async (client: any, message: any = {}): Promise<boolean> => {
-    if (message.fromMe) {
-        return false;
-    }
-
-    const userId = resolveUserId(message);
-
-    // Se o usuário está na lista de bloqueio permanente, forçar ação de moderação
-    const forcedSpam = BLOCKED_USERS.has(userId);
-
-    const analysis = forcedSpam ? { isSpam: true, reason: 'usuário bloqueado permanentemente' } : analyzeMessage(message);
-
-    if (!analysis.isSpam) {
-        return false;
-    }
-
-    // Continue com a lógica de remoção e bloqueio como antes
+    console.log(`🛡️ [MODERATION] Gatilho acionado para ${userId}. Motivo: ${analysis.reason}`);
 
     try {
+        // 1. Deletar a mensagem imediatamente
         if (typeof message.delete === 'function') {
             await message.delete(true);
+            console.log(`🗑️ [MODERATION] Mensagem de spam deletada.`);
         }
-    } catch (error: any) {
-        loggerService.logWarning('Falha ao deletar mensagem suspeita', {
-            reason: analysis.reason,
-            userId,
-            error: error.message
-        });
-    }
 
-    if (isGroupMessage(message) && typeof message.getChat === 'function') {
-        try {
+        // 2. Se for grupo, banir o usuário
+        if (isGroupMessage(message)) {
             const chat = await message.getChat();
-            const botCanRemove = await canRemoveUser(chat, userId);
-
-            if (botCanRemove) {
-                // Apagar mensagens anteriores do usuário
-                try {
-                    const messages = await chat.fetchMessages({ limit: 50 });
-                    const userMessages = messages.filter((m: any) => m.author === userId);
-                    
-                    for (const msg of userMessages) {
-                        try {
-                            await msg.delete(true);
-                        } catch (error) {
-                            console.error('Erro ao apagar mensagem anterior:', error);
-                        }
-                    }
-                    
-                    loggerService.logInfo('Mensagens anteriores apagadas', {
-                        userId,
-                        count: userMessages.length
-                    });
-                } catch (error: any) {
-                    loggerService.logWarning('Falha ao apagar mensagens anteriores', {
-                        userId,
-                        error: error.message
-                    });
+            if (chat.isGroup) {
+                // Verificar se o bot é admin
+                const participants = chat.participants || [];
+                const botParticipant = participants.find((p: any) => p.id._serialized === client.info.wid._serialized);
+                
+                if (botParticipant?.isAdmin || botParticipant?.isSuperAdmin) {
+                    await chat.removeParticipants([userId]);
+                    console.log(`🚫 [MODERATION] Usuário ${userId} removido do grupo.`);
+                } else {
+                    console.warn(`⚠️ [MODERATION] Bot não é admin, não pôde remover o usuário.`);
                 }
-
-                // Remover usuário do grupo
-                await chat.removeParticipants([userId]);
             }
-        } catch (error: any) {
-            loggerService.logWarning('Falha ao remover usuario suspeito', {
-                reason: analysis.reason,
-                userId,
-                error: error.message
-            });
         }
+
+        // 3. Bloquear o contato (opcional, mas solicitado como punição imediata)
+        try {
+            const contact = await client.getContactById(userId);
+            await contact.block();
+            console.log(`🔒 [MODERATION] Contato ${userId} bloqueado.`);
+        } catch (e) {
+            // Ignora se falhar o bloqueio (algumas versões da API têm problemas aqui)
+        }
+
+        loggerService.logInfo('Moderação automática aplicada com sucesso', {
+            userId,
+            reason: analysis.reason,
+            groupId: message.from
+        });
+
+        return true;
+    } catch (error: any) {
+        console.error(`❌ [MODERATION] Erro ao aplicar punição:`, error.message);
+        return false;
     }
-
-    // Bloqueio de contato desabilitado - API contact.block() está quebrada em versões recentes do whatsapp-web.js
-    // A remoção do grupo já é suficiente para proteção
-    console.log(`[MODERATION] Bloqueio de contato desabilitado para ${userId} (API indisponível)`);
-
-
-    loggerService.logInfo('Moderacao automatica aplicada', {
-        reason: analysis.reason,
-        userId,
-        groupId: message.from || null
-    });
-
-    return true;
 };
 
-const resetModerationState = (): void => {
+export const resetModerationState = (): void => {
     seenUsers.clear();
-};
-
-export {
-    SUSPICIOUS_TERMS,
-    analyzeMessage,
-    handleModeration,
-    resetModerationState
 };

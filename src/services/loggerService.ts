@@ -105,6 +105,14 @@ export function logError(context: string, error: any, extra?: Record<string, any
   if (stack) logger.error(`   Stack: ${stack.split('\n')[1]?.trim() ?? ''}`);
 }
 
+export function logInfo(message: string, meta: any = {}): void {
+  logger.info(`${message} ${Object.keys(meta).length ? JSON.stringify(meta) : ''}`);
+}
+
+export function logWarning(message: string, meta: any = {}): void {
+  logger.warn(`${message} ${Object.keys(meta).length ? JSON.stringify(meta) : ''}`);
+}
+
 /**
  * Health check de todas as plataformas ativas
  */

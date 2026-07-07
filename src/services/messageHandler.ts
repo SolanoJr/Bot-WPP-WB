@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { handleKeywords } from './keywordHandler';
-import { handleModeration } from './moderationService';
+import { processAutoMod } from './autoModService';
 
 /**
  * Handler centralizado para todas as mensagens recebidas
@@ -21,10 +21,9 @@ async function processMessage(msg: any, client: any, commands: Map<string, any>)
     const isCommand = body.startsWith(prefix);
 
     if (!isCommand) {
-        // 3. Auto-Moderação de Spam/Links/Apostas (apenas para não-comandos)
-        const moderated = await handleModeration(client, msg);
+        // 3. Auto-Moderação de Spam/Links/DDI (apenas para não-comandos)
+        const moderated = await processAutoMod(msg, client);
         if (moderated) {
-            console.log(`🛡️ [MODERATION] Mensagem moderada: ${msg.body}`);
             return;
         }
 
