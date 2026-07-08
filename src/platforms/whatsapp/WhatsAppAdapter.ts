@@ -21,6 +21,7 @@ import {
 } from './base/PlatformTypes';
 import { platformManager } from '../PlatformManager';
 import { processAutoMod } from '../../services/autoModService';
+import { handleKeywords } from '../../services/keywordHandler';
 
 export class WhatsAppClient implements PlatformClient {
   readonly platform: PlatformType = 'whatsapp';

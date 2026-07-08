@@ -28,12 +28,11 @@ async function askAI(prompt: string, userId: string = 'unknown'): Promise<string
             context = history.reverse().map((h: any) => `Usuário: ${h.prompt}\nIA: ${h.response}`).join('\n\n');
         }
 
-        // Modelo definido pelo usuário como funcional: gemini-2.5-flash
-        // Nota: O modelo 2.5-flash tem cota limitada a 20 req/dia no tier gratuito.
-        // Se precisar de mais cota, considere usar gemini-1.5-flash ou gemini-2.0-flash.
-        const model = "gemini-2.5-flash";
-        // Usando v1 para maior estabilidade conforme testes
-        const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+        // O modelo gemini-2.5-flash pode não estar disponível para todos ou ter cota muito baixa.
+        // Usando gemini-1.5-flash que é estável e tem cota generosa no tier gratuito.
+        const model = "gemini-1.5-flash";
+        // Usando v1beta para modelos flash mais novos
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
 
         const now = new Date();
         const dateTimeStr = now.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });

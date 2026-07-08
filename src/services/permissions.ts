@@ -70,7 +70,7 @@ function hasPermission(userId: string, requiredLevel: PermissionLevel): boolean 
 
     // Log solicitado: [PERMISSÃO]
     if (requiredLevel !== PERMISSIONS.USER) {
-        console.log(`[PERMISSÃO] Recebido: ${userClean} | Master: 88998314322 | Resultado: [${hasPerm ? 'Sim' : 'Não'}]`);
+        console.log(`[PERMISSÃO] Recebido: ${userClean} | Master: ${cleanId(MASTER_USER)} | Resultado: [${hasPerm ? 'Sim' : 'Não'}]`);
     }
 
     return hasPerm;
