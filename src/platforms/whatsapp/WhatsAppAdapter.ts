@@ -95,6 +95,17 @@ export class WhatsAppClient implements PlatformClient {
         console.error(`[WhatsAppAdapter] Erro ao executar AutoMod:`, err.message);
       }
 
+      // Executar handler de palavras-chave (respostas sarcásticas)
+      try {
+        const intercepted = await handleKeywords(msg, this.client);
+        if (intercepted) {
+          console.log(`😏 [WhatsAppAdapter] Palavra-chave detectada, resposta enviada`);
+          return;
+        }
+      } catch (err) {
+        console.error(`[WhatsAppAdapter] Erro ao executar handleKeywords:`, err.message);
+      }
+
       if (this.messageHandler) {
         const platformMsg = this.normalizeMessage(msg);
         await this.messageHandler(platformMsg);

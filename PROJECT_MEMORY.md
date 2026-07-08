@@ -909,7 +909,7 @@ const isAdmin = senderParticipant?.isAdmin || senderParticipant?.isSuperAdmin;
 - PM2 restart aplicado
 
 ### Próximos Passos
-1. Testar  após restart do bot
+1. Testar $pergunta após restart do bot
 2. Monitorar AutoMod avançado em produção
 3. Melhorar cobertura de testes
 
