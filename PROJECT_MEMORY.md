@@ -860,10 +860,60 @@ const isAdmin = senderParticipant?.isAdmin || senderParticipant?.isSuperAdmin;
 
 
 
+
 ---
 
+## 🔄 AUDITORIA 2026-07-08 (Sessão 5)
 
+### Status do Sistema
+- ✅ **WhatsApp**: Online e Estável (AutoMod avançado ativo)
+- ⚠️ **Telegram**: Timeout na inicialização mas funcional
+- ✅ **Discord**: Online e Estável
+- ✅ **59 Comandos carregados** (incluindo novo )
+- ✅ **GEMINI_API_KEY**: Configurado em Windows e Linux
 
+### Novas Funcionalidades
+1. **AutoMod Avançado** (src/services/autoModService.ts):
+   - Detecção de mensagens interativas/cards complexos (templateMessage, buttonsMessage, interactiveMessage, listMessage)
+   - Filtro por DDI (números internacionais enviando conteúdo suspeito)
+   - Filtro de palavras-chave específicas (taxa de vitórias, recolha contínua, bônus, pp7.wtf, etc.)
+   - Novo comando $automod para gerenciar funções automáticas
+
+2. **Menu Atualizado** (src/bot/commands/menu.ts):
+   - Hora atual no formato brasileiro (America/Sao_Paulo)
+   - Status "😏 SARCASMO: ON" (handler de palavras-chave sempre ativo)
+   - Status de todas as funções do AutoMod (DDI, CARD, PALAVRAS, LINKS)
+
+3. **Correção $ban** (`src/bot/commands/ban.ts`):
+   - Adicionada verificação de msg.getChat antes de usar
+   - Evita erro "Cannot read properties of undefined (reading 'getChat')"
+   - Melhor tratamento de erros
+
+4. **Handler de Palavras-Chave** (src/services/keywordHandler.ts):
+   - Responde sarcasticamente quando mencionado "bot" (ex: "Tenho nada a ver com isso")
+   - Sempre ativo, integrado no menu
+
+### Correções Aplicadas (Sessão 5)
+1. **$ban**: Verificação de msg.getChat antes de usar
+2. **Menu**: Adicionado hora atual e status de sarcasmo
+3. **AutoMod**: Novas funções de detecção avançada
+4. **Sync**: Git sincronizado Windows -> Linux
+5. **Deploy**: Build e PM2 restart no Linux
+
+### Problemas Resolvidos
+1. **$pergunta**: GEMINI_API_KEY já estava configurada no .env do Linux, apenas precisou de sync e restart
+
+### Git Sync
+- Windows e Linux sincronizados no commit b5c0d24
+- Build realizado com sucesso no Linux
+- PM2 restart aplicado
+
+### Próximos Passos
+1. Testar  após restart do bot
+2. Monitorar AutoMod avançado em produção
+3. Melhorar cobertura de testes
+
+---
 ## 📚 Referências
 
 
@@ -1612,11 +1662,11 @@ Bot responde:
 
 
 
-**Última Atualização:** 2026-07-07 (Auditoria completa + correções críticas)
+**Última Atualização:** 2026-07-08 (Melhorias no menu + AutoMod avançado)
 
 **Responsável:** WarriorBlack  
 
-**Versão:** 1.2.0
+**Versão:** 1.3.0
 
 
 
@@ -1785,4 +1835,5 @@ Bot responde:
 - Rebuild local realizado com sucesso.
 
 - Servidor Linux aguardando pull/restart (SSH temporariamente indisponível para o agente, mas instruções de deploy manual fornecidas).
+
 
