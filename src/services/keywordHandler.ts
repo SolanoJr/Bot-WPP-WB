@@ -6,7 +6,7 @@ import { getSarcasticResponse } from './aiService';
  * @param client - Instância do bot
  * @returns Retorna true se processou algo que deve interromper o fluxo
  */
-async function handleKeywords(msg: any, client: any): Promise<boolean> {
+export async function handleKeywords(msg: any, client: any): Promise<boolean> {
     const body = msg.body.toLowerCase();
 
     // 1. Detecção de Trollagem (Falso Banimento/Saída)
@@ -38,6 +38,4 @@ async function handleKeywords(msg: any, client: any): Promise<boolean> {
     return false;
 }
 
-export {
-    handleKeywords
-};
+// Removido export default para evitar conflitos de importação nomeada

@@ -178,11 +178,18 @@ function createLegacyMessage(msg: any, ctx: any): any {
   const robustReply = async (text: string, options?: any) => {
     console.log(`[LegacyMessage] Replying to ${msg.platform}...`);
     try {
+      // Prioridade 1: ctx.reply (método direto do adaptador)
       if (ctx && typeof ctx.reply === 'function') {
         return await ctx.reply(text, options);
       }
+      // Prioridade 2: client.sendMessage via msg.chatId
       if (ctx && ctx.client && typeof ctx.client.sendMessage === 'function') {
         return await ctx.client.sendMessage(msg.chatId, text, options);
+      }
+      // Prioridade 3: Envio direto pelo adaptador do WhatsApp se for a plataforma
+      if (msg.platform === 'whatsapp') {
+        const { whatsAppClient } = await import('../../platforms/whatsapp/WhatsAppAdapter');
+        return await whatsAppClient.sendMessage(msg.chatId, text, options);
       }
       // Fallback extremo via PlatformManager
       const { platformManager: pm } = await import('../../platforms/PlatformManager');
@@ -193,6 +200,16 @@ function createLegacyMessage(msg: any, ctx: any): any {
   };
 
   legacyMsg.reply = robustReply;
+  // Garantir que delete() também funcione para comandos de moderação
+  legacyMsg.delete = async (everyone: boolean = true) => {
+    try {
+      if (msg.raw && typeof msg.raw.delete === 'function') {
+        return await msg.raw.delete(everyone);
+      }
+    } catch (err) {
+      console.error('[LegacyMessage] Erro ao deletar mensagem:', err);
+    }
+  };
 
   legacyMsg.getChat = async () => {
     try {
@@ -237,6 +254,15 @@ function createLegacyClient(client: any): any {
     getChats: async () => {
       const chats = await client.getChats();
       return chats.map((c: any) => c.raw);
+    },
+    kick: async (userId: string) => {
+      // Método legado usado em alguns comandos
+      const { whatsAppClient } = await import('../../platforms/whatsapp/WhatsAppAdapter');
+      const wppClient = whatsAppClient.getClient();
+      const chat = await wppClient.getChatById(userId.includes('@g.us') ? userId : (await wppClient.getContactById(userId)).id._serialized);
+      if (chat.isGroup) {
+        await (chat as any).removeParticipants([userId]);
+      }
     },
     info: {
       wid: { _serialized: client.userId },
