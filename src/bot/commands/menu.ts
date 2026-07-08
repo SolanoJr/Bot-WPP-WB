@@ -10,6 +10,9 @@ export const menuCommand: ICommand = {
         const minutes = Math.floor((uptimeSeconds % 3600) / 60);
         const uptimeStr = `${hours}h ${minutes}m`;
 
+        const now = new Date();
+        const timeStr = now.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+
         const { getAutoModConfig } = await import('../../services/autoModService');
         const amConfig = getAutoModConfig();
         const amStatus = amConfig.enabled ? '🛡️ ATIVO' : '⚪ OFF';
@@ -17,12 +20,14 @@ export const menuCommand: ICommand = {
         const interactiveStatus = amConfig.filterInteractiveMessages ? '📱 CARD: ON' : '📱 CARD: OFF';
         const keywordsStatus = amConfig.filterSuspiciousKeywords ? '🔍 PALAVRAS: ON' : '🔍 PALAVRAS: OFF';
         const linksStatus = amConfig.autoDeleteLinks ? '🔗 LINKS: ON' : '🔗 LINKS: OFF';
+        const mentionStatus = '😏 SARCASMO: ON'; // Handler de palavras-chave sempre ativo
 
         const menu = [
 		            "╔════════════════════════╗",
 		            "║          🤖 BOT         ║",
 		            "╠════════════════════════╣",
-		            `║ 🕒 Uptime: ${uptimeStr} | ${amStatus}`,
+		            `║ 🕒 ${timeStr} | Uptime: ${uptimeStr}`,
+		            `║ ${amStatus} | ${mentionStatus}`,
                     `║ ${ddiStatus} | ${interactiveStatus}`,
                     `║ ${keywordsStatus} | ${linksStatus}`,
             "║",

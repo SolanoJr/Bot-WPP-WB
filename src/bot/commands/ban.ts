@@ -9,7 +9,20 @@ export const banCommand: ICommand = {
   async execute(ctx: CommandContext) {
     try {
       const { msg, client } = ctx;
+      
+      // Verificar se msg existe e tem método getChat
+      if (!msg || typeof msg.getChat !== 'function') {
+        await ctx.reply("❌ Erro: mensagem inválida ou formato não suportado.");
+        console.error("[ban] msg inválido ou sem getChat:", msg);
+        return;
+      }
+
       const chat = await msg.getChat();
+      if (!chat) {
+        await ctx.reply("❌ Erro ao obter informações do chat.");
+        return;
+      }
+
       if (!chat.isGroup) {
         await ctx.reply("❌ Este comando só funciona em grupos.");
         return;
@@ -69,7 +82,7 @@ export const banCommand: ICommand = {
       // Apagar mensagens (últimas 50)
       try {
         const messages = await chat.fetchMessages({ limit: 50 });
-        const toDelete = messages.filter(m => (m.author || m.from) === targetId);
+        const toDelete = messages.filter((m: any) => (m.author || m.from) === targetId);
         for (const m of toDelete) {
           await m.delete(true);
         }
