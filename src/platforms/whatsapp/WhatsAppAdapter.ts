@@ -84,6 +84,17 @@ export class WhatsAppClient implements PlatformClient {
     });
 
     this.client.on('message', async (msg: Message) => {
+      try {
+        // Executar AutoMod para mensagens recebidas em grupos
+        const moderated = await processAutoMod(msg, this.client);
+        if (moderated) {
+          console.log(`🛡️ [WhatsAppAdapter] Mensagem moderada e deletada de ${msg.author || msg.from}`);
+          return;
+        }
+      } catch (err) {
+        console.error(`[WhatsAppAdapter] Erro ao executar AutoMod:`, err.message);
+      }
+
       if (this.messageHandler) {
         const platformMsg = this.normalizeMessage(msg);
         await this.messageHandler(platformMsg);
@@ -124,6 +135,16 @@ export class WhatsAppClient implements PlatformClient {
       const newMembers = notification.recipientIds || notification.recipients || [];
       
       console.log('[WhatsApp] Novo(s) membro(s) entrando:', { groupId, members: newMembers });
+
+      // Registrar o horário de entrada de cada membro para controle de DDI no AutoMod
+      try {
+        const { recordMemberJoin } = await import('../../services/autoModService');
+        for (const memberId of newMembers) {
+          recordMemberJoin(groupId, memberId);
+        }
+      } catch (err) {
+        console.error('[WhatsApp] Erro ao registrar entrada de membro para AutoMod:', err.message);
+      }
 
       // Importar função para obter mensagem personalizada
       const { getWelcomeMessage } = await import('../../bot/commands/welcome');

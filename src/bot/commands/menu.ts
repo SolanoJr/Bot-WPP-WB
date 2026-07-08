@@ -14,13 +14,17 @@ export const menuCommand: ICommand = {
         const amConfig = getAutoModConfig();
         const amStatus = amConfig.enabled ? '🛡️ ATIVO' : '⚪ OFF';
         const ddiStatus = amConfig.filterForeignNumbers ? '🌍 DDI: ON' : '🌍 DDI: OFF';
+        const interactiveStatus = amConfig.filterInteractiveMessages ? '📱 CARD: ON' : '📱 CARD: OFF';
+        const keywordsStatus = amConfig.filterSuspiciousKeywords ? '🔍 PALAVRAS: ON' : '🔍 PALAVRAS: OFF';
+        const linksStatus = amConfig.autoDeleteLinks ? '🔗 LINKS: ON' : '🔗 LINKS: OFF';
 
         const menu = [
 		            "╔════════════════════════╗",
 		            "║          🤖 BOT         ║",
 		            "╠════════════════════════╣",
 		            `║ 🕒 Uptime: ${uptimeStr} | ${amStatus}`,
-                    `║ ${ddiStatus}`,
+                    `║ ${ddiStatus} | ${interactiveStatus}`,
+                    `║ ${keywordsStatus} | ${linksStatus}`,
             "║",
             "║ 📝 Prefixo aceito:",
             "║ ▸ $",

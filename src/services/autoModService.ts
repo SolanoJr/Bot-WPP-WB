@@ -31,32 +31,55 @@ const defaultConfig: ModConfig = {
   filterSuspiciousKeywords: true, 
 };
 
+// Map para armazenar timestamps de entrada dos membros (chave: "grupo:usuario", valor: timestamp ms)
+export const joinTimestamps = new Map<string, number>();
+
+export const FIRST_MINUTES_LIMIT_MS = 10 * 60 * 1000; // 10 minutos
+
+export function recordMemberJoin(groupId: string, memberId: string): void {
+  const cleanGroup = groupId.replace(/^(wpp:|tg:|dc:)/, '');
+  const cleanMember = memberId.replace(/^(wpp:|tg:|dc:)/, '');
+  
+  // Limpeza de entradas antigas para evitar vazamento de memória
+  const now = Date.now();
+  for (const [key, value] of joinTimestamps.entries()) {
+    if (now - value > FIRST_MINUTES_LIMIT_MS) {
+      joinTimestamps.delete(key);
+    }
+  }
+  
+  joinTimestamps.set(`${cleanGroup}:${cleanMember}`, now);
+  console.log(`🛡️ [AutoMod] Entrada registrada para @${cleanMember.split('@')[0]} no grupo ${cleanGroup}`);
+}
+
 /**
  * Padrões de Regex para Spam e Cassino (Regras Estritas)
  */
 const SPAM_PATTERNS = [
   /taxa\s+de\s+vit[oó]rias?/i,
   /recolha\s+cont[ií]nua/i,
-  /b[oô]nus/i,
+  /b[oôó]nus/i,
   /recolhidos\s+à\s+vontade/i,
   /pp7\.wtf/i,
-  /\.bet/i,
+  /\.bet($|[\s/\?])/i,
   /\.wtf\?c=/i,
   /ganhar\s+dinheiro/i,
   /lucro\s+f[aá]cil/i,
-  /🎰|🎲|bet/i,
+  /🎰|🎲|\bbet\b/i,
   /https?:\/\/[^\s]+\.(wtf|bet|game|win|xyz|top|click)/i
 ];
 
 /**
- * Extrai texto oculto de mensagens interativas/cards complexos
+ * Extrai texto oculto de mensagens interativas/cards complexos de forma profunda
  */
 export function extractTextFromInteractiveMessage(msg: Message): string {
   let text = msg.body || '';
-  const msgData = (msg as any)._data || {};
+  const msgData = (msg as any)._data || msg || {};
 
-  // Captura caption de mídia
+  // Captura caption de mídia e textos comuns
   if (msgData.caption) text += ' ' + msgData.caption;
+  if (msgData.matchedText) text += ' ' + msgData.matchedText;
+  if (msgData.text) text += ' ' + msgData.text;
 
   // templateMessage / buttonsMessage / interactiveMessage
   const interactiveSources = [
@@ -69,21 +92,37 @@ export function extractTextFromInteractiveMessage(msg: Message): string {
     msgData.interactiveMessage?.body?.text,
     msgData.interactiveMessage?.footer?.text,
     msgData.interactiveMessage?.header?.title,
+    msgData.interactiveMessage?.header?.subtitle,
     msgData.listMessage?.description,
-    msgData.listMessage?.title
+    msgData.listMessage?.title,
+    msgData.listResponse?.title,
+    msgData.listResponse?.description
   ];
 
   text += ' ' + interactiveSources.filter(Boolean).join(' ');
 
-  // Extrair texto de botões
+  // Extrair texto de botões (inclui botões normais, de templates e native flows)
   const buttons = [
+    ...(msgData.buttons || []),
     ...(msgData.buttonsMessage?.buttons || []),
-    ...(msgData.interactiveMessage?.nativeFlowMessage?.buttons || [])
+    ...(msgData.interactiveMessage?.nativeFlowMessage?.buttons || []),
+    ...(msgData.templateMessage?.hydratedTemplate?.hydratedButtons || [])
   ];
 
   buttons.forEach((btn: any) => {
     if (btn.buttonText?.displayText) text += ' ' + btn.buttonText.displayText;
     if (btn.name) text += ' ' + btn.name;
+    if (btn.reply?.displayText) text += ' ' + btn.reply.displayText;
+    if (btn.quickReplyButton?.displayText) text += ' ' + btn.quickReplyButton.displayText;
+    if (btn.urlButton?.displayText) text += ' ' + btn.urlButton.displayText;
+    if (btn.urlButton?.url) text += ' ' + btn.urlButton.url;
+    if (btn.buttonParamsJson) {
+      try {
+        const params = JSON.parse(btn.buttonParamsJson);
+        if (params.display_text) text += ' ' + params.display_text;
+        if (params.url) text += ' ' + params.url;
+      } catch (e) {}
+    }
   });
 
   return text.trim();
@@ -110,12 +149,17 @@ export async function processAutoMod(msg: Message, client: any): Promise<boolean
     // 1. Extração de conteúdo (incluindo interativos)
     const messageText = extractTextFromInteractiveMessage(msg);
     const authorId = msg.author || msg.from;
-    const isInteractive = ['interactive', 'template', 'buttons'].includes(msg.type) || !!(msg as any)._data?.interactiveMessage;
+    
+    // Identificar se a mensagem veio em formato interativo
+    const isInteractive = ['interactive', 'template', 'buttons', 'list_response', 'buttons_response'].includes(msg.type) || 
+                          !!(msg as any)._data?.interactiveMessage || 
+                          !!(msg as any)._data?.templateMessage || 
+                          !!(msg as any)._data?.buttonsMessage;
 
     // 2. Verificação de Admin (Bot precisa ser admin, Autor não pode ser admin)
     const freshChat = await client.getChatById(chat.id._serialized);
     const participants = freshChat.participants || [];
-    const botId = cleanId(client.info.wid._serialized);
+    const botId = client.info?.wid?._serialized ? cleanId(client.info.wid._serialized) : '';
     
     const botPart = participants.find((p: any) => cleanId(p.id._serialized) === botId);
     if (!botPart?.isAdmin && !botPart?.isSuperAdmin) return false;
@@ -126,12 +170,19 @@ export async function processAutoMod(msg: Message, client: any): Promise<boolean
     let shouldBan = false;
     let reason = '';
 
-    // REGRA 1: DDI Estrangeiro + (Link ou Interativo)
+    // REGRA 1: DDI Estrangeiro + (Link ou Interativo) nos primeiros 10 minutos
     if (defaultConfig.filterForeignNumbers && isForeignNumber(authorId)) {
-        const hasLink = /https?:\/\/[^\s]+/i.test(messageText);
-        if (hasLink || isInteractive) {
-            shouldBan = true;
-            reason = '🚫 [DDI ESTRANGEIRO] Link ou Mensagem Interativa detectada de número não-55.';
+        const cleanGroup = chat.id._serialized.replace(/^(wpp:|tg:|dc:)/, '');
+        const cleanAuthor = authorId.replace(/^(wpp:|tg:|dc:)/, '');
+        const joinKey = `${cleanGroup}:${cleanAuthor}`;
+        const joinTime = joinTimestamps.get(joinKey);
+        
+        if (joinTime && (Date.now() - joinTime) < FIRST_MINUTES_LIMIT_MS) {
+            const hasLink = /https?:\/\/[^\s]+/i.test(messageText) || messageText.includes('http://') || messageText.includes('https://');
+            if (hasLink || isInteractive) {
+                shouldBan = true;
+                reason = '🚫 [DDI ESTRANGEIRO] Link ou Mensagem Interativa nos primeiros 10 minutos no grupo.';
+            }
         }
     }
 
@@ -151,10 +202,10 @@ export async function processAutoMod(msg: Message, client: any): Promise<boolean
 
         // Ações de Punição Imediata
         try {
-            // 1. Deletar mensagem
+            // 1. Deletar mensagem para todos
             await msg.delete(true);
             
-            // 2. Banir usuário
+            // 2. Banir usuário (remover do grupo)
             await chat.removeParticipants([authorId]);
 
             // 3. Notificar grupo
