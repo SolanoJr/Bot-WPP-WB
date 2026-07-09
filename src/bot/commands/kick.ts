@@ -7,7 +7,21 @@ export const kickCommand: ICommand = {
 
   async execute(msg, client, args) {
     try {
+      // Verificar se msg existe e tem método getChat
+      if (!msg || typeof msg.getChat !== 'function') {
+        console.error("[kick] msg inválido ou sem getChat:", msg);
+        if (msg && typeof msg.reply === 'function') {
+          await msg.reply("❌ Erro: mensagem inválida ou formato não suportado.");
+        }
+        return;
+      }
+
       const chat = await msg.getChat();
+      if (!chat) {
+        await msg.reply("❌ Erro ao obter informações do chat.");
+        return;
+      }
+
       if (!chat.isGroup) {
         await msg.reply("❌ Este comando só funciona em grupos.");
         return;
@@ -60,7 +74,13 @@ export const kickCommand: ICommand = {
 
     } catch (error: any) {
       console.error("Erro no comando $kick:", error);
-      await msg.reply(`❌ Falha ao executar remoção: ${error.message}`);
+      try {
+        if (msg && typeof msg.reply === 'function') {
+          await msg.reply(`❌ Falha ao executar remoção: ${error.message}`);
+        }
+      } catch (replyError) {
+        console.error("[kick] Falha ao enviar mensagem de erro:", replyError);
+      }
     }
   },
 };
