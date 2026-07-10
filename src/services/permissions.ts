@@ -4,12 +4,17 @@
  * Controle de acesso baseado em níveis de usuário
  */
 
+import { IBotMessage } from '../shared/types';
 require('dotenv').config();
 
 // Configuração de usuários
 const MASTER_USER = process.env.MASTER_USER || '5588998314322@c.us';
 const MASTER_NUMBER = process.env.MASTER_NUMBER || '5588998314322';
 const ADMINS = new Set((process.env.ADMINS || '').split(',').filter(Boolean));
+
+// IDs de Master em outras plataformas (opcional via .env)
+const TELEGRAM_MASTER = process.env.TELEGRAM_MASTER_ID || '1426466318'; // Exemplo de ID do usuário
+const DISCORD_MASTER = process.env.DISCORD_MASTER_ID || '1177651034533036063';
 
 // Níveis de permissão
 const PERMISSIONS = {
@@ -77,30 +82,94 @@ function hasPermission(userId: string, requiredLevel: PermissionLevel): boolean 
 }
 
 /**
- * Verifica se é MASTER (Método de Sufixo Infalível)
+ * Verifica se é MASTER (Multiplataforma)
  * @param userId - ID do usuário
+ * @param platform - Plataforma opcional
  * @returns É MASTER?
  */
-function isMaster(userId: string): boolean {
+function isMaster(userId: string, platform: string = 'whatsapp'): boolean {
     if (!userId) return false;
   
-    // OFICIAL - MAPEAMENTO LID (Linked ID)
-    if (userId === '202658048684056@lid') return true;
+    // 1. Verificação WhatsApp
+    if (platform === 'whatsapp') {
+        if (userId === '202658048684056@lid') return true;
+        const clean = cleanId(userId);
+        const masterClean = cleanId(MASTER_USER);
+        const masterNumClean = cleanId(MASTER_NUMBER);
+        if (clean === masterClean || clean === masterNumClean || userId.includes('88998314322')) return true;
+    }
 
-    const clean = cleanId(userId);
-    const masterClean = cleanId(MASTER_USER);
-    const masterNumClean = cleanId(MASTER_NUMBER);
+    // 2. Verificação Telegram
+    if (platform === 'telegram') {
+        if (userId === TELEGRAM_MASTER) return true;
+    }
 
-    return clean === masterClean || clean === masterNumClean || userId.includes('88998314322');
+    // 3. Verificação Discord
+    if (platform === 'discord') {
+        if (userId === DISCORD_MASTER) return true;
+    }
+
+    return false;
 }
 
 /**
- * Verifica se é ADMIN ou superior
- * @param userId - ID do usuário
+ * Verifica se é ADMIN ou superior (Com Fallback Robusto)
+ * @param msg - Mensagem (IBotMessage ou Raw)
+ * @param client - Cliente da plataforma
  * @returns É ADMIN?
  */
-function isAdmin(userId: string): boolean {
-    return hasPermission(userId, PERMISSIONS.ADMIN);
+async function isAdmin(msg: any, client: any): Promise<boolean> {
+    const userId = msg.author || msg.from;
+    const platform = (msg as IBotMessage).platform || 'whatsapp';
+
+    // Master sempre é Admin
+    if (isMaster(userId, platform)) return true;
+
+    // Verificar lista de admins global (ID fixo no .env)
+    const userClean = cleanId(userId);
+    const CLEAN_ADMINS = new Set([...ADMINS].map(id => cleanId(id)));
+    if (CLEAN_ADMINS.has(userClean)) return true;
+
+    // Verificação Dinâmica por Plataforma
+    try {
+        if (platform === 'whatsapp') {
+            // No WhatsApp, mensagens PV não têm 'author', apenas 'from'
+            const isGroup = msg.isGroup || (typeof msg.getChat === 'function' && (await msg.getChat()).isGroup);
+            if (!isGroup) return true;
+
+            // Forçar recarga do chat para evitar cache de permissões antigo
+            const chatId = msg.from;
+            const chat = await client.getChatById(chatId);
+
+            if (!chat.isGroup) return true;
+
+            const participant = chat.participants.find((p: any) =>
+                p.id._serialized === userId || p.id.user === userClean
+            );
+
+            const result = !!(participant?.isAdmin || participant?.isSuperAdmin);
+
+            // Log de depuração para fallbacks
+            console.log(`[PERMISSIONS] WhatsApp Admin Check: User=${userClean} Group=${chatId} Result=${result}`);
+
+            return result;
+        }
+
+        if (platform === 'telegram') {
+            const member = await client.getChatMember(msg.from, parseInt(userId));
+            return ['creator', 'administrator'].includes(member.status);
+        }
+
+        if (platform === 'discord') {
+            const member = msg.raw?.member;
+            if (member) return member.permissions.has('Administrator');
+            return false;
+        }
+    } catch (error) {
+        console.error(`[PERMISSIONS] Erro ao validar Admin na plataforma ${platform}:`, error);
+    }
+
+    return false;
 }
 
 /**

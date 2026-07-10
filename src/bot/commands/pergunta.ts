@@ -19,12 +19,6 @@ export const perguntaCommand: ICommand = {
     const groupId = msg.from;
 
     try {
-      const db = await getDb();
-      await db.run(
-        'INSERT INTO command_logs (command_name, user_id, group_id) VALUES (?, ?, ?)',
-        ['pergunta', userId, groupId]
-      );
-
       logger.info(`IA Question: [${userId}] ${prompt}`);
 
       await msg.reply('⏳ Processando sua pergunta na IA...');

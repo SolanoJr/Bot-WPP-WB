@@ -26,6 +26,9 @@ export async function initDatabase() {
       command_name TEXT,
       user_id TEXT,
       group_id TEXT,
+      platform TEXT DEFAULT 'whatsapp',
+      success INTEGER DEFAULT 1,
+      error_message TEXT,
       timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);

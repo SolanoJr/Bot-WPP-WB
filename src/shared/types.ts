@@ -52,3 +52,24 @@ export interface IGroupConfig {
     antispamActive: number;
     isActive: boolean;
 }
+
+/**
+ * 🤖 Interface Universal de Mensagem para Multiplataforma
+ */
+export interface IBotMessage {
+    id: string;
+    body: string;
+    from: string; // ID do Chat/Grupo
+    author: string; // ID do Usuário
+    platform: 'whatsapp' | 'telegram' | 'discord';
+    isGroup: boolean;
+    timestamp: number;
+
+    // Métodos universais
+    reply: (text: string) => Promise<any>;
+    react?: (emoji: string) => Promise<any>;
+    delete?: () => Promise<any>;
+
+    // Dados originais (opcional)
+    raw?: any;
+}

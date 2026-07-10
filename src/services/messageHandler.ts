@@ -1,34 +1,44 @@
 import axios from 'axios';
 import { handleKeywords } from './keywordHandler';
 import { handleModeration } from './moderationService';
+import { IBotMessage } from '../shared/types';
+import { getDb } from './databaseService';
+import logger from './loggerService';
 
 /**
- * Handler centralizado para todas as mensagens recebidas
- * @param msg - Objeto da mensagem
- * @param client - Instância do bot
+ * Handler centralizado para todas as mensagens recebidas (Multiplataforma)
+ * @param msg - Objeto da mensagem (Adaptado para IBotMessage se necessário)
+ * @param client - Instância do bot da plataforma
  * @param commands - Mapa de comandos carregados
  */
 async function processMessage(msg: any, client: any, commands: Map<string, any>): Promise<void> {
+    // Normalização para Interface Universal se necessário
+    const isUniversal = (msg as IBotMessage).platform !== undefined;
+    const body = msg.body || '';
+    const authorId = msg.author || msg.from;
+    const platform = isUniversal ? (msg as IBotMessage).platform : 'whatsapp';
+
     // 1. Log de Auditoria
-    console.log(`\n--- NOVA MENSAGEM ---`);
-    console.log(`De (ID): ${msg.author || msg.from}`);
-    console.log(`Conteúdo: ${msg.body}`);
+    console.log(`\n--- NOVA MENSAGEM [${platform.toUpperCase()}] ---`);
+    console.log(`De (ID): ${authorId}`);
+    console.log(`Conteúdo: ${body}`);
     console.log(`---------------------\n`);
 
     // 2. Ignorar moderação e interceptação para comandos legítimos
-    const body = msg.body || '';
     const prefix = '$';
     const isCommand = body.startsWith(prefix);
 
     if (!isCommand) {
-        // 3. Auto-Moderação de Spam/Links/Apostas (apenas para não-comandos)
-        const moderated = await handleModeration(client, msg);
-        if (moderated) {
-            console.log(`🛡️ [MODERATION] Mensagem moderada: ${msg.body}`);
-            return;
+        // 3. Auto-Moderação (Apenas WhatsApp por enquanto, ou expandir para outros)
+        if (platform === 'whatsapp') {
+            const moderated = await handleModeration(client, msg);
+            if (moderated) {
+                console.log(`🛡️ [MODERATION] Mensagem moderada no WhatsApp: ${body}`);
+                return;
+            }
         }
 
-        // 4. Lógica de Palavras-Chave e Auto-Moderação (Separada)
+        // 4. Lógica de Palavras-Chave
         const intercepted = await handleKeywords(msg, client);
         if (intercepted) return;
     }
@@ -44,8 +54,11 @@ async function processMessage(msg: any, client: any, commands: Map<string, any>)
     if (command) {
         try {
             await command.execute(msg, client, args);
+            await logCommand(commandName, authorId, msg.from, platform, true);
         } catch (error: any) {
-            console.error(`❌ Erro no comando $${commandName}:`, error.message);
+            const errorMsg = error.message || 'Erro desconhecido';
+            console.error(`❌ Erro no comando $${commandName}:`, errorMsg);
+            await logCommand(commandName, authorId, msg.from, platform, false, errorMsg);
             await msg.reply('⚠️ Ocorreu um erro interno ao executar este comando.');
         }
     } else {
@@ -78,6 +91,33 @@ async function handleCustomCommands(msg: any, client: any, commandName: string):
         }
     } catch (error) {
         // Silencioso
+    }
+}
+
+/**
+ * 📝 Log centralizado de comandos (SQLite + Winston)
+ */
+async function logCommand(
+    name: string,
+    userId: string,
+    groupId: string,
+    platform: string,
+    success: boolean,
+    error?: string
+) {
+    try {
+        const db = await getDb();
+        await db.run(
+            'INSERT INTO command_logs (command_name, user_id, group_id, platform, success, error_message) VALUES (?, ?, ?, ?, ?, ?)',
+            [name, userId, groupId, platform, success ? 1 : 0, error || null]
+        );
+
+        const logMsg = `[COMMAND] ${platform.toUpperCase()} | ${name} | User: ${userId} | Success: ${success}${error ? ' | Error: ' + error : ''}`;
+        if (success) logger.info(logMsg);
+        else logger.error(logMsg);
+
+    } catch (err) {
+        console.error('❌ Erro ao gravar log de comando:', err);
     }
 }
 
