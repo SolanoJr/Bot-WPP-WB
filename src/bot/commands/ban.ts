@@ -13,16 +13,20 @@ export const banCommand: ICommand = {
     const args = isContext ? ctxOrMsg.args : maybeArgs;
 
     try {
-      // Obter o chat de forma segura
+      // Verificar se msg existe e tem método getChat
+      if (!msg || typeof msg.getChat !== 'function') {
+        console.error("[ban] msg inválido ou sem getChat:", msg);
+        const replyText = "❌ Erro: mensagem inválida ou formato não suportado.";
+        if (isContext) await ctxOrMsg.reply(replyText);
+        else if (msg && typeof msg.reply === 'function') await msg.reply(replyText);
+        return;
+      }
+
       const chat = await msg.getChat();
       if (!chat) {
         const replyText = "❌ Erro ao obter informações do chat.";
         if (isContext) await ctxOrMsg.reply(replyText);
         else await msg.reply(replyText);
-        return;
-      }
-      if (!chat) {
-        await msg.reply("❌ Erro ao obter informações do chat.");
         return;
       }
 
@@ -119,7 +123,13 @@ export const banCommand: ICommand = {
 
     } catch (error: any) {
       console.error("Erro no comando $ban:", error);
-      await msg.reply(`❌ Falha ao executar banimento: ${error.message}`);
+      try {
+        if (msg && typeof msg.reply === 'function') {
+          await msg.reply(`❌ Falha ao executar banimento: ${error.message}`);
+        }
+      } catch (replyError) {
+        console.error("[ban] Falha ao enviar mensagem de erro:", replyError);
+      }
     }
   },
 };

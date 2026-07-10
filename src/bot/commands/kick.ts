@@ -13,7 +13,23 @@ export const kickCommand: ICommand = {
     const args = isContext ? ctxOrMsg.args : maybeArgs;
 
     try {
+      // Verificar se msg existe e tem método getChat
+      if (!msg || typeof msg.getChat !== 'function') {
+        console.error("[kick] msg inválido ou sem getChat:", msg);
+        const replyText = "❌ Erro: mensagem inválida ou formato não suportado.";
+        if (isContext) await ctxOrMsg.reply(replyText);
+        else if (msg && typeof msg.reply === 'function') await msg.reply(replyText);
+        return;
+      }
+
       const chat = await msg.getChat();
+      if (!chat) {
+        const replyText = "❌ Erro ao obter informações do chat.";
+        if (isContext) await ctxOrMsg.reply(replyText);
+        else await msg.reply(replyText);
+        return;
+      }
+
       if (!chat.isGroup) {
         const replyText = "❌ Este comando só funciona em grupos.";
         if (isContext) await ctxOrMsg.reply(replyText);
@@ -79,7 +95,13 @@ export const kickCommand: ICommand = {
 
     } catch (error: any) {
       console.error("Erro no comando $kick:", error);
-      await msg.reply(`❌ Falha ao executar remoção: ${error.message}`);
+      try {
+        if (msg && typeof msg.reply === 'function') {
+          await msg.reply(`❌ Falha ao executar remoção: ${error.message}`);
+        }
+      } catch (replyError) {
+        console.error("[kick] Falha ao enviar mensagem de erro:", replyError);
+      }
     }
   },
 };
