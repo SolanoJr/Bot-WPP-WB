@@ -90,9 +90,7 @@ export const menuCommand: ICommand = {
             `║`,
             `╠══════════════════════════╣`,
             `║ 📂 HASH: ${gitHash}`,
-            `╚══════════════════════════╝`,
-            ``,
-            `_Dica: o bot aceita somente comandos iniciados com $_`
+            `╚══════════════════════════╝`
         ].join('\n');
 
         await ctx.reply(menu);

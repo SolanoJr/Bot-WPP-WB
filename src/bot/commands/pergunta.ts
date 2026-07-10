@@ -7,16 +7,23 @@ import logger from '../../services/loggerService';
 export const perguntaCommand: ICommand = {
   name: 'pergunta',
   description: 'Faz uma pergunta inteligente para a IA do bot.',
-  async execute(msg, client, args) {
+  async execute(ctxOrMsg: any, maybeClient?: any, maybeArgs?: any) {
+    // Suporte a CommandContext (novo) e parâmetros legados (antigo)
+    const isContext = ctxOrMsg && typeof ctxOrMsg === 'object' && 'msg' in ctxOrMsg;
+    const msg = isContext ? ctxOrMsg.msg : ctxOrMsg;
+    const args = isContext ? ctxOrMsg.args : maybeArgs;
+    
     const prompt = args.join(' ');
 
     if (!prompt) {
-      await msg.reply('⚠️ Por favor, digite sua pergunta após o comando.\nExemplo: $pergunta Qual a capital da França?');
+      const replyText = '⚠️ Por favor, digite sua pergunta após o comando.\nExemplo: $pergunta Qual a capital da França?';
+      if (isContext) await ctxOrMsg.reply(replyText);
+      else await msg.reply(replyText);
       return;
     }
 
-    const userId = msg.author || msg.from || 'unknown';
-    const groupId = msg.from;
+    const userId = msg.userId || msg.author || msg.from || 'unknown';
+    const groupId = msg.chatId || msg.from;
 
     try {
       const db = await getDb();

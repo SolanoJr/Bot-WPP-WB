@@ -5,30 +5,49 @@ export const kickCommand: ICommand = {
   name: "kick",
   description: "Remove um usuário do grupo.",
 
-  async execute(msg, client, args) {
+  async execute(ctxOrMsg: any, maybeClient?: any, maybeArgs?: any) {
+    // Suporte a CommandContext (novo) e parâmetros legados (antigo)
+    const isContext = ctxOrMsg && typeof ctxOrMsg === 'object' && 'msg' in ctxOrMsg;
+    const msg = isContext ? ctxOrMsg.msg : ctxOrMsg;
+    const client = isContext ? (ctxOrMsg.client as any).getClient?.() || ctxOrMsg.client : maybeClient;
+    const args = isContext ? ctxOrMsg.args : maybeArgs;
+
     try {
       const chat = await msg.getChat();
       if (!chat.isGroup) {
-        await msg.reply("❌ Este comando só funciona em grupos.");
+        const replyText = "❌ Este comando só funciona em grupos.";
+        if (isContext) await ctxOrMsg.reply(replyText);
+        else await msg.reply(replyText);
         return;
       }
 
       // 1. Verificação de Permissões
-      const senderId = msg.author || msg.from;
-      const freshChat = await client.getChatById(chat.id._serialized);
+      const senderId = msg.userId || msg.author || msg.from;
+      const freshChat = await client.getChatById(chat.id?._serialized || chat.id);
       const participants = freshChat.participants || [];
       
-      const botId = cleanId(client.info.wid._serialized);
-      const botPart = participants.find((p: any) => cleanId(p.id._serialized) === botId);
-      const senderPart = participants.find((p: any) => cleanId(p.id._serialized) === cleanId(senderId));
+      const botId = cleanId(client.info?.wid?._serialized || "");
+      const botPart = participants.find((p: any) => cleanId(p.id?._serialized || "") === botId);
+      
+      // Tentar encontrar sender comparando de todas as formas possíveis (incluindo LID)
+      const senderPart = participants.find((p: any) => {
+        const pId = p.id?._serialized || "";
+        const pIdClean = cleanId(pId);
+        const senderIdRaw = msg.userId || msg.author || msg.from;
+        return pIdClean === cleanId(senderId) || pId === senderIdRaw || (senderId && pId.includes(senderId));
+      });
 
       if (!botPart?.isAdmin && !botPart?.isSuperAdmin) {
-        await msg.reply("❌ O bot precisa ser administrador para remover membros.");
+        const replyText = "❌ O bot precisa ser administrador para remover membros.";
+        if (isContext) await ctxOrMsg.reply(replyText);
+        else await msg.reply(replyText);
         return;
       }
 
       if (!senderPart?.isAdmin && !senderPart?.isSuperAdmin && !isMaster(senderId)) {
-        await msg.reply("❌ Você não tem permissão para usar este comando.");
+        const replyText = "❌ Você não tem permissão para usar este comando.";
+        if (isContext) await ctxOrMsg.reply(replyText);
+        else await msg.reply(replyText);
         return;
       }
 

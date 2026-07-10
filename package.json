@@ -5,10 +5,11 @@
   "main": "dist/core/index.js",
   "scripts": {
     "dev:relay": "tsx watch src/relay/server.ts",
-    "build": "npm run build:relay && npm run build:services && npm run build:bot && npm run build:main && npm run build:core",
+    "build": "npm run build:relay && npm run build:services && npm run build:bot && npm run build:platforms && npm run build:main && npm run build:core",
     "build:relay": "tsup src/relay/server.ts --out-dir dist/relay --format cjs",
     "build:services": "tsup src/services/*.ts --out-dir dist/services --format cjs",
     "build:bot": "tsup src/bot/index.ts src/bot/config.ts src/bot/customCommands.ts src/bot/relayClient.ts src/bot/commands/*.ts --out-dir dist/bot --format cjs",
+    "build:platforms": "tsup src/platforms/**/*.ts --out-dir dist/platforms --format cjs",
     "build:main": "tsup src/whatsapp.ts --out-dir dist --format cjs",
     "build:core": "tsup src/core/index.ts src/core/multiPlatform.ts --out-dir dist/core --format cjs",
     "start": "node dist/relay/server.js",

@@ -5,16 +5,22 @@ export const banCommand: ICommand = {
   name: "ban",
   description: "Bane um usuário do grupo e apaga suas mensagens recentes.",
 
-  async execute(msg, client, args) {
+  async execute(ctxOrMsg: any, maybeClient?: any, maybeArgs?: any) {
+    // Suporte a CommandContext (novo) e parâmetros legados (antigo)
+    const isContext = ctxOrMsg && typeof ctxOrMsg === 'object' && 'msg' in ctxOrMsg;
+    const msg = isContext ? ctxOrMsg.msg : ctxOrMsg;
+    const client = isContext ? (ctxOrMsg.client as any).getClient?.() || ctxOrMsg.client : maybeClient;
+    const args = isContext ? ctxOrMsg.args : maybeArgs;
+
     try {
-      // Verificar se msg existe e tem método getChat
-      if (!msg || typeof msg.getChat !== 'function') {
-        await msg.reply("❌ Erro: mensagem inválida ou formato não suportado.");
-        console.error("[ban] msg inválido ou sem getChat:", msg);
+      // Obter o chat de forma segura
+      const chat = await msg.getChat();
+      if (!chat) {
+        const replyText = "❌ Erro ao obter informações do chat.";
+        if (isContext) await ctxOrMsg.reply(replyText);
+        else await msg.reply(replyText);
         return;
       }
-
-      const chat = await msg.getChat();
       if (!chat) {
         await msg.reply("❌ Erro ao obter informações do chat.");
         return;
@@ -26,13 +32,20 @@ export const banCommand: ICommand = {
       }
 
       // 1. Verificação de Permissões
-      const senderId = msg.author || msg.from;
-      const freshChat = await client.getChatById(chat.id._serialized);
+      const senderId = msg.userId || msg.author || msg.from;
+      const freshChat = await client.getChatById(chat.id?._serialized || chat.id);
       const participants = freshChat.participants || [];
       
-      const botId = cleanId(client.info.wid._serialized);
-      const botPart = participants.find((p: any) => cleanId(p.id._serialized) === botId);
-      const senderPart = participants.find((p: any) => cleanId(p.id._serialized) === cleanId(senderId));
+      const botId = cleanId(client.info?.wid?._serialized || "");
+      const botPart = participants.find((p: any) => cleanId(p.id?._serialized || "") === botId);
+      
+      // Tentar encontrar sender comparando de todas as formas possíveis (incluindo LID)
+      const senderPart = participants.find((p: any) => {
+        const pId = p.id?._serialized || "";
+        const pIdClean = cleanId(pId);
+        const senderIdRaw = msg.userId || msg.author || msg.from;
+        return pIdClean === cleanId(senderId) || pId === senderIdRaw || (senderId && pId.includes(senderId));
+      });
 
       const isSenderMaster = isMaster(senderId);
       const isSenderInAdminList = isAdmin(senderId);
@@ -42,12 +55,16 @@ export const banCommand: ICommand = {
       );
 
       if (!botPart?.isAdmin && !botPart?.isSuperAdmin) {
-        await msg.reply("❌ O bot precisa ser administrador para banir membros.");
+        const replyText = "❌ O bot precisa ser administrador para banir membros.";
+        if (isContext) await ctxOrMsg.reply(replyText);
+        else await msg.reply(replyText);
         return;
       }
 
       if (!isSenderAdmin) {
-        await msg.reply("❌ Você não tem permissão para usar este comando.");
+        const replyText = "❌ Você não tem permissão para usar este comando.";
+        if (isContext) await ctxOrMsg.reply(replyText);
+        else await msg.reply(replyText);
         return;
       }
 

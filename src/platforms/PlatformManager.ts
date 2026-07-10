@@ -210,7 +210,36 @@ export class PlatformManager {
     // Ignorar mensagens do próprio bot
     if (message.isFromMe) return;
     
-    // Verificar se é comando (começa com $)
+    // Buscar adapter da plataforma
+    const adapter = this.adapters.get(message.platform);
+    if (!adapter) {
+      console.error(`[PlatformManager] Adapter não encontrado para ${message.platform}`);
+      return;
+    }
+
+    // 1. Processar Keywords (ex: "bot", trollagem)
+    try {
+      const { handleKeywords } = await import('../services/keywordHandler');
+      // Criar um objeto compatível com o handler legado
+      const legacyMsg = {
+        body: message.text,
+        reply: async (text: string) => await adapter.client.sendMessage(message.chatId, text),
+        delete: async (everyone: boolean) => {
+          if (message.raw && typeof message.raw.delete === 'function') {
+            return await message.raw.delete(everyone);
+          }
+        },
+        author: message.userId.replace(/^(wpp:|tg:|dc:)/, ''),
+        from: message.chatId.replace(/^(wpp:|tg:|dc:)/, '')
+      };
+      
+      const handled = await handleKeywords(legacyMsg, adapter.client);
+      if (handled) return;
+    } catch (err) {
+      console.error('[PlatformManager] Erro ao processar keywords:', err);
+    }
+
+    // 2. Verificar se é comando (começa com $)
     const PREFIX = '$';
     if (!message.text.startsWith(PREFIX)) return;
     
@@ -225,13 +254,6 @@ export class PlatformManager {
     message.args = args;
     
     console.log(`[PlatformManager] Comando recebido: ${commandName} de ${message.userName} (${message.platform})`);
-    
-    // Buscar adapter da plataforma
-    const adapter = this.adapters.get(message.platform);
-    if (!adapter) {
-      console.error(`[PlatformManager] Adapter não encontrado para ${message.platform}`);
-      return;
-    }
     
     // Executar comando
     await this.executeCommand(message, adapter);
