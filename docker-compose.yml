@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_GROUP_ID=${TELEGRAM_GROUP_ID}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - WARRIOR_AUTH_KEY=${WARRIOR_AUTH_KEY}
+    volumes:
+      - ./data:/app/data
+    restart: always
+
+  relay:
+    build: ./relay
+    ports:
+      - "3000:3000"
+    environment:
+      - WARRIOR_AUTH_KEY=${WARRIOR_AUTH_KEY}
+    restart: always
