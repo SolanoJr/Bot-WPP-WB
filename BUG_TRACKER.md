@@ -72,6 +72,34 @@ Este documento rastreia bugs, erros e suas soluções para evitar repetição de
 
 ---
 
+### 7. handleKeywords - "handleKeywords is not defined"
+**Data:** 2026-07-10  
+**Sessão:** 6  
+**Status:** ✅ Resolvido
+
+**Erro:**
+```
+[WhatsAppAdapter] Erro ao executar handleKeywords: handleKeywords is not defined
+```
+
+**Causa:**
+- O `build:platforms` não estava no `package.json`
+- O `WhatsAppAdapter.ts` não estava sendo compilado para `dist/platforms/`
+- O código fonte tinha o import, mas o build não incluía o arquivo
+
+**Solução:**
+- Adicionou `build:platforms` ao `package.json`
+- Adicionou script `tsup src/platforms/**/*.ts --out-dir dist/platforms --format cjs`
+- Incluiu `build:platforms` no script principal `build`
+
+**Arquivo:** `package.json`
+
+**Prevenção:**
+- Verificar se todos os arquivos TypeScript estão sendo compilados
+- Testar build após adicionar novos imports
+
+---
+
 ### 3. AutoMod - Mensagens interativas não detectadas
 **Data:** 2026-07-08  
 **Sessão:** 5  
