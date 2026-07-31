@@ -11,8 +11,8 @@ import { WhatsAppAdapter } from '../platforms/whatsapp/WhatsAppAdapter';
 import { TelegramAdapter } from '../platforms/telegram/TelegramAdapter';
 import { DiscordAdapter } from '../platforms/discord/DiscordAdapter';
 import { loadCommands } from '../bot/commands';
-
 import { logHealthCheck } from '../services/loggerService';
+import { runPreFlightCheck, startMetrics, startLocationPolling } from './bootServices';
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -33,6 +33,12 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMsg
 
 async function initializePlatforms() {
   console.log('🚀 Inicializando Bot-WPP Multi-Platform...');
+
+  await startMetrics();
+  runPreFlightCheck().catch((error) => {
+    console.error('❌❌❌ [ERRO CRÍTICO NO PREFLIGHT] ❌❌❌');
+    console.error(error);
+  });
 
   // Carregar comandos
   const commands = await loadCommands();
@@ -105,6 +111,7 @@ async function initializePlatforms() {
   // Handler de pronto
   platformManager.onReady(() => {
     console.log('🎉 Todas as plataformas prontas!');
+    setTimeout(() => startLocationPolling(), 15000);
   });
 
   // Health check periódico a cada 5 minutos
