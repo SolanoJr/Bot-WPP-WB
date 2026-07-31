@@ -157,14 +157,25 @@ export function loadCommands(): Map<string, ICommand> {
 }
 
 function createLegacyMessage(msg: any, ctx: any): any {
-  if (!msg) return {} as any;
+  console.log('[createLegacyMessage] msg recebido:', {
+    id: msg?.id,
+    chatId: msg?.chatId,
+    userId: msg?.userId,
+    text: msg?.text,
+    platform: msg?.platform
+  });
+  
+  if (!msg) {
+    console.error('[createLegacyMessage] msg é null/undefined');
+    return {} as any;
+  }
   
   // Objeto base compatível com whatsapp-web.js
   const legacyMsg: any = {
     id: msg.id,
-    from: msg.chatId.replace(/^(wpp:|tg:|dc:)/, ''),
-    to: msg.chatId.replace(/^(wpp:|tg:|dc:)/, ''),
-    author: msg.userId.replace(/^(wpp:|tg:|dc:)/, ''),
+    from: msg.chatId?.replace(/^(wpp:|tg:|dc:)/, '') || msg.chatId,
+    to: msg.chatId?.replace(/^(wpp:|tg:|dc:)/, '') || msg.chatId,
+    author: msg.userId?.replace(/^(wpp:|tg:|dc:)/, '') || msg.userId,
     body: msg.text,
     timestamp: msg.timestamp instanceof Date ? Math.floor(msg.timestamp.getTime() / 1000) : Math.floor(Date.now() / 1000),
     fromMe: msg.isFromMe,
@@ -173,6 +184,13 @@ function createLegacyMessage(msg: any, ctx: any): any {
     mentionedIds: msg.raw?.mentionedIds || [], // ESSENCIAL para comandos de moderação
     _data: { notifyName: msg.userName },
   };
+  
+  console.log('[createLegacyMessage] legacyMsg criado:', {
+    id: legacyMsg.id,
+    from: legacyMsg.from,
+    to: legacyMsg.to,
+    author: legacyMsg.author
+  });
 
   // Método reply unificado e robusto
   const robustReply = async (text: string, options?: any) => {
