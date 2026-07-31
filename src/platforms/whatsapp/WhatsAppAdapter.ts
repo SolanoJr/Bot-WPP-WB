@@ -329,6 +329,12 @@ export class WhatsAppClient implements PlatformClient {
     console.log(`[WhatsAppAdapter.sendMessage] ENTRY - thisHash: ${thisHash}, this.constructor.name: ${this.constructor.name}, chatId: ${chatId}`);
     console.log(`[WhatsAppAdapter.sendMessage] Stack trace:`, stack);
     
+    // Verificar se sendMessage é método original ou wrapper
+    console.log(`[WhatsAppAdapter.sendMessage] this.client.sendMessage.toString().slice(0,500):`, this.client.sendMessage.toString().slice(0,500));
+    console.log(`[WhatsAppAdapter.sendMessage] this.client.sendMessage.name:`, this.client.sendMessage.name);
+    console.log(`[WhatsAppAdapter.sendMessage] this.client.sendMessage.constructor.name:`, this.client.sendMessage.constructor.name);
+    console.log(`[WhatsAppAdapter.sendMessage] Object.getPrototypeOf(this.client).constructor.name:`, Object.getPrototypeOf(this.client).constructor.name);
+    
     // Remover prefixo wpp: se presente
     const cleanChatId = chatId.replace(/^wpp:/, '');
     console.log(`[WhatsAppAdapter.sendMessage] cleanChatId: ${cleanChatId}`);
