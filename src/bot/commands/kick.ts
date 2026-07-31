@@ -63,9 +63,9 @@ export const kickCommand: ICommand = {
       console.log('[kick] chat.id._serialized:', chat.id?._serialized);
       console.log('[kick] chat.id:', chat.id);
       
-      console.log('[kick] Chamando client.getChatById()...');
-      const freshChat = await client.getChatById(chat.id?._serialized || chat.id);
-      console.log('[kick] freshChat obtido:', !!freshChat);
+      // Reutilizar o chat já obtido - não chamar getChatById() novamente
+      const freshChat = chat;
+      console.log('[kick] Reutilizando chat obtido anteriormente');
       const participants = freshChat.participants || [];
       console.log('[kick] participantes:', participants.length);
       
