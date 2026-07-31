@@ -51,14 +51,7 @@ export class PlatformManager {
     this.adapters.set(adapter.platform, adapter);
     console.log(`[PlatformManager] Adapter registrado: ${adapter.platform}`);
     
-    // CRUCIAL: Conectar handler de mensagens
-    adapter.client.onMessage(async (msg: PlatformMessage) => {
-      // Garantir que a plataforma esteja correta na mensagem
-      msg.platform = adapter.platform;
-      await this.handleIncomingMessage(msg);
-    });
-    
-    // Conectar handler de ready
+    // CRUCIAL: Conectar handler de ready
     adapter.client.onReady(() => {
       console.log(`[PlatformManager] ${adapter.platform} está pronto!`);
       this.readyHandlers.forEach(handler => handler());
@@ -112,9 +105,12 @@ export class PlatformManager {
    * Configura handlers de mensagem para um adapter
    */
   private setupAdapterHandlers(adapter: PlatformAdapter): void {
+    console.log(`[PlatformManager] Configurando handlers para ${adapter.platform}...`);
     const client = adapter.client;
 
     client.onMessage(async (rawMessage: PlatformMessage) => {
+      console.log(`[PlatformManager] Mensagem recebida via onMessage de ${adapter.platform}: ${rawMessage.text.substring(0, 50)}...`);
+      
       // Normalizar e enriquecer mensagem
       const message = this.enrichMessage(rawMessage, adapter.platform);
 
@@ -164,6 +160,8 @@ export class PlatformManager {
         }
       }
     });
+    
+    console.log(`[PlatformManager] Handlers configurados para ${adapter.platform}`);
   }
 
   /**
