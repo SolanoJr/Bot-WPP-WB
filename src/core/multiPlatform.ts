@@ -45,13 +45,13 @@ async function initializePlatforms() {
   platformManager.loadCommands(commands);
   console.log(`✅ ${commands.size} comandos carregados`);
 
-  // Inicializar WhatsApp (sempre ativo)
+  // Inicializar WhatsApp
+  const whatsappAdapter = new WhatsAppAdapter();
+  platformManager.registerAdapter(whatsappAdapter);
   try {
-    const whatsappAdapter = new WhatsAppAdapter();
-    platformManager.registerAdapter(whatsappAdapter);
     await withTimeout(
       whatsappAdapter.initialize(),
-      60000,
+      120000,
       'Timeout ao inicializar WhatsApp'
     );
     console.log('✅ WhatsApp inicializado');
@@ -86,6 +86,7 @@ async function initializePlatforms() {
   const discordToken = process.env.DISCORD_BOT_TOKEN;
   if (discordToken && discordToken !== 'seu_token_aqui') {
     try {
+      console.log('[Discord] Iniciando com token:', discordToken.substring(0, 10) + '...');
       const discordAdapter = new DiscordAdapter(discordToken);
       platformManager.registerAdapter(discordAdapter);
       await withTimeout(
@@ -101,9 +102,24 @@ async function initializePlatforms() {
     console.log('⚠️ Discord não configurado (DISCORD_BOT_TOKEN não definido)');
   }
 
-  // Listar plataformas ativas
+  // Configurar handlers de mensagem para todos os adapters registrados
+  console.log('[PlatformManager] Configurando handlers de mensagem para todos os adapters...');
   const activePlatforms = platformManager.getActivePlatforms();
-  console.log(`📊 Plataformas ativas: ${activePlatforms.join(', ') || 'Nenhuma'}`);
+  for (const platform of activePlatforms) {
+    const adapter = platformManager.getClient(platform);
+    if (adapter) {
+      console.log(`[PlatformManager] Configurando handlers para ${platform}...`);
+      // Conectar handler de mensagem ao PlatformManager
+      adapter.onMessage(async (msg: any) => {
+        msg.platform = platform;
+        await (platformManager as any).handleIncomingMessage(msg);
+      });
+    }
+  }
+
+  // Listar plataformas ativas
+  const activePlatformsList = platformManager.getActivePlatforms();
+  console.log(`📊 Plataformas ativas: ${activePlatformsList.join(', ') || 'Nenhuma'}`);
 
   // Handler de desconexão
   platformManager.onDisconnected((platform, reason) => {
