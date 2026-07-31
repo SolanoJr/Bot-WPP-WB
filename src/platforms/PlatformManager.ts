@@ -168,13 +168,28 @@ export class PlatformManager {
    * Enriquece mensagem com metadados da plataforma
    */
   private enrichMessage(message: PlatformMessage, platform: PlatformType): PlatformMessage {
-    return {
+    console.log('[PlatformManager] enrichMessage() - entrada:', {
+      id: message.id,
+      chatId: message.chatId,
+      userId: message.userId,
+      platform: platform
+    });
+    
+    const enriched = {
       ...message,
       platform,
       // Garantir IDs com prefixo para evitar conflitos
       chatId: this.normalizeChatId(message.chatId, platform),
       userId: this.normalizeUserId(message.userId, platform),
     };
+    
+    console.log('[PlatformManager] enrichMessage() - saída:', {
+      id: enriched.id,
+      chatId: enriched.chatId,
+      userId: enriched.userId
+    });
+    
+    return enriched;
   }
 
   /**
@@ -261,6 +276,14 @@ export class PlatformManager {
    * Executa comando se encontrado
    */
   private async executeCommand(message: PlatformMessage, adapter: PlatformAdapter): Promise<void> {
+    console.log('[PlatformManager] executeCommand() - entrada:', {
+      commandName: message.commandName,
+      id: message.id,
+      chatId: message.chatId,
+      userId: message.userId,
+      platform: adapter.platform
+    });
+    
     const command = this.commandRegistry.get(message.commandName!);
 
     if (!command) {
