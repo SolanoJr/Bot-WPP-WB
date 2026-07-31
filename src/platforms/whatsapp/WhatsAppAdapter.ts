@@ -335,14 +335,28 @@ export class WhatsAppClient implements PlatformClient {
   }
 
   async getChat(chatId: string): Promise<PlatformChat> {
-    const cleanChatId = chatId.replace(/^wpp:/, '');
-    console.log('[WhatsApp] getChat() chamado - chatId original:', chatId, 'cleanChatId:', cleanChatId, 'formato:', cleanChatId.includes('@') ? 'formato WhatsApp' : 'formato desconhecido');
+    const originalChatId = chatId;
+    const cleanChatId = chatId.replace(/^(wpp:|tg:|dc:)/, '');
+    console.log(`[WhatsApp] getChat() chamado - chatId original: ${originalChatId} cleanChatId: ${cleanChatId} formato: formato WhatsApp`);
+
     try {
       const chat = await this.client.getChatById(cleanChatId);
       return this.normalizeChat(chat);
     } catch (error: any) {
-      console.error('[WhatsApp] Erro em getChatById:', {
-        chatId,
+      // Workaround para Issue #201838: "r: r" error após atualização WhatsApp Web
+      if (error.message === 'r' || error.message === 'r: r') {
+        console.warn(`[WhatsApp] getChat() - Erro "r" detectado (Issue #201838). Retornando chat básico sem participantes.`);
+        // Retornar chat básico para evitar crash - sem participantes mas funcional
+        return {
+          id: originalChatId,
+          name: 'Grupo',
+          isGroup: cleanChatId.endsWith('@g.us'),
+          participants: [], // Vazio devido ao erro
+          raw: null
+        };
+      }
+      console.error(`[WhatsApp] Erro em getChatById:`, {
+        chatId: originalChatId,
         cleanChatId,
         error: error.message,
         stack: error.stack,
