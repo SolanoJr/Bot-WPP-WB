@@ -194,6 +194,7 @@ export class WhatsAppClient implements PlatformClient {
   }
 
   private normalizeMessage(msg: any): PlatformMessage {
+    console.log('[WhatsApp] normalizeMessage() - msg.id:', msg?.id, 'msg.id._serialized:', msg?.id?._serialized, 'msg.id.id:', msg?.id?.id);
     console.log('[WhatsApp] normalizeMessage() chamado - msg existe?', !!msg, 'msg.id?', !!msg?.id, 'msg.from?', !!msg?.from, 'msg._data?', !!msg?._data);
     
     if (!msg) {
@@ -272,8 +273,11 @@ export class WhatsAppClient implements PlatformClient {
       }
     }
 
+    const messageId = msg.id._serialized || msg.id.id || String(msg.id);
+    console.log('[WhatsApp] normalizeMessage() - messageId final:', messageId);
+
     return {
-      id: `wpp:${msg.id._serialized}`,
+      id: `wpp:${messageId}`,
       chatId,
       userId,
       userName: msg._data?.notifyName || msg.from,
