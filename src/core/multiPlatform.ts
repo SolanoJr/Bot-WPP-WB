@@ -68,7 +68,7 @@ async function initializePlatforms() {
       platformManager.registerAdapter(telegramAdapter);
       await withTimeout(
         telegramAdapter.initialize(),
-        180000, // Aumentado para 180 segundos (3 minutos) para lidar com restrições de rede
+        30000, // Reduzido para 30 segundos para não bloquear outras plataformas
         'Timeout ao inicializar Telegram'
       );
       console.log('✅ Telegram inicializado');
@@ -81,6 +81,8 @@ async function initializePlatforms() {
   } else {
     console.log('⚠️ Telegram não configurado (TELEGRAM_BOT_TOKEN não definido)');
   }
+
+  console.log('[DEBUG] Iniciando bloco do Discord...');
 
   // Inicializar Discord (se token configurado)
   const discordToken = process.env.DISCORD_BOT_TOKEN;
