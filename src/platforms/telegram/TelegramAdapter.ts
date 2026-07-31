@@ -24,6 +24,7 @@ import {
 class TelegramClient implements PlatformClient {
   readonly platform: PlatformType = 'telegram';
   private bot: Telegraf<TgMessage>;
+  private token: string;
   public userId: string = '';
   public userName: string = '';
   public isReady: boolean = false;
@@ -33,12 +34,18 @@ class TelegramClient implements PlatformClient {
   private disconnectedHandler: ((reason: string) => void) | null = null;
 
   constructor(token: string) {
+    this.token = token;
     this.bot = new Telegraf(token);
     this.setupEventHandlers();
   }
 
   private setupEventHandlers() {
     this.bot.on('message', async (ctx: TelegrafContext<TgMessage>) => {
+      console.log('[Telegram] Mensagem recebida:', JSON.stringify({
+        from: ctx.from?.username,
+        text: ctx.message?.text,
+        chatId: ctx.chat?.id
+      }));
       if (this.messageHandler) {
         const platformMsg = this.normalizeMessage(ctx);
         await this.messageHandler(platformMsg);
@@ -47,6 +54,15 @@ class TelegramClient implements PlatformClient {
 
     this.bot.catch?.((err: any) => {
       console.error('[Telegram] ❌ Erro no bot:', err);
+      console.error('[Telegram] Stack trace:', err.stack);
+      if (err.response) {
+        console.error('[Telegram] Response status:', err.response?.status);
+        console.error('[Telegram] Response data:', err.response?.data);
+      }
+      if (err.request) {
+        console.error('[Telegram] Request URL:', err.request?.path || err.config?.url);
+        console.error('[Telegram] Request method:', err.config?.method);
+      }
       this.isReady = false;
       if (this.disconnectedHandler) this.disconnectedHandler(err.message);
     });
@@ -57,12 +73,28 @@ class TelegramClient implements PlatformClient {
    * Separado do construtor para evitar race condition.
    */
   async launch(): Promise<void> {
-    await this.bot.launch();
-    this.isReady = true;
-    this.userId = this.bot.botInfo?.id?.toString() ?? '';
-    this.userName = this.bot.botInfo?.username ?? 'TelegramBot';
-    console.log(`[Telegram] ✅ Pronto como ${this.userName} (${this.userId})`);
-    if (this.readyHandler) this.readyHandler();
+    console.log('[Telegram] Iniciando launch()...');
+    console.log('[Telegram] Token usado:', this.token.substring(0, 10) + '...');
+    try {
+      await this.bot.launch();
+      this.isReady = true;
+      this.userId = this.bot.botInfo?.id?.toString() ?? '';
+      this.userName = this.bot.botInfo?.username ?? 'TelegramBot';
+      console.log(`[Telegram] ✅ Pronto como ${this.userName} (${this.userId})`);
+      if (this.readyHandler) this.readyHandler();
+    } catch (err: any) {
+      console.error('[Telegram] ❌ Erro no launch():', err.message);
+      console.error('[Telegram] Stack trace:', err.stack);
+      if (err.response) {
+        console.error('[Telegram] Response status:', err.response?.status);
+        console.error('[Telegram] Response data:', err.response?.data);
+      }
+      if (err.request) {
+        console.error('[Telegram] Request URL:', err.request?.path || err.config?.url);
+        console.error('[Telegram] Request method:', err.config?.method);
+      }
+      throw err;
+    }
   }
 
   private normalizeMessage(ctx: TelegrafContext<TgMessage>): PlatformMessage {

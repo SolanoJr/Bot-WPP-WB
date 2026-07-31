@@ -4,8 +4,7 @@
  * Utiliza discord.js; por enquanto implementa apenas sendMessage e stubs para os demais métodos.
  */
 
-// import { Client, Intents } from 'discord.js';
-import { Client } from 'discord.js';
+import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import {
   PlatformType,
   PlatformAdapter,
@@ -17,7 +16,6 @@ import {
   MediaPayload,
   MessageHandler,
 } from '../base/PlatformTypes';
-import { platformManager } from '../PlatformManager';
 
 class DiscordClient implements PlatformClient {
   readonly platform: PlatformType = 'discord';
@@ -34,40 +32,16 @@ class DiscordClient implements PlatformClient {
 
   constructor(token: string) {
     this.token = token;
-    // Discord.js v14+ usa GatewayIntentBits
-    let intents: any[] = [];
-    try {
-      const { GatewayIntentBits, Partials } = require('discord.js');
-      
-      if (GatewayIntentBits) {
-        // Discord.js v14+ usa bitwise OR ou array
-        this.client = new Client({ 
-          intents: [
-            GatewayIntentBits.Guilds,
-            GatewayIntentBits.GuildMessages,
-            GatewayIntentBits.MessageContent,
-            GatewayIntentBits.DirectMessages,
-          ],
-          partials: [Partials.Channel, Partials.Message] // Necessário para DMs
-        });
-        console.log('[Discord] Cliente v14 inicializado com intents e partials');
-      } else {
-        // Fallback v13
-        const { Intents } = require('discord.js');
-        this.client = new Client({ 
-          intents: [
-            Intents.FLAGS.GUILDS,
-            Intents.FLAGS.GUILD_MESSAGES,
-            Intents.FLAGS.DIRECT_MESSAGES,
-          ] 
-        });
-        console.log('[Discord] Cliente v13 inicializado');
-      }
-    } catch (err) {
-      console.error('[Discord] Erro ao configurar cliente:', err);
-      // Fallback mínimo
-      this.client = new Client({ intents: [] });
-    }
+    this.client = new Client({
+      intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.DirectMessages,
+      ],
+      partials: [Partials.Channel, Partials.Message],
+    });
+    console.log('[Discord] Cliente v14 inicializado com intents e partials');
     this.setupEventHandlers();
   }
 
@@ -95,14 +69,29 @@ class DiscordClient implements PlatformClient {
     });
 
     this.client.on('messageCreate', async (msg) => {
-      console.log(`[Discord] Mensagem recebida de ${msg.author.username}: ${msg.content}`);
+      console.log(`[Discord] messageCreate recebido - autor: ${msg.author.username} (bot: ${msg.author.bot}), conteúdo: "${msg.content}", canal: ${msg.channel.id}, tipo: ${msg.channel.type}`);
       
       // Ignorar mensagens do próprio bot
-      if (msg.author.bot) return;
+      if (msg.author.bot) {
+        console.log('[Discord] Mensagem ignorada (do próprio bot)');
+        return;
+      }
       
       if (this.messageHandler) {
+        console.log('[Discord] messageHandler definido, chamando normalizeMessage...');
         const platformMsg = this.normalizeMessage(msg);
+        console.log('[Discord] PlatformMessage normalizado:', JSON.stringify({
+          id: platformMsg.id,
+          chatId: platformMsg.chatId,
+          userId: platformMsg.userId,
+          text: platformMsg.text,
+          isCommand: platformMsg.isCommand
+        }));
+        console.log('[Discord] Chamando messageHandler...');
         await this.messageHandler(platformMsg);
+        console.log('[Discord] messageHandler concluído');
+      } else {
+        console.log('[Discord] ⚠️ messageHandler NÃO definido!');
       }
     });
 
@@ -170,12 +159,15 @@ class DiscordClient implements PlatformClient {
   async getChat(chatId: string): Promise<PlatformChat> {
     const cleanChatId = chatId.replace(/^dc:/, '');
     const channel = await this.client.channels.fetch(cleanChatId);
+    if (!channel) {
+      throw new Error('Canal não encontrado para Discord');
+    }
     return {
       id: `dc:${channel.id}`,
       name: (channel as any).name ?? 'Discord Chat',
       isGroup: (channel as any).type === 'GUILD_TEXT',
       platform: 'discord',
-      participants: [], // Para simplificar, deixamos vazio.
+      participants: [],
       raw: channel,
     } as PlatformChat;
   }
@@ -242,6 +234,11 @@ export class DiscordAdapter implements PlatformAdapter {
 
   async initialize(): Promise<void> {
     console.log('[DiscordAdapter] Inicializando...');
+
+    if (this.client.isReady) {
+      console.log('[DiscordAdapter] Já estava pronto');
+      return;
+    }
     
     // Configurar timeout para evitar que o bot fique travado se o Discord não conectar
     const timeout = 30000; // 30 segundos
@@ -251,13 +248,6 @@ export class DiscordAdapter implements PlatformAdapter {
         reject(new Error(`Timeout de ${timeout}ms aguardando conexão do Discord`));
       }, timeout);
 
-      if (this.client.isReady) {
-        clearTimeout(timer);
-        console.log('[DiscordAdapter] Já estava pronto');
-        resolve();
-        return;
-      }
-      
       // Capturar o handler original se existir (do PlatformManager)
       const originalReady = (this.client as any).readyHandler;
       const originalDisconnected = (this.client as any).disconnectedHandler;
