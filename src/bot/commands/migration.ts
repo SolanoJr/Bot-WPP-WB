@@ -62,7 +62,7 @@ function createLegacyMessage(msg: PlatformMessage): any {
 function createLegacyClient(client: PlatformClient): any {
   return {
     sendMessage: async (chatId: string, text: string) => {
-      await client.sendMessage(chatId, text);
+      return await client.sendMessage(chatId, text);
     },
     getChatById: async (chatId: string) => {
       const chat = await client.getChat(chatId);

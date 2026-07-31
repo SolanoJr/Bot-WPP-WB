@@ -405,7 +405,7 @@ export class PlatformManager {
       isMaster: userIsMaster,
       isAdmin: userIsAdmin,
       reply: async (text: string, options?: SendOptions) => {
-        await client.sendMessage(message.chatId, text, options);
+        return await client.sendMessage(message.chatId, text, options);
       },
       replyPrivate: async (text: string) => {
         // Para WhatsApp, envia no privado do usuário
@@ -437,12 +437,12 @@ export class PlatformManager {
   /**
    * Envia mensagem para uma plataforma específica
    */
-  async sendMessage(platform: PlatformType, chatId: string, text: string, options?: SendOptions): Promise<void> {
+  async sendMessage(platform: PlatformType, chatId: string, text: string, options?: SendOptions): Promise<PlatformMessage> {
     const adapter = this.adapters.get(platform);
     if (!adapter) {
       throw new Error(`Plataforma ${platform} não inicializada`);
     }
-    await adapter.client.sendMessage(chatId, text, options);
+    return await adapter.client.sendMessage(chatId, text, options);
   }
 
   /**

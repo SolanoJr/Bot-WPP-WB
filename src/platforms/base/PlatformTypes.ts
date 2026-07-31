@@ -101,7 +101,7 @@ export interface CommandContext {
   isGroup: boolean;
   isMaster: boolean;
   isAdmin: boolean;
-  reply(text: string, options?: SendOptions): Promise<void>;
+  reply(text: string, options?: SendOptions): Promise<PlatformMessage>;
   replyPrivate(text: string): Promise<void>;
   getChat(): Promise<PlatformChat>;
   getUser(): Promise<PlatformUser>;
