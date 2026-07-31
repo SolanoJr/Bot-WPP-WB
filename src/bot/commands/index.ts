@@ -194,22 +194,26 @@ function createLegacyMessage(msg: any, ctx: any): any {
 
   // Método reply unificado e robusto
   const robustReply = async (text: string, options?: any) => {
-    console.log(`[LegacyMessage] Replying to ${msg.platform}...`);
+    console.log(`[LegacyMessage] robustReply() chamado - text: "${text.substring(0, 50)}..." msg.chatId: ${msg.chatId} msg.platform: ${msg.platform}`);
     try {
       // Prioridade 1: ctx.reply (método direto do adaptador)
       if (ctx && typeof ctx.reply === 'function') {
+        console.log('[LegacyMessage] Usando ctx.reply()');
         return await ctx.reply(text, options);
       }
       // Prioridade 2: client.sendMessage via msg.chatId
       if (ctx && ctx.client && typeof ctx.client.sendMessage === 'function') {
+        console.log('[LegacyMessage] Usando ctx.client.sendMessage()');
         return await ctx.client.sendMessage(msg.chatId, text, options);
       }
       // Prioridade 3: Envio direto pelo adaptador do WhatsApp se for a plataforma
       if (msg.platform === 'whatsapp') {
+        console.log('[LegacyMessage] Usando whatsAppClient.sendMessage()');
         const { whatsAppClient } = await import('../../platforms/whatsapp/WhatsAppAdapter');
         return await whatsAppClient.sendMessage(msg.chatId, text, options);
       }
       // Fallback extremo via PlatformManager
+      console.log('[LegacyMessage] Usando PlatformManager.sendMessage()');
       const { platformManager: pm } = await import('../../platforms/PlatformManager');
       return await pm.getInstance().sendMessage(msg.platform, msg.chatId, text, options);
     } catch (err) {

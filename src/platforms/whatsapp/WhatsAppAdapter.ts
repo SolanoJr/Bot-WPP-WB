@@ -316,11 +316,14 @@ export class WhatsAppClient implements PlatformClient {
   }
 
   async sendMessage(chatId: string, text: string, options?: SendOptions): Promise<PlatformMessage> {
+    console.log(`[WhatsAppAdapter] sendMessage() chamado - chatId: ${chatId} text: "${text.substring(0, 50)}..." options:`, options);
     // Remover prefixo wpp: se presente
     const cleanChatId = chatId.replace(/^wpp:/, '');
+    console.log(`[WhatsAppAdapter] cleanChatId: ${cleanChatId}`);
     const sent = await this.client.sendMessage(cleanChatId, text, {
       quotedMessageId: options?.replyToMessageId?.replace(/^wpp:/, '')
     });
+    console.log(`[WhatsAppAdapter] Mensagem enviada com sucesso, chamando normalizeMessage() - sent:`, !!sent, 'sent.id:', sent?.id);
     return this.normalizeMessage(sent);
   }
 
