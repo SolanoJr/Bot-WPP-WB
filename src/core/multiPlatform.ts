@@ -63,16 +63,18 @@ async function initializePlatforms() {
   const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
   if (telegramToken && telegramToken !== 'seu_token_aqui') {
     try {
+      console.log('[Telegram] Iniciando com token:', telegramToken.substring(0, 10) + '...');
       const telegramAdapter = new TelegramAdapter(telegramToken);
       platformManager.registerAdapter(telegramAdapter);
       await withTimeout(
         telegramAdapter.initialize(),
-        120000, // Aumentado para 120 segundos (2 minutos) para lidar com restrições de rede
+        180000, // Aumentado para 180 segundos (3 minutos) para lidar com restrições de rede
         'Timeout ao inicializar Telegram'
       );
       console.log('✅ Telegram inicializado');
     } catch (error: any) {
       console.error('❌ Erro ao inicializar Telegram:', error.message);
+      console.error('❌ Stack:', error.stack);
       // Não falhar completamente se Telegram falhar - continuar com outras plataformas
       console.log('⚠️ Continuando sem Telegram (pode ser restrição de rede/firewall)');
     }
