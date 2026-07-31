@@ -6,11 +6,28 @@ export const banCommand: ICommand = {
   description: "Bane um usuário do grupo e apaga suas mensagens recentes.",
 
   async execute(ctxOrMsg: any, maybeClient?: any, maybeArgs?: any) {
+    console.log('[ban] ===== INÍCIO DO COMANDO =====');
+    console.log('[ban] ctxOrMsg:', JSON.stringify(ctxOrMsg).substring(0, 200));
+    console.log('[ban] maybeClient:', !!maybeClient);
+    console.log('[ban] maybeArgs:', maybeArgs);
+    
     // Suporte a CommandContext (novo) e parâmetros legados (antigo)
     const isContext = ctxOrMsg && typeof ctxOrMsg === 'object' && 'msg' in ctxOrMsg;
     const msg = isContext ? ctxOrMsg.msg : ctxOrMsg;
     const client = isContext ? (ctxOrMsg.client as any).getClient?.() || ctxOrMsg.client : maybeClient;
     const args = isContext ? ctxOrMsg.args : maybeArgs;
+    
+    console.log('[ban] isContext:', isContext);
+    console.log('[ban] msg:', !!msg);
+    console.log('[ban] msg.id:', msg?.id);
+    console.log('[ban] msg.chatId:', msg?.chatId);
+    console.log('[ban] msg.userId:', msg?.userId);
+    console.log('[ban] msg.author:', msg?.author);
+    console.log('[ban] msg.from:', msg?.from);
+    console.log('[ban] msg.mentionedIds:', msg?.mentionedIds);
+    console.log('[ban] msg.hasQuotedMsg:', msg?.hasQuotedMsg);
+    console.log('[ban] client:', !!client);
+    console.log('[ban] args:', args);
 
     try {
       // Verificar se msg existe e tem método getChat
@@ -22,7 +39,10 @@ export const banCommand: ICommand = {
         return;
       }
 
+      console.log('[ban] Chamando msg.getChat()...');
       const chat = await msg.getChat();
+      console.log('[ban] chat obtido:', !!chat, 'chat.id:', chat?.id, 'chat.isGroup:', chat?.isGroup);
+      
       if (!chat) {
         const replyText = "❌ Erro ao obter informações do chat.";
         if (isContext) await ctxOrMsg.reply(replyText);
@@ -37,11 +57,20 @@ export const banCommand: ICommand = {
 
       // 1. Verificação de Permissões
       const senderId = msg.userId || msg.author || msg.from;
+      console.log('[ban] senderId:', senderId);
+      console.log('[ban] chat.id._serialized:', chat.id?._serialized);
+      console.log('[ban] chat.id:', chat.id);
+      
+      console.log('[ban] Chamando client.getChatById()...');
       const freshChat = await client.getChatById(chat.id?._serialized || chat.id);
+      console.log('[ban] freshChat obtido:', !!freshChat);
       const participants = freshChat.participants || [];
+      console.log('[ban] participantes:', participants.length);
       
       const botId = cleanId(client.info?.wid?._serialized || "");
+      console.log('[ban] botId:', botId);
       const botPart = participants.find((p: any) => cleanId(p.id?._serialized || "") === botId);
+      console.log('[ban] botPart:', !!botPart, 'isAdmin:', botPart?.isAdmin, 'isSuperAdmin:', botPart?.isSuperAdmin);
       
       // Tentar encontrar sender comparando de todas as formas possíveis (incluindo LID)
       const senderPart = participants.find((p: any) => {
@@ -50,13 +79,16 @@ export const banCommand: ICommand = {
         const senderIdRaw = msg.userId || msg.author || msg.from;
         return pIdClean === cleanId(senderId) || pId === senderIdRaw || (senderId && pId.includes(senderId));
       });
+      console.log('[ban] senderPart:', !!senderPart, 'isAdmin:', senderPart?.isAdmin, 'isSuperAdmin:', senderPart?.isSuperAdmin);
 
       const isSenderMaster = isMaster(senderId);
       const isSenderInAdminList = isAdmin(senderId);
+      console.log('[ban] isSenderMaster:', isSenderMaster, 'isSenderInAdminList:', isSenderInAdminList);
 
       const isSenderAdmin = Boolean(
         senderPart?.isAdmin || senderPart?.isSuperAdmin || isSenderMaster || isSenderInAdminList
       );
+      console.log('[ban] isSenderAdmin:', isSenderAdmin);
 
       if (!botPart?.isAdmin && !botPart?.isSuperAdmin) {
         const replyText = "❌ O bot precisa ser administrador para banir membros.";

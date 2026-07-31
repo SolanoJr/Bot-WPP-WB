@@ -193,30 +193,80 @@ export class WhatsAppClient implements PlatformClient {
     }
   }
 
-  private normalizeMessage(msg: Message): PlatformMessage {
-    const chatId = `wpp:${msg.from}`;
-    const userId = `wpp:${msg.author || msg.from}`;
-    const isGroup = msg.from.endsWith('@g.us');
-
-    // Extração de texto avançada para mensagens interativas/cards
-    let extractedText = msg.body || '';
+  private normalizeMessage(msg: any): PlatformMessage {
+    console.log('[WhatsApp] normalizeMessage() chamado - msg existe?', !!msg, 'msg.id?', !!msg?.id, 'msg.from?', !!msg?.from, 'msg._data?', !!msg?._data);
     
-    // Se o corpo estiver vazio, tentar buscar em metadados de mensagens interativas
-    if (!extractedText && msg._data) {
-      const data = msg._data;
-      // Tentar extrair de captions de mídia, botões ou templates
-      extractedText = data.caption || 
-                      data.matchedText || 
-                      data.text || 
-                      data.contentText || 
-                      data.title || '';
-                      
-      // Se ainda vazio e houver botões, extrair texto dos botões
-      if (!extractedText && data.buttons) {
-        extractedText = data.buttons.map((b: any) => b.buttonText?.displayText || '').join(' ');
-      }
-      
-      // Se houver lista, extrair títulos das opções
+    if (!msg) {
+      console.error('[WhatsApp] normalizeMessage() recebeu msg undefined/null');
+      throw new Error('Mensagem undefined/null em normalizeMessage');
+    }
+    
+    if (!msg.id) {
+      console.error('[WhatsApp] normalizeMessage() recebeu msg sem id:', JSON.stringify(msg).substring(0, 200));
+      throw new Error('Mensagem sem id em normalizeMessage');
+    }
+    
+    if (!msg.from) {
+      console.error('[WhatsApp] normalizeMessage() recebeu msg sem from:', JSON.stringify(msg).substring(0, 200));
+      throw new Error('Mensagem sem from em normalizeMessage');
+    }
+    
+    const chatId = msg.from;
+    const userId = msg.fromMe ? (msg.to || this.client.info?.wid?._serialized) : msg.from;
+    const isGroup = msg.from.endsWith('@g.us');
+    
+    let extractedText = msg.body || '';
+    if (!extractedText && msg.type === 'chat') {
+      extractedText = msg.body || '';
+    }
+    if (!extractedText && msg.type === 'image') {
+      extractedText = msg.caption || '';
+    }
+    if (!extractedText && msg.type === 'video') {
+      extractedText = msg.caption || '';
+    }
+    if (!extractedText && msg.type === 'document') {
+      extractedText = msg.caption || '';
+    }
+    if (!extractedText && msg.type === 'location') {
+      extractedText = msg.location?.description || '';
+    }
+    if (!extractedText && msg.type === 'vcard') {
+      extractedText = msg.vcardParsed?.[0]?.displayName || '';
+    }
+    if (!extractedText && msg.type === 'order') {
+      extractedText = msg.order?.title || '';
+    }
+    if (!extractedText && msg.type === 'call_log') {
+      extractedText = msg.callLog?.type || '';
+    }
+    if (!extractedText && msg.type === 'payment') {
+      extractedText = msg.payment?.note || '';
+    }
+    if (!extractedText && msg.type === 'product') {
+      extractedText = msg.product?.title || '';
+    }
+    if (!extractedText && msg.type === 'sticker') {
+      extractedText = msg.sticker?.id || '';
+    }
+    if (!extractedText && msg.type === 'buttons_response') {
+      extractedText = msg.selectedButtonId || '';
+    }
+    if (!extractedText && msg.type === 'list_response') {
+      extractedText = msg.listResponse?.title || msg.listResponse?.description || '';
+    }
+    if (!extractedText && msg.type === 'poll_creation') {
+      extractedText = msg.poll?.name || '';
+    }
+    if (!extractedText && msg.type === 'e2e_notification') {
+      extractedText = msg.e2eNotification?.type || '';
+    }
+    if (!extractedText && msg.type === 'unknown') {
+      extractedText = msg.body || '';
+    }
+    if (!extractedText && (msg as any)._data) {
+      const data = (msg as any)._data;
+      extractedText = data.body || data.caption || data.text || '';
       if (!extractedText && data.listResponse) {
         extractedText = data.listResponse.title || data.listResponse.description || '';
       }
@@ -282,8 +332,20 @@ export class WhatsAppClient implements PlatformClient {
 
   async getChat(chatId: string): Promise<PlatformChat> {
     const cleanChatId = chatId.replace(/^wpp:/, '');
-    const chat = await this.client.getChatById(cleanChatId);
-    return this.normalizeChat(chat);
+    console.log('[WhatsApp] getChat() chamado - chatId original:', chatId, 'cleanChatId:', cleanChatId, 'formato:', cleanChatId.includes('@') ? 'formato WhatsApp' : 'formato desconhecido');
+    try {
+      const chat = await this.client.getChatById(cleanChatId);
+      return this.normalizeChat(chat);
+    } catch (error: any) {
+      console.error('[WhatsApp] Erro em getChatById:', {
+        chatId,
+        cleanChatId,
+        error: error.message,
+        stack: error.stack,
+        errorType: error.constructor.name
+      });
+      throw error;
+    }
   }
 
   async getUser(userId: string): Promise<PlatformUser> {

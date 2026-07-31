@@ -65,6 +65,18 @@ class DiscordClient implements PlatformClient {
       this.userId = this.client.user?.id ?? '';
       this.userName = this.client.user?.username ?? 'DiscordBot';
       console.log(`[Discord] ✅ Pronto como ${this.userName} (${this.userId})`);
+      
+      // Definir status de presença como online
+      try {
+        this.client.user?.setPresence({
+          status: 'online',
+          activities: [{ name: 'Bot-WPP Multi-Platform', type: 0 }]
+        });
+        console.log('[Discord] Presença definida como online');
+      } catch (err: any) {
+        console.error('[Discord] Erro ao definir presença:', err.message);
+      }
+      
       if (this.readyHandler) this.readyHandler();
     });
 
