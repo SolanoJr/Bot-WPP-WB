@@ -11,11 +11,31 @@ Este arquivo resume bugs ativos ou riscos operacionais que precisam de acompanha
 - **Arquivos afetados:** `src/platforms/whatsapp/WhatsAppAdapter.ts`
 - **Status:** Resolvido em 2026-07-31 - QR Code gerado com sucesso
 
-### Telegram 401 - PARCIALMENTE RESOLVIDO
-- **Problema:** Telegram falha na inicialização com 401: Unauthorized
-- **Causa:** Token inválido no .env do Linux
-- **Solução aplicada:** Token atualizado para o valor correto das credenciais
-- **Status:** Ainda falhando após atualização - token pode estar revogado. Requer ação manual no BotFather.
+### Telegram Timeout - INVESTIGAÇÃO EM ANDAMENTO
+- **Problema:** Telegram falha na inicialização com timeout após 30s
+- **Evidências coletadas:**
+  - Token validado externamente via API (getMe retornou ok: true)
+  - Token configurado corretamente no .env do Linux
+  - launch() do Telegraf trava sem resposta (nenhum erro 401 nos logs)
+  - Mensagens são recebidas ($menu detectado nos logs)
+  - Timeout de 180s bloqueava inicialização do Discord - reduzido para 30s
+- **Hipótese:** Bloqueio de long polling ou restrição de rede/firewall no servidor Linux
+- **Status:** Aberto - requer investigação de rede/firewall
+
+### Discord Handlers - RESOLVIDO
+- **Problema:** Discord não processava comandos (handlers não configurados)
+- **Causa:** setupAdapterHandlers nunca era chamado - PlatformManager.startAll() não era invocado
+- **Solução aplicada:**
+  - Removida duplicação de handler em registerAdapter
+  - Configuração explícita de handlers após inicialização de todos os adapters
+  - Timeout do Telegram reduzido para 30s para não bloquear Discord
+- **Evidências:**
+  - `[Discord] ✅ Pronto como SolanoJr (1307158493907652648)`
+  - `[PlatformManager] Configurando handlers para discord...`
+  - `📊 Plataformas ativas: whatsapp, telegram, discord`
+- **Arquivos afetados:** `src/platforms/PlatformManager.ts`, `src/core/multiPlatform.ts`
+- **Status:** Resolvido em 2026-07-31 - Discord inicializado e handlers configurados
+- **Pendente:** Testar comando $menu no Discord para validar funcionalidade
 
 ### Sincronização Git - RESOLVIDO
 - **Problema:** Arquivo `src/core/multiPlatform.ts` não rastreado no Windows
