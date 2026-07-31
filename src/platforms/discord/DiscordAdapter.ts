@@ -115,6 +115,11 @@ class DiscordClient implements PlatformClient {
   }
 
   private normalizeMessage(msg: any): PlatformMessage {
+    const msgHash = Math.random().toString(36).substring(7);
+    const stack = new Error().stack;
+    console.log(`[DiscordAdapter.normalizeMessage] ENTRY - msgHash: ${msgHash}, msg:`, !!msg, 'typeof msg:', typeof msg);
+    console.log(`[DiscordAdapter.normalizeMessage] Stack trace:`, stack);
+    
     const chatId = `dc:${msg.channel.id}`;
     const userId = `dc:${msg.author.id}`;
     
@@ -151,15 +156,19 @@ class DiscordClient implements PlatformClient {
   }
 
   async sendMessage(chatId: string, text: string, options?: SendOptions): Promise<PlatformMessage> {
+    const thisHash = Math.random().toString(36).substring(7);
+    const stack = new Error().stack;
+    console.log(`[DiscordAdapter.sendMessage] ENTRY - thisHash: ${thisHash}, this.constructor.name: ${this.constructor.name}, chatId: ${chatId}`);
+    console.log(`[DiscordAdapter.sendMessage] Stack trace:`, stack);
+    
     const cleanChatId = chatId.replace(/^dc:/, '');
     const channel = await this.client.channels.fetch(cleanChatId);
     
-    // Discord.js v14: usar isTextBased() ao invés de isText()
-    if (!channel || !(channel as any).isTextBased?.()) {
-      throw new Error('Canal de texto não encontrado para Discord');
-    }
-    
     const sent = await (channel as any).send(text);
+    
+    console.log(`[DiscordAdapter.sendMessage] EXIT - thisHash: ${thisHash}, sent:`, !!sent, 'typeof sent:', typeof sent);
+    console.log(`[DiscordAdapter.sendMessage] Stack trace:`, stack);
+    
     return this.normalizeMessage(sent);
   }
 
