@@ -84,6 +84,8 @@ async function initializePlatforms() {
 
   // Inicializar Discord (se token configurado)
   const discordToken = process.env.DISCORD_BOT_TOKEN;
+  console.log('[Discord] Verificando token:', discordToken ? discordToken.substring(0, 10) + '...' : 'NÃO DEFINIDO');
+  console.log('[Discord] Condição de inicialização:', discordToken && discordToken !== 'seu_token_aqui');
   if (discordToken && discordToken !== 'seu_token_aqui') {
     try {
       console.log('[Discord] Iniciando com token:', discordToken.substring(0, 10) + '...');
