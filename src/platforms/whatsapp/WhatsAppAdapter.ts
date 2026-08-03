@@ -382,10 +382,17 @@ export class WhatsAppClient implements PlatformClient {
     while (retry < MAX_RETRIES) {
       try {
         const startTime = Date.now();
+        
+        // LOG CRÍTICO: Antes de enviar, verificar se já existe mensagem com mesmo content no cache
+        console.log(`[WhatsAppAdapter.sendMessage] 📋 ANTES DE ENVIAR: retry=${retry}, cleanChatId=${cleanChatId}`);
+        
         sent = await this.client.sendMessage(cleanChatId, text, {
           quotedMessageId: options?.replyToMessageId?.replace(/^wpp:/, '')
         });
         const duration = Date.now() - startTime;
+        
+        // LOG CRÍTICO: Depois de enviar, verificar o retorno
+        console.log(`[WhatsAppAdapter.sendMessage] 📋 DEPOIS DE ENVIAR: duration=${duration}ms`);
         
         // Log detalhado do retorno bruto
         console.log(`[WhatsAppAdapter.sendMessage] ⏱️ sendMessage demorou ${duration}ms`);
@@ -434,12 +441,12 @@ export class WhatsAppClient implements PlatformClient {
       }
     }
     
-    console.log(`[WhatsAppAdapter.sendMessage] EXIT - thisHash: ${thisHash}, retry attempts: ${retry}, sent:`, !!sent, 'sent.id:', sent?.id, 'typeof sent:', typeof sent);
+    console.log(`[WhatsAppAdapter.sendMessage] EXIT - thisHash: ${thisHash}, retry attempts: ${retry}, sent:`, sent, 'sent===false:', sent === false, 'typeof sent:', typeof sent, 'sent.id:', sent?.id, 'sent.id===false:', sent?.id === false);
     
     // Validar mensagem antes de normalizar
     // Accept sent as false (no message returned) only if we can get the message from cache
     if (!sent || sent === false) {
-      console.warn(`[WhatsAppAdapter.sendMessage] ⚠️ sent é false/undefined após ${retry + 1} tentativas`);
+      console.warn(`[WhatsAppAdapter.sendMessage] ⚠️ sent é false/undefined após ${retry + 1} tentativas - sent:`, sent);
       
       // Tentar recuperar a mensagem do cache usando o ID da mensagem enviada
       try {
