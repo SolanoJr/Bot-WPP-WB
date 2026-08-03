@@ -412,6 +412,23 @@ export class WhatsAppClient implements PlatformClient {
     console.log(`[WhatsAppAdapter.sendMessage] EXIT - thisHash: ${thisHash}, sent:`, !!sent, 'sent.id:', sent?.id, 'typeof sent:', typeof sent, 'retry attempts:', retry);
     
     // Validar mensagem antes de normalizar
+    // Accept sent as false (no message returned) only if we can get the message from cache
+    if (!sent || sent === false) {
+      console.warn(`[WhatsAppAdapter.sendMessage] ⚠️ sent é false/undefined após ${retry + 1} tentativas`);
+      
+      // Tentar recuperar a mensagem do cache usando o ID da mensagem enviada
+      try {
+        console.warn(`[WhatsAppAdapter.sendMessage] 🔄 Tentando recuperar mensagem do cache...`);
+        const cachedMsg = await this.client.getMessageById?.(newMsgKey?._serialized || newMsgKey?.id?._serialized);
+        if (cachedMsg && cachedMsg.id) {
+          console.warn(`[WhatsAppAdapter.sendMessage] ✅ Mensagem recuperada do cache`);
+          sent = cachedMsg;
+        }
+      } catch (cacheError: any) {
+        console.warn(`[WhatsAppAdapter.sendMessage] ⚠️ Falha ao recuperar mensagem do cache: ${cacheError.message}`);
+      }
+    }
+    
     if (!sent) {
       console.error(`[WhatsAppAdapter.sendMessage] ERRO CRÍTICO: sent é undefined/null após ${MAX_RETRIES} tentativas`);
       throw new Error(`Falha ao enviar mensagem: retorno undefined após ${MAX_RETRIES} tentativas`);
