@@ -37,8 +37,11 @@ export const joinTimestamps = new Map<string, number>();
 export const FIRST_MINUTES_LIMIT_MS = 10 * 60 * 1000; // 10 minutos
 
 export function recordMemberJoin(groupId: string, memberId: string): void {
+  console.log('[recordMemberJoin] ENTRY - groupId:', groupId, 'memberId:', memberId);
   const cleanGroup = groupId.replace(/^(wpp:|tg:|dc:)/, '');
   const cleanMember = memberId.replace(/^(wpp:|tg:|dc:)/, '');
+  
+  console.log('[recordMemberJoin] cleanGroup:', cleanGroup, 'cleanMember:', cleanMember);
   
   // Limpeza de entradas antigas para evitar vazamento de memória
   const now = Date.now();

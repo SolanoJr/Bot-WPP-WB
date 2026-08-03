@@ -147,6 +147,7 @@ export class WhatsAppClient implements PlatformClient {
 
   private async handleMemberJoin(notification: any): Promise<void> {
     try {
+      console.log('[handleMemberJoin] ENTRY - notification:', !!notification);
       const groupId = notification.chatId || notification.id.remote;
       const newMembers = notification.recipientIds || notification.recipients || [];
       
@@ -154,12 +155,15 @@ export class WhatsAppClient implements PlatformClient {
 
       // Registrar o horário de entrada de cada membro para controle de DDI no AutoMod
       try {
+        console.log('[handleMemberJoin] Chamando recordMemberJoin...');
         const { recordMemberJoin } = await import('../../services/autoModService');
         for (const memberId of newMembers) {
+          console.log('[handleMemberJoin] Registrando membro:', memberId);
           recordMemberJoin(groupId, memberId);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('[WhatsApp] Erro ao registrar entrada de membro para AutoMod:', err.message);
+        console.error('[WhatsApp] Erro stack:', err.stack);
       }
 
       // Importar função para obter mensagem personalizada
