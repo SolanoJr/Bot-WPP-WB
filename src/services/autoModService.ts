@@ -160,7 +160,7 @@ export async function processAutoMod(msg: Message, client: any): Promise<boolean
     let freshChat;
     try {
       freshChat = await client.getChatById(chat.id._serialized);
-    } catch (error) {
+    } catch (error: any) {
       console.error('[AutoMod] Erro ao obter chat via getChatById:', error.message);
       // Fallback: usar o chat já obtido
       freshChat = chat;
@@ -210,15 +210,27 @@ export async function processAutoMod(msg: Message, client: any): Promise<boolean
         // Ações de Punição Imediata
         try {
             // 1. Deletar mensagem para todos
-            await msg.delete(true);
+            try {
+                await msg.delete(true);
+            } catch (err: any) {
+                console.error(`❌ [AutoMod] Erro ao deletar mensagem: ${err.message}`);
+            }
             
             // 2. Banir usuário (remover do grupo)
-            await chat.removeParticipants([authorId]);
+            try {
+                await (chat as any).removeParticipants([authorId]);
+            } catch (err: any) {
+                console.error(`❌ [AutoMod] Erro ao remover participante: ${err.message}`);
+            }
 
             // 3. Notificar grupo
-            await chat.sendMessage(`🛡️ *AutoMod WarriorBlack*\n\n⚠️ Usuário removido!\n👤 @${authorId.split('@')[0]}\n📝 Motivo: ${reason}`, {
-                mentions: [authorId]
-            });
+            try {
+                await chat.sendMessage(`🛡️ *AutoMod WarriorBlack*\n\n⚠️ Usuário removido!\n👤 @${authorId.split('@')[0]}\n📝 Motivo: ${reason}`, {
+                    mentions: [authorId]
+                });
+            } catch (err: any) {
+                console.error(`❌ [AutoMod] Erro ao enviar notificação: ${err.message}`);
+            }
 
             return true;
         } catch (err: any) {
