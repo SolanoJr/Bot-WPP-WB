@@ -377,28 +377,49 @@ export class WhatsAppClient implements PlatformClient {
     const cleanChatId = chatId.replace(/^wpp:/, '');
     console.log(`[WhatsAppAdapter.sendMessage] cleanChatId: ${cleanChatId}`);
     
-    let sent: any;
-    try {
-      sent = await this.client.sendMessage(cleanChatId, text, {
-        quotedMessageId: options?.replyToMessageId?.replace(/^wpp:/, '')
-      });
-    } catch (sendError: any) {
-      console.error(`[WhatsAppAdapter.sendMessage] ERRO ao enviar mensagem:`, sendError.message);
-      console.error(`[WhatsAppAdapter.sendMessage] Stack:`, sendError.stack);
-      throw sendError;
+    // Retry logic para lidar com race condition do whatsapp-web.js
+    // A mensagem pode ter sido enviada mas ainda não adicionada ao cache
+    const MAX_RETRIES = 5;
+    const RETRY_DELAY = 100; // ms
+    let sent: any = undefined;
+    let retry = 0;
+    
+    while (retry < MAX_RETRIES) {
+      try {
+        sent = await this.client.sendMessage(cleanChatId, text, {
+          quotedMessageId: options?.replyToMessageId?.replace(/^wpp:/, '')
+        });
+        
+        // Se received mensagem válida, sair do loop
+        if (sent && sent.id) {
+          console.log(`[WhatsAppAdapter.sendMessage] ✅ Mensagem enviada com sucesso na tentativa ${retry + 1}`);
+          break;
+        }
+        
+        retry++;
+        console.warn(`[WhatsAppAdapter.sendMessage] ⚠️ Tentativa ${retry}/${MAX_RETRIES}: Mensagem não encontrada no cache (sent.id=${!!sent?.id}). Aguardando ${RETRY_DELAY}ms...`);
+        
+        if (retry < MAX_RETRIES) {
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * retry));
+        }
+      } catch (sendError: any) {
+        console.error(`[WhatsAppAdapter.sendMessage] ERRO ao enviar mensagem:`, sendError.message);
+        console.error(`[WhatsAppAdapter.sendMessage] Stack:`, sendError.stack);
+        throw sendError;
+      }
     }
     
-    console.log(`[WhatsAppAdapter.sendMessage] EXIT - thisHash: ${thisHash}, sent:`, !!sent, 'sent.id:', sent?.id, 'typeof sent:', typeof sent);
+    console.log(`[WhatsAppAdapter.sendMessage] EXIT - thisHash: ${thisHash}, sent:`, !!sent, 'sent.id:', sent?.id, 'typeof sent:', typeof sent, 'retry attempts:', retry);
     
     // Validar mensagem antes de normalizar
     if (!sent) {
-      console.error(`[WhatsAppAdapter.sendMessage] ERRO CRÍTICO: sent é undefined/null`);
-      throw new Error('Falha ao enviar mensagem: retorno undefined do client');
+      console.error(`[WhatsAppAdapter.sendMessage] ERRO CRÍTICO: sent é undefined/null após ${MAX_RETRIES} tentativas`);
+      throw new Error(`Falha ao enviar mensagem: retorno undefined após ${MAX_RETRIES} tentativas`);
     }
     
     if (!sent.id) {
-      console.error(`[WhatsAppAdapter.sendMessage] ERRO CRÍTICO: sent não tem id`, JSON.stringify(sent).substring(0, 200));
-      throw new Error('Falha ao enviar mensagem: mensagem sem id');
+      console.error(`[WhatsAppAdapter.sendMessage] ERRO CRÍTICO: sent não tem id após ${MAX_RETRIES} tentativas`, JSON.stringify(sent).substring(0, 200));
+      throw new Error(`Falha ao enviar mensagem: mensagem sem id após ${MAX_RETRIES} tentativas`);
     }
     
     console.log(`[WhatsAppAdapter.sendMessage] sent instanceof Message:`, sent ? (sent instanceof (require('whatsapp-web.js').Message)) : 'N/A');
