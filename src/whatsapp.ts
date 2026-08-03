@@ -6,6 +6,20 @@ import axios from 'axios';
 import dotenv from 'dotenv';
 dotenv.config();
 
+// Error handler global para capturar erros não tratados
+process.on('uncaughtException', (error) => {
+    console.error('❌ [UNCAUGHT EXCEPTION]:', error);
+    console.error('❌ [UNCAUGHT EXCEPTION] message:', error.message);
+    console.error('❌ [UNCAUGHT EXCEPTION] stack:', error.stack);
+    console.error('❌ [UNCAUGHT EXCEPTION] name:', error.name);
+    console.error('❌ [UNCAUGHT EXCEPTION] code:', error.code);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ [UNHANDLED REJECTION]:', reason);
+    console.error('❌ [UNHANDLED REJECTION] promise:', promise);
+});
+
 // � METRICS - Prometheus + Grafana
 import metricsService from './services/metricsService';
 
