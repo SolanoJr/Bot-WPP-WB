@@ -21,10 +21,16 @@ async function processMessage(msg: any, client: any, commands: Map<string, any>)
     const isCommand = body.startsWith(prefix);
 
     if (!isCommand) {
+        console.log('[messageHandler] Chamando processAutoMod...');
         // 3. Auto-Moderação de Spam/Links/DDI (apenas para não-comandos)
-        const moderated = await processAutoMod(msg, client);
-        if (moderated) {
-            return;
+        try {
+            const moderated = await processAutoMod(msg, client);
+            if (moderated) {
+                return;
+            }
+        } catch (err: any) {
+            console.error('[messageHandler] Erro ao executar AutoMod:', err.message);
+            console.error('[messageHandler] Erro stack:', err.stack);
         }
 
         // 4. Lógica de Palavras-Chave e Auto-Moderação (Separada)
