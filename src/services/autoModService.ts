@@ -257,6 +257,10 @@ export async function processAutoMod(msg: Message, client: any): Promise<boolean
     return false;
   } catch (error: any) {
     console.error(`❌ [AutoMod] Erro crítico: ${error.message}`);
+    console.error(`❌ [AutoMod] Erro completo:`, JSON.stringify(error, null, 2));
+    console.error(`❌ [AutoMod] Erro stack:`, error.stack);
+    console.error(`❌ [AutoMod] Erro name:`, error.name);
+    console.error(`❌ [AutoMod] Erro code:`, error.code);
     return false;
   }
 }
