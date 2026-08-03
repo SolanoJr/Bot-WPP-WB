@@ -167,11 +167,22 @@ export async function processAutoMod(msg: Message, client: any): Promise<boolean
     }
     const participants = freshChat.participants || [];
     const botId = client.info?.wid?._serialized ? cleanId(client.info.wid._serialized) : '';
+    console.log('[AutoMod] botId:', botId, 'client.info:', !!client.info, 'client.info.wid:', client.info?.wid);
     
-    const botPart = participants.find((p: any) => cleanId(p.id._serialized) === botId);
+    const botPart = participants.find((p: any) => {
+      const pId = p?.id?._serialized ? cleanId(p.id._serialized) : null;
+      console.log('[AutoMod] Checking participant - p.id:', p?.id, 'p.id._serialized:', p?.id?._serialized, 'pId:', pId);
+      return pId === botId;
+    });
+    console.log('[AutoMod] botPart:', !!botPart, 'botPart.isAdmin:', botPart?.isAdmin, 'botPart.isSuperAdmin:', botPart?.isSuperAdmin);
     if (!botPart?.isAdmin && !botPart?.isSuperAdmin) return false;
 
-    const authorPart = participants.find((p: any) => cleanId(p.id._serialized) === cleanId(authorId));
+    const authorClean = cleanId(authorId);
+    const authorPart = participants.find((p: any) => {
+      const pId = p?.id?._serialized ? cleanId(p.id._serialized) : null;
+      return pId === authorClean;
+    });
+    console.log('[AutoMod] authorPart:', !!authorPart, 'authorPart.isAdmin:', authorPart?.isAdmin, 'authorPart.isSuperAdmin:', authorPart?.isSuperAdmin);
     if (authorPart?.isAdmin || authorPart?.isSuperAdmin) return false;
 
     let shouldBan = false;
