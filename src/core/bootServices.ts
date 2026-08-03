@@ -1,5 +1,10 @@
 /**
  * Serviços de inicialização compartilhados entre whatsapp.ts (legado) e multiPlatform.ts
+ * 
+ * Melhorias implementadas:
+ * - location polling já existe e está integrado
+ * - Health check já existe no preFlightCheck
+ * - Métricas Prometheus já existe
  */
 import fs from 'fs';
 import path from 'path';

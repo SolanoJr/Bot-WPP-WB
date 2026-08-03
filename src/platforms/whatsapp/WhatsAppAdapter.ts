@@ -87,7 +87,17 @@ export class WhatsAppClient implements PlatformClient {
 
     this.client.on('message', async (msg: Message) => {
       try {
-        console.log('[WhatsAppAdapter] Mensagem recebida - msg:', !!msg, 'msg.from:', msg.from, 'msg.author:', msg.author);
+        console.log('[WhatsAppAdapter] Mensagem recebida - msg:', !!msg, 'msg.from:', msg?.from, 'msg.author:', msg?.author);
+        
+        if (!msg) {
+          console.error('[WhatsAppAdapter] ERRO: msg é null/undefined, ignorando');
+          return;
+        }
+        
+        if (!msg.id) {
+          console.error('[WhatsAppAdapter] ERRO: msg não tem id, ignorando - msg:', JSON.stringify(msg).substring(0, 200));
+          return;
+        }
         
         // Executar AutoMod para mensagens recebidas em grupos
         const moderated = await processAutoMod(msg, this.client);
@@ -112,15 +122,34 @@ export class WhatsAppClient implements PlatformClient {
       }
 
       if (this.messageHandler) {
-        const platformMsg = this.normalizeMessage(msg);
-        await this.messageHandler(platformMsg);
+        try {
+          const platformMsg = this.normalizeMessage(msg);
+          await this.messageHandler(platformMsg);
+        } catch (normError: any) {
+          console.error(`[WhatsAppAdapter] Erro ao normalizar mensagem:`, normError.message);
+          console.error(`[WhatsAppAdapter] Stack:`, normError.stack);
+        }
       }
     });
 
     this.client.on('message_create', async (msg: Message) => {
+      if (!msg) {
+        console.error('[WhatsAppAdapter] message_create: msg é null/undefined, ignorando');
+        return;
+      }
+      
+      if (!msg.id) {
+        console.error('[WhatsAppAdapter] message_create: msg não tem id, ignorando');
+        return;
+      }
+      
       if (msg.fromMe && this.messageHandler) {
-        const platformMsg = this.normalizeMessage(msg);
-        await this.messageHandler(platformMsg);
+        try {
+          const platformMsg = this.normalizeMessage(msg);
+          await this.messageHandler(platformMsg);
+        } catch (normError: any) {
+          console.error(`[WhatsAppAdapter] Erro ao normalizar message_create:`, normError.message);
+        }
       }
     });
 
@@ -203,29 +232,31 @@ export class WhatsAppClient implements PlatformClient {
   private normalizeMessage(msg: any): PlatformMessage {
     const msgHash = Math.random().toString(36).substring(7);
     const stack = new Error().stack;
-    console.log(`[WhatsAppAdapter.normalizeMessage] ENTRY - msgHash: ${msgHash}, msg:`, !!msg, 'msg.id:', msg?.id, 'typeof msg:', typeof msg);
-    console.log(`[WhatsAppAdapter.normalizeMessage] Stack trace:`, stack);
     
-    console.log('[WhatsApp] normalizeMessage() - msg.id:', msg?.id, 'msg.id._serialized:', msg?.id?._serialized, 'msg.id.id:', msg?.id?.id);
-    console.log('[WhatsApp] normalizeMessage() chamado - msg existe?', !!msg, 'msg.id?', !!msg?.id, 'msg.from?', !!msg?.from, 'msg._data?', !!msg?._data);
-    
+    // VALIDAÇÃO DEFENSIVA ANTES DE QUALQUER ACESSO
     if (!msg) {
-      console.error('[WhatsApp] normalizeMessage() recebeu msg undefined/null - msgHash:', msgHash);
-      console.error('[WhatsApp] normalizeMessage() Stack trace:', stack);
-      throw new Error('Mensagem undefined/null em normalizeMessage');
+      console.error(`[WhatsAppAdapter.normalizeMessage] ERRO CRÍTICO - msg é null/undefined! msgHash: ${msgHash}`);
+      console.error('[WhatsAppAdapter.normalizeMessage] Stack trace:', stack);
+      throw new Error('Mensagem undefined/null em normalizeMessage - fonte desconhecida');
     }
     
     if (!msg.id) {
-      console.error('[WhatsApp] normalizeMessage() recebeu msg sem id:', JSON.stringify(msg).substring(0, 200));
-      console.error('[WhatsApp] normalizeMessage() Stack trace:', stack);
+      console.error(`[WhatsAppAdapter.normalizeMessage] ERRO CRÍTICO - msg não tem id! msgHash: ${msgHash}`);
+      console.error('[WhatsAppAdapter.normalizeMessage] msg JSON (primeiros 200 chars):', JSON.stringify(msg).substring(0, 200));
+      console.error('[WhatsAppAdapter.normalizeMessage] Stack trace:', stack);
       throw new Error('Mensagem sem id em normalizeMessage');
     }
     
     if (!msg.from) {
-      console.error('[WhatsApp] normalizeMessage() recebeu msg sem from:', JSON.stringify(msg).substring(0, 200));
-      console.error('[WhatsApp] normalizeMessage() Stack trace:', stack);
+      console.error(`[WhatsAppAdapter.normalizeMessage] ERRO CRÍTICO - msg não tem from! msgHash: ${msgHash}`);
+      console.error('[WhatsAppAdapter.normalizeMessage] msg JSON:', JSON.stringify(msg).substring(0, 200));
+      console.error('[WhatsAppAdapter.normalizeMessage] Stack trace:', stack);
       throw new Error('Mensagem sem from em normalizeMessage');
     }
+    
+    console.log(`[WhatsAppAdapter.normalizeMessage] ENTRY - msgHash: ${msgHash}`);
+    console.log(`[WhatsApp] normalizeMessage() - msg.id:`, msg?.id, 'msg.id._serialized:', msg?.id?._serialized, 'msg.id.id:', msg?.id?.id);
+    console.log('[WhatsApp] normalizeMessage() chamado - msg existe?', !!msg, 'msg.id?', !!msg?.id, 'msg.from?', !!msg?.from);
     
     const chatId = msg.from;
     const userId = msg.fromMe ? (msg.to || this.client.info?.wid?._serialized) : msg.from;
@@ -346,11 +377,30 @@ export class WhatsAppClient implements PlatformClient {
     const cleanChatId = chatId.replace(/^wpp:/, '');
     console.log(`[WhatsAppAdapter.sendMessage] cleanChatId: ${cleanChatId}`);
     
-    const sent = await this.client.sendMessage(cleanChatId, text, {
-      quotedMessageId: options?.replyToMessageId?.replace(/^wpp:/, '')
-    });
+    let sent: any;
+    try {
+      sent = await this.client.sendMessage(cleanChatId, text, {
+        quotedMessageId: options?.replyToMessageId?.replace(/^wpp:/, '')
+      });
+    } catch (sendError: any) {
+      console.error(`[WhatsAppAdapter.sendMessage] ERRO ao enviar mensagem:`, sendError.message);
+      console.error(`[WhatsAppAdapter.sendMessage] Stack:`, sendError.stack);
+      throw sendError;
+    }
     
     console.log(`[WhatsAppAdapter.sendMessage] EXIT - thisHash: ${thisHash}, sent:`, !!sent, 'sent.id:', sent?.id, 'typeof sent:', typeof sent);
+    
+    // Validar mensagem antes de normalizar
+    if (!sent) {
+      console.error(`[WhatsAppAdapter.sendMessage] ERRO CRÍTICO: sent é undefined/null`);
+      throw new Error('Falha ao enviar mensagem: retorno undefined do client');
+    }
+    
+    if (!sent.id) {
+      console.error(`[WhatsAppAdapter.sendMessage] ERRO CRÍTICO: sent não tem id`, JSON.stringify(sent).substring(0, 200));
+      throw new Error('Falha ao enviar mensagem: mensagem sem id');
+    }
+    
     console.log(`[WhatsAppAdapter.sendMessage] sent instanceof Message:`, sent ? (sent instanceof (require('whatsapp-web.js').Message)) : 'N/A');
     console.log(`[WhatsAppAdapter.sendMessage] Stack trace:`, stack);
     
