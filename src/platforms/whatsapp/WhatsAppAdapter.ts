@@ -456,7 +456,7 @@ export class WhatsAppClient implements PlatformClient {
           console.warn(`[WhatsAppAdapter.sendMessage] ✅ Mensagem recuperada do cache: ${cachedMsg.id._serialized}`);
           sent = cachedMsg;
         } else {
-          console.warn(`[WhatsAppAdapter.sendMessage] ⚠️ Não foi possível recuperar mensagem do cache`);
+          console.warn(`[WhatsAppAdapter.sendMessage] ⚠️ Não foi possível recuperar mensagem do cache (cachedMsg:`, cachedMsg, ')');
         }
       } catch (cacheError: any) {
         console.warn(`[WhatsAppAdapter.sendMessage] ⚠️ Falha ao recuperar mensagem do cache: ${cacheError.message}`);
