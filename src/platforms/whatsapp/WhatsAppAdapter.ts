@@ -87,6 +87,8 @@ export class WhatsAppClient implements PlatformClient {
 
     this.client.on('message', async (msg: Message) => {
       try {
+        console.log('[WhatsAppAdapter] Mensagem recebida - msg:', !!msg, 'msg.from:', msg.from, 'msg.author:', msg.author);
+        
         // Executar AutoMod para mensagens recebidas em grupos
         const moderated = await processAutoMod(msg, this.client);
         if (moderated) {
@@ -95,6 +97,7 @@ export class WhatsAppClient implements PlatformClient {
         }
       } catch (err) {
         console.error(`[WhatsAppAdapter] Erro ao executar AutoMod:`, err.message);
+        console.error(`[WhatsAppAdapter] Erro stack:`, err.stack);
       }
 
       // Executar handler de palavras-chave (respostas sarcásticas)
