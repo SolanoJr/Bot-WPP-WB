@@ -157,7 +157,14 @@ export async function processAutoMod(msg: Message, client: any): Promise<boolean
                           !!(msg as any)._data?.buttonsMessage;
 
     // 2. Verificação de Admin (Bot precisa ser admin, Autor não pode ser admin)
-    const freshChat = await client.getChatById(chat.id._serialized);
+    let freshChat;
+    try {
+      freshChat = await client.getChatById(chat.id._serialized);
+    } catch (error) {
+      console.error('[AutoMod] Erro ao obter chat via getChatById:', error.message);
+      // Fallback: usar o chat já obtido
+      freshChat = chat;
+    }
     const participants = freshChat.participants || [];
     const botId = client.info?.wid?._serialized ? cleanId(client.info.wid._serialized) : '';
     
