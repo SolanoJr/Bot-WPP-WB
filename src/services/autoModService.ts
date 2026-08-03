@@ -140,15 +140,17 @@ export function isForeignNumber(userId: string): boolean {
  * Processa a moderação automática seguindo regras estritas
  */
 export async function processAutoMod(msg: Message, client: any): Promise<boolean> {
+  console.log('[AutoMod] ENTRY - msg:', !!msg, 'client:', !!client);
   if (!defaultConfig.enabled || msg.fromMe) return false;
 
   try {
     const chat = await msg.getChat();
-    if (!chat.isGroup) return false;
+    console.log('[AutoMod] chat obtido:', !!chat, 'chat.id:', chat?.id, 'chat.id._serialized:', chat?.id?._serialized);
+    const authorId = msg.author || msg.from;
+    console.log('[AutoMod] authorId:', authorId);
 
     // 1. Extração de conteúdo (incluindo interativos)
     const messageText = extractTextFromInteractiveMessage(msg);
-    const authorId = msg.author || msg.from;
     
     // Identificar se a mensagem veio em formato interativo
     const isInteractive = ['interactive', 'template', 'buttons', 'list_response', 'buttons_response'].includes(msg.type) || 
