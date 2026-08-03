@@ -367,12 +367,6 @@ export class WhatsAppClient implements PlatformClient {
     console.log(`[WhatsAppAdapter.sendMessage] ENTRY - thisHash: ${thisHash}, this.constructor.name: ${this.constructor.name}, chatId: ${chatId}`);
     console.log(`[WhatsAppAdapter.sendMessage] Stack trace:`, stack);
     
-    // Verificar se sendMessage é método original ou wrapper
-    console.log(`[WhatsAppAdapter.sendMessage] this.client.sendMessage.toString().slice(0,500):`, this.client.sendMessage.toString().slice(0,500));
-    console.log(`[WhatsAppAdapter.sendMessage] this.client.sendMessage.name:`, this.client.sendMessage.name);
-    console.log(`[WhatsAppAdapter.sendMessage] this.client.sendMessage.constructor.name:`, this.client.sendMessage.constructor.name);
-    console.log(`[WhatsAppAdapter.sendMessage] Object.getPrototypeOf(this.client).constructor.name:`, Object.getPrototypeOf(this.client).constructor.name);
-    
     // Remover prefixo wpp: se presente
     const cleanChatId = chatId.replace(/^wpp:/, '');
     console.log(`[WhatsAppAdapter.sendMessage] cleanChatId: ${cleanChatId}`);
@@ -383,21 +377,52 @@ export class WhatsAppClient implements PlatformClient {
     const RETRY_DELAY = 100; // ms
     let sent: any = undefined;
     let retry = 0;
+    let newMsgKey: any = undefined;
     
     while (retry < MAX_RETRIES) {
       try {
+        const startTime = Date.now();
         sent = await this.client.sendMessage(cleanChatId, text, {
           quotedMessageId: options?.replyToMessageId?.replace(/^wpp:/, '')
         });
+        const duration = Date.now() - startTime;
         
-        // Se received mensagem válida, sair do loop
+        // Log detalhado do retorno bruto
+        console.log(`[WhatsAppAdapter.sendMessage] ⏱️ sendMessage demorou ${duration}ms`);
+        console.log(`[WhatsAppAdapter.sendMessage] 📋 RETORNO BRUTO: typeof: ${typeof sent}, constructor: ${sent?.constructor?.name || 'N/A'}`);
+        console.log(`[WhatsAppAdapter.sendMessage] 📋 sent:`, !!sent);
+        console.log(`[WhatsAppAdapter.sendMessage] 📋 sent.id:`, sent?.id);
+        console.log(`[WhatsAppAdapter.sendMessage] 📋 sent.id._serialized:`, sent?.id?._serialized);
+        console.log(`[WhatsAppAdapter.sendMessage] 📋 Object.keys(sent || {}):`, sent ? Object.keys(sent) : []);
+        console.log(`[WhatsAppAdapter.sendMessage] 📋 JSON.stringify (primeiros 300 chars):`, JSON.stringify(sent).substring(0, 300));
+        
+        // Tentar extrair newMsgKey se disponível
+        try {
+          const internalMsg = (sent as any)?.__proto__?.constructor?.name === 'Message' ? sent : null;
+          if (internalMsg) {
+            const _data = (internalMsg as any)?._data;
+            if (_data) {
+              console.log(`[WhatsAppAdapter.sendMessage] 📋 _data.id:`, _data?.id);
+              console.log(`[WhatsAppAdapter.sendMessage] 📋 _data.id._serialized:`, _data?.id?._serialized);
+              console.log(`[WhatsAppAdapter.sendMessage] 📋 _data.id.id:`, _data?.id?.id);
+              console.log(`[WhatsAppAdapter.sendMessage] 📋 _data.id.fromMe:`, _data?.id?.fromMe);
+              console.log(`[WhatsAppAdapter.sendMessage] 📋 _data.id.remote:`, _data?.id?.remote);
+              console.log(`[WhatsAppAdapter.sendMessage] 📋 _data.id.remote._serialized:`, _data?.id?.remote?._serialized);
+              newMsgKey = _data?.id;
+            }
+          }
+        } catch (keyError: any) {
+          console.log(`[WhatsAppAdapter.sendMessage] ⚠️ Não foi possível extrair newMsgKey: ${keyError.message}`);
+        }
+        
+        // Se recebeu mensagem válida, sair do loop
         if (sent && sent.id) {
           console.log(`[WhatsAppAdapter.sendMessage] ✅ Mensagem enviada com sucesso na tentativa ${retry + 1}`);
           break;
         }
         
         retry++;
-        console.warn(`[WhatsAppAdapter.sendMessage] ⚠️ Tentativa ${retry}/${MAX_RETRIES}: Mensagem não encontrada no cache (sent.id=${!!sent?.id}). Aguardando ${RETRY_DELAY}ms...`);
+        console.warn(`[WhatsAppAdapter.sendMessage] ⚠️ Tentativa ${retry}/${MAX_RETRIES}: Mensagem não encontrada no cache (sent.id=${!!sent?.id}). Aguardando ${RETRY_DELAY * retry}ms...`);
         
         if (retry < MAX_RETRIES) {
           await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * retry));
@@ -409,7 +434,7 @@ export class WhatsAppClient implements PlatformClient {
       }
     }
     
-    console.log(`[WhatsAppAdapter.sendMessage] EXIT - thisHash: ${thisHash}, sent:`, !!sent, 'sent.id:', sent?.id, 'typeof sent:', typeof sent, 'retry attempts:', retry);
+    console.log(`[WhatsAppAdapter.sendMessage] EXIT - thisHash: ${thisHash}, retry attempts: ${retry}, sent:`, !!sent, 'sent.id:', sent?.id, 'typeof sent:', typeof sent);
     
     // Validar mensagem antes de normalizar
     // Accept sent as false (no message returned) only if we can get the message from cache
@@ -419,10 +444,12 @@ export class WhatsAppClient implements PlatformClient {
       // Tentar recuperar a mensagem do cache usando o ID da mensagem enviada
       try {
         console.warn(`[WhatsAppAdapter.sendMessage] 🔄 Tentando recuperar mensagem do cache...`);
-        const cachedMsg = await this.client.getMessageById?.(newMsgKey?._serialized || newMsgKey?.id?._serialized);
+        const cachedMsg = await this.client.getMessageById?.(newMsgKey?._serialized || newMsgKey?.id?._serialized || newMsgKey?.id?.id);
         if (cachedMsg && cachedMsg.id) {
-          console.warn(`[WhatsAppAdapter.sendMessage] ✅ Mensagem recuperada do cache`);
+          console.warn(`[WhatsAppAdapter.sendMessage] ✅ Mensagem recuperada do cache: ${cachedMsg.id._serialized}`);
           sent = cachedMsg;
+        } else {
+          console.warn(`[WhatsAppAdapter.sendMessage] ⚠️ Não foi possível recuperar mensagem do cache`);
         }
       } catch (cacheError: any) {
         console.warn(`[WhatsAppAdapter.sendMessage] ⚠️ Falha ao recuperar mensagem do cache: ${cacheError.message}`);
@@ -438,9 +465,6 @@ export class WhatsAppClient implements PlatformClient {
       console.error(`[WhatsAppAdapter.sendMessage] ERRO CRÍTICO: sent não tem id após ${MAX_RETRIES} tentativas`, JSON.stringify(sent).substring(0, 200));
       throw new Error(`Falha ao enviar mensagem: mensagem sem id após ${MAX_RETRIES} tentativas`);
     }
-    
-    console.log(`[WhatsAppAdapter.sendMessage] sent instanceof Message:`, sent ? (sent instanceof (require('whatsapp-web.js').Message)) : 'N/A');
-    console.log(`[WhatsAppAdapter.sendMessage] Stack trace:`, stack);
     
     return this.normalizeMessage(sent);
   }
