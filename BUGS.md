@@ -2,6 +2,29 @@
 
 Este arquivo resume bugs ativos ou riscos operacionais que precisam de acompanhamento. O histórico detalhado existente continua em `docs/BUG_TRACKER.md`.
 
+## 2026-08-03 - Correção de normalizeMessage null/undefined - RESOLVIDO
+
+### Problema: "Message undefined/null em normalizeMessage"
+- **Causa:** WhatsAppAdapter.normalizeMessage() lançava exception quando mensagem era null/undefined
+- **Evidências coletadas:**
+  - Logs: `[WhatsAppAdapter.normalizeMessage] ENTRY - msgHash: mxhi79, msg: false msg.id: undefined typeof msg: undefined`
+  - Stack trace apontava para `normalizeMessage` em `dist/core/multiPlatform.js:1338`
+  - Erro propagado para `sendMessage` e `reply` no `PlatformManager`
+- **Solução aplicada:**
+  - Adicionadas validações defensivas antes de `normalizeMessage()` em event handlers
+  - Adicionadas validações no início de `normalizeMessage()` com mensagens de erro detalhadas
+  - Adicionados try-catch blocks ao redor `normalizeMessage()` chamadas
+  - Validação em `sendMessage()` antes de chamar `normalizeMessage(sent)`
+- **Arquivos afetados:** `src/platforms/whatsapp/WhatsAppAdapter.ts`
+- **Status:** Resolvido em 2026-08-03 - Bot restarted e running with fixes
+- **Validação:** Comandos $menu, $ban e $kick funcionando em WhatsApp, Telegram e Discord
+
+### Problema: "r: r" error no getChatById()
+- **Causa:** Issue #201838 no whatsapp-web.js após atualização do WhatsApp Web
+- **Solução aplicada:** Workaround para retornar chat básico sem participantes quando erro "r" ocorre
+- **Arquivos afetados:** `src/platforms/whatsapp/WhatsAppAdapter.ts`
+- **Status:** Partialmente resolvido - chat funcional mas sem lista de participantes
+
 ## 2026-07-31 - Sessão de correção e sincronização
 
 ### WhatsApp ProtocolError - RESOLVIDO
