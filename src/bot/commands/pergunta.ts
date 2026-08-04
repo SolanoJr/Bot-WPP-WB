@@ -22,7 +22,9 @@ export const perguntaCommand: ICommand = {
       return;
     }
 
-    const userId = msg.userId || msg.author || msg.from || 'unknown';
+    // BUG 2: Em grupos, msg.from é o ID do grupo, não do usuário. Usar msg.author para userId
+    const isGroup = msg.from?.endsWith('@g.us');
+    const userId = msg.userId || msg.author || (isGroup ? null : msg.from) || 'unknown';
     const groupId = msg.chatId || msg.from;
 
     try {

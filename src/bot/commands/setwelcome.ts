@@ -18,7 +18,8 @@ export const setwelcomeCommand: ICommand = {
         
         let isGroupAdmin = false;
         if (!isUserMaster) {
-            const freshChat = await client.getChatById(chat.id._serialized);
+            // Reutilizar o chat já obtido - não chamar getChatById() novamente
+            const freshChat = chat;
             const authorClean = cleanId(authorId);
             
             const member = freshChat.participants.find((m: any) => cleanId(m.id._serialized) === authorClean);

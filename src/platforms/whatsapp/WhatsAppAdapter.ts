@@ -95,7 +95,7 @@ export class WhatsAppClient implements PlatformClient {
         }
         
         if (!msg.id) {
-          console.error('[WhatsAppAdapter] ERRO: msg não tem id, ignorando - msg:', JSON.stringify(msg).substring(0, 200));
+          console.error('[WhatsAppAdapter] ERRO: msg não tem id, ignorando - msg type:', typeof msg);
           return;
         }
         
@@ -242,14 +242,14 @@ export class WhatsAppClient implements PlatformClient {
     
     if (!msg.id) {
       console.error(`[WhatsAppAdapter.normalizeMessage] ERRO CRÍTICO - msg não tem id! msgHash: ${msgHash}`);
-      console.error('[WhatsAppAdapter.normalizeMessage] msg JSON (primeiros 200 chars):', JSON.stringify(msg).substring(0, 200));
+      console.error('[WhatsAppAdapter.normalizeMessage] msg type:', typeof msg);
       console.error('[WhatsAppAdapter.normalizeMessage] Stack trace:', stack);
       throw new Error('Mensagem sem id em normalizeMessage');
     }
     
     if (!msg.from) {
       console.error(`[WhatsAppAdapter.normalizeMessage] ERRO CRÍTICO - msg não tem from! msgHash: ${msgHash}`);
-      console.error('[WhatsAppAdapter.normalizeMessage] msg JSON:', JSON.stringify(msg).substring(0, 200));
+      console.error('[WhatsAppAdapter.normalizeMessage] msg type:', typeof msg);
       console.error('[WhatsAppAdapter.normalizeMessage] Stack trace:', stack);
       throw new Error('Mensagem sem from em normalizeMessage');
     }
@@ -259,8 +259,10 @@ export class WhatsAppClient implements PlatformClient {
     console.log('[WhatsApp] normalizeMessage() chamado - msg existe?', !!msg, 'msg.id?', !!msg?.id, 'msg.from?', !!msg?.from);
     
     const chatId = msg.from;
-    const userId = msg.fromMe ? (msg.to || this.client.info?.wid?._serialized) : msg.from;
     const isGroup = msg.from.endsWith('@g.us');
+    const userId = msg.fromMe
+      ? (msg.to || this.client.info?.wid?._serialized)
+      : (isGroup ? (msg.author || msg.from) : msg.from);
     
     let extractedText = msg.body || '';
     if (!extractedText && msg.type === 'chat') {
@@ -401,9 +403,9 @@ export class WhatsAppClient implements PlatformClient {
         console.log(`[WhatsAppAdapter.sendMessage] 📋 sent.id:`, sent?.id);
         console.log(`[WhatsAppAdapter.sendMessage] 📋 sent.id._serialized:`, sent?.id?._serialized);
         console.log(`[WhatsAppAdapter.sendMessage] 📋 Object.keys(sent || {}):`, sent ? Object.keys(sent) : []);
-        // Validar sent antes de acessar JSON.stringify e substring
-        const sentStr = sent ? JSON.stringify(sent) : 'sent é null/undefined';
-        console.log(`[WhatsAppAdapter.sendMessage] 📋 JSON.stringify (primeiros 300 chars):`, sentStr.substring(0, 300));
+        // BUG 3: JSON.stringify pode falhar em objetos circulares - usar log seguro
+        const sentStr = sent ? `{id: ${sent?.id}, type: ${sent?.type}}` : 'sent é null/undefined';
+        console.log(`[WhatsAppAdapter.sendMessage] 📋 sent info:`, sentStr);
         
         // Tentar extrair newMsgKey se disponível
         try {
@@ -481,7 +483,7 @@ export class WhatsAppClient implements PlatformClient {
     }
     
     if (!sent.id) {
-      console.error(`[WhatsAppAdapter.sendMessage] ERRO CRÍTICO: sent não tem id após ${MAX_RETRIES} tentativas`, sent ? JSON.stringify(sent).substring(0, 200) : 'sent é null/undefined');
+      console.error(`[WhatsAppAdapter.sendMessage] ERRO CRÍTICO: sent não tem id após ${MAX_RETRIES} tentativas`, sent ? `type: ${typeof sent}, constructor: ${sent.constructor.name}` : 'sent é null/undefined');
       throw new Error(`Falha ao enviar mensagem: mensagem sem id após ${MAX_RETRIES} tentativas`);
     }
     

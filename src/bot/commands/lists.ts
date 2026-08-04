@@ -69,7 +69,8 @@ async function checkAdminPermission(ctx: CommandContext): Promise<boolean> {
       const client = (ctx.client as any).getClient();
       
       const chat = await msg.getChat();
-      const freshChat = await client.getChatById(chat.id._serialized);
+      // Reutilizar o chat já obtido - não chamar getChatById() novamente
+      const freshChat = chat;
       
       const participants = Array.isArray(freshChat?.participants)
         ? freshChat.participants

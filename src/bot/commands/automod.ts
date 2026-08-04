@@ -12,7 +12,8 @@ export const automodCommand: ICommand = {
         const chat = await msg.getChat();
         let isAdmin = false;
         if (chat.isGroup) {
-            const freshChat = await client.getChatById(chat.id._serialized);
+            // Reutilizar o chat já obtido - não chamar getChatById() novamente
+            const freshChat = chat;
             const participants = freshChat?.participants || [];
             const p = participants.find((part: any) => cleanId(part.id._serialized) === cleanId(senderId));
             isAdmin = p?.isAdmin || p?.isSuperAdmin;

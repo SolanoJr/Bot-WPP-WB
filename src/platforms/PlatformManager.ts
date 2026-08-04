@@ -17,9 +17,6 @@ import {
   MediaPayload,
   MessageHandler
 } from './base/PlatformTypes';
-import { rateLimiter } from '../services/rateLimiter';
-import { logCommand, logPlatformStatus, logError } from '../services/loggerService';
-import { isMaster as checkIsMaster, isAdmin as checkIsAdmin, cleanId } from '../services/permissions';
 
 type AdapterFactory = () => Promise<PlatformAdapter>;
 
@@ -51,7 +48,14 @@ export class PlatformManager {
     this.adapters.set(adapter.platform, adapter);
     console.log(`[PlatformManager] Adapter registrado: ${adapter.platform}`);
     
-    // CRUCIAL: Conectar handler de ready
+    // CRUCIAL: Conectar handler de mensagens
+    adapter.client.onMessage(async (msg: PlatformMessage) => {
+      // Garantir que a plataforma esteja correta na mensagem
+      msg.platform = adapter.platform;
+      await this.handleIncomingMessage(msg);
+    });
+    
+    // Conectar handler de ready
     adapter.client.onReady(() => {
       console.log(`[PlatformManager] ${adapter.platform} está pronto!`);
       this.readyHandlers.forEach(handler => handler());
@@ -89,10 +93,8 @@ export class PlatformManager {
         await adapter.initialize();
         this.setupAdapterHandlers(adapter);
         console.log(`[PlatformManager] ✅ ${platform} pronto`);
-        logPlatformStatus(platform, 'online');
-      } catch (error: any) {
+      } catch (error) {
         console.error(`[PlatformManager] ❌ Falha ao iniciar ${platform}:`, error);
-        logPlatformStatus(platform, 'error', error?.message);
         // Continua com as outras plataformas
       }
     }
@@ -105,12 +107,9 @@ export class PlatformManager {
    * Configura handlers de mensagem para um adapter
    */
   private setupAdapterHandlers(adapter: PlatformAdapter): void {
-    console.log(`[PlatformManager] Configurando handlers para ${adapter.platform}...`);
     const client = adapter.client;
 
     client.onMessage(async (rawMessage: PlatformMessage) => {
-      console.log(`[PlatformManager] Mensagem recebida via onMessage de ${adapter.platform}: ${rawMessage.text.substring(0, 50)}...`);
-      
       // Normalizar e enriquecer mensagem
       const message = this.enrichMessage(rawMessage, adapter.platform);
 
@@ -160,36 +159,19 @@ export class PlatformManager {
         }
       }
     });
-    
-    console.log(`[PlatformManager] Handlers configurados para ${adapter.platform}`);
   }
 
   /**
    * Enriquece mensagem com metadados da plataforma
    */
   private enrichMessage(message: PlatformMessage, platform: PlatformType): PlatformMessage {
-    console.log('[PlatformManager] enrichMessage() - entrada:', {
-      id: message.id,
-      chatId: message.chatId,
-      userId: message.userId,
-      platform: platform
-    });
-    
-    const enriched = {
+    return {
       ...message,
       platform,
       // Garantir IDs com prefixo para evitar conflitos
       chatId: this.normalizeChatId(message.chatId, platform),
       userId: this.normalizeUserId(message.userId, platform),
     };
-    
-    console.log('[PlatformManager] enrichMessage() - saída:', {
-      id: enriched.id,
-      chatId: enriched.chatId,
-      userId: enriched.userId
-    });
-    
-    return enriched;
   }
 
   /**
@@ -223,36 +205,7 @@ export class PlatformManager {
     // Ignorar mensagens do próprio bot
     if (message.isFromMe) return;
     
-    // Buscar adapter da plataforma
-    const adapter = this.adapters.get(message.platform);
-    if (!adapter) {
-      console.error(`[PlatformManager] Adapter não encontrado para ${message.platform}`);
-      return;
-    }
-
-    // 1. Processar Keywords (ex: "bot", trollagem)
-    try {
-      const { handleKeywords } = await import('../services/keywordHandler');
-      // Criar um objeto compatível com o handler legado
-      const legacyMsg = {
-        body: message.text,
-        reply: async (text: string) => await adapter.client.sendMessage(message.chatId, text),
-        delete: async (everyone: boolean) => {
-          if (message.raw && typeof message.raw.delete === 'function') {
-            return await message.raw.delete(everyone);
-          }
-        },
-        author: message.userId.replace(/^(wpp:|tg:|dc:)/, ''),
-        from: message.chatId.replace(/^(wpp:|tg:|dc:)/, '')
-      };
-      
-      const handled = await handleKeywords(legacyMsg, adapter.client);
-      if (handled) return;
-    } catch (err) {
-      console.error('[PlatformManager] Erro ao processar keywords:', err);
-    }
-
-    // 2. Verificar se é comando (começa com $)
+    // Verificar se é comando (começa com $)
     const PREFIX = '$';
     if (!message.text.startsWith(PREFIX)) return;
     
@@ -268,6 +221,13 @@ export class PlatformManager {
     
     console.log(`[PlatformManager] Comando recebido: ${commandName} de ${message.userName} (${message.platform})`);
     
+    // Buscar adapter da plataforma
+    const adapter = this.adapters.get(message.platform);
+    if (!adapter) {
+      console.error(`[PlatformManager] Adapter não encontrado para ${message.platform}`);
+      return;
+    }
+    
     // Executar comando
     await this.executeCommand(message, adapter);
   }
@@ -276,14 +236,6 @@ export class PlatformManager {
    * Executa comando se encontrado
    */
   private async executeCommand(message: PlatformMessage, adapter: PlatformAdapter): Promise<void> {
-    console.log('[PlatformManager] executeCommand() - entrada:', {
-      commandName: message.commandName,
-      id: message.id,
-      chatId: message.chatId,
-      userId: message.userId,
-      platform: adapter.platform
-    });
-    
     const command = this.commandRegistry.get(message.commandName!);
 
     if (!command) {
@@ -298,16 +250,6 @@ export class PlatformManager {
       return;
     }
 
-    // 🔒 RATE LIMITING - Verificar limite de comandos
-    const { limitExceeded, remaining, resetTime } = rateLimiter.checkLimit(message.userId);
-    if (limitExceeded) {
-      const resetSeconds = Math.ceil((resetTime - Date.now()) / 1000);
-      await adapter.client.sendMessage(message.chatId, `🚫 Você excedeu o limite de comandos! Tente novamente em ${resetSeconds} segundos.`);
-      console.log(`[RateLimiter] Usuário ${message.userId} excedeu o limite!`);
-      return;
-    }
-    console.log(`[RateLimiter] Usuário ${message.userId} - ${remaining} comandos restantes`);
-
     // Verificar permissões
     const hasPermission = await this.checkPermissions(message, command);
     if (!hasPermission) {
@@ -317,7 +259,6 @@ export class PlatformManager {
     // Criar contexto unificado
     const ctx = this.createCommandContext(message, adapter.client);
 
-    const startTime = Date.now();
     try {
       console.log(`[PlatformManager] Executando ${message.commandName} em ${adapter.platform} para ${message.userName}`);
       
@@ -325,29 +266,8 @@ export class PlatformManager {
       await this.logCommandUsage(message.commandName!, message.userId, message.chatId);
       
       await command.execute(ctx);
-      logCommand({
-        command: message.commandName!,
-        platform: adapter.platform,
-        userId: message.userId,
-        chatId: message.chatId,
-        success: true,
-        durationMs: Date.now() - startTime,
-        isMaster: ctx.isMaster,
-        isAdmin: ctx.isAdmin,
-      });
     } catch (error: any) {
-      logCommand({
-        command: message.commandName!,
-        platform: adapter.platform,
-        userId: message.userId,
-        chatId: message.chatId,
-        success: false,
-        durationMs: Date.now() - startTime,
-        error: error?.message,
-        isMaster: ctx.isMaster,
-        isAdmin: ctx.isAdmin,
-      });
-      logError(`CMD:${message.commandName}`, error, { platform: adapter.platform, userId: message.userId });
+      console.error(`[PlatformManager] Erro no comando ${message.commandName}:`, error);
       await ctx.reply('⚠️ Ocorreu um erro interno ao executar este comando.');
     }
   }
@@ -388,11 +308,6 @@ export class PlatformManager {
    * Cria CommandContext unificado
    */
   private createCommandContext(message: PlatformMessage, client: PlatformClient): CommandContext {
-    // Extrair ID limpo (sem prefixo de plataforma) para verificação de permissões
-    const rawUserId = message.userId.replace(/^(wpp:|tg:|dc:)/, '');
-    const userIsMaster = checkIsMaster(rawUserId);
-    const userIsAdmin = userIsMaster || checkIsAdmin(rawUserId);
-
     return {
       msg: message,
       client,
@@ -402,10 +317,10 @@ export class PlatformManager {
       userId: message.userId,
       userName: message.userName,
       isGroup: message.raw?.isGroup || false,
-      isMaster: userIsMaster,
-      isAdmin: userIsAdmin,
+      isMaster: false, // Será preenchido pelo requirePermission
+      isAdmin: false,
       reply: async (text: string, options?: SendOptions) => {
-        return await client.sendMessage(message.chatId, text, options);
+        await client.sendMessage(message.chatId, text, options);
       },
       replyPrivate: async (text: string) => {
         // Para WhatsApp, envia no privado do usuário
@@ -437,12 +352,12 @@ export class PlatformManager {
   /**
    * Envia mensagem para uma plataforma específica
    */
-  async sendMessage(platform: PlatformType, chatId: string, text: string, options?: SendOptions): Promise<PlatformMessage> {
+  async sendMessage(platform: PlatformType, chatId: string, text: string, options?: SendOptions): Promise<void> {
     const adapter = this.adapters.get(platform);
     if (!adapter) {
       throw new Error(`Plataforma ${platform} não inicializada`);
     }
-    return await adapter.client.sendMessage(chatId, text, options);
+    await adapter.client.sendMessage(chatId, text, options);
   }
 
   /**
@@ -508,10 +423,8 @@ export class PlatformManager {
       try {
         await adapter.shutdown();
         console.log(`[PlatformManager] ✅ ${platform} desligado`);
-        logPlatformStatus(platform, 'offline', 'shutdown gracioso');
-      } catch (error: any) {
+      } catch (error) {
         console.error(`[PlatformManager] Erro ao desligar ${platform}:`, error);
-        logError(`shutdown:${platform}`, error);
       }
     }
     this.initialized = false;

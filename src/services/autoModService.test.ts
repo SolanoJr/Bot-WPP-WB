@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { analyzeMessage, isForeignNumber, extractTextFromInteractive } from './moderationService';
+import { isForeignNumber, extractTextFromInteractiveMessage } from './autoModService';
+import { analyzeMessage } from './moderationService';
 
 describe('AutoMod Service', () => {
     describe('isForeignNumber', () => {

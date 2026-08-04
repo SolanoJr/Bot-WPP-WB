@@ -20,10 +20,7 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('❌ [UNHANDLED REJECTION] promise:', promise);
 });
 
-// � METRICS - Prometheus + Grafana
-import metricsService from './services/metricsService';
-
-// �🚯 USAR SINGLETON GLOBAL - ÚNICO PONTO DE CRIAÇÃO DO CLIENT
+// 🚯 USAR SINGLETON GLOBAL - ÚNICO PONTO DE CRIAÇÃO DO CLIENT
 import whatsappSingleton from './services/whatsappSingleton';
 import { isMaster } from './services/permissions';
 import { processMessage } from './services/messageHandler';
@@ -300,7 +297,8 @@ const INIT_RETRY_DELAY_MS = 15_000;
 export const startBot = async () => {
     console.log('🚀 [BOT] INICIANDO PROCESSO DE START...');
 
-    // 📊 Inicializar Prometheus Metrics Server
+    // 📊 Inicializar Prometheus Metrics Server (DESATIVADO - metricsService não existe)
+    /*
     try {
         await metricsService.start();
         metricsService.startSystemMetricsCollection(60000);
@@ -308,6 +306,7 @@ export const startBot = async () => {
     } catch (metricsError: any) {
         console.error('⚠️  [METRICS] Erro ao iniciar servidor de métricas:', metricsError.message);
     }
+    */
 
     preFlightCheck().catch(err => {
         console.error('❌❌❌ [ERRO CRÍTICO NO PREFLIGHT] ❌❌❌');

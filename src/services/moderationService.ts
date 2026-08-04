@@ -36,12 +36,12 @@ const hasSuspiciousContent = (text: string): boolean => {
            /https?:\/\/[^\s]+(\.wtf|\.bet)/i.test(normalized);
 };
 
-export const isForeignNumber = (userId: string): boolean => {
+const isForeignNumber = (userId: string): boolean => {
     // DDI brasileiro é 55. Números do WhatsApp vêm no formato 5511999999999@c.us
     return !userId.startsWith('55');
 };
 
-export const extractTextFromInteractive = (message: any): string => {
+const extractTextFromInteractive = (message: any): string => {
     let text = message.body || message.caption || '';
     
     // Tenta extrair texto de mensagens interativas/templates (baseado na estrutura interna do whatsapp-web.js/WA Web)

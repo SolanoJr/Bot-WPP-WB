@@ -302,7 +302,8 @@ function createLegacyClient(client: any): any {
       // Método legado usado em alguns comandos
       const { whatsAppClient } = await import('../../platforms/whatsapp/WhatsAppAdapter');
       const wppClient = whatsAppClient.getClient();
-      const chat = await wppClient.getChatById(userId.includes('@g.us') ? userId : (await wppClient.getContactById(userId)).id._serialized);
+      // BUG 1: Eliminar chamada direta de getChatById - usar getChat em vez disso
+      const chat = await wppClient.getChat(userId.includes('@g.us') ? userId : (await wppClient.getContactById(userId)).id._serialized);
       if (chat.isGroup) {
         await (chat as any).removeParticipants([userId]);
       }

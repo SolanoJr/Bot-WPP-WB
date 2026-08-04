@@ -162,14 +162,8 @@ export async function processAutoMod(msg: Message, client: any): Promise<boolean
                           !!(msg as any)._data?.buttonsMessage;
 
     // 2. Verificação de Admin (Bot precisa ser admin, Autor não pode ser admin)
-    let freshChat;
-    try {
-      freshChat = await client.getChatById(chat.id._serialized);
-    } catch (error: any) {
-      console.error('[AutoMod] Erro ao obter chat via getChatById:', error.message);
-      // Fallback: usar o chat já obtido
-      freshChat = chat;
-    }
+    // Reutilizar o chat já obtido - não chamar getChatById() novamente
+    const freshChat = chat;
     const participants = freshChat.participants || [];
     const botId = client.info?.wid?._serialized ? cleanId(client.info.wid._serialized) : '';
     console.log('[AutoMod] botId:', botId, 'client.info:', !!client.info, 'client.info.wid:', client.info?.wid);
@@ -257,10 +251,10 @@ export async function processAutoMod(msg: Message, client: any): Promise<boolean
     return false;
   } catch (error: any) {
     console.error(`❌ [AutoMod] Erro crítico: ${error.message}`);
-    console.error(`❌ [AutoMod] Erro completo:`, JSON.stringify(error, null, 2));
-    console.error(`❌ [AutoMod] Erro stack:`, error.stack);
+    // BUG 3: JSON.stringify pode falhar em objetos circulares - usar log seguro
     console.error(`❌ [AutoMod] Erro name:`, error.name);
     console.error(`❌ [AutoMod] Erro code:`, error.code);
+    console.error(`❌ [AutoMod] Erro stack:`, error.stack);
     return false;
   }
 }

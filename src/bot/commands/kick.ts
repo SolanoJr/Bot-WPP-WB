@@ -7,7 +7,10 @@ export const kickCommand: ICommand = {
 
   async execute(ctxOrMsg: any, maybeClient?: any, maybeArgs?: any) {
     console.log('[kick] ===== INÍCIO DO COMANDO =====');
-    console.log('[kick] ctxOrMsg:', JSON.stringify(ctxOrMsg).substring(0, 200));
+    // BUG 3: JSON.stringify pode falhar em objetos circulares - usar log seguro
+    console.log('[kick] ctxOrMsg type:', typeof ctxOrMsg);
+    console.log('[kick] ctxOrMsg has msg:', !!ctxOrMsg?.msg);
+    console.log('[kick] ctxOrMsg has userId:', !!ctxOrMsg?.userId);
     console.log('[kick] maybeClient:', !!maybeClient);
     console.log('[kick] maybeArgs:', maybeArgs);
     

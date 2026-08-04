@@ -7,13 +7,17 @@ export const shutdownCommand: ICommand = {
     async execute(msg, client, args) {
         void args;
         
-        if (!isMaster(msg.from)) {
+        // BUG 2: Em grupos, msg.from é o ID do grupo. Usar msg.author para identificar quem executou
+        const isGroup = msg.from?.endsWith('@g.us');
+        const executorId = msg.author || (isGroup ? null : msg.from);
+        
+        if (!isMaster(executorId)) {
             await msg.reply('🚫 **Acesso negado!**\n\nEste comando só pode ser usado pelo **MASTER** do bot.');
             return;
         }
 
         try {
-            console.log(`🛑 [SHUTDOWN] Comando executado por: ${msg.from}`);
+            console.log(`🛑 [SHUTDOWN] Comando executado por: ${executorId}`);
             
             await msg.reply('🛑 **DESLIGANDO BOT...**\n\nO bot será desligado em 3 segundos.\n\n⚠️ Use `pm2 restart bot-wpp` no servidor para reiniciar.');
             
