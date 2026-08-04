@@ -276,8 +276,10 @@ class WhatsAppSingleton {
 
         this.client.on('qr', (qr: string) => {
             console.log('\n' + '='.repeat(40));
-            console.log('📱 QR CODE DETECTADO! ESCANEIE ABAIXO:');
+            console.log('📱 [EVENTO] QR CODE DETECTADO! ESCANEIE ABAIXO:');
             console.log('='.repeat(40) + '\n');
+            console.log(`🔍 [SINGLETON-${this.instanceId}] Timestamp: ${new Date().toISOString()}`);
+            console.log(`🔍 [SINGLETON-${this.instanceId}] QR length: ${qr.length}`);
             
             // Exibir QR no terminal
             qrcodeTerminal.generate(qr, { small: true });
@@ -301,15 +303,23 @@ class WhatsAppSingleton {
         });
 
         this.client.on('authenticated', () => {
-            console.log(`✅ [SINGLETON-${this.instanceId}] Sessão autenticada com sucesso!`);
+            console.log(`✅ [EVENTO] AUTHENTICATED - Sessão autenticada com sucesso!`);
+            console.log(`🔍 [SINGLETON-${this.instanceId}] Timestamp: ${new Date().toISOString()}`);
+        });
+
+        this.client.on('ready', () => {
+            console.log(`✅ [EVENTO] READY - Cliente pronto para uso!`);
+            console.log(`🔍 [SINGLETON-${this.instanceId}] Timestamp: ${new Date().toISOString()}`);
         });
 
         this.client.on('loading_screen', (percent: string, message: string) => {
-            console.log(`⏳ [SINGLETON-${this.instanceId}] Carregando WhatsApp: ${percent}% - ${message}`);
+            console.log(`⏳ [EVENTO] LOADING_SCREEN - Carregando WhatsApp: ${percent}% - ${message}`);
+            console.log(`🔍 [SINGLETON-${this.instanceId}] Timestamp: ${new Date().toISOString()}`);
         });
 
         this.client.on('auth_failure', (msg: string) => {
-            console.log(`❌ [SINGLETON-${this.instanceId}] FALHA NA AUTENTICAÇÃO: ${msg}`);
+            console.log(`❌ [EVENTO] AUTH_FAILURE - FALHA NA AUTENTICAÇÃO: ${msg}`);
+            console.log(`🔍 [SINGLETON-${this.instanceId}] Timestamp: ${new Date().toISOString()}`);
         });
 
         this.client.on('disconnected', (reason: string) => {
