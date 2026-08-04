@@ -211,9 +211,14 @@ class WhatsAppSingleton {
         }
 
         // Criar client COM CONFIGURAÇÃO ÚNICA
+        const projectDir = path.resolve(__dirname, '..');
+        const authPath = path.join(projectDir, '.wwebjs_auth');
+        console.log('📁 [SINGLETON] Usando authPath:', authPath);
+        
         this.client = new Client({
             authStrategy: new LocalAuth({
-                clientId: 'bot-wpp-session' // ÚNICO clientId em todo sistema
+                clientId: 'bot-wpp-session', // ÚNICO clientId em todo sistema
+                dataPath: authPath // Caminho explícito para pasta de autenticação
             }),
             authTimeoutMs: 120_000,
             qrMaxRetries: 5,

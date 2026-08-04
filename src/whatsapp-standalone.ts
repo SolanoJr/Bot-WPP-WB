@@ -95,10 +95,13 @@ const preFlightCheck = async () => {
     }
 
     // -------- Sistema de arquivos --------
-    const authPath = path.join(process.cwd(), '.wwebjs_auth');
+    const authPath = path.join(projectDir, '.wwebjs_auth');
+    console.log('📁 [PREFLIGHT] authPath:', authPath);
     if (!fs.existsSync(authPath)) {
         console.log('📁 [PREFLIGHT] Criando pasta de autenticação...');
         fs.mkdirSync(authPath, { recursive: true });
+    } else {
+        console.log('📁 [PREFLIGHT] Pasta de autenticação existe:', authPath);
     }
     console.log('✅ [PREFLIGHT] Sistema de arquivos OK');
 
