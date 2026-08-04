@@ -5,12 +5,17 @@ import axios from 'axios';
 import dotenv from 'dotenv';
 
 // Carregar .env explicitamente com caminho absoluto
-const envPath = path.resolve(process.cwd(), '.env');
+// Usar __dirname para garantir que busca no diretório do projeto
+const projectDir = path.resolve(__dirname, '..');
+const envPath = path.join(projectDir, '.env');
 if (fs.existsSync(envPath)) {
     dotenv.config({ path: envPath });
     console.log('✅ [ENV] .env carregado de:', envPath);
+    console.log('✅ [ENV] WARRIOR_AUTH_KEY:', process.env.WARRIOR_AUTH_KEY?.substring(0, 4) + '...' || 'NÃO DEFINIDO');
+    console.log('✅ [ENV] MASTER_USER:', process.env.MASTER_USER || 'NÃO DEFINIDO');
 } else {
     console.warn('⚠️ [ENV] .env não encontrado em:', envPath);
+    console.warn('⚠️ [ENV] projectDir:', projectDir);
 }
 
 // 🚯 USAR SINGLETON GLOBAL - ÚNICO PONTO DE CRIAÇÃO DO CLIENT
