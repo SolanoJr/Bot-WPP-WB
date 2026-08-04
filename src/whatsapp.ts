@@ -88,7 +88,8 @@ const preFlightCheck = async () => {
             if (authError.response && authError.response.status === 401) {
                 console.error('⚠️  [PREFLIGHT] ERRO DE AUTENTICAÇÃO (401)!');
                 console.error('🛑 A WARRIOR_AUTH_KEY do Bot não coincide com a do Relay.');
-                process.exit(1);
+                console.warn('⚠️ [PREFLIGHT] Continuando mesmo assim para permitir conexão...');
+                // process.exit(1); // REMOVIDO PARA PERMITIR INICIALIZAÇÃO SEM RELAY
             } else {
                 console.warn('⚠️ [PREFLIGHT] Falha ao validar Auth:', authError.message);
             }
