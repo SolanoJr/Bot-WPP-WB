@@ -3,7 +3,15 @@ import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
 import dotenv from 'dotenv';
-dotenv.config();
+
+// Carregar .env explicitamente com caminho absoluto
+const envPath = path.resolve(process.cwd(), '.env');
+if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+    console.log('✅ [ENV] .env carregado de:', envPath);
+} else {
+    console.warn('⚠️ [ENV] .env não encontrado em:', envPath);
+}
 
 // 🚯 USAR SINGLETON GLOBAL - ÚNICO PONTO DE CRIAÇÃO DO CLIENT
 import whatsappSingleton from './services/whatsappSingleton';
