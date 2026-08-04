@@ -12,10 +12,16 @@ export const automodCommand: ICommand = {
         const chat = await msg.getChat();
         let isAdmin = false;
         if (chat.isGroup) {
-            const freshChat = await client.getChatById(chat.id._serialized);
-            const participants = freshChat?.participants || [];
-            const p = participants.find((part: any) => cleanId(part.id._serialized) === cleanId(senderId));
-            isAdmin = p?.isAdmin || p?.isSuperAdmin;
+            // Use the already obtained chat and normalize participants to avoid getChatById issues
+            const participants = chat.participants || [];
+            const normalized = participants.map((part: any) => {
+                if (typeof part === 'string') return { id: { _serialized: part } };
+                if (part?.id && typeof part.id === 'string') return { id: { _serialized: part.id } };
+                if (part?.id && part.id._serialized) return part;
+                return part;
+            });
+            const p = normalized.find((part: any) => cleanId(part?.id?._serialized || part?.id) === cleanId(senderId));
+            isAdmin = !!(p?.isAdmin || p?.isSuperAdmin);
         }
 
         if (!isMaster(senderId) && !isAdmin) {
