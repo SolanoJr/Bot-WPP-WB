@@ -25,15 +25,8 @@ import whatsappSingleton from './services/whatsappSingleton';
 import { isMaster } from './services/permissions';
 import { processMessage } from './services/messageHandler';
 
-// Importar carregador de comandos compilados (o bundle está em dist/bot/index.js)
-// Como estamos migrando tudo, podemos importar direto do src ou usar o carregador dinâmico
-import { loadCommands } from './bot/commands/index';
-
 // Obter instância única de forma assíncrona
 let client: any;
-
-// Carregar comandos do TypeScript
-const commands = loadCommands();
 const WARRIOR_AUTH_KEY_LENGTH = 16;
 
 const getWarriorAuthKeyOrExit = () => {
@@ -347,12 +340,18 @@ async function initializeClient() {
     // Registro de eventos de mensagem usando o handler centralizado
     client.on('message', async (msg: any) => {
         console.log(`[EVENTO] Mensagem recebida de ${msg.from}: ${msg.body.substring(0, 20)}...`);
+        // Carregar comandos dinamicamente para evitar dependência circular
+        const { loadCommands } = await import('./bot/commands/index');
+        const commands = loadCommands();
         await processMessage(msg, client, commands);
     });
     
     client.on('message_create', async (msg: any) => {
         if (msg.fromMe) {
             console.log(`[EVENTO] Mensagem enviada por mim para ${msg.to}: ${msg.body.substring(0, 20)}...`);
+            // Carregar comandos dinamicamente para evitar dependência circular
+            const { loadCommands } = await import('./bot/commands/index');
+            const commands = loadCommands();
             await processMessage(msg, client, commands);
         }
     });
