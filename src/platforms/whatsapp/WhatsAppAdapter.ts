@@ -43,7 +43,7 @@ export class WhatsAppClient implements PlatformClient {
       authStrategy: new LocalAuth({ dataPath: authPath }),
       puppeteer: {
         headless: true,
-        executablePath: '/home/solanojr/.cache/puppeteer/chrome/linux-146.0.7680.31/chrome-linux64/chrome',
+        executablePath: '/root/.cache/puppeteer/chrome/linux-148.0.7778.97/chrome-linux64/chrome',
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
