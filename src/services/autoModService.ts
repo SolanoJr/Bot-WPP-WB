@@ -162,16 +162,27 @@ export async function processAutoMod(msg: Message, client: any): Promise<boolean
                           !!(msg as any)._data?.buttonsMessage;
 
     // 2. Verificação de Admin (Bot precisa ser admin, Autor não pode ser admin)
-    let freshChat;
-    try {
-      freshChat = await client.getChatById(chat.id._serialized);
-    } catch (error: any) {
-      console.error('[AutoMod] Erro ao obter chat via getChatById:', error.message);
-      // Fallback: usar o chat já obtido
-      freshChat = chat;
-    }
-    const participants = freshChat.participants || [];
-    const botId = client.info?.wid?._serialized ? cleanId(client.info.wid._serialized) : '';
+    // Use the already-obtained chat object; avoid calling client.getChatById which can fail with whatsapp-web.js "r" error.
+    const freshChat = chat;
+
+    // Normalize participants: entries may be strings (ids) or objects with id/_serialized and admin flags.
+    const rawParticipants = freshChat.participants || [];
+    const participants = rawParticipants.map((p: any) => {
+      if (!p) return null;
+      // If participant is a string ID
+      if (typeof p === 'string') {
+        return { id: { _serialized: p }, isAdmin: false, isSuperAdmin: false };
+      }
+      // If participant is an object and already normalized (has id._serialized)
+      if (p.id && p.id._serialized) {
+        return { id: { _serialized: p.id._serialized }, isAdmin: !!p.isAdmin, isSuperAdmin: !!p.isSuperAdmin };
+      }
+      // Fallback for other shapes
+      const possibleId = p._serialized || p.id || p.user || p;
+      return { id: { _serialized: String(possibleId) }, isAdmin: !!p.isAdmin, isSuperAdmin: !!p.isSuperAdmin };
+    }).filter(Boolean);
+
+    const botId = client?.info?.wid?._serialized ? cleanId(client.info.wid._serialized) : '';
     console.log('[AutoMod] botId:', botId, 'client.info:', !!client.info, 'client.info.wid:', client.info?.wid);
     
     const botPart = participants.find((p: any) => {

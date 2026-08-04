@@ -22,6 +22,7 @@ import { gttsCommand } from './gtts';
 import { ondeEstouCommand } from './ondeestou';
 import { jogosCommand } from './jogos';
 import { jokesCommand } from './jokes';
+import { sendMessageCommand } from './sendMessage';
 import { voteCommand } from './vote';
 import { delVoteCommand } from './vote';
 import { addCmdCommand } from './addcmd';
@@ -42,71 +43,68 @@ import { setwelcomeCommand } from './setwelcome';
 import { cantadaCommand } from './cantada';
 import { cmdToggleCommand } from './cmdToggle';
 
-// Comandos registrados
-const commands: Record<string, ICommand> = {
-  help: helpCommand,
-  menu: menuCommand,
-  ping: pingCommand,
-  alive: aliveCommand,
-  ban: banCommand,
-  kick: kickCommand,
-  mute: muteCommand,
-  promover: promoteCommand,
-  'forca': forcaCommand,
-  'velha': velhaCommand,
-  'sorteio': sorteioCommand,
-  clima: climaCommand,
-  feedback: feedbackCommand,
-  stats: statsCommand,
-  pergunta: perguntaCommand,
-  nick: nickCommand,
-  gtts: gttsCommand,
-  'ondeestou': ondeEstouCommand,
-  jogos: jogosCommand,
-  jokes: jokesCommand,
-  vote: voteCommand,
-  delvote: delVoteCommand,
-  voto: voteCommand,
-  addcmd: addCmdCommand,
-  antispam: antispamCommand,
-  conselho: conselhoCommand,
-  conselhob: conselhobCommand,
-  aleatoria: aleatoriaCommand,
-  alarme: alarmeCommand,
-  lembrete: lembreteCommand,
-  bemvindo: bemvindoCommand,
-  shutdown: shutdownCommand,
-  info: infoCommand,
-  admin: adminCommand,
-  grupos: gruposCommand,
-  noticias: noticiasCommand,
-  banidos: banidosCommand,
-  setwelcome: setwelcomeCommand,
-  cantada: cantadaCommand,
-  cmdtoggle: cmdToggleCommand,
-};
+// Comandos registrados (usando Map para compatibilidade com PlatformManager e testes)
+const commandsMap: Map<string, ICommand> = new Map([
+  ['help', helpCommand],
+  ['menu', menuCommand],
+  ['ping', pingCommand],
+  ['alive', aliveCommand],
+  ['ban', banCommand],
+  ['kick', kickCommand],
+  ['mute', muteCommand],
+  ['promover', promoteCommand],
+  ['forca', forcaCommand],
+  ['velha', velhaCommand],
+  ['sorteio', sorteioCommand],
+  ['clima', climaCommand],
+  ['feedback', feedbackCommand],
+  ['stats', statsCommand],
+  ['pergunta', perguntaCommand],
+  ['nick', nickCommand],
+  ['gtts', gttsCommand],
+  ['ondeestou', ondeEstouCommand],
+  ['jogos', jogosCommand],
+  ['jokes', jokesCommand],
+  ['piada', jokesCommand],
+  ['vote', voteCommand],
+  ['votar', voteCommand],
+  ['delvote', delVoteCommand],
+  ['delvoto', delVoteCommand],
+  ['voto', voteCommand],
+  ['sendmsg', sendMessageCommand],
+  ['addcmd', addCmdCommand],
+  ['antispam', antispamCommand],
+  ['conselho', conselhoCommand],
+  ['conselhob', conselhobCommand],
+  ['aleatoria', aleatoriaCommand],
+  ['alarme', alarmeCommand],
+  ['lembrete', lembreteCommand],
+  ['bemvindo', bemvindoCommand],
+  ['shutdown', shutdownCommand],
+  ['info', infoCommand],
+  ['admin', adminCommand],
+  ['grupos', gruposCommand],
+  ['noticias', noticiasCommand],
+  ['banidos', banidosCommand],
+  ['setwelcome', setwelcomeCommand],
+  ['cantada', cantadaCommand],
+  ['cmdtoggle', cmdToggleCommand],
+]);
 
 // Registrar comandos personalizados
 import { getComandoBlock, addComandosId, addComandos, getComando, listComandos, removeComando } from './customCommandsStore';
 
 // Função principal para obter comando
 export function getCommand(name: string): ICommand | undefined {
-  const command = commands[name.toLowerCase()];
-  if (command) {
-    return command;
-  }
-  
-  // Buscar comando personalizado
-  return undefined;
+  return commandsMap.get(name.toLowerCase());
 }
 
 // Função para obter lista de comandos
 export function getCommandsList(): { name: string; description: string }[] {
-  const list = Object.entries(commands).map(([name, cmd]) => ({
-    name,
-    description: cmd.description
-  }));
-  
+  const list: { name: string; description: string }[] = [];
+  for (const [name, cmd] of commandsMap.entries()) {
+    list.push({ name, description: cmd.description });
+  }
   return list;
 }
 
@@ -117,7 +115,6 @@ export async function executeCommand(name: string, ctx: CommandContext): Promise
     console.warn(`Comando "${name}" não encontrado`);
     return;
   }
-  
   await command.execute(ctx);
 }
 
@@ -126,9 +123,9 @@ export function getSystemCommands(): string[] {
   return ['shutdown', 'admin'];
 }
 
-// Exportar loadCommands para compatibilidade com whatsapp.ts
+// Exportar loadCommands para compatibilidade com whatsapp.ts (retorna Map)
 export function loadCommands() {
-  return commands;
+  return commandsMap;
 }
 
 // Criar objeto de mensagem legado compatível com whatsapp-web.js

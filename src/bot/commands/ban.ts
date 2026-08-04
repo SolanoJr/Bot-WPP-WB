@@ -73,12 +73,21 @@ export const banCommand: ICommand = {
       console.log('[ban] botPart:', !!botPart, 'isAdmin:', botPart?.isAdmin, 'isSuperAdmin:', botPart?.isSuperAdmin);
       
       // Tentar encontrar sender comparando de todas as formas possíveis (incluindo LID)
-      const senderPart = participants.find((p: any) => {
-        const pId = p.id?._serialized || "";
-        const pIdClean = cleanId(pId);
-        const senderIdRaw = msg.userId || msg.author || msg.from;
-        return pIdClean === cleanId(senderId) || pId === senderIdRaw || (senderId && pId.includes(senderId));
-      });
+      // Helper para localizar participante por diversos formatos (string id, objeto com id._serialized, etc.)
+      const findParticipant = (searchId: string) => {
+        const cleanSearch = cleanId(searchId || '');
+        return participants.find((p: any) => {
+          if (!p) return false;
+          // p pode ser string
+          if (typeof p === 'string') {
+            return cleanId(p) === cleanSearch || p === searchId || (searchId && p.includes(searchId));
+          }
+          const candidate = p.id?._serialized || p._serialized || p.id || '';
+          return cleanId(candidate) === cleanSearch || candidate === searchId || (searchId && String(candidate).includes(searchId));
+        });
+      };
+
+      const senderPart = findParticipant(msg.userId || msg.author || msg.from);
       console.log('[ban] senderPart:', !!senderPart, 'isAdmin:', senderPart?.isAdmin, 'isSuperAdmin:', senderPart?.isSuperAdmin);
 
       const isSenderMaster = isMaster(senderId);
@@ -120,7 +129,16 @@ export const banCommand: ICommand = {
         return;
       }
 
-      const targetPart = participants.find((p: any) => cleanId(p.id._serialized) === cleanId(targetId));
+      const targetPart = ((): any => {
+        if (!targetId) return null;
+        const cleanTarget = cleanId(targetId);
+        return participants.find((p: any) => {
+          if (!p) return false;
+          if (typeof p === 'string') return cleanId(p) === cleanTarget || p === targetId || (targetId && p.includes(targetId));
+          const candidate = p.id?._serialized || p._serialized || p.id || '';
+          return cleanId(candidate) === cleanTarget || candidate === targetId || (targetId && String(candidate).includes(targetId));
+        });
+      })();
       if (targetPart?.isAdmin || targetPart?.isSuperAdmin) {
         await msg.reply("❌ Não é possível banir um administrador.");
         return;

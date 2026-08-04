@@ -66,32 +66,34 @@ async function checkAdminPermission(ctx: CommandContext): Promise<boolean> {
   if (ctx.platform === 'whatsapp' && ctx.isGroup) {
     try {
       const msg = ctx.msg.raw;
-      const client = (ctx.client as any).getClient();
-      
+      // ctx.client pode ser o adaptador ou um wrapper; obter client real quando necessário
+      const client = (ctx.client as any)?.getClient ? (ctx.client as any).getClient() : (ctx.client as any) || null;
+
+      // Obter chat já disponível via msg.getChat (evitar client.getChatById que pode falhar)
       const chat = await msg.getChat();
-      const freshChat = await client.getChatById(chat.id._serialized);
-      
-      const participants = Array.isArray(freshChat?.participants)
-        ? freshChat.participants
-        : Array.isArray(freshChat?.groupMetadata?.participants)
-          ? freshChat.groupMetadata.participants
-          : [];
-      
+      const freshChat = chat || {};
+
+      // Normalizar participantes para formatos distintos
+      const rawParticipants = Array.isArray(freshChat.participants) ? freshChat.participants : (Array.isArray(freshChat.groupMetadata?.participants) ? freshChat.groupMetadata.participants : []);
+      const participants = rawParticipants.map((p: any) => {
+        if (!p) return null;
+        if (typeof p === 'string') return { id: { _serialized: p }, isAdmin: false, isSuperAdmin: false };
+        if (p.id && p.id._serialized) return { id: { _serialized: p.id._serialized }, isAdmin: !!p.isAdmin, isSuperAdmin: !!p.isSuperAdmin };
+        const candidate = p._serialized || p.id || p.user || '';
+        return { id: { _serialized: String(candidate) }, isAdmin: !!p.isAdmin, isSuperAdmin: !!p.isSuperAdmin };
+      }).filter(Boolean);
+
       const senderIdRaw = msg.author || msg.from;
       const senderId = cleanId(senderIdRaw);
-      
+
       const senderParticipant = participants.find((p: any) => {
-        const pId = p.id?._serialized || "";
-        const pIdClean = cleanId(pId);
-        const pLid = p.id?.lid || "";
-        
-        return pIdClean === senderId || 
-               pId === senderIdRaw || 
-               pIdClean === cleanId(senderIdRaw) ||
-               (pLid && senderIdRaw.includes(pLid)) ||
-               (pLid && pLid === senderIdRaw);
+        const candidate = p.id?._serialized || '';
+        const candidateClean = cleanId(candidate);
+        const lid = p.id?.lid || '';
+
+        return candidateClean === senderId || candidate === senderIdRaw || candidateClean === cleanId(senderIdRaw) || (lid && senderIdRaw.includes(lid)) || (lid && lid === senderIdRaw);
       });
-      
+
       return Boolean(senderParticipant?.isAdmin || senderParticipant?.isSuperAdmin);
     } catch (error) {
       console.error('[Lists] Erro ao verificar admin do grupo:', error);
