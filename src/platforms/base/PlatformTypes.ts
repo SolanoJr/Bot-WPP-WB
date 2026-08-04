@@ -22,6 +22,9 @@ export interface PlatformChat {
   platform: PlatformType;
   participants?: PlatformUser[]; // Para grupos
   raw: any;
+  // Flag para indicar se as permissões dos participantes foram verificadas
+  // Útil quando getChat() falha (ex: erro "r" no WhatsApp) e participantes não puderam ser obtidos
+  isPermissionsVerified?: boolean;
 }
 
 export interface PlatformMessage {

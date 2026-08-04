@@ -159,9 +159,9 @@ export const banCommand: ICommand = {
         if (msg && typeof msg.reply === 'function') {
           await msg.reply(`❌ Falha ao executar banimento: ${error.message}`);
         }
-      } catch (replyError) {
-        console.error("[ban] Falha ao enviar mensagem de erro:", replyError);
+      } catch (replyError: any) {
+        console.error("Falha ao enviar mensagem de erro:", replyError);
       }
     }
-  },
+  }
 };

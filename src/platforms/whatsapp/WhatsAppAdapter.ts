@@ -394,14 +394,16 @@ export class WhatsAppClient implements PlatformClient {
         // LOG CRÍTICO: Depois de enviar, verificar o retorno
         console.log(`[WhatsAppAdapter.sendMessage] 📋 DEPOIS DE ENVIAR: duration=${duration}ms`);
         
-        // Log detalhado do retorno bruto
+        // Log detalhado do retorno bruto - com validação para sent undefined
         console.log(`[WhatsAppAdapter.sendMessage] ⏱️ sendMessage demorou ${duration}ms`);
         console.log(`[WhatsAppAdapter.sendMessage] 📋 RETORNO BRUTO: typeof: ${typeof sent}, constructor: ${sent?.constructor?.name || 'N/A'}`);
         console.log(`[WhatsAppAdapter.sendMessage] 📋 sent:`, !!sent);
         console.log(`[WhatsAppAdapter.sendMessage] 📋 sent.id:`, sent?.id);
         console.log(`[WhatsAppAdapter.sendMessage] 📋 sent.id._serialized:`, sent?.id?._serialized);
         console.log(`[WhatsAppAdapter.sendMessage] 📋 Object.keys(sent || {}):`, sent ? Object.keys(sent) : []);
-        console.log(`[WhatsAppAdapter.sendMessage] 📋 JSON.stringify (primeiros 300 chars):`, JSON.stringify(sent).substring(0, 300));
+        // Validar sent antes de acessar JSON.stringify e substring
+        const sentStr = sent ? JSON.stringify(sent) : 'sent é null/undefined';
+        console.log(`[WhatsAppAdapter.sendMessage] 📋 JSON.stringify (primeiros 300 chars):`, sentStr.substring(0, 300));
         
         // Tentar extrair newMsgKey se disponível
         try {
@@ -451,7 +453,17 @@ export class WhatsAppClient implements PlatformClient {
       // Tentar recuperar a mensagem do cache usando o ID da mensagem enviada
       try {
         console.warn(`[WhatsAppAdapter.sendMessage] 🔄 Tentando recuperar mensagem do cache...`);
-        const cachedMsg = await this.client.getMessageById?.(newMsgKey?._serialized || newMsgKey?.id?._serialized || newMsgKey?.id?.id);
+        // Validar newMsgKey antes de acessar propriedades
+        let msgId: string | undefined = undefined;
+        if (newMsgKey) {
+          if (typeof newMsgKey === 'string') {
+            msgId = newMsgKey;
+          } else {
+            msgId = newMsgKey._serialized || newMsgKey.id?._serialized || newMsgKey.id?.id;
+          }
+        }
+        console.warn(`[WhatsAppAdapter.sendMessage] 📋 newMsgKey:`, newMsgKey, 'msgId:', msgId);
+        const cachedMsg = await this.client.getMessageById?.(msgId);
         if (cachedMsg && cachedMsg.id) {
           console.warn(`[WhatsAppAdapter.sendMessage] ✅ Mensagem recuperada do cache: ${cachedMsg.id._serialized}`);
           sent = cachedMsg;
@@ -469,7 +481,7 @@ export class WhatsAppClient implements PlatformClient {
     }
     
     if (!sent.id) {
-      console.error(`[WhatsAppAdapter.sendMessage] ERRO CRÍTICO: sent não tem id após ${MAX_RETRIES} tentativas`, JSON.stringify(sent).substring(0, 200));
+      console.error(`[WhatsAppAdapter.sendMessage] ERRO CRÍTICO: sent não tem id após ${MAX_RETRIES} tentativas`, sent ? JSON.stringify(sent).substring(0, 200) : 'sent é null/undefined');
       throw new Error(`Falha ao enviar mensagem: mensagem sem id após ${MAX_RETRIES} tentativas`);
     }
     
@@ -497,14 +509,17 @@ export class WhatsAppClient implements PlatformClient {
     } catch (error: any) {
       // Workaround para Issue #201838: "r: r" error após atualização WhatsApp Web
       if (error.message === 'r' || error.message === 'r: r') {
-        console.warn(`[WhatsApp] getChat() - Erro "r" detectado (Issue #201838). Retornando chat básico sem participantes.`);
-        // Retornar chat básico para evitar crash - sem participantes mas funcional
+        console.warn(`[WhatsApp] getChat() - Erro "r" detectado (Issue #201838).`);
+        console.warn(`[WhatsApp] getChat() - Não é possível obter participantes neste momento.`);
+        console.warn(`[WhatsApp] getChat() - Retornando chat com isPermissionsVerified: false para indicar falha.`);
+        // Retornar chat indicando explicitamente que as permissões não puderam ser verificadas
         return {
           id: originalChatId,
-          name: 'Grupo',
+          name: cleanChatId,
           isGroup: cleanChatId.endsWith('@g.us'),
-          participants: [], // Vazio devido ao erro
-          raw: null
+          participants: [], // Vazio - permissões não verificadas
+          raw: null,
+          isPermissionsVerified: false // INDICADOR EXPLÍCITO DE FALHA
         };
       }
       console.error(`[WhatsApp] Erro em getChatById:`, {
@@ -536,7 +551,8 @@ export class WhatsAppClient implements PlatformClient {
       isGroup: chat.isGroup,
       platform: 'whatsapp',
       participants: chat.participants?.map(p => this.normalizeUserId(p.id._serialized)),
-      raw: chat
+      raw: chat,
+      isPermissionsVerified: true // Chat obtido com sucesso, permissões verificadas
     };
   }
 
