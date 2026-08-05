@@ -18,10 +18,15 @@ dotenv.config();
 async function initializePlatforms() {
   console.log('🚀 Inicializando Bot-WPP Multi-Platform...');
 
-  // Carregar comandos
-  const commands = await loadCommands();
-  platformManager.loadCommands(commands);
-  console.log(`✅ ${commands.size} comandos carregados`);
+  // Carregar comandos com tratamento de erro robusto
+  try {
+    const commands = loadCommands();
+    platformManager.loadCommands(commands);
+    console.log(`✅ ${commands.size} comandos carregados`);
+  } catch (error) {
+    console.error('❌ Erro ao carregar comandos:', error);
+    // Continuar mesmo sem comandos para permitir debug
+  }
 
   // Inicializar WhatsApp (sempre ativo)
   try {

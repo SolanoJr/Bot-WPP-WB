@@ -22,6 +22,24 @@ O Bot-WPP é um sistema distribuído projetado para operar como um bot multi-pla
 
 **Impacto**: Comandos não funcionam corretamente, verificações de plataforma falham, permissões de admin não são verificadas.
 
+## Bugs Críticos Recentes
+
+### TypeError: .for is not iterable (2026-08-05)
+**Problema:** Bot entrava em loop de crash na inicialização com erro em `PlatformManager.loadCommands`
+
+**Causa Raiz:** Incompatibilidade de tipos entre `loadCommands()` (retornava `Record`) e `PlatformManager.loadCommands()` (esperava `Map`)
+
+**Solução:**
+- Modificado `loadCommands()` para retornar `Map<string, ICommand>`
+- Removido `await` de `loadCommands()` em `multiPlatform.ts`
+- Adicionado try/catch robusto na inicialização
+
+**Arquivos Modificados:**
+- `src/bot/commands/index.ts` (linha 131-136)
+- `src/core/multiPlatform.ts` (linha 22-29)
+
+**Status:** ✅ Resolvido
+
 ## Diagrama de Arquitetura
 
 ### Sistema Legado (Atual)

@@ -126,9 +126,14 @@ export function getSystemCommands(): string[] {
   return ['shutdown', 'admin'];
 }
 
-// Exportar loadCommands para compatibilidade com whatsapp.ts
-export function loadCommands() {
-  return commands;
+// Exportar loadCommands para compatibilidade com PlatformManager
+// CORREÇÃO: Retornar Map<string, ICommand> em vez de Record para compatibilidade com for...of
+export function loadCommands(): Map<string, ICommand> {
+  const commandsMap = new Map<string, ICommand>();
+  for (const [name, command] of Object.entries(commands)) {
+    commandsMap.set(name, command);
+  }
+  return commandsMap;
 }
 
 // Criar objeto de mensagem legado compatível com whatsapp-web.js

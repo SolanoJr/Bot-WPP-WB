@@ -15,6 +15,41 @@ Este documento rastreia bugs, erros e suas soluções para evitar repetição de
 
 ## 🐛 Bugs Recentes
 
+### 8. TypeError: .for is not iterable - loadCommands
+**Data:** 2026-08-05  
+**Sessão:** 39  
+**Status:** ✅ Resolvido
+
+**Erro:**
+```
+TypeError: .for is not iterable
+at PlatformManager.loadCommands (src/platforms/PlatformManager.ts:347)
+```
+
+**Causa:**
+- `loadCommands()` em `src/bot/commands/index.ts` retornava `Record<string, ICommand>` (objeto)
+- `PlatformManager.loadCommands()` esperava `Map<string, ICommand>` e usava `for...of` para iterar
+- Objetos JavaScript não são iteráveis com `for...of`, causando o erro
+- `multiPlatform.ts` usava `await loadCommands()` mas a função não era async
+
+**Solução:**
+- Modificou `loadCommands()` para retornar `Map<string, ICommand>` em vez de `Record`
+- Converteu o objeto `commands` em Map usando `Object.entries()` e `Map.set()`
+- Removeu `await` de `loadCommands()` em `multiPlatform.ts` (função síncrona)
+- Adicionou try/catch ao redor do carregamento de comandos para evitar crash na inicialização
+
+**Arquivos:**
+- `src/bot/commands/index.ts` (linha 131-136)
+- `src/core/multiPlatform.ts` (linha 22-29)
+
+**Prevenção:**
+- Sempre verificar compatibilidade de tipos entre funções que retornam coleções
+- Usar `Map` quando for necessário iterar com `for...of`
+- Documentar tipos de retorno esperados em funções públicas
+- Adicionar tratamento de erro robusto em inicialização crítica
+
+---
+
 ### 1. $ban - "mensagem inválida ou formato não suportado"
 **Data:** 2026-07-08  
 **Sessão:** 5  
