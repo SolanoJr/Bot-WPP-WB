@@ -30,10 +30,10 @@ function resolveChromeExecutablePath(): string | undefined {
 
   // PRIORIZAR Chrome do sistema em vez do cache
   const candidates = [
-    '/usr/bin/google-chrome-stable',
     '/usr/bin/chromium-browser',
     '/usr/bin/chromium',
     '/snap/bin/chromium',
+    '/usr/bin/google-chrome-stable',
   ];
 
   for (const candidate of candidates) {
