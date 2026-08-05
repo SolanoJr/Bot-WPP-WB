@@ -93,8 +93,7 @@ export class WhatsAppClient implements PlatformClient {
         '--metrics-recording-only',
         '--no-first-run',
         '--safebrowsing-disable-auto-update',
-        '--disable-features=site-per-process',
-        '--single-process'
+        '--disable-features=site-per-process'
       ]
     };
 
