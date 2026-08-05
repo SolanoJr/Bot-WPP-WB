@@ -78,6 +78,7 @@ export class WhatsAppClient implements PlatformClient {
     const chromePath = resolveChromeExecutablePath();
     const puppeteerConfig: any = {
       headless: true,
+      timeout: 120000, // Aumentar timeout para 120 segundos
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
