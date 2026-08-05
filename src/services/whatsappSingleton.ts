@@ -18,17 +18,7 @@ function resolveChromeExecutablePath(): string | undefined {
         return undefined;
     }
 
-    const cacheRoot = path.join(process.env.HOME || '', '.cache/puppeteer/chrome');
-    if (fs.existsSync(cacheRoot)) {
-        const versions = fs.readdirSync(cacheRoot).sort().reverse();
-        for (const version of versions) {
-            const bundledChrome = path.join(cacheRoot, version, 'chrome-linux64', 'chrome');
-            if (fs.existsSync(bundledChrome)) {
-                return bundledChrome;
-            }
-        }
-    }
-
+    // PRIORIZAR Chrome do sistema em vez do cache
     const candidates = [
         '/usr/bin/google-chrome-stable',
         '/usr/bin/chromium-browser',
@@ -38,7 +28,21 @@ function resolveChromeExecutablePath(): string | undefined {
 
     for (const candidate of candidates) {
         if (fs.existsSync(candidate)) {
+            console.log(`🌐 [SINGLETON] Chrome do sistema encontrado: ${candidate}`);
             return candidate;
+        }
+    }
+
+    // Se não encontrar no sistema, procurar no cache
+    const cacheRoot = path.join(process.env.HOME || '', '.cache/puppeteer/chrome');
+    if (fs.existsSync(cacheRoot)) {
+        const versions = fs.readdirSync(cacheRoot).sort().reverse();
+        for (const version of versions) {
+            const bundledChrome = path.join(cacheRoot, version, 'chrome-linux64', 'chrome');
+            if (fs.existsSync(bundledChrome)) {
+                console.log(`🌐 [SINGLETON] Chrome do cache encontrado: ${bundledChrome}`);
+                return bundledChrome;
+            }
         }
     }
 
