@@ -15,6 +15,53 @@ Este documento rastreia bugs, erros e suas soluções para evitar repetição de
 
 ## 🐛 Bugs Recentes
 
+### 9. Puppeteer Browser Launch Failed - Chrome Not Found/Timeout
+**Data:** 2026-08-05  
+**Sessão:** 45  
+**Status:** ✅ Resolvido
+
+**Erro:**
+```
+Error: Failed to launch the browser process: Code: 21
+TimeoutError: Timed out after 30000 ms while waiting for the WS endpoint URL to appear in stdout!
+```
+
+**Causa:**
+- Tentativa de usar Chrome do sistema (`google-chrome-stable`, `chromium-browser`) falhou
+- Google Chrome 151 incompatível com ambiente headless sem display
+- Erros de "single process mode" e permissão negada ao tentar iniciar Chrome
+- `puppeteer-core` não baixa Chrome, precisa de executável externo
+
+**Tentativas de Solução (Falhas):**
+1. Instalar `chromium-browser` via snap - falha por ser wrapper que requer snap install
+2. Priorizar `google-chrome-stable` - falha com Code: 21 (permissão)
+3. Usar `headless: 'new'` - falha com timeout
+4. Adicionar `--single-process` - falha com permissão negada
+5. Simplificar args para apenas flags essenciais - falha persistente
+6. Remover uso de Chrome do sistema e deixar Puppeteer usar cache - falha
+
+**Solução Final:**
+- Instalar `puppeteer` completo (que baixa seu próprio Chrome compatível)
+- Remover função `resolveChromeExecutablePath()` do `WhatsAppAdapter.ts`
+- Simplificar configuração do Puppeteer para usar apenas flags essenciais
+- Adicionar `puppeteer` como dependência no `package.json`
+- Executar `npm install puppeteer` no servidor Linux
+
+**Arquivos:**
+- `src/platforms/whatsapp/WhatsAppAdapter.ts` (removida função resolveChromeExecutablePath)
+- `package.json` (adicionado puppeteer como dependência)
+
+**Comando de Instalação:**
+```bash
+npm install puppeteer
+```
+
+**Prevenção:**
+- Em servidores Linux sem display, usar `puppeteer` completo em vez de `puppeteer-core`
+- Evitar tentar usar Chrome do sistema em ambiente headless
+- Manter dependências do Puppeteer atualizadas no package.json
+- Documentar configurações específicas de ambiente headless
+
 ### 8. TypeError: .for is not iterable - loadCommands
 **Data:** 2026-08-05  
 **Sessão:** 39  

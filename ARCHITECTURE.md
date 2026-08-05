@@ -24,6 +24,31 @@ O Bot-WPP é um sistema distribuído projetado para operar como um bot multi-pla
 
 ## Bugs Críticos Recentes
 
+### Puppeteer Browser Launch Failed (2026-08-05)
+**Problema:** Bot não conseguia inicializar WhatsApp devido a falha no launch do Chrome/Chromium
+
+**Causa Raiz:**
+- Tentativa de usar Chrome do sistema (`google-chrome-stable`, `chromium-browser`) falhou
+- Google Chrome 151 incompatível com ambiente headless sem display
+- `puppeteer-core` não baixa Chrome, precisa de executável externo
+
+**Solução:**
+- Instalar `puppeteer` completo (que baixa seu próprio Chrome compatível)
+- Remover função `resolveChromeExecutablePath()` do `WhatsAppAdapter.ts`
+- Simplificar configuração do Puppeteer para usar apenas flags essenciais
+- Adicionar `puppeteer` como dependência no `package.json`
+
+**Arquivos Modificados:**
+- `src/platforms/whatsapp/WhatsAppAdapter.ts` (removida função resolveChromeExecutablePath)
+- `package.json` (adicionado puppeteer como dependência)
+
+**Comando de Instalação:**
+```bash
+npm install puppeteer
+```
+
+**Status:** ✅ Resolvido
+
 ### TypeError: .for is not iterable (2026-08-05)
 **Problema:** Bot entrava em loop de crash na inicialização com erro em `PlatformManager.loadCommands`
 
