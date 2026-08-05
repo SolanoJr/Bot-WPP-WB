@@ -75,7 +75,6 @@ export class WhatsAppClient implements PlatformClient {
       fs.mkdirSync(authPath, { recursive: true });
     }
 
-    const chromePath = resolveChromeExecutablePath();
     const puppeteerConfig: any = {
       headless: true,
       timeout: 120000,
@@ -88,10 +87,6 @@ export class WhatsAppClient implements PlatformClient {
         '--no-first-run'
       ]
     };
-
-    if (chromePath) {
-      puppeteerConfig.executablePath = chromePath;
-    }
 
     this.client = new Client({
       authStrategy: new LocalAuth({ dataPath: authPath }),
