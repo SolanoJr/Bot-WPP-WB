@@ -48,24 +48,9 @@ export class PlatformManager {
     this.adapters.set(adapter.platform, adapter);
     console.log(`[PlatformManager] Adapter registrado: ${adapter.platform}`);
     
-    // CRUCIAL: Conectar handler de mensagens
-    adapter.client.onMessage(async (msg: PlatformMessage) => {
-      // Garantir que a plataforma esteja correta na mensagem
-      msg.platform = adapter.platform;
-      await this.handleIncomingMessage(msg);
-    });
-    
-    // Conectar handler de ready
-    adapter.client.onReady(() => {
-      console.log(`[PlatformManager] ${adapter.platform} está pronto!`);
-      this.readyHandlers.forEach(handler => handler());
-    });
-    
-    // Conectar handler de desconexão
-    adapter.client.onDisconnected((reason: string) => {
-      console.log(`[PlatformManager] ${adapter.platform} desconectou: ${reason}`);
-      this.disconnectedHandlers.forEach(handler => handler(adapter.platform, reason));
-    });
+    // NOTA: Os handlers são configurados internamente pelo adapter
+    // Não precisamos conectar aqui pois o adapter já implementa PlatformClient
+    // e configura seus próprios handlers no setupEventHandlers
   }
 
   /**
