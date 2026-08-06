@@ -43,6 +43,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     const puppeteerConfig: any = {
       headless: true,
       timeout: 120000,
+      protocolTimeout: 180000,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
