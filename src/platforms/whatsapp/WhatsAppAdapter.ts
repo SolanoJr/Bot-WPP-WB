@@ -23,43 +23,7 @@ import { platformManager } from '../PlatformManager';
 import { processAutoMod } from '../../services/autoModService';
 import { handleKeywords } from '../../services/keywordHandler';
 
-function resolveChromeExecutablePath(): string | undefined {
-  if (process.platform !== 'linux') {
-    return undefined;
-  }
-
-  // PRIORIZAR Chrome do sistema em vez do cache
-  const candidates = [
-    '/usr/bin/google-chrome-stable',
-    '/usr/bin/chromium-browser',
-    '/usr/bin/chromium',
-    '/snap/bin/chromium',
-  ];
-
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) {
-      console.log(`🌐 [WhatsAppAdapter] Chrome do sistema encontrado: ${candidate}`);
-      return candidate;
-    }
-  }
-
-  // Se não encontrar no sistema, procurar no cache
-  const cacheRoot = path.join(process.env.HOME || '', '.cache/puppeteer/chrome');
-  if (fs.existsSync(cacheRoot)) {
-    const versions = fs.readdirSync(cacheRoot).sort().reverse();
-    for (const version of versions) {
-      const bundledChrome = path.join(cacheRoot, version, 'chrome-linux64', 'chrome');
-      if (fs.existsSync(bundledChrome)) {
-        console.log(`🌐 [WhatsAppAdapter] Chrome do cache encontrado: ${bundledChrome}`);
-        return bundledChrome;
-      }
-    }
-  }
-
-  return undefined;
-}
-
-export class WhatsAppClient implements PlatformClient {
+export class WhatsAppAdapter implements PlatformAdapter {
   readonly platform: PlatformType = 'whatsapp';
   private client: Client;
   private messageHandler: MessageHandler | null = null;
