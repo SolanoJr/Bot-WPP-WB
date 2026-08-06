@@ -38,9 +38,9 @@ async function initializePlatforms() {
     console.error('❌ Erro ao inicializar WhatsApp:', error);
   }
 
-  // Inicializar Telegram (se token configurado)
+  // Inicializar Telegram (se token configurado e válido)
   const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
-  if (telegramToken && telegramToken !== 'seu_token_aqui') {
+  if (telegramToken && telegramToken.trim() !== '' && telegramToken !== 'seu_token_aqui' && !telegramToken.startsWith('#')) {
     try {
       const telegramAdapter = new TelegramAdapter(telegramToken);
       platformManager.registerAdapter(telegramAdapter);
@@ -50,12 +50,12 @@ async function initializePlatforms() {
       console.error('❌ Erro ao inicializar Telegram:', error);
     }
   } else {
-    console.log('⚠️ Telegram não configurado (TELEGRAM_BOT_TOKEN não definido)');
+    console.log('⚠️ Telegram não configurado (TELEGRAM_BOT_TOKEN não definido ou inválido)');
   }
 
-  // Inicializar Discord (se token configurado)
+  // Inicializar Discord (se token configurado e válido)
   const discordToken = process.env.DISCORD_BOT_TOKEN;
-  if (discordToken && discordToken !== 'seu_token_aqui') {
+  if (discordToken && discordToken.trim() !== '' && discordToken !== 'seu_token_aqui' && !discordToken.startsWith('#')) {
     try {
       const discordAdapter = new DiscordAdapter(discordToken);
       platformManager.registerAdapter(discordAdapter);
@@ -65,7 +65,7 @@ async function initializePlatforms() {
       console.error('❌ Erro ao inicializar Discord:', error);
     }
   } else {
-    console.log('⚠️ Discord não configurado (DISCORD_BOT_TOKEN não definido)');
+    console.log('⚠️ Discord não configurado (DISCORD_BOT_TOKEN não definido ou inválido)');
   }
 
   // Listar plataformas ativas
