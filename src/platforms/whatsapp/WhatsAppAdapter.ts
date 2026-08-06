@@ -23,9 +23,10 @@ import { platformManager } from '../PlatformManager';
 import { processAutoMod } from '../../services/autoModService';
 import { handleKeywords } from '../../services/keywordHandler';
 
-export class WhatsAppAdapter implements PlatformAdapter {
+export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
   readonly platform: PlatformType = 'whatsapp';
-  private client: Client;
+  readonly client: PlatformClient;
+  private innerClient: Client;
   private messageHandler: MessageHandler | null = null;
   private readyHandler: (() => void) | null = null;
   private disconnectedHandler: ((reason: string) => void) | null = null;
@@ -52,24 +53,26 @@ export class WhatsAppAdapter implements PlatformAdapter {
       ]
     };
 
-    this.client = new Client({
+    this.innerClient = new Client({
       authStrategy: new LocalAuth({ dataPath: authPath }),
       puppeteer: puppeteerConfig
     });
+
+    this.client = this;
 
     this.setupEventHandlers();
   }
 
   private setupEventHandlers(): void {
-    this.client.on('qr', (qr: string) => {
+    this.innerClient.on('qr', (qr: string) => {
       console.log('[WhatsApp] QR Code recebido, escaneie com seu WhatsApp:');
       qrcode.generate(qr, { small: true });
     });
 
-    this.client.on('ready', () => {
+    this.innerClient.on('ready', () => {
       this.isReady = true;
-      this.userId = this.client.info?.wid._serialized || '';
-      this.userName = this.client.info?.pushname || 'Bot-WPP';
+      this.userId = this.innerClient.info?.wid._serialized || '';
+      this.userName = this.innerClient.info?.pushname || 'Bot-WPP';
       console.log(`[WhatsApp] ✅ Pronto como ${this.userName} (${this.userId})`);
       
       // O AutoMod agora é processado via messageHandler.ts para maior controle
@@ -78,13 +81,13 @@ export class WhatsAppAdapter implements PlatformAdapter {
       if (this.readyHandler) this.readyHandler();
     });
 
-    this.client.on('disconnected', (reason: string) => {
+    this.innerClient.on('disconnected', (reason: string) => {
       this.isReady = false;
       console.log(`[WhatsApp] Desconectado: ${reason}`);
       if (this.disconnectedHandler) this.disconnectedHandler(reason);
     });
 
-    this.client.on('message', async (msg: Message) => {
+    this.innerClient.on('message', async (msg: Message) => {
       try {
         console.log('[WhatsAppAdapter] Mensagem recebida - msg:', !!msg, 'msg.from:', msg?.from, 'msg.author:', msg?.author);
         
@@ -99,24 +102,24 @@ export class WhatsAppAdapter implements PlatformAdapter {
         }
         
         // Executar AutoMod para mensagens recebidas em grupos
-        const moderated = await processAutoMod(msg, this.client);
+        const moderated = await processAutoMod(msg, this.innerClient);
         if (moderated) {
           console.log(`🛡️ [WhatsAppAdapter] Mensagem moderada e deletada de ${msg.author || msg.from}`);
           return;
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error(`[WhatsAppAdapter] Erro ao executar AutoMod:`, err.message);
         console.error(`[WhatsAppAdapter] Erro stack:`, err.stack);
       }
 
       // Executar handler de palavras-chave (respostas sarcásticas)
       try {
-        const intercepted = await handleKeywords(msg, this.client);
+        const intercepted = await handleKeywords(msg, this.innerClient);
         if (intercepted) {
           console.log(`😏 [WhatsAppAdapter] Palavra-chave detectada, resposta enviada`);
           return;
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error(`[WhatsAppAdapter] Erro ao executar handleKeywords:`, err.message);
       }
 
@@ -131,7 +134,7 @@ export class WhatsAppAdapter implements PlatformAdapter {
       }
     });
 
-    this.client.on('message_create', async (msg: Message) => {
+    this.innerClient.on('message_create', async (msg: Message) => {
       if (!msg) {
         console.error('[WhatsAppAdapter] message_create: msg é null/undefined, ignorando');
         return;
@@ -153,7 +156,7 @@ export class WhatsAppAdapter implements PlatformAdapter {
     });
 
     // Evento de entrada de novos membros no grupo
-    this.client.on('group_join', async (notification: any) => {
+    this.innerClient.on('group_join', async (notification: any) => {
       try {
         await this.handleMemberJoin(notification);
       } catch (error) {
@@ -162,7 +165,7 @@ export class WhatsAppAdapter implements PlatformAdapter {
     });
 
     // Fallback: monitorar mudanças de participantes
-    this.client.on('group_update', async (notification: any) => {
+    this.innerClient.on('group_update', async (notification: any) => {
       try {
         if (notification.type === 'add') {
           await this.handleMemberJoin(notification);
@@ -213,7 +216,7 @@ export class WhatsAppAdapter implements PlatformAdapter {
           : welcomeText;
 
         // Enviar mensagem de boas-vindas mencionando o usuário
-        await this.client.sendMessage(
+        await this.innerClient.sendMessage(
           groupId,
           fullMessage,
           {
@@ -260,7 +263,7 @@ export class WhatsAppAdapter implements PlatformAdapter {
     const chatId = msg.from;
     const isGroup = msg.from.endsWith('@g.us');
     const userId = msg.fromMe
-      ? (msg.to || this.client.info?.wid?._serialized)
+      ? (msg.to || this.innerClient.info?.wid?._serialized)
       : (isGroup ? (msg.author || msg.from) : msg.from);
     
     let extractedText = msg.body || '';
@@ -381,7 +384,7 @@ export class WhatsAppAdapter implements PlatformAdapter {
     };
     
     const startTime = Date.now();
-    const sent = await this.client.sendMessage(cleanChatId, text, sendOptions);
+    const sent = await this.innerClient.sendMessage(cleanChatId, text, sendOptions);
     const duration = Date.now() - startTime;
     
     console.log(`[WhatsAppAdapter.sendMessage] ⏱️ sendMessage demorou ${duration}ms`);
@@ -403,7 +406,7 @@ export class WhatsAppAdapter implements PlatformAdapter {
       ? new (await import('whatsapp-web.js')).MessageMedia(media.mimetype || 'application/octet-stream', media.data.toString('base64'), media.filename)
       : await (await import('whatsapp-web.js')).MessageMedia.fromUrl(media.data as string);
 
-    const sent = await this.client.sendMessage(cleanChatId, mediaObject, { caption, waitUntilMsgSent: true });
+    const sent = await this.innerClient.sendMessage(cleanChatId, mediaObject, { caption, waitUntilMsgSent: true });
     return this.normalizeMessage(sent);
   }
 
@@ -413,7 +416,7 @@ export class WhatsAppAdapter implements PlatformAdapter {
     console.log(`[WhatsApp] getChat() chamado - chatId original: ${originalChatId} cleanChatId: ${cleanChatId} formato: formato WhatsApp`);
 
     try {
-      const chat = await this.client.getChatById(cleanChatId);
+      const chat = await this.innerClient.getChatById(cleanChatId);
       return this.normalizeChat(chat);
     } catch (error: any) {
       // Workaround para Issue #201838: "r: r" error após atualização WhatsApp Web
@@ -444,12 +447,12 @@ export class WhatsAppAdapter implements PlatformAdapter {
 
   async getUser(userId: string): Promise<PlatformUser> {
     const cleanUserId = userId.replace(/^wpp:/, '');
-    const contact = await this.client.getContactById(cleanUserId);
+    const contact = await this.innerClient.getContactById(cleanUserId);
     return this.normalizeUser(contact);
   }
 
   async getChats(): Promise<PlatformChat[]> {
-    const chats = await this.client.getChats();
+    const chats = await this.innerClient.getChats();
     return chats.map(c => this.normalizeChat(c));
   }
 
@@ -493,11 +496,15 @@ export class WhatsAppAdapter implements PlatformAdapter {
   }
 
   async shutdown(): Promise<void> {
-    await this.client.destroy();
+    await this.innerClient.destroy();
     this.isReady = false;
   }
 
   getClient(): Client {
-    return this.client;
+    return this.innerClient;
+  }
+
+  async initialize(): Promise<void> {
+    await this.innerClient.initialize();
   }
 }
