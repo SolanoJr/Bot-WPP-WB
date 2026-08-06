@@ -501,24 +501,3 @@ export class WhatsAppAdapter implements PlatformAdapter {
     return this.client;
   }
 }
-
-export class WhatsAppAdapter implements PlatformAdapter {
-  readonly platform: PlatformType = 'whatsapp';
-  readonly client: WhatsAppClient;
-
-  constructor() {
-    this.client = new WhatsAppClient();
-  }
-
-  async initialize(): Promise<void> {
-    await this.client.getClient().initialize();
-  }
-
-  async shutdown(): Promise<void> {
-    await this.client.shutdown();
-  }
-}
-
-// Exportar instância singleton para compatibilidade com código existente
-export const whatsAppAdapter = new WhatsAppAdapter();
-export const whatsAppClient = whatsAppAdapter.client;
