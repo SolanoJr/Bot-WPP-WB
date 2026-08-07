@@ -463,10 +463,23 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     console.log(`[WhatsAppAdapter.sendMessage] ⏱️ sendMessage demorou ${duration}ms`);
     console.log(`[WhatsAppAdapter.sendMessage] 📋 RETORNO: typeof: ${typeof sent}, constructor: ${sent?.constructor?.name || 'N/A'}`);
     console.log(`[WhatsAppAdapter.sendMessage] 📋 sent.id:`, sent?.id, 'sent.id._serialized:', sent?.id?._serialized);
-    
+
     if (!sent || !sent.id) {
-      console.error(`[WhatsAppAdapter.sendMessage] ERRO CRÍTICO: sent inválido - sent:`, sent);
-      throw new Error(`Falha ao enviar mensagem: retorno inválido do whatsapp-web.js`);
+      // O WWebJS moderno (JIDs @lid / waitUntilMsgSent) nem sempre devolve o objeto
+      // da mensagem serializada, mesmo quando o envio foi bem-sucedido. Se chegamos
+      // aqui sem exceção, tratamos como sucesso e retornamos um payload mínimo em vez
+      // de lançar erro falso ("erro interno ao executar comando").
+      console.warn(`[WhatsAppAdapter.sendMessage] sendMessage não devolveu objeto serializado (sent=${typeof sent}); assumindo envio bem-sucedido para ${targetJid}.`);
+      return {
+        id: `wpp:${targetJid}-${Date.now()}`,
+        chatId: `wpp:${targetJid}`,
+        userId: '',
+        text: text,
+        isCommand: false,
+        fromMe: true,
+        timestamp: Date.now(),
+        raw: null
+      } as PlatformMessage;
     }
     
     console.log(`[WhatsAppAdapter.sendMessage] ✅ Mensagem enviada com sucesso`);
