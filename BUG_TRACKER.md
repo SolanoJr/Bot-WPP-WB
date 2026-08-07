@@ -15,6 +15,42 @@ Este documento rastreia bugs, erros e suas soluções para evitar repetição de
 
 ## 🐛 Bugs Recentes
 
+### 6. Envio WhatsApp falha com "No LID for user" (redeclaração do BUG 5)
+**Data:** 2026-08-07
+**Sessão:** 56
+**Status:** 🔴 Em correção
+
+**Sintoma reportado (original):** Discord offline e `$menu` não responde.
+**Realidade (logs PM2):** Discord está ONLINE (`[Discord] ✅ Pronto como SolanoJr`) e `$menu` no Discord respondeu (`sent: true`). O Telegram falhou por `504 Gateway Time-out` (rede transitória, não token ausente). Os alertas de "tokens ausentes / WARRIOR_AUTH_KEY tamanho 0" referem-se a log antigo/outro ambiente — o `.env` Linux atual tem todos os tokens (WARRIOR_AUTH_KEY tamanho 16).
+
+**Erro real (WhatsApp):**
+```
+[PlatformManager] Erro no comando menu: Falha de transporte ao enviar mensagem (202658048684056@c.us): No LID for user
+```
+
+**Causa:** Correção anterior no `WhatsAppAdapter.sendMessage` convertia `chatId` `@lid` → `@c.us`. O WWebJS moderno **exige o `@lid`** para enviar a esse contato; a conversão gera `No LID for user`.
+
+**Correção planejada:** reverter a conversão `@lid`→`@c.us` — manter o `@lid` original no envio. O fallback `getChatById`+`chat.sendMessage` (para `message.serialize`) permanece.
+
+**Arquivos:** `src/platforms/whatsapp/WhatsAppAdapter.ts` (`sendMessage`).
+
+---
+
+### 7. Varredura de `getChatById` / `msg.getChat` (BUG 6)
+**Data:** 2026-08-07
+**Sessão:** 56
+**Status:** ✅ Resolvido (sem ação de código necessária)
+
+**Conclusão da varredura (`grep` em `src/`):**
+- `safeGetChat()` **NÃO existe** no projeto (0 ocorrências). Padrão adotado = reutilizar `msg.getChat()` já obtida.
+- Comandos (`automod.ts`, `lists.ts`, `setwelcome.ts`, `autoModService.ts`) já reutilizam o `chat` (comentário `// BUG 1: não chamar getChatById novamente`).
+- Chamadas restantes de `getChatById` em `WhatsAppAdapter.ts` (linhas ~443‑545) são a **camada de acesso legítima** ao WWebJS (`sendMessage`, `getChat`, `getUser`) — não há instância a reutilizar ali.
+- `index.ts:294` e `migration.ts:67` são a própria abstração `PlatformChat`/`PlatformClient`.
+
+**Decisão:** nenhuma alteração de código. Documentar o padrão para evitar regressão.
+
+---
+
 ### 9. Puppeteer Browser Launch Failed - Chrome Not Found/Timeout
 **Data:** 2026-08-05  
 **Sessão:** 45  

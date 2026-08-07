@@ -1,5 +1,20 @@
 # 📜 ChangeLog - WarriorBlack Bot
 
+## [v1.1.6] - 2026-08-07
+### 🔧 Correções de BUGS 1‑4 e ajuste de envio `@lid` (WWebJS)
+
+#### Alterado (já aplicado no código em sessões anteriores)
+- **BUG 1 — `getChatById` redundante:** `automod.ts`, `ban.ts`, `lists.ts`, `setwelcome.ts`, `index.ts`, `autoModService.ts` reutilizam a instância de `chat` obtida via `msg.getChat()` em vez de chamar `getChatById()` novamente.
+- **BUG 2 — `userId` em grupos:** `pergunta.ts` e `shutdown.ts` usam `msg.author` (autor da mensagem) em grupos, não `msg.from` (que é o ID do grupo).
+- **BUG 3 — `JSON.stringify` circular:** removidas serializações inseguras em `kick.ts`, `WhatsAppAdapter.ts`, `autoModService.ts`.
+- **BUG 4 — fallback `Utils.js`:** `Msg.get()` retornando `undefined/false` tratado; patch `r: r` (`_serialized` → `$1`) aplicado.
+
+#### Conhecido / Em correção (BUG 5 reformulado)
+- **`No LID for user` no envio WhatsApp:** ao converter `chatId` `@lid` → `@c.us` no `sendMessage`, o WWebJS moderno falha com `No LID for user`. O envio deve **manter o `@lid`** (o WWebJS exige o LID para esse contato). Correção pendente em `WhatsAppAdapter.sendMessage` (reverter a conversão). O Discord **NÃO está offline** — logs mostram `[Discord] ✅ Pronto` e `$menu` respondido com `sent: true`.
+
+#### Status
+- Build OK; suite 105/107 (2 falhas pré-existentes fora de escopo: `commands-registry`, `discordAdapter`).
+
 ## [v1.1.5] - 2026-08-07
 ### 🔧 Correção crítica: comandos não eram despachados (messageHandler nulo)
 

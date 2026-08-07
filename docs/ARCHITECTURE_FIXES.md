@@ -26,21 +26,18 @@ Anteriormente usava-se `@c.us` para contatos e `@g.us` para grupos.
      `[WhatsAppAdapter] Payload normalizado e enviado ao handler: ID=… Chat=… User=… Text="…" isGroup=…`
 
 2. **Envio (`sendMessage`):**
-   - O WWebJS **NÃO aceita `@lid` como destino de `client.sendMessage()`**. É preciso higienizar o `chatId` convertendo `@lid` → `@c.us` antes do envio:
-     ```ts
-     let cleanChatId = chatId.replace(/^wpp:/, '');
-     if (cleanChatId.endsWith('@lid')) {
-       cleanChatId = cleanChatId.replace(/@lid$/, '@c.us');
-     }
-     const targetJid = cleanChatId;
-     ```
+   - ⚠️ **NÃO converter `@lid` → `@c.us`.** Correção anterior que fazia essa conversão quebrava o envio com `No LID for user` (o WWebJS moderno **exige o `@lid`** para enviar a esse contato).
+   - Mantenha o `chatId` original (`@lid`) no envio. O `client.sendMessage` aceita o `@lid` como destino.
+   - Higienizar APENAS o prefixo interno da plataforma (`wpp:`) e never alterar o sufixo do JID.
+   - Fallback em caso de erro de transporte (`message.serialize`/`getMessageModel`): tentar
+     `getChatById(chatId)` + `chat.sendMessage(text)` antes de falhar.
    - Log explícito do destino: `[WhatsAppAdapter] Enviando resposta para: <targetJid>`.
    - Falhas de transporte (Puppeteer/CdpPage.evaluate) são capturadas em `try/catch` e relançadas como
      `Falha de transporte ao enviar mensagem (<jid>): <msg>` — **não mascaram** a execução do comando.
 
 ### ⚠️ Risco de regressão
-Se outra instância de IDE "simplificar" o `normalizeMessage` ou o `sendMessage` removendo o mapeamento
-`@lid`→`@c.us`, os comandos paradão de responder em chats privados (erro de transporte no `sendMessage`).
+Se outra instância de IDE "simplificar" o `normalizeMessage` ou o `sendMessage` convertendo `@lid`→`@c.us`,
+os comandos param de responder em chats privados (`No LID for user` no envio).
 
 ## 2. Despacho de comandos (`messageHandler` / `startAll`)
 
