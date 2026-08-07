@@ -457,6 +457,28 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     return chats.map(c => this.normalizeChat(c));
   }
 
+  async removeParticipant(chatId: string, userId: string): Promise<void> {
+    const cleanChatId = chatId.replace(/^wpp:/, '');
+    const cleanUserId = userId.replace(/^wpp:/, '');
+    const chat = await this.innerClient.getChatById(cleanChatId);
+    await chat.removeParticipants([cleanUserId]);
+  }
+
+  async banParticipant(chatId: string, userId: string): Promise<void> {
+    const cleanChatId = chatId.replace(/^wpp:/, '');
+    const cleanUserId = userId.replace(/^wpp:/, '');
+    const chat = await this.innerClient.getChatById(cleanChatId);
+    await chat.removeParticipants([cleanUserId]);
+    try {
+      const contact = await this.innerClient.getContactById(cleanUserId);
+      if (contact && typeof (contact as any).block === 'function') {
+        await (contact as any).block();
+      }
+    } catch (blockError) {
+      console.warn(`[WhatsApp] banParticipant: falha ao bloquear contato ${cleanUserId}:`, blockError);
+    }
+  }
+
   private normalizeChat(chat: Chat): PlatformChat {
     return {
       id: `wpp:${chat.id._serialized}`,

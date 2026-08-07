@@ -209,6 +209,20 @@ class TelegramClient implements PlatformClient {
     return [];
   }
 
+  async removeParticipant(chatId: string, userId: string): Promise<void> {
+    const cleanChatId = Number(chatId.replace(/^tg:/, ''));
+    const cleanUserId = Number(userId.replace(/^tg:/, ''));
+    // kickChatMember remove o usuário do grupo (sem banir permanentemente)
+    await this.bot.telegram.kickChatMember(cleanChatId, cleanUserId);
+  }
+
+  async banParticipant(chatId: string, userId: string): Promise<void> {
+    const cleanChatId = Number(chatId.replace(/^tg:/, ''));
+    const cleanUserId = Number(userId.replace(/^tg:/, ''));
+    // banChatMember bane permanentemente (até revogar)
+    await this.bot.telegram.banChatMember(cleanChatId, cleanUserId);
+  }
+
   onMessage(handler: MessageHandler): void { this.messageHandler = handler; }
   onReady(handler: () => void): void { this.readyHandler = handler; }
   onDisconnected(handler: (reason: string) => void): void { this.disconnectedHandler = handler; }

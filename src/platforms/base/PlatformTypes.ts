@@ -49,8 +49,8 @@ export interface PlatformMessage {
 
 export interface PlatformClient {
   platform: PlatformType;
-  userId: string;                // ID do bot na plataforma
-  userName: string;              // Nome do bot
+  userId: string;                    // ID do bot na plataforma
+  userName: string;                  // Nome do bot
   isReady: boolean;
   // Métodos principais
   sendMessage(chatId: string, text: string, options?: SendOptions): Promise<PlatformMessage>;
@@ -58,6 +58,9 @@ export interface PlatformClient {
   getChat(chatId: string): Promise<PlatformChat>;
   getUser(userId: string): Promise<PlatformUser>;
   getChats(): Promise<PlatformChat[]>;
+  // Gestão de membros em grupos (multiplataforma)
+  removeParticipant(chatId: string, userId: string): Promise<void>;
+  banParticipant(chatId: string, userId: string): Promise<void>;
   onMessage(handler: MessageHandler): void;
   onReady(handler: () => void): void;
   onDisconnected(handler: (reason: string) => void): void;

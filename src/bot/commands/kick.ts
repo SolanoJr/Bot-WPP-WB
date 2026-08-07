@@ -1,140 +1,68 @@
-import { ICommand } from "./types";
-import { cleanId, isMaster } from "../../services/permissions";
+import { ICommand } from './types';
+import { CommandContext } from '../../platforms/base/PlatformTypes';
+import { cleanId, isMaster } from '../../services/permissions';
 
 export const kickCommand: ICommand = {
-  name: "kick",
-  description: "Remove um usuário do grupo.",
+  name: 'kick',
+  description: 'Remove um usuário do grupo (WhatsApp, Telegram e Discord).',
 
-  async execute(ctxOrMsg: any, maybeClient?: any, maybeArgs?: any) {
-    console.log('[kick] ===== INÍCIO DO COMANDO =====');
-    // BUG 3: JSON.stringify pode falhar em objetos circulares - usar log seguro
-    console.log('[kick] ctxOrMsg type:', typeof ctxOrMsg);
-    console.log('[kick] ctxOrMsg has msg:', !!ctxOrMsg?.msg);
-    console.log('[kick] ctxOrMsg has userId:', !!ctxOrMsg?.userId);
-    console.log('[kick] maybeClient:', !!maybeClient);
-    console.log('[kick] maybeArgs:', maybeArgs);
-    
-    // Suporte a CommandContext (novo) e parâmetros legados (antigo)
-    const isContext = ctxOrMsg && typeof ctxOrMsg === 'object' && 'msg' in ctxOrMsg;
-    const msg = isContext ? ctxOrMsg.msg : ctxOrMsg;
-    const client = isContext ? (ctxOrMsg.client as any).getClient?.() || ctxOrMsg.client : maybeClient;
-    const args = isContext ? ctxOrMsg.args : maybeArgs;
-    
-    console.log('[kick] isContext:', isContext);
-    console.log('[kick] msg:', !!msg);
-    console.log('[kick] msg.id:', msg?.id);
-    console.log('[kick] msg.chatId:', msg?.chatId);
-    console.log('[kick] msg.userId:', msg?.userId);
-    console.log('[kick] msg.author:', msg?.author);
-    console.log('[kick] msg.from:', msg?.from);
-    console.log('[kick] msg.mentionedIds:', msg?.mentionedIds);
-    console.log('[kick] msg.hasQuotedMsg:', msg?.hasQuotedMsg);
-    console.log('[kick] client:', !!client);
-    console.log('[kick] args:', args);
-
+  async execute(ctx: CommandContext) {
     try {
-      // Verificar se msg existe e tem método getChat
-      if (!msg || typeof msg.getChat !== 'function') {
-        console.error("[kick] msg inválido ou sem getChat:", msg);
-        const replyText = "❌ Erro: mensagem inválida ou formato não suportado.";
-        if (isContext) await ctxOrMsg.reply(replyText);
-        else if (msg && typeof msg.reply === 'function') await msg.reply(replyText);
-        return;
-      }
-
-      console.log('[kick] Chamando msg.getChat()...');
-      const chat = await msg.getChat();
-      console.log('[kick] chat obtido:', !!chat, 'chat.id:', chat?.id, 'chat.isGroup:', chat?.isGroup);
-      
-      if (!chat) {
-        const replyText = "❌ Erro ao obter informações do chat.";
-        if (isContext) await ctxOrMsg.reply(replyText);
-        else await msg.reply(replyText);
-        return;
-      }
-
+      const chat = await ctx.getChat();
       if (!chat.isGroup) {
-        const replyText = "❌ Este comando só funciona em grupos.";
-        if (isContext) await ctxOrMsg.reply(replyText);
-        else await msg.reply(replyText);
+        await ctx.reply('❌ Este comando só funciona em grupos.');
         return;
       }
 
-      // 1. Verificação de Permissões
-      const senderId = msg.userId || msg.author || msg.from;
-      console.log('[kick] senderId:', senderId);
-      console.log('[kick] chat.id._serialized:', chat.id?._serialized);
-      console.log('[kick] chat.id:', chat.id);
-      
-      // Reutilizar o chat já obtido - não chamar getChatById() novamente
-      const freshChat = chat;
-      console.log('[kick] Reutilizando chat obtido anteriormente');
-      const participants = freshChat.participants || [];
-      console.log('[kick] participantes:', participants.length);
-      
-      const botId = cleanId(client.info?.wid?._serialized || "");
-      console.log('[kick] botId:', botId);
-      const botPart = participants.find((p: any) => cleanId(p.id?._serialized || "") === botId);
-      console.log('[kick] botPart:', !!botPart, 'isAdmin:', botPart?.isAdmin, 'isSuperAdmin:', botPart?.isSuperAdmin);
-      
-      // Tentar encontrar sender comparando de todas as formas possíveis (incluindo LID)
-      const senderPart = participants.find((p: any) => {
-        const pId = p.id?._serialized || "";
-        const pIdClean = cleanId(pId);
-        const senderIdRaw = msg.userId || msg.author || msg.from;
-        return pIdClean === cleanId(senderId) || pId === senderIdRaw || (senderId && pId.includes(senderId));
-      });
-      console.log('[kick] senderPart:', !!senderPart, 'isAdmin:', senderPart?.isAdmin, 'isSuperAdmin:', senderPart?.isSuperAdmin);
+      const participants = chat.participants || [];
+      const botId = cleanId(ctx.client.userId);
+      const senderId = cleanId(ctx.userId);
+
+      const botPart = participants.find(p => cleanId(p.id) === botId);
+      const senderPart = participants.find(p => cleanId(p.id) === senderId);
 
       if (!botPart?.isAdmin && !botPart?.isSuperAdmin) {
-        const replyText = "❌ O bot precisa ser administrador para remover membros.";
-        if (isContext) await ctxOrMsg.reply(replyText);
-        else await msg.reply(replyText);
+        await ctx.reply('❌ O bot precisa ser administrador para remover membros.');
         return;
       }
 
-      if (!senderPart?.isAdmin && !senderPart?.isSuperAdmin && !isMaster(senderId)) {
-        const replyText = "❌ Você não tem permissão para usar este comando.";
-        if (isContext) await ctxOrMsg.reply(replyText);
-        else await msg.reply(replyText);
+      const isSenderAdmin = Boolean(senderPart?.isAdmin || senderPart?.isSuperAdmin);
+      if (!isSenderAdmin && !isMaster(ctx.userId)) {
+        await ctx.reply('❌ Você não tem permissão para usar este comando.');
         return;
       }
 
-      // 2. Identificar Alvo
+      // Identificar alvo: menção ou mensagem respondida
+      const mentioned = ctx.msg.mentions;
       let targetId = '';
-      if (msg.mentionedIds && msg.mentionedIds.length > 0) {
-        targetId = msg.mentionedIds[0];
-      } else if (msg.hasQuotedMsg) {
-        const quoted = await msg.getQuotedMessage();
+
+      if (mentioned && mentioned.length > 0) {
+        targetId = mentioned[0].id;
+      } else if (ctx.msg.replyToMessageId && ctx.msg.raw?.quoted) {
+        const quoted = ctx.msg.raw.quoted;
         targetId = quoted.author || quoted.from;
-      } else if (args.length > 0) {
-        targetId = args[0].replace(/\D/g, '') + '@c.us';
       }
 
       if (!targetId) {
-        await msg.reply("❌ Mencione alguém ou responda a uma mensagem para remover.");
+        await ctx.reply('❌ Mencione alguém ou responda a uma mensagem para remover.');
         return;
       }
 
-      const targetPart = participants.find((p: any) => cleanId(p.id._serialized) === cleanId(targetId));
+      const targetClean = cleanId(targetId);
+      const targetPart = participants.find(p => cleanId(p.id) === targetClean);
       if (targetPart?.isAdmin || targetPart?.isSuperAdmin) {
-        await msg.reply("❌ Não é possível remover um administrador.");
+        await ctx.reply('❌ Não é possível remover um administrador.');
         return;
       }
 
-      // 3. Executar Remoção
-      await chat.removeParticipants([targetId]);
-      await msg.reply(`✅ @${targetId.split('@')[0]} foi removido do grupo.`, { mentions: [targetId] });
-
+      await ctx.client.removeParticipant(ctx.chatId, targetId);
+      await ctx.reply(`✅ @${targetClean.split('@')[0]} foi removido do grupo.`, {
+        // Telegram/Discord interpretam mentions via parseMode; no WhatsApp usamos o ID bruto
+        ...(ctx.platform === 'whatsapp' ? { mentions: [targetId] } : {}),
+      } as any);
     } catch (error: any) {
-      console.error("Erro no comando $kick:", error);
-      try {
-        if (msg && typeof msg.reply === 'function') {
-          await msg.reply(`❌ Falha ao executar remoção: ${error.message}`);
-        }
-      } catch (replyError) {
-        console.error("[kick] Falha ao enviar mensagem de erro:", replyError);
-      }
+      console.error('[kick] Erro:', error);
+      await ctx.reply(`❌ Falha ao executar remoção: ${error.message}`);
     }
   },
 };

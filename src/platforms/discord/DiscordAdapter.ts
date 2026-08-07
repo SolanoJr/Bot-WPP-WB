@@ -227,6 +227,25 @@ class DiscordClient implements PlatformClient {
     return chats;
   }
 
+  async removeParticipant(chatId: string, userId: string): Promise<void> {
+    const cleanChatId = chatId.replace(/^dc:/, '');
+    const cleanUserId = userId.replace(/^dc:/, '');
+    const channel = await this.client.channels.fetch(cleanChatId) as any;
+    const guild = channel?.guild;
+    if (!guild) throw new Error('Canal não pertence a um servidor (guild) no Discord');
+    const member = await guild.members.fetch(cleanUserId);
+    if (member) await member.kick('Removido por comando do bot');
+  }
+
+  async banParticipant(chatId: string, userId: string): Promise<void> {
+    const cleanChatId = chatId.replace(/^dc:/, '');
+    const cleanUserId = userId.replace(/^dc:/, '');
+    const channel = await this.client.channels.fetch(cleanChatId) as any;
+    const guild = channel?.guild;
+    if (!guild) throw new Error('Canal não pertence a um servidor (guild) no Discord');
+    await guild.members.ban(cleanUserId, { reason: 'Banido por comando do bot' });
+  }
+
   onMessage(handler: MessageHandler): void {
     this.messageHandler = handler;
   }
