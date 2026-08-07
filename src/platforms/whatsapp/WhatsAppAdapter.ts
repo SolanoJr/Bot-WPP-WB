@@ -411,12 +411,9 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     
     // Remover prefixo wpp: se presente
     let cleanChatId = chatId.replace(/^wpp:/, '');
-    // Higienizar destinatário: o WWebJS entrega conversas privadas com JID @lid
-    // (identificador de privacidade/dispositivo), mas NÃO aceita @lid como destino
-    // de envio em client.sendMessage(). Convertemos para o JID padrão @c.us.
-    if (cleanChatId.endsWith('@lid')) {
-      cleanChatId = cleanChatId.replace(/@lid$/, '@c.us');
-    }
+    // IMPORTANTE: NÃO converter @lid -> @c.us. O WWebJS moderno EXIGE o @lid como
+    // destino de envio para esse contato; converter gera "No LID for user".
+    // Mantemos o JID original (incluindo @lid) no envio.
     const targetJid = cleanChatId;
     console.log(`[WhatsAppAdapter.sendMessage] cleanChatId: ${cleanChatId} | targetJid: ${targetJid}`);
     console.log(`[WhatsAppAdapter] Enviando resposta para: ${targetJid}`);
