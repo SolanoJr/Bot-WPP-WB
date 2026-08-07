@@ -2,7 +2,19 @@
 
 Este arquivo resume bugs ativos ou riscos operacionais que precisam de acompanhamento. O histórico detalhado existente continua em `docs/BUG_TRACKER.md`.
 
-### Problema 3: metricsService retornava "Failed to collect metrics"
+### Problema 4: $menu/$kick/$ban não funcionavam em Telegram/Discord
+- **Sintoma:** comandos escritos para API crua do whatsapp-web.js (`msg.reply`, `msg.getChat()`, `chat.removeParticipants()`); `PlatformManager` passa `CommandContext` → quebrava fora do WhatsApp.
+- **Causa raiz:** violação do desacoplamento — comandos acoplados à API do WhatsApp; interface `PlatformClient` não tinha gestão de membros.
+- **Solução:**
+  - `menu.ts` reescrito para `execute(ctx)` + `ctx.reply` (agnóstico).
+  - Interface `PlatformClient`: adicionados `removeParticipant(chatId, userId)` e `banParticipant(chatId, userId)`.
+  - Implementados em `WhatsAppAdapter` (removeParticipants + block), `TelegramAdapter` (kickChatMember/banChatMember), `DiscordAdapter` (guild.members.kick/ban).
+  - `kick.ts`/`ban.ts` reescritos para `CommandContext` (permissão via `ctx.getChat().participants` + `isMaster`).
+- **Arquivos afetados:** `src/bot/commands/menu.ts`, `kick.ts`, `ban.ts`, `src/platforms/base/PlatformTypes.ts`, `WhatsAppAdapter.ts`, `TelegramAdapter.ts`, `DiscordAdapter.ts`, `tests/unit/groupCommands.test.ts`.
+- **Commit:** `7b2efab` (correção) + `60c169a` (testes).
+- **Status:** Resolvido 2026-08-07. `$menu` funciona nas 3 plataformas (teste ✓); `$kick`/`$ban` usam interface agnóstica (testes ✓). Deploy no Linux via `7b2efab`.
+
+## 2026-08-07 - Problema 3: metricsService retornava "Failed to collect metrics" - RESOLVIDO
 - **Sintoma:** `GET /metrics` retornava `{"error":"Failed to collect metrics"}`; log: `TypeError [ERR_INVALID_ARG_TYPE]: The "chunk" argument must be of type string... Received an instance of Promise`.
 - **Causa:** no `prom-client` v15, `registry.metrics()` é **async** (retorna Promise). O handler fazia `res.end(promise)`.
 - **Solução:** `const metrics = await this.registry.metrics(); res.end(metrics);` em `src/services/metricsService.ts`.

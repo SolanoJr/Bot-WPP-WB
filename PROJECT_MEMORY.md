@@ -554,6 +554,11 @@ Bot responde:
   - `joias_automation/` (projeto diferente).
 - **Pastas irmãs finais:** `astaofc-main/`, `bot-wpp/`, `joias_automation/`.
 
-**Última Atualização:** 2026-08-07 (Mesclagem rate-limit+métricas, limpeza completa, correção prom-client)
+### Lição Arquitetural Crítica (2026-08-07)
+- **REGRA:** todo comando DEVE usar `CommandContext` (`ctx.reply`, `ctx.getChat()`, `ctx.client.*`), NUNCA a API crua do whatsapp-web.js (`msg.reply`, `msg.getChat()`, `chat.removeParticipants()`). O `PlatformManager` passa `CommandContext` para todos os comandos; acessar `msg.raw` só como fallback.
+- **Interface `PlatformClient`** agora tem `removeParticipant`/`banParticipant` — comandos de grupo devem usá-los (agnóstico de plataforma). WhatsApp: removeParticipants+block; Telegram: kickChatMember/banChatMember; Discord: guild.members.kick/ban.
+- **Teste regressão:** `tests/unit/groupCommands.test.ts` garante que `$kick`/`$ban` usam a interface e validam permissão.
+
+**Última Atualização:** 2026-08-07 (Correção multiplataforma $menu/$kick/$ban, lição de desacoplamento de comandos)
 **Responsável:** Hermes Agent (modo Arquiteto)
-**Versão:** 1.1.2
+**Versão:** 1.1.3
