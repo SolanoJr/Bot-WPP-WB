@@ -203,10 +203,11 @@ class MetricsService {
   }
 
   private setupExpress(): void {
-    this.app.get(this.metricsPath, (req: Request, res: Response) => {
+    this.app.get(this.metricsPath, async (req: Request, res: Response) => {
       try {
+        const metrics = await this.registry.metrics();
         res.set('Content-Type', this.registry.contentType);
-        res.end(this.registry.metrics());
+        res.end(metrics);
       } catch (error) {
         console.error('[Metrics] Erro ao retornar métricas:', error);
         res.status(500).json({ error: 'Failed to collect metrics' });
