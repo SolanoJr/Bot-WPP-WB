@@ -1,16 +1,18 @@
 # 📜 ChangeLog - WarriorBlack Bot
 
 ## [v1.1.6] - 2026-08-07
-### 🔧 Correções de BUGS 1‑4 e ajuste de envio `@lid` (WWebJS)
+### 🔧 Correções de BUGS 1‑4 e envio WhatsApp (`@lid` / retorno vazio)
 
 #### Alterado (já aplicado no código em sessões anteriores)
-- **BUG 1 — `getChatById` redundante:** `automod.ts`, `ban.ts`, `lists.ts`, `setwelcome.ts`, `index.ts`, `autoModService.ts` reutilizam a instância de `chat` obtida via `msg.getChat()` em vez de chamar `getChatById()` novamente.
-- **BUG 2 — `userId` em grupos:** `pergunta.ts` e `shutdown.ts` usam `msg.author` (autor da mensagem) em grupos, não `msg.from` (que é o ID do grupo).
+- **BUG 1 — `getChatById` redundante:** `automod.ts`, `ban.ts`, `lists.ts`, `setwelcome.ts`, `index.ts`, `autoModService.ts` reutilizam a instância de `chat` obtida via `msg.getChat()`.
+- **BUG 2 — `userId` em grupos:** `pergunta.ts` e `shutdown.ts` usam `msg.author` em grupos.
 - **BUG 3 — `JSON.stringify` circular:** removidas serializações inseguras em `kick.ts`, `WhatsAppAdapter.ts`, `autoModService.ts`.
-- **BUG 4 — fallback `Utils.js`:** `Msg.get()` retornando `undefined/false` tratado; patch `r: r` (`_serialized` → `$1`) aplicado.
+- **BUG 4 — fallback `Utils.js`:** `Msg.get()` tratado; patch `r: r` (`_serialized` → `$1`) aplicado.
 
-#### Conhecido / Em correção (BUG 5 reformulado)
-- **`No LID for user` no envio WhatsApp:** ao converter `chatId` `@lid` → `@c.us` no `sendMessage`, o WWebJS moderno falha com `No LID for user`. O envio deve **manter o `@lid`** (o WWebJS exige o LID para esse contato). Correção pendente em `WhatsAppAdapter.sendMessage` (reverter a conversão). O Discord **NÃO está offline** — logs mostram `[Discord] ✅ Pronto` e `$menu` respondido com `sent: true`.
+#### Corrigido (Fase B — envio WhatsApp)
+- **`No LID for user`**: a conversão `chatId` `@lid` → `@c.us` no `sendMessage` quebrava o envio. **Revertida** — o WWebJS moderno exige o `@lid` como destino. Mantido o `@lid` original.
+- **Retorno `undefined`**: o WWebJS nem sempre devolve o objeto serializado ao enviar para `@lid` com `waitUntilMsgSent` (mesmo com envio OK). O `sendMessage` agora trata `sent === undefined` como sucesso (retorna payload mínimo) em vez de lançar "erro interno" falso.
+- **Telegram**: o erro `504 Gateway Time-out` era transitório de rede (servidor alcança `api.telegram.org` normalmente — confirmado `HTTP 302`). Telegram在线 e recebeu `$menu` após o restart.
 
 #### Status
 - Build OK; suite 105/107 (2 falhas pré-existentes fora de escopo: `commands-registry`, `discordAdapter`).

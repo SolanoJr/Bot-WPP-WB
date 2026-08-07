@@ -18,19 +18,22 @@ Este documento rastreia bugs, erros e suas soluções para evitar repetição de
 ### 6. Envio WhatsApp falha com "No LID for user" (redeclaração do BUG 5)
 **Data:** 2026-08-07
 **Sessão:** 56
-**Status:** 🔴 Em correção
+**Status:** ✅ Resolvido
 
 **Sintoma reportado (original):** Discord offline e `$menu` não responde.
-**Realidade (logs PM2):** Discord está ONLINE (`[Discord] ✅ Pronto como SolanoJr`) e `$menu` no Discord respondeu (`sent: true`). O Telegram falhou por `504 Gateway Time-out` (rede transitória, não token ausente). Os alertas de "tokens ausentes / WARRIOR_AUTH_KEY tamanho 0" referem-se a log antigo/outro ambiente — o `.env` Linux atual tem todos os tokens (WARRIOR_AUTH_KEY tamanho 16).
+**Realidade (logs PM2):** Discord online; o erro real era no **WhatsApp**.
 
 **Erro real (WhatsApp):**
 ```
-[PlatformManager] Erro no comando menu: Falha de transporte ao enviar mensagem (202658048684056@c.us): No LID for user
+Falha de transporte ao enviar mensagem (202658048684056@c.us): No LID for user
 ```
 
-**Causa:** Correção anterior no `WhatsAppAdapter.sendMessage` convertia `chatId` `@lid` → `@c.us`. O WWebJS moderno **exige o `@lid`** para enviar a esse contato; a conversão gera `No LID for user`.
+**Causa:** Correção anterior convertia `chatId` `@lid` → `@c.us` no `sendMessage`. O WWebJS moderno **exige o `@lid`** para enviar a esse contato.
 
-**Correção planejada:** reverter a conversão `@lid`→`@c.us` — manter o `@lid` original no envio. O fallback `getChatById`+`chat.sendMessage` (para `message.serialize`) permanece.
+**Correção (Fase B):**
+- Revertida a conversão `@lid`→`@c.us` (manter `@lid` no destino).
+- `sendMessage` agora trata retorno `undefined` do WWebJS como sucesso (payload mínimo), eliminando o "erro interno" falso.
+- Telegram: o `504 Gateway Time-out` era rede transitória (servidor alcança `api.telegram.org` — `HTTP 302`); Telegram online e recebeu `$menu`.
 
 **Arquivos:** `src/platforms/whatsapp/WhatsAppAdapter.ts` (`sendMessage`).
 
