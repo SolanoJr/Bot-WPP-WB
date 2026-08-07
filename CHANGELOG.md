@@ -20,4 +20,25 @@
 - **Erro de Módulo**: Dependências `cors`, `express` e `dotenv` reinstaladas e formalizadas no `package.json`.
 
 ---
+
+## [v1.1.1] - 2026-08-06
+### 🔧 Recuperação de Produção (Bot Offline no Linux)
+
+#### Corrigido
+- **WhatsApp offline por ProtocolError de Puppeteer** (`Page.navigate timed out` / `Runtime.callFunctionOn timed out` durante `whatsapp-web.js` init).
+  - **Causa:** o `dist/` do Linux não continha `protocolTimeout` no `puppeteerConfig` do `WhatsAppAdapter`. A máquina virtual do Linux reinicia eventualmente e o processo caía sempre na inicialização.
+  - **Solução:** adicionado `protocolTimeout: 180000` ao `puppeteerConfig` em `src/platforms/whatsapp/WhatsAppAdapter.ts` (linha 46). O `whatsapp-web.js` encaminha esse campo para `puppeteer.launch()`, elevando o limite das chamadas CDP.
+  - **Arquivo afetado:** `src/platforms/whatsapp/WhatsAppAdapter.ts`
+  - **Commit:** `4f34b5e` (main)
+- **DNS do Linux não resolvia `github.com`** (`Could not resolve host`). Resolver do container apontava só para o Tailscale DNS.
+  - **Solução aplicada no servidor (sudo, manual):** `tailscale set --accept-dns=false` + `resolv.conf` fixo com `nameserver 8.8.8.8` / `1.1.1.1`. Isso reabilita o fluxo canônico Windows→GitHub→`git pull`→build→restart.
+  - **Persistência:** `tailscale set --accept-dns=false` é persistente; `resolv.conf` é arquivo fixo (não symlink). Risco de reversão só em reboot completo do container que restaurasse o resolv.conf do PVE.
+
+#### Validação
+- `npm run build` OK (Windows e Linux).
+- `pm2 restart bot-wpp` → status `online`, WhatsApp "Pronto como WarriorBlack (558581344211@c.us)", AutoMod ativo.
+- `grep protocolTimeout dist/core/multiPlatform.js` = 1 ocorrência (fix presente no build de produção).
+
+---
+
 *Este é o estado estável pré-migração para TypeScript.*

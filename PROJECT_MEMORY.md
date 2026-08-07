@@ -502,3 +502,42 @@ Bot responde:
 - Código sincronizado via GitHub (`main`).
 - Rebuild completo realizado.
 - Servidor Linux: O usuário deve executar `./sync_and_deploy.sh` para aplicar as correções finais (Push realizado com sucesso).
+
+---
+
+## 🔄 AUDITORIA 2026-08-06 (Sessão de Recuperação de Produção)
+
+### Status do Sistema (após correção)
+- ✅ **Bot Online no Linux** (PM2: online, WhatsApp conectado como WarriorBlack 558581344211@c.us).
+- ✅ **AutoMod**: Ativo.
+- ⚠️ **DNS do Linux**: resolvido manualmente (ver abaixo); requer reaplicação em reboot do container.
+
+### Problemas Corrigidos
+1. **WhatsApp offline por ProtocolError de Puppeteer**
+   - Sintoma: `pm2 status bot-wpp` = `stopped`; log: `ProtocolError: Page.navigate timed out`.
+   - Causa: `dist/` do Linux sem `protocolTimeout` no `puppeteerConfig` do `WhatsAppAdapter`.
+   - Solução: `protocolTimeout: 180000` em `src/platforms/whatsapp/WhatsAppAdapter.ts` (commit `4f34b5e`).
+   - Lição: **sempre commitar + build + restart no Linux** quando mexer em config de inicialização; o Windows tem o código mas o build de produção é o Linux.
+2. **DNS do Linux não resolvia `github.com`**
+   - Causa: resolver do container (LXC/PVE) apontava só para Tailscale DNS.
+   - Solução (sudo manual): `tailscale set --accept-dns=false` + `resolv.conf` com 8.8.8.8/1.1.1.1.
+   - Lição: se `git pull` falhar com "Could not resolve host", corrigir DNS antes de tentar rebuild.
+
+### Regras de Operação Reforçadas
+- **NUNCA** usar `sudo -S` com senha em pipe (política do agente bloqueia; comandos `sudo` devem ser manuais no servidor).
+- Fluxo canônico de deploy: Windows (edit) → commit → push → Linux `git pull` → `npm run build` → `pm2 restart bot-wpp`.
+- Sempre validar o fix no `dist/` do Linux (`grep <token> dist/core/multiPlatform.js`) antes de reiniciar.
+
+### Inventário de Limpeza / Mesclagem (em andamento)
+- **Worktrees** (`D:/Desktop/SolanoJr/Programas/bot-wpp.worktrees/*`): todos derivam do bot-wpp com melhorias não integradas (rate limiting, menu dinâmico, correções AutoMod, Puppeteer bundled Chrome). Não apagar sem revisar valor.
+- **`relay/` raiz** (JS, v1.1.0): deploy antigo do Render, duplicado de `src/relay` (TS). Não usado localmente (PM2 só roda `bot-wpp`). Candidato a remoção.
+- **Pastas irmãs** (`D:/Desktop/SolanoJr/Programas/*`):
+  - `astaofc-main` (794MB, outro bot): minerar comandos reutilizáveis.
+  - `bot-wpp-backup` (322MB, git): cópia do próprio bot (estrutura antiga) — redundante.
+  - `joias_automation`: projeto diferente — MANTER.
+  - `astaofc-main.backup-20260612-123256`: backup plain-dir — lixo.
+- **Scripts soltos na raiz** (`test_commands.js`, `investigate_*.js`, etc.): versionados; `test_commands.js` referenciado por `npm run test-commands`. Reorganizar para `scripts/archive/`, não apagar.
+
+**Última Atualização:** 2026-08-06 (Recuperação de Produção + Documentação de Bugs/DNS)
+**Responsável:** Hermes Agent (modo Arquiteto)
+**Versão:** 1.1.1

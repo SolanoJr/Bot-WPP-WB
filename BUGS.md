@@ -2,7 +2,27 @@
 
 Este arquivo resume bugs ativos ou riscos operacionais que precisam de acompanhamento. O histórico detalhado existente continua em `docs/BUG_TRACKER.md`.
 
-## 2026-08-03 - Correção de normalizeMessage null/undefined - RESOLVIDO
+## 2026-08-06 - Bot Offline por ProtocolError de Puppeteer + DNS do Linux - RESOLVIDO
+
+### Problema 1: WhatsApp não inicializa (ProtocolError)
+- **Sintoma:** `pm2 status bot-wpp` = `stopped`; log de erro: `ProtocolError: Page.navigate timed out. Increase the 'protocolTimeout' setting...` ou `Runtime.callFunctionOn timed out`.
+- **Causa:** ausência de `protocolTimeout` no `puppeteerConfig` do `WhatsAppAdapter`. O `whatsapp-web.js` usa o Puppeteer padrão (30s) e estoura em ambiente headless lento.
+- **Solução:** `protocolTimeout: 180000` em `src/platforms/whatsapp/WhatsAppAdapter.ts` (puppeteerConfig). Commit `4f34b5e`.
+- **Arquivo afetado:** `src/platforms/whatsapp/WhatsAppAdapter.ts`
+- **Status:** Resolvido 2026-08-06. Bot online, WhatsApp conectado.
+
+### Problema 2: `git pull` falha com "Could not resolve host: github.com"
+- **Causa:** resolver do container (LXC/PVE) apontava apenas para o DNS do Tailscale (`100.100.100.100`), que não resolve nomes públicos. DNS público (8.8.8.8) funciona.
+- **Solução (sudo manual no servidor):**
+  ```bash
+  sudo tailscale set --accept-dns=false
+  printf "nameserver 8.8.8.8\nnameserver 1.1.1.1\n" | sudo tee /etc/resolv.conf >/dev/null
+  getent hosts github.com   # deve retornar o IP
+  ```
+- **Status:** Resolvido 2026-08-06. Importante: se o container reiniciar e restaurar o resolv.conf do PVE, o DNS quebra de novo — reaplicar o comando acima (precisa de sudo).
+- **Nota de segurança:** o agente NÃO usa `sudo -S` com senha em pipe (bloqueado por política). Comandos `sudo` devem ser executados manualmente pelo usuário no servidor.
+
+## 2026-08-03 - Correção and normalizeMessage null/undefined - RESOLVIDO
 
 ### Problema: "Message undefined/null em normalizeMessage"
 - **Causa:** WhatsAppAdapter.normalizeMessage() lançava exception quando mensagem era null/undefined
