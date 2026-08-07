@@ -1,5 +1,33 @@
 # 📜 ChangeLog - WarriorBlack Bot
 
+## [v1.1.5] - 2026-08-07
+### 🔧 Correção crítica: comandos não eram despachados (messageHandler nulo)
+
+#### Alterado
+- **`src/core/multiPlatform.ts`**: agora chama **`await platformManager.startAll()`** após registrar os adapters (que faz `initialize()` + `setupAdapterHandlers()` para cada plataforma). Antes, os adapters eram registrados e `initialize()` era chamado direto, mas o `startAll()` — que define o `messageHandler` de despacho de comandos — nunca rodava, deixando `this.messageHandler` nulo e silenciando todos os comandos (`$menu`, `$ping`, etc.).
+
+#### Adicionado
+- **Teste regressão** `tests/unit/whatsappMessageDispatch.test.ts`: prova que o `messageHandler` é invocado com `text='$menu'` quando registrado (equivalente ao `setupAdapterHandlers`).
+
+#### Status
+- Build OK; suite 105/107 (2 falhas pré-existentes fora de escopo: `commands-registry`, `discordAdapter`).
+
+## [v1.1.4] - 2026-08-07
+### 🔧 Correção: $menu travava no WhatsApp (desacoplamento do AutoMod)
+
+#### Alterado
+- **`WhatsAppAdapter.on('message')`**: o despacho de comandos (`messageHandler`) agora é chamado **imediatamente**, sem `await` bloqueante do `processAutoMod`/`handleKeywords`. A moderação (AutoMod/keywords) passa a rodar em paralelo (fire-and-forget) e não bloqueia mais o caminho crítico de comandos.
+- **Motivo:** `msg.getChat()` do whatsapp-web.js (chats `@lid`) podia pendurar a Promise em sessão instável, travando o Event Loop e impedindo que `$menu` e outros comandos fossem respondidos.
+
+#### Adicionado
+- **Teste regressão** `tests/unit/whatsappAutoModDecoupling.test.ts`: prova que o comando é despachado mesmo quando `getChat()` nunca resolve ou lança exceção.
+
+#### Removido
+- Logs temporários de diagnóstico (`FLOW_WPP` / `FLOW_PM` / `FLOW_WPP_SEND`) dos arquivos de produção após a correção.
+
+#### Status
+- Build OK; suite 104/106 (2 falhas pré-existentes fora de escopo: `commands-registry`, `discordAdapter`).
+
 ## [v1.0.0-JS-STABLE] - 2026-04-30
 ### 🚀 Estabilização e Blindagem de Produção
 

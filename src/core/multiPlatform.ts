@@ -37,14 +37,12 @@ async function initializePlatforms() {
     // Continuar mesmo sem comandos para permitir debug
   }
 
-  // Inicializar WhatsApp (sempre ativo)
+  // Registrar adapters (WhatsApp sempre ativo; Telegram/Discord se token configurado)
   try {
     const whatsappAdapter = new WhatsAppAdapter();
     platformManager.registerAdapter(whatsappAdapter);
-    await whatsappAdapter.initialize();
-    console.log('✅ WhatsApp inicializado');
   } catch (error) {
-    console.error('❌ Erro ao inicializar WhatsApp:', error);
+    console.error('❌ Erro ao registrar WhatsApp:', error);
   }
 
   // Inicializar Telegram (se token configurado e válido)
@@ -53,10 +51,8 @@ async function initializePlatforms() {
     try {
       const telegramAdapter = new TelegramAdapter(telegramToken);
       platformManager.registerAdapter(telegramAdapter);
-      await telegramAdapter.initialize();
-      console.log('✅ Telegram inicializado');
     } catch (error) {
-      console.error('❌ Erro ao inicializar Telegram:', error);
+      console.error('❌ Erro ao registrar Telegram:', error);
     }
   } else {
     console.log('⚠️ Telegram não configurado (TELEGRAM_BOT_TOKEN não definido ou inválido)');
@@ -68,14 +64,16 @@ async function initializePlatforms() {
     try {
       const discordAdapter = new DiscordAdapter(discordToken);
       platformManager.registerAdapter(discordAdapter);
-      await discordAdapter.initialize();
-      console.log('✅ Discord inicializado');
     } catch (error) {
-      console.error('❌ Erro ao inicializar Discord:', error);
+      console.error('❌ Erro ao registrar Discord:', error);
     }
   } else {
     console.log('⚠️ Discord não configurado (DISCORD_BOT_TOKEN não definido ou inválido)');
   }
+
+  // Inicializar todas as plataformas E configurar handlers de mensagem (registra o messageHandler
+  // que despacha os comandos). O startAll() faz adapter.initialize() + setupAdapterHandlers() para cada adapter.
+  await platformManager.startAll();
 
   // Listar plataformas ativas
   const activePlatforms = platformManager.getActivePlatforms();

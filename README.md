@@ -23,6 +23,10 @@ O projeto segue uma estrutura modular, com os principais componentes:
     -   `src/services/`: Serviços auxiliares como manipulação de mensagens, moderação, permissões, e integração com IA.
     -   `src/relay/`: Código para o serviço de relay (API externa).
     -   `src/whatsapp.ts`: Ponto de entrada principal do bot, responsável pela inicialização e gerenciamento de eventos do WhatsApp.
+
+## 📌 Documentação de Correções de Arquitetura
+
+Para evitar regressões por outras instâncias de IDE/agentes, o histórico de correções estruturais (tratamento de `@lid`, despacho de comandos/`startAll`, desacoplamento do AutoMod, estabilidade do Chromium) está centralizado em **[docs/ARCHITECTURE_FIXES.md](docs/ARCHITECTURE_FIXES.md)**. Leia-o antes de alterar `WhatsAppAdapter.ts`, `PlatformManager.ts` ou `multiPlatform.ts`.
 -   `dist/`: Saída dos arquivos TypeScript compilados para JavaScript.
 -   `.env`: Arquivo de configuração de variáveis de ambiente.
 -   `ecosystem.config.js`: Configuração para gerenciamento de processos com PM2.

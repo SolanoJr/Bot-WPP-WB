@@ -559,6 +559,17 @@ Bot responde:
 - **Interface `PlatformClient`** agora tem `removeParticipant`/`banParticipant` — comandos de grupo devem usá-los (agnóstico de plataforma). WhatsApp: removeParticipants+block; Telegram: kickChatMember/banChatMember; Discord: guild.members.kick/ban.
 - **Teste regressão:** `tests/unit/groupCommands.test.ts` garante que `$kick`/`$ban` usam a interface e validam permissão.
 
-**Última Atualização:** 2026-08-07 (Correção multiplataforma $menu/$kick/$ban, lição de desacoplamento de comandos)
+### Lição Arquitetural Crítica 2 (2026-08-07) — AutoMod NUNCA no caminho crítico de comandos
+- **REGRA:** no `WhatsAppAdapter.on('message')`, o despacho do comando (`this.messageHandler(platformMsg)`) DEVE ser chamado **antes/fora** de qualquer `await processAutoMod` / `await handleKeywords`. Operações de I/O do whatsapp-web.js (ex: `msg.getChat()` para chats `@lid`) podem pendurar a Promise quando a sessão está instável, travando o Event Loop e impedindo que comandos como `$menu` sejam respondidos.
+- **Padrão correto:** rodar AutoMod/keywords em paralelo (fire-and-forget `void Promise.resolve().then(async () => {...})` com `.catch()`), e despachar o comando imediatamente. A moderação continua ativa, só não bloqueia o caminho de comando.
+- **Teste regressão:** `tests/unit/whatsappAutoModDecoupling.test.ts` prova que o `messageHandler` é chamado mesmo quando `getChat()` pendura ou lança.
+- **Decisão NEGATIVA:** NÃO mover o AutoMod para dentro de `PlatformManager.setupAdapterHandlers` — isso acoplaria moderação específica do WhatsApp a uma camada agnóstica de plataforma, quebrando o desacoplamento multiplataforma.
+
+### Lição Arquitetural Crítica 3 (2026-08-07) — `multiPlatform.ts` DEVE chamar `platformManager.startAll()`
+- **REGRA:** o entrypoint `src/core/multiPlatform.ts` NUNCA deve apenas registrar adapters + chamar `adapter.initialize()` direto. Ele **DEVE** chamar `await platformManager.startAll()` após registrar os adapters. O `startAll()` é o único responsável por `setupAdapterHandlers(adapter)` → `client.onMessage(handler)` → define `this.messageHandler` no adapter. Sem essa chamada, `this.messageHandler` fica `null` e **nenhum comando é despachado** (o bot conecta mas não responde `$menu` etc.).
+- **Sintoma de esquecer:** `on('message')` dispara, `msg.body` chega correto, mas `temHandler=false` e o comando silencia. Logs DIAG_WPP mostram `msg.body="$menu"` + `temHandler=false`.
+- **Teste regressão:** `tests/unit/whatsappMessageDispatch.test.ts` prova que o `messageHandler` é invocado com `text='$menu'` quando registrado via `onMessage` (equivalente ao `setupAdapterHandlers`).
+
+**Última Atualização:** 2026-08-07 (Correção multiplataforma $menu/$kick/$ban + desacoplamento do AutoMod + correção do startAll no multiPlatform)
 **Responsável:** Hermes Agent (modo Arquiteto)
 **Versão:** 1.1.3

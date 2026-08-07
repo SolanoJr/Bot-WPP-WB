@@ -169,3 +169,19 @@ Este arquivo resume bugs ativos ou riscos operacionais que precisam de acompanha
 - **Solução aplicada:** Script alterado para listar explicitamente os serviços de produção.
 - **Arquivos afetados:** `package.json`.
 - **Status:** Resolvido em 2026-07-31; `npm run build` validado.
+
+### Problema 5: $menu travava no WhatsApp (processAutoMod bloqueava o caminho crítico de comandos)
+- **Sintoma:** `$menu` (e qualquer comando) chegava ao `WhatsAppAdapter.on('message')`, rodava `processAutoMod`, e o fluxo parava silenciosamente em `[AutoMod] botPart: false` — sem erro capturado e sem despachar o comando. O usuário não recebia resposta.
+- **Causa raiz:** `processAutoMod` (e `handleKeywords`) eram chamados com `await` **dentro** do `on('message')`, à frente de `if (this.messageHandler) await this.messageHandler(...)`. Para mensagens de chat privado (`@lid`), `msg.getChat()` / acesso a `chat.participants` do whatsapp-web.js podem iniciar uma Promise que **nunca resolve** quando a sessão WhatsApp Web está instável, pendurando o Event Loop e impedindo o despacho de comandos.
+- **Solução aplicada:** desacoplamento não-bloqueante — o `messageHandler` (despacho de comando) é chamado **imediatamente**; `processAutoMod` + `handleKeywords` rodam em paralelo via `void Promise.resolve().then(async () => {...})` com `.catch()` próprio (fire-and-forget). A moderação continua ativa, porém não bloqueia mais o caminho de comandos.
+- **Arquivos afetados:** `src/platforms/whatsapp/WhatsAppAdapter.ts` (função `on('message')`); `tests/unit/whatsappAutoModDecoupling.test.ts` (novo — prova que o comando é despachado mesmo com `getChat` pendente ou lançando).
+- **Logs de diagnóstico removidos:** marcadores `FLOW_WPP` / `FLOW_PM` / `FLOW_WPP_SEND` (adicionados na investigação) foram retirados após a correção.
+- **Status:** Resolvido 2026-08-07. Teste unitário criado (2 casos: getChat pendente e getChat lançando). Build OK; suite 104/106 (2 falhas pré-existentes fora do escopo: `commands-registry`, `discordAdapter`).
+
+### Problema 6: $menu (e todos os comandos) não respondia — `messageHandler` nunca registrado
+- **Sintoma:** após o desacoplamento do AutoMod (Problema 5), o `$menu` continuava sem resposta. Logs DIAG_WPP mostraram `msg.body="$menu"` correto, mas `temHandler=false` — ou seja, `this.messageHandler` era `null` no `WhatsAppAdapter.on('message')`, então o `if (this.messageHandler)` era falso e o comando nunca era despachado.
+- **Causa raiz:** `src/core/multiPlatform.ts` registrava os adapters (`registerAdapter`) e chamava `adapter.initialize()` diretamente, mas **NUNCA chamava `platformManager.startAll()`**. O `startAll()` é quem invoca `setupAdapterHandlers(adapter)` → `client.onMessage(handler)` → `this.messageHandler = handler`. Sem esse call, o handler de despacho de comandos simplesmente não existia. O bot conectava (evento `ready` → "Pronto como WarriorBlack") mas não processava comandos.
+- **Histórico:** o log antigo tinha 47 "Comando recebido" / 19 "Executando menu" de uma época em que o `startAll()` era chamado; a limpeza/refatoração removeu essa chamada e quebrou o despacho silenciosamente.
+- **Solução aplicada:** `multiPlatform.ts` agora registra os adapters e chama **`await platformManager.startAll()`** (que faz `initialize()` + `setupAdapterHandlers()` para todos). Removidas as chamadas `initialize()` diretas dos adapters (evita double-init).
+- **Arquivos afetados:** `src/core/multiPlatform.ts` (chamada de `startAll`); `tests/unit/whatsappMessageDispatch.test.ts` (novo — prova que o `$menu` é despachado quando o handler está registrado).
+- **Status:** Resolvido 2026-08-07. Build OK; suite 105/107 (2 falhas pré-existentes fora do escopo: `commands-registry`, `discordAdapter`).

@@ -48,9 +48,12 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
         '--disable-gpu',
-        '--disable-extensions',
-        '--no-first-run'
+        '--disable-extensions'
       ]
     };
 
@@ -61,13 +64,41 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
 
     this.client = this;
 
+    // Encerramento limpo (graceful shutdown): garante que o Chromium seja finalizado
+    // e não restem processos-filhos zumbis ao receber sinais de término.
+    const shutdown = (signal: string) => {
+      console.log(`[WhatsAppAdapter] Recebido ${signal} - encerrando cliente (client.destroy)...`);
+      try {
+        this.innerClient.destroy();
+      } catch (err: any) {
+        console.error(`[WhatsAppAdapter] Erro em client.destroy():`, err?.message);
+      }
+      // Não forçamos process.exit aqui: deixamos o PM2/SO finalizar o processo.
+    };
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+
     this.setupEventHandlers();
   }
 
   private setupEventHandlers(): void {
     this.innerClient.on('qr', (qr: string) => {
-      console.log('[WhatsApp] QR Code recebido, escaneie com seu WhatsApp:');
+      console.log('[WhatsApp] 🔑 QR Code recebido — ESCANEIE com seu WhatsApp (App > Dispositivos conectados):');
       qrcode.generate(qr, { small: true });
+      console.log('[WhatsApp] (Se não precisar escanear, a sessão foi restaurada do cache LocalAuth.)');
+    });
+
+    this.innerClient.on('authenticated', () => {
+      console.log('[WhatsApp] 🔓 Sessão autenticada com sucesso (LocalAuth restaurado ou novo login).');
+    });
+
+    this.innerClient.on('auth_failure', (msg: string) => {
+      console.error(`[WhatsApp] ❌ Falha de autenticação: ${msg}`);
+      console.error('[WhatsApp] A sessão pode estar inválida; pode ser necessário limpar .wwebjs_auth e reescaneear o QR.');
+    });
+
+    this.innerClient.on('change_state', (state: string) => {
+      console.log(`[WhatsApp] 🔄 Mudança de estado da conexão: ${state}`);
     });
 
     this.innerClient.on('ready', () => {
@@ -84,45 +115,43 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
 
     this.innerClient.on('disconnected', (reason: string) => {
       this.isReady = false;
-      console.log(`[WhatsApp] Desconectado: ${reason}`);
+      console.log(`[WhatsApp] 🔌 Desconectado: ${reason}`);
       if (this.disconnectedHandler) this.disconnectedHandler(reason);
     });
 
     this.innerClient.on('message', async (msg: Message) => {
-      try {
-        console.log('[WhatsAppAdapter] Mensagem recebida - msg:', !!msg, 'msg.from:', msg?.from, 'msg.author:', msg?.author);
-        
-        if (!msg) {
-          console.error('[WhatsAppAdapter] ERRO: msg é null/undefined, ignorando');
-          return;
-        }
-        
-        if (!msg.id) {
-          console.error('[WhatsAppAdapter] ERRO: msg não tem id, ignorando - msg type:', typeof msg);
-          return;
-        }
-        
-        // Executar AutoMod para mensagens recebidas em grupos
-        const moderated = await processAutoMod(msg, this.innerClient);
-        if (moderated) {
-          console.log(`🛡️ [WhatsAppAdapter] Mensagem moderada e deletada de ${msg.author || msg.from}`);
-          return;
-        }
-      } catch (err: any) {
-        console.error(`[WhatsAppAdapter] Erro ao executar AutoMod:`, err.message);
-        console.error(`[WhatsAppAdapter] Erro stack:`, err.stack);
+      console.log('[WhatsAppAdapter] Mensagem recebida - msg:', !!msg, 'msg.from:', msg?.from, 'msg.author:', msg?.author);
+      
+      if (!msg) {
+        console.error('[WhatsAppAdapter] ERRO: msg é null/undefined, ignorando');
+        return;
       }
-
-      // Executar handler de palavras-chave (respostas sarcásticas)
-      try {
-        const intercepted = await handleKeywords(msg, this.innerClient);
-        if (intercepted) {
-          console.log(`😏 [WhatsAppAdapter] Palavra-chave detectada, resposta enviada`);
-          return;
-        }
-      } catch (err: any) {
-        console.error(`[WhatsAppAdapter] Erro ao executar handleKeywords:`, err.message);
+      
+      if (!msg.id) {
+        console.error('[WhatsAppAdapter] ERRO: msg não tem id, ignorando - msg type:', typeof msg);
+        return;
       }
+      
+      // Desacoplar AutoMod/handleKeywords do caminho crítico de comandos.
+      // O despacho do comando (messageHandler) NUNCA deve ficar atrás de uma
+      // operação de I/O do whatsapp-web.js (ex: msg.getChat() pode pendurar em
+      // sessão instável). AutoMod/keywords rodam em paralelo (fire-and-forget),
+      // sem bloquear o processamento de comandos como $menu.
+      void Promise.resolve().then(async () => {
+        try {
+          const moderated = await processAutoMod(msg, this.innerClient);
+          if (moderated) {
+            console.log(`🛡️ [WhatsAppAdapter] Mensagem moderada e deletada de ${msg.author || msg.from}`);
+            return;
+          }
+          const intercepted = await handleKeywords(msg, this.innerClient);
+          if (intercepted) {
+            console.log(`😏 [WhatsAppAdapter] Palavra-chave detectada, resposta enviada`);
+          }
+        } catch (err: any) {
+          console.error(`[WhatsAppAdapter] Erro em AutoMod/Keywords (nao bloqueante):`, err?.message);
+        }
+      });
 
       if (this.messageHandler) {
         try {
@@ -134,6 +163,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         }
       }
     });
+
 
     this.innerClient.on('message_create', async (msg: Message) => {
       if (!msg) {
@@ -324,10 +354,12 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       }
     }
 
-    const messageId = msg.id._serialized || msg.id.id || String(msg.id);
-    console.log('[WhatsApp] normalizeMessage() - messageId final:', messageId);
+    const messageId = msg.id?._serialized
+      || msg.id?.id
+      || (msg.id?.remote && msg.id?.id ? `${msg.id.remote}_${msg.id.id}` : null)
+      || String(msg.id);
 
-    return {
+    const payload = {
       id: `wpp:${messageId}`,
       chatId,
       userId,
@@ -336,7 +368,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       timestamp: new Date(msg.timestamp * 1000),
       isFromMe: msg.fromMe,
       isCommand: false, // Será determinado pelo PlatformManager
-      platform: 'whatsapp',
+      platform: 'whatsapp' as const,
       raw: {
         ...msg,
         isGroup,
@@ -348,6 +380,11 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       mediaType: this.getMediaType(msg),
       replyToMessageId: msg.hasQuotedMsg ? `wpp:${msg.quotedMsg?.id._serialized}` : undefined
     };
+
+    // Log de auditoria: confirma a entrega do payload normalizado ao messageHandler.
+    // Trata @lid (identificador de privacidade/dispositivo) como conversa privada válida.
+    console.log(`[WhatsAppAdapter] Payload normalizado e enviado ao handler: ID=${messageId} Chat=${chatId} User=${userId} Text="${payload.text}" isGroup=${isGroup}`);
+    return payload;
   }
 
   private getMediaType(msg: Message): PlatformMessage['mediaType'] {
@@ -373,8 +410,16 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     console.log(`[WhatsAppAdapter.sendMessage] Stack trace:`, stack);
     
     // Remover prefixo wpp: se presente
-    const cleanChatId = chatId.replace(/^wpp:/, '');
-    console.log(`[WhatsAppAdapter.sendMessage] cleanChatId: ${cleanChatId}`);
+    let cleanChatId = chatId.replace(/^wpp:/, '');
+    // Higienizar destinatário: o WWebJS entrega conversas privadas com JID @lid
+    // (identificador de privacidade/dispositivo), mas NÃO aceita @lid como destino
+    // de envio em client.sendMessage(). Convertemos para o JID padrão @c.us.
+    if (cleanChatId.endsWith('@lid')) {
+      cleanChatId = cleanChatId.replace(/@lid$/, '@c.us');
+    }
+    const targetJid = cleanChatId;
+    console.log(`[WhatsAppAdapter.sendMessage] cleanChatId: ${cleanChatId} | targetJid: ${targetJid}`);
+    console.log(`[WhatsAppAdapter] Enviando resposta para: ${targetJid}`);
     
     // FIX: Usar waitUntilMsgSent=true para aguardar o envio real ao servidor
     // Isso garante que a mensagem entre no cache global (Msg store) antes de retornar
@@ -385,7 +430,19 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     };
     
     const startTime = Date.now();
-    const sent = await this.innerClient.sendMessage(cleanChatId, text, sendOptions);
+    let sent;
+    try {
+      sent = await this.innerClient.sendMessage(targetJid, text, sendOptions);
+    } catch (sendErr: any) {
+      // Capturar falhas de transporte (Puppeteer/CdpPage.evaluate) para que não
+      // mascarem a execução bem-sucedida do comando.
+      console.error(`[WhatsAppAdapter.sendMessage] ERRO de transporte ao enviar para ${targetJid}:`, {
+        message: sendErr?.message,
+        stack: sendErr?.stack,
+        errorType: sendErr?.constructor?.name
+      });
+      throw new Error(`Falha de transporte ao enviar mensagem (${targetJid}): ${sendErr?.message}`);
+    }
     const duration = Date.now() - startTime;
     
     console.log(`[WhatsAppAdapter.sendMessage] ⏱️ sendMessage demorou ${duration}ms`);
