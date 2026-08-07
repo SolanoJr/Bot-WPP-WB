@@ -538,6 +538,22 @@ Bot responde:
   - `astaofc-main.backup-20260612-123256`: backup plain-dir — lixo.
 - **Scripts soltos na raiz** (`test_commands.js`, `investigate_*.js`, etc.): versionados; `test_commands.js` referenciado por `npm run test-commands`. Reorganizar para `scripts/archive/`, não apagar.
 
-**Última Atualização:** 2026-08-06 (Recuperação de Produção + Documentação de Bugs/DNS)
+### Inventário de Limpeza / Mesclagem (CONCLUÍDO 2026-08-07)
+- **MESCLADO do worktree `project-architecture-review-and-refactor`:**
+  - `src/services/rateLimiter.ts` — rate-limit de comandos (20/min por usuário).
+  - `src/services/metricsService.ts` — `/metrics` (Prometheus, porta 3001) + `/health`. Integrado em `PlatformManager.executeCommand` (rate-limit + incremento de métrica) e em `multiPlatform.ts` (start na inicialização).
+  - Correção: `prom-client` v15 `registry.metrics()` é async → usar `await`.
+- **REMOVIDO (lixo):**
+  - `relay/` raiz (deploy antigo do Render, duplicado de `src/relay`).
+  - `bot-wpp-backup/` (cópia redundante).
+  - `astaofc-main.backup-20260612-123256/` (backup plain-dir).
+  - `bot-wpp.worktrees/*` (worktrees de agentes; valor já mesclado). `.git/config` limpo (0 refs de worktree).
+  - Scripts de investigação (`*.js` da raiz) → `scripts/archive/`. `test_commands.js` mantido na raiz (ref em `npm run test-commands`).
+- **MANTIDO:**
+  - `astaofc-main/` (astabot — minerar comandos de engajamento fica para outra sessão).
+  - `joias_automation/` (projeto diferente).
+- **Pastas irmãs finais:** `astaofc-main/`, `bot-wpp/`, `joias_automation/`.
+
+**Última Atualização:** 2026-08-07 (Mesclagem rate-limit+métricas, limpeza completa, correção prom-client)
 **Responsável:** Hermes Agent (modo Arquiteto)
-**Versão:** 1.1.1
+**Versão:** 1.1.2

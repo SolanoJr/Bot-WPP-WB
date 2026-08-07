@@ -2,6 +2,14 @@
 
 Este arquivo resume bugs ativos ou riscos operacionais que precisam de acompanhamento. O histórico detalhado existente continua em `docs/BUG_TRACKER.md`.
 
+### Problema 3: metricsService retornava "Failed to collect metrics"
+- **Sintoma:** `GET /metrics` retornava `{"error":"Failed to collect metrics"}`; log: `TypeError [ERR_INVALID_ARG_TYPE]: The "chunk" argument must be of type string... Received an instance of Promise`.
+- **Causa:** no `prom-client` v15, `registry.metrics()` é **async** (retorna Promise). O handler fazia `res.end(promise)`.
+- **Solução:** `const metrics = await this.registry.metrics(); res.end(metrics);` em `src/services/metricsService.ts`.
+- **Arquivo afetado:** `src/services/metricsService.ts`
+- **Commit:** `015692b`
+- **Status:** Resolvido 2026-08-07. `/metrics` retorna HTTP 200 com payload Prometheus; `/health` também OK na porta 3001.
+
 ## 2026-08-06 - Bot Offline por ProtocolError de Puppeteer + DNS do Linux - RESOLVIDO
 
 ### Problema 1: WhatsApp não inicializa (ProtocolError)
