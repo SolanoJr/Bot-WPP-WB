@@ -11,12 +11,21 @@ import { WhatsAppAdapter } from '../platforms/whatsapp/WhatsAppAdapter';
 import { TelegramAdapter } from '../platforms/telegram/TelegramAdapter';
 import { DiscordAdapter } from '../platforms/discord/DiscordAdapter';
 import { loadCommands } from '../bot/commands';
+import metricsService from '../services/metricsService';
 
 // Carregar variáveis de ambiente
 dotenv.config();
 
 async function initializePlatforms() {
   console.log('🚀 Inicializando Bot-WPP Multi-Platform...');
+
+  // Inicializar servidor de métricas Prometheus (porta 3001, /metrics e /health)
+  try {
+    await metricsService.start();
+    metricsService.startSystemMetricsCollection();
+  } catch (error) {
+    console.error('❌ Erro ao iniciar métricas:', error);
+  }
 
   // Carregar comandos com tratamento de erro robusto
   try {

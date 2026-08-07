@@ -17,6 +17,8 @@ import {
   MediaPayload,
   MessageHandler
 } from './base/PlatformTypes';
+import { rateLimiter } from '../services/rateLimiter';
+import metricsService from '../services/metricsService';
 
 type AdapterFactory = () => Promise<PlatformAdapter>;
 
@@ -241,15 +243,28 @@ export class PlatformManager {
       return; // Resposta de erro já enviada no checkPermissions
     }
 
+    // Rate limiting por usuário (20 comandos/minuto)
+    const rate = rateLimiter.checkLimit(message.userId);
+    if (rate.limitExceeded) {
+      metricsService.incrementRateLimitHit();
+      const waitSec = Math.ceil((rate.resetTime - Date.now()) / 1000);
+      await adapter.client.sendMessage(
+        message.chatId,
+        `⏳ Você excedeu o limite de comandos. Aguarde ~${waitSec}s antes de usar outro comando.`
+      );
+      return;
+    }
+
     // Criar contexto unificado
     const ctx = this.createCommandContext(message, adapter.client);
 
     try {
       console.log(`[PlatformManager] Executando ${message.commandName} em ${adapter.platform} para ${message.userName}`);
-      
-      // Registrar uso no banco de dados
+
+      // Registrar métricas e uso
+      metricsService.incrementCommand(message.commandName!, adapter.platform);
       await this.logCommandUsage(message.commandName!, message.userId, message.chatId);
-      
+
       await command.execute(ctx);
     } catch (error: any) {
       console.error(`[PlatformManager] Erro no comando ${message.commandName}:`, error);
