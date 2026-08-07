@@ -422,26 +422,44 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     console.log(`[WhatsAppAdapter] Enviando resposta para: ${targetJid}`);
     
     // FIX: Usar waitUntilMsgSent=true para aguardar o envio real ao servidor
-    // Isso garante que a mensagem entre no cache global (Msg store) antes de retornar
     // Ref: whatsapp-web.js Client.sendMessage internalOptions.waitUntilMsgSent
     const sendOptions = {
       quotedMessageId: options?.replyToMessageId?.replace(/^wpp:/, ''),
-      waitUntilMsgSent: true
+      waitUntilMsgSent: true,
+      sendSeen: false
     };
-    
+
     const startTime = Date.now();
     let sent;
     try {
       sent = await this.innerClient.sendMessage(targetJid, text, sendOptions);
     } catch (sendErr: any) {
-      // Capturar falhas de transporte (Puppeteer/CdpPage.evaluate) para que não
-      // mascarem a execução bem-sucedida do comando.
-      console.error(`[WhatsAppAdapter.sendMessage] ERRO de transporte ao enviar para ${targetJid}:`, {
-        message: sendErr?.message,
-        stack: sendErr?.stack,
-        errorType: sendErr?.constructor?.name
-      });
-      throw new Error(`Falha de transporte ao enviar mensagem (${targetJid}): ${sendErr?.message}`);
+      const msg = String(sendErr?.message || '');
+      // Falha conhecida com novos IDs @lid / WhatsApp Web atualizado:
+      // "message.serialize is not a function" (interno do getMessageModel).
+      // Fallback: resolver a conversa e enviar diretamente via chat.sendMessage(),
+      // que contorna o modelo de mensagem problemático do client.sendMessage.
+      if (msg.includes('serialize') || msg.includes('getMessageModel')) {
+        console.warn(`[WhatsAppAdapter.sendMessage] sendMessage falhou (${msg}). Tentando fallback via getChatById+chat.sendMessage...`);
+        try {
+          const chat = await this.innerClient.getChatById(targetJid);
+          sent = await chat.sendMessage(text, { quotedMessageId: sendOptions.quotedMessageId });
+        } catch (fallbackErr: any) {
+          console.error(`[WhatsAppAdapter.sendMessage] Fallback também falhou:`, {
+            message: fallbackErr?.message,
+            stack: fallbackErr?.stack
+          });
+          throw new Error(`Falha ao enviar mensagem (${targetJid}): ${fallbackErr?.message || msg}`);
+        }
+      } else {
+        // Outras falhas de transporte (Puppeteer/CdpPage.evaluate) não mascaram o comando.
+        console.error(`[WhatsAppAdapter.sendMessage] ERRO de transporte ao enviar para ${targetJid}:`, {
+          message: msg,
+          stack: sendErr?.stack,
+          errorType: sendErr?.constructor?.name
+        });
+        throw new Error(`Falha de transporte ao enviar mensagem (${targetJid}): ${msg}`);
+      }
     }
     const duration = Date.now() - startTime;
     
