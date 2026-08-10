@@ -25,6 +25,7 @@ import { jokesCommand } from './jokes';
 import { voteCommand } from './vote';
 import { delVoteCommand } from './vote';
 import { addCmdCommand } from './addcmd';
+import { sendMessageCommand } from './sendMessage';
 import { antispamCommand } from './antispam';
 import { conselhoCommand } from './conselho';
 import { conselhobCommand } from './conselhob';
@@ -64,10 +65,14 @@ const commands: Record<string, ICommand> = {
   'ondeestou': ondeEstouCommand,
   jogos: jogosCommand,
   jokes: jokesCommand,
+  piada: jokesCommand,
   vote: voteCommand,
+  votar: voteCommand,
   delvote: delVoteCommand,
   voto: voteCommand,
+  delvoto: delVoteCommand,
   addcmd: addCmdCommand,
+  sendmsg: sendMessageCommand,
   antispam: antispamCommand,
   conselho: conselhoCommand,
   conselhob: conselhobCommand,
@@ -328,5 +333,5 @@ export {
   addCmdCommand, antispamCommand, conselhoCommand, conselhobCommand, aleatoriaCommand,
   alarmeCommand, lembreteCommand, bemvindoCommand, shutdownCommand, infoCommand, adminCommand,
   gruposCommand, noticiasCommand, banidosCommand, setwelcomeCommand, cantadaCommand,
-  cmdToggleCommand,
+  cmdToggleCommand, sendMessageCommand,
 };

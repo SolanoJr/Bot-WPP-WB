@@ -16,7 +16,11 @@ vi.mock('discord.js', () => {
       }),
     };
   }
-  return { Client: MockClient };
+  return {
+    Client: MockClient,
+    GatewayIntentBits: { Guilds: 1, GuildMembers: 2, GuildMessages: 3, MessageContent: 4 },
+    Partials: { Channel: 1, Message: 2, User: 3 },
+  };
 });
 
 describe('DiscordAdapter', () => {

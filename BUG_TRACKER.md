@@ -103,6 +103,47 @@ Falha de transporte ao enviar mensagem (202658048684056@c.us): No LID for user
 
 ---
 
+### 12. Comandos `piada`/`votar`/`delvoto`/`sendmsg` não registrados (aliases ausentes)
+**Data:** 2026-08-07
+**Sessão:** 56
+**Status:** ✅ Resolvido
+
+**Erro:** `tests/unit/commands-registry.test.ts` falhava: `piada`, `votar`, `delvoto`, `sendmsg` "deveriam estar registrados". O menu e o teste referenciavam esses nomes, mas o `loadCommands()` (`src/bot/commands/index.ts`) só tinha `jokes`, `vote`, `delvote` e o `sendmsg` era um comando órfão (`sendMessage.ts` não importado).
+
+**Correção:** adicionados aliases `piada→jokesCommand`, `votar→voteCommand`, `delvoto→delVoteCommand` e importado/registrado `sendmsg→sendMessageCommand` no `index.ts`.
+
+**Arquivos:** `src/bot/commands/index.ts`, `src/bot/commands/sendMessage.ts`
+
+---
+
+### 13. Teste `discordAdapter.test.ts` quebra (mock sem `GatewayIntentBits`)
+**Data:** 2026-08-07
+**Sessão:** 56
+**Status:** ✅ Resolvido
+
+**Erro:** `No "GatewayIntentBits" export is defined on the "discord.js" mock`. O `DiscordAdapter` importa `GatewayIntentBits`/`Partials` no topo, mas o `vi.mock('discord.js')` do teste só retornava `{ Client: MockClient }`.
+
+**Correção:** mock passou a exportar `GatewayIntentBits` e `Partials`.
+
+**Arquivos:** `tests/unit/discordAdapter.test.ts`
+
+---
+
+### 14. `$kick`/`$ban` erro falso de "precisa ser administrador"
+**Data:** 2026-08-07
+**Sessão:** 56
+**Status:** ✅ Resolvido
+
+**Erro:** `$kick`/`$ban` respondiam "O bot precisa ser administrador" mesmo o bot SENDO admin.
+
+**Causa:** o `WhatsAppAdapter.getChat()` retorna `participants: []` quando o WWebJS falha em obter a lista (Issue #201838 `r:r` / chat `@lid`), marcando `isPermissionsVerified: false`. O `kick`/`ban` buscavam `botPart = participants.find(...)` e, como vazio, `botPart?.isAdmin` era falsy → erro falso.
+
+**Correção:** no `kick`/`ban`, quando `chat.isPermissionsVerified === false`, a checagem de admin do BOT é pulada (não bloqueia). O comando prossegue e o WWebJS retorna o erro real se o bot não for admin.
+
+**Arquivos:** `src/bot/commands/kick.ts`, `src/bot/commands/ban.ts`
+
+---
+
 ### 11. Puppeteer Browser Launch Failed - Chrome Not Found/Timeout
 **Data:** 2026-08-05  
 **Sessão:** 45  

@@ -18,10 +18,16 @@ export const kickCommand: ICommand = {
       const botId = cleanId(ctx.client.userId);
       const senderId = cleanId(ctx.userId);
 
+      // Se as permissões não puderam ser verificadas (WWebJS falhou ao obter
+      // participantes — Issue #201838 / chat @lid), NÃO bloquear com erro falso
+      // de "precisa ser administrador". Prosseguir e deixar o WWebJS retornar o
+      // erro real, se houver.
+      const permsVerified = (chat as any).isPermissionsVerified !== false;
+
       const botPart = participants.find(p => cleanId(p.id) === botId);
       const senderPart = participants.find(p => cleanId(p.id) === senderId);
 
-      if (!botPart?.isAdmin && !botPart?.isSuperAdmin) {
+      if (permsVerified && !botPart?.isAdmin && !botPart?.isSuperAdmin) {
         await ctx.reply('❌ O bot precisa ser administrador para remover membros.');
         return;
       }

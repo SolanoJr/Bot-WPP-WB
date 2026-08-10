@@ -1,5 +1,18 @@
 # 📜 ChangeLog - WarriorBlack Bot
 
+## [v1.1.8] - 2026-08-07
+### 🔧 Correção de comandos (aliases, testes) e `$kick`/`$ban` (erro falso de admin)
+
+#### Alterado
+- **`src/bot/commands/index.ts`**: registrados aliases ausentes que o menu/testes esperavam: `piada`→`jokes`, `votar`→`vote`, `delvoto`→`delVote`, e o comando órfão `sendmsg` (`sendMessage.ts`) agora é importado e registrado.
+- **`src/bot/commands/kick.ts` / `ban.ts`**: quando `chat.isPermissionsVerified === false` (WWebJS falhou ao obter participantes — Issue #201838 / chat `@lid`), o comando **não bloqueia com erro falso de "precisa ser administrador"**. Prossegue e deixa o WWebJS retornar o erro real, se houver.
+- **`tests/unit/discordAdapter.test.ts`**: mock de `discord.js` agora exporta `GatewayIntentBits` e `Partials` (o adapter os importa no topo).
+- **`tests/unit/commands-registry.test.ts`**: passa após registro dos aliases.
+
+#### Status
+- Build OK; suite **107/107 (18/18 files)** — zero falhas.
+- Pendente deploy Linux para validar `$kick`/`$ban` em produção.
+
 ## [v1.1.7] - 2026-08-07
 ### 🔧 Correção de inicialização multiplataforma e menu
 
