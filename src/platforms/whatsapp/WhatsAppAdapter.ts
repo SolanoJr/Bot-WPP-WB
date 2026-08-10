@@ -552,6 +552,12 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
   async removeParticipant(chatId: string, userId: string): Promise<void> {
     const cleanChatId = chatId.replace(/^wpp:/, '');
     const cleanUserId = userId.replace(/^wpp:/, '');
+    // Usar client.removeParticipants direto (evita getChatById, que quebra com
+    // "r:r" / Issue #201838 em chats @lid). O Client do WWebJS expõe o método.
+    if (typeof (this.innerClient as any).removeParticipants === 'function') {
+      await (this.innerClient as any).removeParticipants(cleanChatId, [cleanUserId]);
+      return;
+    }
     const chat = await this.innerClient.getChatById(cleanChatId);
     await chat.removeParticipants([cleanUserId]);
   }
@@ -559,8 +565,12 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
   async banParticipant(chatId: string, userId: string): Promise<void> {
     const cleanChatId = chatId.replace(/^wpp:/, '');
     const cleanUserId = userId.replace(/^wpp:/, '');
-    const chat = await this.innerClient.getChatById(cleanChatId);
-    await chat.removeParticipants([cleanUserId]);
+    if (typeof (this.innerClient as any).removeParticipants === 'function') {
+      await (this.innerClient as any).removeParticipants(cleanChatId, [cleanUserId]);
+    } else {
+      const chat = await this.innerClient.getChatById(cleanChatId);
+      await chat.removeParticipants([cleanUserId]);
+    }
     try {
       const contact = await this.innerClient.getContactById(cleanUserId);
       if (contact && typeof (contact as any).block === 'function') {

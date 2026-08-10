@@ -147,10 +147,18 @@ export async function processAutoMod(msg: Message, client: any): Promise<boolean
   if (!defaultConfig.enabled || msg.fromMe) return false;
 
   try {
-    const chat = await msg.getChat();
-    console.log('[AutoMod] chat obtido:', !!chat, 'chat.id:', chat?.id, 'chat.id._serialized:', chat?.id?._serialized);
+    // Obter chat de forma resiliente: o WWebJS quebra com "r:r" (Issue #201838)
+    // em chats @lid, deixando participants vazio. Se não conseguirmos verificar,
+    // ASSUMIR que o bot é admin (prosseguir) — o WWebJS retorna erro real se não for.
+    let chat: any = null;
+    try {
+      chat = await msg.getChat();
+    } catch (gcErr: any) {
+      console.warn(`[AutoMod] getChat falhou (${gcErr?.message}); assumindo bot admin.`);
+    }
+    const groupId = chat?.id?._serialized || msg.from;
     const authorId = msg.author || msg.from;
-    console.log('[AutoMod] authorId:', authorId);
+    console.log('[AutoMod] authorId:', authorId, 'groupId:', groupId);
 
     // 1. Extração de conteúdo (incluindo interativos)
     const messageText = extractTextFromInteractiveMessage(msg);
@@ -162,19 +170,19 @@ export async function processAutoMod(msg: Message, client: any): Promise<boolean
                           !!(msg as any)._data?.buttonsMessage;
 
     // 2. Verificação de Admin (Bot precisa ser admin, Autor não pode ser admin)
-    // Reutilizar o chat já obtido - não chamar getChatById() novamente
-    const freshChat = chat;
-    const participants = freshChat.participants || [];
+    // Se não conseguimos obter participants (erro r:r), assumimos que o bot é admin
+    // para não abortar a moderação silenciosamente.
+    const participants = chat?.participants || [];
     const botId = client.info?.wid?._serialized ? cleanId(client.info.wid._serialized) : '';
-    console.log('[AutoMod] botId:', botId, 'client.info:', !!client.info, 'client.info.wid:', client.info?.wid);
-    
+    console.log('[AutoMod] botId:', botId, 'participants:', participants.length);
+
     const botPart = participants.find((p: any) => {
       const pId = p?.id?._serialized ? cleanId(p.id._serialized) : null;
-      console.log('[AutoMod] Checking participant - p.id:', p?.id, 'p.id._serialized:', p?.id?._serialized, 'pId:', pId);
       return pId === botId;
     });
-    console.log('[AutoMod] botPart:', !!botPart, 'botPart.isAdmin:', botPart?.isAdmin, 'botPart.isSuperAdmin:', botPart?.isSuperAdmin);
-    if (!botPart?.isAdmin && !botPart?.isSuperAdmin) return false;
+    // Resiliente: se participants vazio (falha r:r), assumir bot admin.
+    const botIsAdmin = participants.length === 0 ? true : !!(botPart?.isAdmin || botPart?.isSuperAdmin);
+    if (!botIsAdmin) return false;
 
     const authorClean = cleanId(authorId);
     const authorPart = participants.find((p: any) => {
@@ -215,37 +223,47 @@ export async function processAutoMod(msg: Message, client: any): Promise<boolean
     }
 
     if (shouldBan) {
-        console.log(`🛡️ [AutoMod] Aplicando punição para ${authorId}. Motivo: ${reason}`);
+      console.log(`🛡️ [AutoMod] Aplicando punição para ${authorId}. Motivo: ${reason}`);
 
-        // Ações de Punição Imediata
+      // Ações de Punição Imediata
+      try {
+        // 1. Deletar mensagem para todos
         try {
-            // 1. Deletar mensagem para todos
-            try {
-                await msg.delete(true);
-            } catch (err: any) {
-                console.error(`❌ [AutoMod] Erro ao deletar mensagem: ${err.message}`);
-            }
-            
-            // 2. Banir usuário (remover do grupo)
-            try {
-                await (chat as any).removeParticipants([authorId]);
-            } catch (err: any) {
-                console.error(`❌ [AutoMod] Erro ao remover participante: ${err.message}`);
-            }
-
-            // 3. Notificar grupo
-            try {
-                await chat.sendMessage(`🛡️ *AutoMod WarriorBlack*\n\n⚠️ Usuário removido!\n👤 @${authorId.split('@')[0]}\n📝 Motivo: ${reason}`, {
-                    mentions: [authorId]
-                });
-            } catch (err: any) {
-                console.error(`❌ [AutoMod] Erro ao enviar notificação: ${err.message}`);
-            }
-
-            return true;
+          await msg.delete(true);
         } catch (err: any) {
-            console.error(`❌ [AutoMod] Erro ao punir: ${err.message}`);
+          console.error(`❌ [AutoMod] Erro ao deletar mensagem: ${err.message}`);
         }
+        
+        // 2. Banir usuário (remover do grupo) — usar client.removeParticipants direto
+        // (evita chat.removeParticipants que depende de getChatById quebrado em @lid).
+        try {
+          const cleanGroup = groupId.replace(/^(wpp:|tg:|dc:)/, '');
+          const cleanAuthor = authorId.replace(/^(wpp:|tg:|dc:)/, '');
+          if (typeof (client as any).removeParticipants === 'function') {
+            await (client as any).removeParticipants(cleanGroup, [cleanAuthor]);
+          } else if (chat) {
+            await chat.removeParticipants([authorId]);
+          }
+        } catch (err: any) {
+          console.error(`❌ [AutoMod] Erro ao remover participante: ${err.message}`);
+        }
+
+        // 3. Notificar grupo
+        try {
+          const notify = `🛡️ *AutoMod WarriorBlack*\n\n⚠️ Usuário removido!\n👤 @${authorId.split('@')[0]}\n📝 Motivo: ${reason}`;
+          if (typeof (client as any).sendMessage === 'function') {
+            await (client as any).sendMessage(groupId, notify, { mentions: [authorId] });
+          } else if (chat) {
+            await chat.sendMessage(notify, { mentions: [authorId] });
+          }
+        } catch (err: any) {
+          console.error(`❌ [AutoMod] Erro ao enviar notificação: ${err.message}`);
+        }
+
+        return true;
+      } catch (err: any) {
+        console.error(`❌ [AutoMod] Erro ao punir: ${err.message}`);
+      }
     }
 
     return false;
