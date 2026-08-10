@@ -35,7 +35,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
   public isReady = false;
 
   constructor() {
-    const authPath = path.join(process.cwd(), '.wwebjs_auth');
+    const authPath = path.join(process.cwd(), process.env.WWEBJS_AUTH_DIR || '.wwebjs_auth');
     if (!fs.existsSync(authPath)) {
       fs.mkdirSync(authPath, { recursive: true });
     }
