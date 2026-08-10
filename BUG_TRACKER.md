@@ -166,11 +166,13 @@ Falha de transporte ao enviar mensagem (202658048684056@c.us): No LID for user
 ### 16. `$kick`/`$ban` e AutoMod: erro `r` é do WWebJS (sessão), não do código — tentativas e erros
 **Data:** 2026-08-10
 **Sessão:** 57
-**Status:** ✅ Aplicada sessão nova (sem remover dir travado)
+**Status:** 🔶 Testando fallback nativo `window.Store` (tentativa 4)
 
-**Correção aplicada (2026-08-10):** o `.wwebjs_auth` antigo tinha arquivos com `chattr`/immutable (Chromium Service Worker) que impedem `rm` mesmo como dono (Permission denied, sem sudo). Em vez de remover, tornei o `authPath` configurável via env `WWEBJS_AUTH_DIR` (fallback `.wwebjs_auth`) e subi o bot com `WWEBJS_AUTH_DIR=.wwebjs_auth2`. O WWebJS criou sessão nova, autenticou sem QR e o grupo `120363410094452673@g.us` voltou a ser legível — o `getChat` (e portanto `$kick`/`$ban`/AutoMod) devem funcionar. Validar com `$kick` no grupo.
+**Tentativa 4 (2026-08-10, commit ec32096):** fallback `pupPage.evaluate` acessando `window.Store.Chat.get(chatId)` + `WAWebModifyParticipantsGroupAction.removeParticipants`, contornando o `getChat`. Deployado para validar. Se a Store não estiver exposta no browser, o log mostrará "chat nao encontrado na Store" e aí a única saída é versão diferente do WWebJS.
 
-**Arquivos:** `src/platforms/whatsapp/WhatsAppAdapter.ts` (authPath via env), `ecosystem.config.js`/`.env` (WWEBJS_AUTH_DIR=.wwebjs_auth2)
+**Tentativa 3 (falha):** sessão nova via `WWEBJS_AUTH_DIR=.wwebjs_auth2` — o `r:r` persiste em grupos específicos independente de sessão (confirmado por log pós-restart). O `.wwebjs_auth` antigo tem arquivos `chattr`/immutable (Chromium) que impedem `rm` sem sudo.
+
+**Arquivos:** `src/platforms/whatsapp/WhatsAppAdapter.ts` (fallback nativo), `ecosystem.config.js`/`.env` (WWEBJS_AUTH_DIR=.wwebjs_auth2)
 
 **Sintoma:** `$ban @MI030173` → `❌ Erro ao banir usuário: r`. `$kick @MI500179` → `❌ Falha ao executar remoção: r`. AutoMod parou de banir.
 
