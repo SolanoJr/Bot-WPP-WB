@@ -243,18 +243,17 @@ export class TelegramAdapter implements PlatformAdapter {
 
   async initialize(): Promise<void> {
     console.log('[TelegramAdapter] Inicializando...');
-    if (this.client.isReady) {
+    if (this.isReady) {
       console.log('[TelegramAdapter] Já estava pronto');
       return;
     }
-    try {
-      // launch() é síncrono em relação ao ready — aguarda o bot estar pronto
-      await (this.client as any).launch();
-      console.log('[TelegramAdapter] ✅ Inicializado com sucesso');
-    } catch (err: any) {
-      console.error('[TelegramAdapter] ❌ Falha na inicialização:', err.message);
-      throw err;
-    }
+    // NÃO aguardar launch() bloqueante: o Telegraf só resolve a Promise ao
+    // encerrar o bot (long-polling), então um await nunca retornaria e o
+    // PlatformManager nunca registraria o messageHandler (setupAdapterHandlers),
+    // deixando o comando sem despacho. Disparamos em background e retornamos.
+    (this.client as any).launch().catch((err: any) => {
+      console.error('[Telegram] ❌ Erro no launch():', err?.message);
+    });
   }
 
   async shutdown(): Promise<void> {
