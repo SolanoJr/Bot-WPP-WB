@@ -91,3 +91,24 @@ Logs estruturados para `qr`, `authenticated`, `auth_failure`, `ready`, `change_s
 - `tests/unit/commands-registry.test.ts` — piada não registrada no menu (teste desatualizado).
 - `tests/unit/discordAdapter.test.ts` — mock de `GatewayIntentBits` (teste desatualizado).
 - Estas 2 falham consistentemente e NÃO foram introduzidas pelas correções acima.
+
+## 8. Inicialização de plataformas (`startAll`) — armadilhas (anti-regressão)
+
+**Regra 1 — `startAll` SEMPRE paralelo.** Nunca `for { await adapter.initialize() }` sequencial.
+O `TelegramAdapter.initialize()` dispara `launch()` do Telegraf, que **não resolve a Promise**
+(long-polling só resolve ao encerrar o bot). Um `await` sequencial trava o loop e impede que
+plataformas seguintes (Discord) inicializem. Usar `Promise.allSettled` (cada adapter em paralelo).
+
+**Regra 2 — adapters NUNCA `await` `launch()`/`login()` bloqueante no `initialize()`.**
+O `PlatformManager.setupAdapterHandlers()` (que registra o `onMessage` de despacho de comandos)
+é chamado APÓS `adapter.initialize()` retornar. Se o `initialize()` não retorna, o handler de
+despacho NUNCA é registrado → comando não responde (mesmo a plataforma "recebendo" mensagens).
+O `TelegramAdapter.initialize()` deve disparar `launch()` em background (`.catch`) e retornar.
+
+**Regra 3 — ao refatorar `menu.ts` ou qualquer comando de saída, PRESERVAR o conteúdo visual.**
+A reescrita para `CommandContext` (agnóstico) não deve remover o layout do menu (HASH, uptime,
+flags de status). Sempre manter ou melhorar — **nunca piorar** a apresentação.
+
+**Sintoma de violação das Regras 1/2:** nos logs, só aparece `[WhatsApp] ✅ Pronto` e o Telegram/
+Discord não aparecem como prontos; ou o Telegram recebe msgs mas `Executando <cmd> em telegram`
+não aparece no log. Corrigir voltando ao padrão paralelo + launch em background.

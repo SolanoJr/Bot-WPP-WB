@@ -1,5 +1,17 @@
 # 📜 ChangeLog - WarriorBlack Bot
 
+## [v1.1.7] - 2026-08-07
+### 🔧 Correção de inicialização multiplataforma e menu
+
+#### Alterado
+- **`PlatformManager.startAll()`**: inicialização das plataformas agora em **paralelo** (`Promise.allSettled`) em vez de `await` sequencial. O `await launch()` do Telegram travava o loop e impedia o Discord de subir.
+- **`TelegramAdapter.initialize()`**: não aguarda `launch()` bloqueante — dispara em background e retorna, permitindo que o `setupAdapterHandlers` (despacho de comandos) seja registrado. Antes o Telegram recebia msgs mas não despachava.
+- **`src/bot/commands/menu.ts`**: restaurado o formato do menu com `HASH` (dinâmico do commit), `Uptime` e flags de status (ATIVO/SARCASMO/DDI/CARD/PALAVRAS/LINKS), mantendo `CommandContext` agnóstico.
+
+#### Status
+- Build OK; suite 105/107 (2 falhas pré-existentes fora de escopo: `commands-registry`, `discordAdapter`).
+- 3 plataformas ativas e prontas (whatsapp, telegram, discord) no PID 576296.
+
 ## [v1.1.6] - 2026-08-07
 ### 🔧 Correções de BUGS 1‑4 e envio WhatsApp (`@lid` / retorno vazio)
 

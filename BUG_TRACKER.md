@@ -54,7 +54,56 @@ Falha de transporte ao enviar mensagem (202658048684056@c.us): No LID for user
 
 ---
 
-### 9. Puppeteer Browser Launch Failed - Chrome Not Found/Timeout
+### 8. Menu regredido (perdeu formato com HASH / flags)
+**Data:** 2026-08-07
+**Sessão:** 56
+**Status:** ✅ Resolvido
+
+**Erro:** ao reescrever `src/bot/commands/menu.ts` para usar `CommandContext` (agnóstico de plataforma), o conteúdo do menu foi substituído por uma versão simples, perdendo o layout com `HASH`, `Uptime`, e flags de status (ATIVO/SARCASMO/DDI/CARD/PALAVRAS/LINKS). O usuário viu um "menu antigo" no WhatsApp.
+
+**Causa:** reescrita do `menu.ts` sem preservar o conteúdo visual anterior.
+
+**Correção:** `menu.ts` restaurado com o layout novo (idêntico ao desejado pelo usuário), mantendo `CommandContext` agnóstico e `HASH` dinâmico via `git rev-parse --short HEAD`. Sempre preservar o conteúdo do menu ao refatorar — **nunca piorar** o visual.
+
+**Arquivos:** `src/bot/commands/menu.ts`
+
+---
+
+### 9. `startAll()` sequencial trava Discord (Telegram não retorna)
+**Data:** 2026-08-07
+**Sessão:** 56
+**Status:** ✅ Resolvido
+
+**Erro:** após ativar `platformManager.startAll()` (correção do `messageHandler` nulo), o Discord parou de inicializar e o Telegram não despachava.
+
+**Causa:** `startAll()` fazia `for (... ) { await adapter.initialize(); }` sequencialmente. O `TelegramAdapter.initialize()` faz `await launch()` e o Telegraf **não resolve a Promise** (long-polling só resolve ao encerrar o bot). O loop travava no Telegram e o Discord nunca era inicializado.
+
+**Correção:** `startAll()` agora usa `Promise.allSettled` — cada plataforma inicializa em paralelo; uma lenta não bloqueia as outras.
+
+**Arquivos:** `src/platforms/PlatformManager.ts` (`startAll`)
+
+**⚠️ Regra anti-regressão:** NUNCA fazer `await adapter.initialize()` sequencial no `startAll`. Sempre paralelo (`allSettled`).
+
+---
+
+### 10. Telegram recebe mas não despacha comando
+**Data:** 2026-08-07
+**Sessão:** 56
+**Status:** ✅ Resolvido
+
+**Erro:** o Telegram recebia mensagens (`[Telegram] Mensagem recebida`) mas o comando não era executado (`Executando menu em telegram` não aparecia).
+
+**Causa:** o `PlatformManager.setupAdapterHandlers()` (que registra o `onMessage` de despacho) só era chamado **após** `await adapter.initialize()` retornar. Como o `TelegramAdapter.initialize()` aguardava o `launch()` (que não resolve), o handler nunca era registrado.
+
+**Correção:** `TelegramAdapter.initialize()` agora dispara `launch()` em background (`.catch`) e retorna imediatamente, permitindo que o `setupAdapterHandlers` registre o despacho.
+
+**Arquivos:** `src/platforms/telegram/TelegramAdapter.ts` (`initialize`)
+
+**⚠️ Regra anti-regressão:** adapters de plataforma NUNCA devem `await` o `launch()`/`login()` de forma bloqueante no `initialize()`. Disparar em background e retornar.
+
+---
+
+### 11. Puppeteer Browser Launch Failed - Chrome Not Found/Timeout
 **Data:** 2026-08-05  
 **Sessão:** 45  
 **Status:** ✅ Resolvido
