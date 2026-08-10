@@ -159,7 +159,48 @@ Falha de transporte ao enviar mensagem (202658048684056@c.us): No LID for user
 
 **Arquivos:** `src/platforms/whatsapp/WhatsAppAdapter.ts`, `src/services/autoModService.ts`
 
-**⚠️ Regra anti-regressão:** NUNCA usar `getChatById(...).removeParticipants(...)` para expulsar membros — o `getChatById` quebra em `@lid`. Usar `client.removeParticipants(groupId, [userIds])` direto. O mesmo vale para o AutoMod.
+**⚠️ Regra anti-regressão (CORRIGIDA):** NÃO existe `client.removeParticipants` no WWebJS (só `chat.removeParticipants`, que internamente chama `getChat` → quebra com `r:r`). Qualquer tentativa de contornar via `client.removeParticipants` cai no fallback `getChatById` e falha igual. O erro `r:r` é do WWebJS não conseguir ler o chat do grupo (Issue #201838 / estado da sessão), NÃO do nosso código. A correção real é recriar a sessão do WhatsApp Web (remover `.wwebjs_auth` + re-logar com QR), não mudar o comando.
+
+---
+
+### 16. `$kick`/`$ban` e AutoMod: erro `r` é do WWebJS (sessão), não do código — tentativas e erros
+**Data:** 2026-08-10
+**Sessão:** 57
+**Status:** ⚠️ Causa raiz identificada; correção = recriar sessão (não código)
+
+**Sintoma:** `$ban @MI030173` → `❌ Erro ao banir usuário: r`. `$kick @MI500179` → `❌ Falha ao executar remoção: r`. AutoMod parou de banir.
+
+**Investigação (com provas de log):**
+- Stack: `at Client.getChatById (whatsapp-web.js/src/Client.js:1754)` → `at WhatsAppAdapter.removeParticipant`. O `getChatById` chama `window.WWebJS.getChat(chatId)` que lança `r:r`.
+- `node_modules/whatsapp-web.js/src/structures/GroupChat.js:263`: `removeParticipants` faz `window.WWebJS.getChat(chatId, {getAsModel:false})` → essa chamada lança `r:r` para o grupo `120363410094452673@g.us`.
+- `Client.getChatById(chatId)` NÃO aceita 2º parâmetro `forceIntegrity` (só `(chatId)`).
+- `removeParticipants` NÃO existe em `Client` (só em `Chat`).
+
+**Tentativas que NÃO funcionaram (anotadas para não repetir):**
+1. Mudar `removeParticipant` para `client.removeParticipants(chatId,[users])` direto — o WWebJS não tem esse método no Client → cai no fallback `getChatById` → `r:r`. ❌
+2. Assumir bot-admin no AutoMod quando `participants` vazio — não resolve o `removeParticipants` que ainda quebra no `getChat`. ❌
+3. `getChatById(id, false)` — método não aceita 2º arg. ❌
+
+**Causa raiz:** o WWebJS não consegue desserializar o chat do grupo `120363410094452673@g.us` (cache/sessão corrompido do WhatsApp Web). Erro `r:r` em `getChat`. Nenhuma correção de código de comando resolve porque TODAS as rotas do WWebJS passam por `getChat` → `r:r`.
+
+**Correção real:** recriar a sessão do WhatsApp Web — parar PM2, remover `.wwebjs_auth` (e `.wwebjs_cache`), subir PM2 e re-escanear o QR. Isso reconstrói o estado limpo do grupo e o `getChat` volta a funcionar.
+
+**Arquivos:** `src/platforms/whatsapp/WhatsAppAdapter.ts`, `src/services/autoModService.ts` (já resilientes, mas a causa é sessão)
+
+---
+
+### 17. Render falha: `Cannot find module relay/server.js`
+**Data:** 2026-08-10
+**Sessão:** 57
+**Status:** ✅ Resolvido (render.yaml)
+
+**Erro:** `Running 'node relay/server.js'` → `Error: Cannot find module '/opt/render/project/src/relay/server.js'`. O Render rodava só `npm install` (sem `npm run build`), então o `dist/` (gitignored) não era gerado e o `start` (`node dist/relay/server.js`) falhava.
+
+**Causa:** Build Command do Render era `npm install` apenas; o `dist/relay/server.js` (gerado por `tsup` no `build:relay`) não existia no Render.
+
+**Correção:** criado `render.yaml` com `buildCommand: npm ci && npm run build` e `startCommand: node dist/relay/server.js`. O Render agora builda antes de startar.
+
+**Arquivos:** `render.yaml` (novo)
 
 ---
 

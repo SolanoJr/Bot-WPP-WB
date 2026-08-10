@@ -1,0 +1,14 @@
+# Render configuration for the bot-wpp relay service
+# The bot itself runs on the Linux PM2 host; this Render service hosts the
+# relay (src/relay/server.ts -> dist/relay/server.js) used by $ondeestou.
+services:
+  - type: web
+    name: bot-wpp-relay
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: node dist/relay/server.js
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
