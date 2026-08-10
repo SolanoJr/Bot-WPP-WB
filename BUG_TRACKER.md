@@ -144,6 +144,25 @@ Falha de transporte ao enviar mensagem (202658048684056@c.us): No LID for user
 
 ---
 
+### 15. `$kick`/`$ban` e AutoMod falham com erro `r` (Issue #201838 / `@lid`)
+**Data:** 2026-08-10
+**Sessão:** 57
+**Status:** ✅ Resolvido
+
+**Erro:** `$ban @MI030173` → `❌ Erro ao banir usuário: r`. `$kick @MI500179` → `❌ Falha ao executar remoção: r`. No error log: `Erro no comando $kick: r: r` / `at WhatsAppAdapter.banParticipant (.../multiPlatform.js:1708)`. O AutoMod também parou de banir (uma adm teve que banir manualmente).
+
+**Causa:** `getChatById()` do WWebJS lança `r:r` (Issue #201838) em chats `@lid`. Os métodos `removeParticipant`/`banParticipant` chamavam `innerClient.getChatById(chatId)` e depois `.removeParticipants(...)` — o `getChatById` quebrava antes. O AutoMod usava `msg.getChat()` + `chat.participants` para verificar se o bot era admin; com `participants: []` (erro r:r), o bot "não era admin" → AutoMod abortava silenciosamente.
+
+**Correção:**
+- `WhatsAppAdapter.removeParticipant`/`banParticipant`: usam `client.removeParticipants(chatId, [users])` **direto** (método do Client WWebJS), contornando o `getChatById` frágil. Fallback mantido para o caminho `getChatById` caso o método não exista.
+- `autoModService.processAutoMod`: `getChat()` envolvido em try/catch; se `participants` vazio (falha r:r), **assume bot-admin** (prossegue). Remoção/notificação usam `client.removeParticipants`/`client.sendMessage` diretos (groupId derivado de `chat.id._serialized || msg.from`).
+
+**Arquivos:** `src/platforms/whatsapp/WhatsAppAdapter.ts`, `src/services/autoModService.ts`
+
+**⚠️ Regra anti-regressão:** NUNCA usar `getChatById(...).removeParticipants(...)` para expulsar membros — o `getChatById` quebra em `@lid`. Usar `client.removeParticipants(groupId, [userIds])` direto. O mesmo vale para o AutoMod.
+
+---
+
 ### 11. Puppeteer Browser Launch Failed - Chrome Not Found/Timeout
 **Data:** 2026-08-05  
 **Sessão:** 45  

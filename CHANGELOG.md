@@ -1,5 +1,16 @@
 # 📜 ChangeLog - WarriorBlack Bot
 
+## [v1.1.9] - 2026-08-10
+### 🔧 Correção crítica: `$kick`/`$ban` e AutoMod (erro `r` / Issue #201838 / `@lid`)
+
+#### Alterado
+- **`WhatsAppAdapter.removeParticipant`/`banParticipant`:** passaram a usar `client.removeParticipants(chatId, [users])` **direto** (método do Client WWebJS), contornando `getChatById()` que lança `r:r` em chats `@lid`. Antes: `getChatById(...).removeParticipants(...)` → erro `r` no `$kick`/`$ban`.
+- **`autoModService.processAutoMod`:** resiliente a falha de `getChat()` (erro `r:r`) — assume bot-admin quando não consegue verificar `participants`, e usa `client.removeParticipants`/`client.sendMessage` diretos. Antes o AutoMod abortava silenciosamente (precisei que uma adm banisse manualmente o +62 831-8527-5521 em 09/08).
+
+#### Status
+- Build OK; suite **107/107 (18/18 files)** — zero falhas.
+- Deploy Linux PID 613687 com as correções. Pendente validação em produção (`$kick`/`$ban` e AutoMod em grupo `@lid`).
+
 ## [v1.1.8] - 2026-08-07
 ### 🔧 Correção de comandos (aliases, testes) e `$kick`/`$ban` (erro falso de admin)
 
