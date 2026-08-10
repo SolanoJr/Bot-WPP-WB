@@ -378,7 +378,14 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       },
       hasMedia: msg.hasMedia,
       mediaType: this.getMediaType(msg),
-      replyToMessageId: msg.hasQuotedMsg ? `wpp:${msg.quotedMsg?.id._serialized}` : undefined
+      replyToMessageId: msg.hasQuotedMsg ? `wpp:${msg.quotedMsg?.id._serialized}` : undefined,
+      mentions: (msg.mentionedIds || []).map((id: string) => ({
+        id: `wpp:${id}`,
+        name: id.split('@')[0],
+        isBot: false,
+        platform: 'whatsapp' as const,
+        raw: { id }
+      }))
     };
 
     // Log de auditoria: confirma a entrega do payload normalizado ao messageHandler.
