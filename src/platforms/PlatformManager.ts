@@ -74,17 +74,28 @@ export class PlatformManager {
 
     console.log('[PlatformManager] Iniciando todas as plataformas...');
 
-    for (const [platform, adapter] of this.adapters) {
-      try {
-        console.log(`[PlatformManager] Inicializando ${platform}...`);
-        await adapter.initialize();
-        this.setupAdapterHandlers(adapter);
-        console.log(`[PlatformManager] ✅ ${platform} pronto`);
-      } catch (error) {
-        console.error(`[PlatformManager] ❌ Falha ao iniciar ${platform}:`, error);
-        // Continua com as outras plataformas
+    // Inicializar em PARALELO (allSettled) para que uma plataforma lenta/travada
+    // (ex: Telegram launch() aguardando ready) não bloqueie as demais (Discord/WPP).
+    const results = await Promise.allSettled(
+      Array.from(this.adapters.entries()).map(async ([platform, adapter]) => {
+        try {
+          console.log(`[PlatformManager] Inicializando ${platform}...`);
+          await adapter.initialize();
+          this.setupAdapterHandlers(adapter);
+          console.log(`[PlatformManager] ✅ ${platform} pronto`);
+        } catch (error) {
+          console.error(`[PlatformManager] ❌ Falha ao iniciar ${platform}:`, error);
+          // Continua com as outras plataformas
+        }
+      })
+    );
+
+    // Log de resumo de falhas (se houver)
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') {
+        console.error(`[PlatformManager] Plataforma ${i} falhou na inicialização:`, r.reason);
       }
-    }
+    });
 
     this.initialized = true;
     console.log('[PlatformManager] Todas as plataformas inicializadas');
