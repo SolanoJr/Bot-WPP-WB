@@ -639,5 +639,50 @@ ssh solanojr@100.101.218.16 "cd ~/bot-wpp && pm2 restart bot-wpp"
 
 ---
 
-**Última Atualização:** 2026-07-08  
+### 21. WPP mudo após reconexão (mensagens não chegavam no log; TG/Discord ok) — RESOLVIDO
+**Data:** 2026-08-11
+**Sessão:** 58
+**Status:** ✅ Resolvido (commit 2d656b6)
+
+**Erro:** Após reconexões do WhatsApp Web, o WPP ficava CONNECTED mas NENHUMA mensagem era processada (0 `normalizeMessage` no log). TG/Discord continuavam funcionando.
+
+**Causa Raiz:** `setupEventHandlers()` (que registra `on('message')`) rodava UMA vez no construtor. O whatsapp-web.js, ao reconectar e recriar o client interno, "mata" os listeners do client velho. O novo client conecta mas não tem `on('message')` → silêncio. TG/Discord não reconectam, por isso funcionavam.
+
+**Solução:** Extraído o registro de `message`/`message_create` para `registerMessageHandlers()`, chamado no evento `ready` (que dispara em CADA reconexão) + uma vez no construtor. Usa `removeAllListeners('message')` antes do `on(...)` para não duplicar.
+
+**Arquivos:** `src/platforms/whatsapp/WhatsAppAdapter.ts`
+
+---
+
+### 22. WPP não subia: `off('message')` sem listener quebrava registro do adapter — RESOLVIDO
+**Data:** 2026-08-11
+**Sessão:** 58
+**Status:** ✅ Resolvido (commit 2d656b6)
+
+**Erro:** `❌ Erro ao registrar WhatsApp: TypeError [ERR_INVALID_ARG_TYPE]: The "listener" argument must be of type function. Received undefined` → WPP nem inicializava (Plataformas ativas: telegram, discord).
+
+**Causa:** `registerMessageHandlers()` chamava `this.innerClient.off?.('message')` (sem o 2º arg `listener`). O `EventEmitter.off(event, listener)` exige função → lança e aborta o `PlatformManager.registerAdapter`.
+
+**Solução:** Trocado `off?.('message')` por `removeAllListeners?.('message')` (não exige listener). Adicionado `removeAllListeners` ao MockClient dos testes afetados.
+
+**Arquivos:** `src/platforms/whatsapp/WhatsAppAdapter.ts`, `tests/unit/whatsappMessageDispatch.test.ts`, `tests/unit/whatsappAutoModDecoupling.test.ts`
+
+---
+
+### 23. Render falha no build: puppeteer baixa Chrome e erra — RESOLVIDO
+**Data:** 2026-08-11
+**Sessão:** 58
+**Status:** ✅ Resolvido (commit d402333)
+
+**Erro:** `npm error command failed ... Failed to set up chrome-headless-shell` no build do Render (Start `node relay/server.js`).
+
+**Causa:** `puppeteer` estava em `dependencies`. O Render roda só o relay (não usa puppeteer/WWebJS), mas o `npm install` tentava baixar o Chrome e falhava (ambiente/rede do Render).
+
+**Solução:** Movido `puppeteer` para `devDependencies`. O Render (NODE_ENV=production) não o instala nem baixa Chrome; o Linux (install normal) continua com ele para o WWebJS. Verificação do Render via `curl https://bot-wpp-wb-sc.onrender.com/health` (sem ir no site) → `ok:true`.
+
+**Arquivos:** `package.json`
+
+---
+
+**Última Atualização:** 2026-08-11
 **Responsável:** WarriorBlack
