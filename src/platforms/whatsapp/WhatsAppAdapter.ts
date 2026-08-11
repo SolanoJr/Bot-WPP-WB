@@ -139,11 +139,21 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       // após reconexão do WhatsApp Web, quando o client interno é recriado).
       this.registerMessageHandlers();
 
-      // Prova de ENVIO: ao ficar pronto, manda msg de "online" pro num do dono.
-      // So consideramos WPP online apos esta msg chegar no celular dele.
-      this.sendMessage('558581344211@c.us', '🤖 WPP online (WarriorBlack). Conexão restabelecida e enviando esta mensagem como prova de funcionamento.')
-        .then(() => console.log('[WhatsApp] ✅ Mensagem de prova ENVIADA para 558581344211@c.us'))
-        .catch((e: any) => console.error('[WhatsApp] ❌ Falha ao enviar msg de prova:', e?.message));
+      // Prova de ENVIO: ao ficar pronto, manda msg de "online" pro num do dono
+      // e pro grupo "teste". So consideramos WPP online apos ambas chegarem.
+      const alvoDono = '558581344211@c.us';
+      const alvoTeste = process.env.WPP_TEST_GROUP_ID || '';
+      const msgOnline = '🤖 WPP online (WarriorBlack). Conexão restabelecida e enviando esta mensagem como prova de funcionamento.';
+      this.sendMessage(alvoDono, msgOnline)
+        .then(() => console.log('[WhatsApp] ✅ Mensagem de prova ENVIADA para', alvoDono))
+        .catch((e: any) => console.error('[WhatsApp] ❌ Falha ao enviar msg de prova para dono:', e?.message));
+      if (alvoTeste) {
+        this.sendMessage(alvoTeste, msgOnline)
+          .then(() => console.log('[WhatsApp] ✅ Mensagem de prova ENVIADA para grupo teste', alvoTeste))
+          .catch((e: any) => console.error('[WhatsApp] ❌ Falha ao enviar msg de prova para grupo teste:', e?.message));
+      } else {
+        console.log('[WhatsApp] ⚠️ WPP_TEST_GROUP_ID nao definido - pulando msg de prova no grupo teste');
+      }
       
       if (this.readyHandler) this.readyHandler();
     });
