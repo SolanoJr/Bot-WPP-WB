@@ -377,9 +377,17 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     
     const chatId = (msg.to && String(msg.to).endsWith('@g.us')) ? msg.to : msg.from;
     const isGroup = String(chatId).endsWith('@g.us');
-    const userId = msg.fromMe
+    // userId do remetente. Em grupo, msg.author/msg.from podem vir como @lid
+    // (WhatsApp Web atual). O numero real (@c.us) esta em msg._data.key.participant.
+    let userId = msg.fromMe
       ? (this.innerClient.info?.wid?._serialized || msg.from)
       : (isGroup ? (msg.author || msg.from) : msg.from);
+    if (String(userId).endsWith('@lid')) {
+      const participant = (msg as any)._data?.key?.participant || (msg as any)._data?.participant;
+      if (participant && String(participant).endsWith('@c.us')) {
+        userId = participant;
+      }
+    }
     
     let extractedText = msg.body || '';
     if (!extractedText && (msg as any)._data) {

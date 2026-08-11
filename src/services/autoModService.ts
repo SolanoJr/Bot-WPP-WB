@@ -238,11 +238,16 @@ export async function processAutoMod(msg: Message, client: any): Promise<boolean
         // (evita chat.removeParticipants que depende de getChatById quebrado em @lid).
         try {
           const cleanGroup = groupId.replace(/^(wpp:|tg:|dc:)/, '');
-          const cleanAuthor = authorId.replace(/^(wpp:|tg:|dc:)/, '');
+          // authorId pode vir como @lid (WhatsApp Web atual). O WWebJS removeParticipants
+          // espera @c.us. Converter @lid -> @c.us.
+          let cleanAuthor = authorId.replace(/^(wpp:|tg:|dc:)/, '');
+          if (cleanAuthor.endsWith('@lid')) {
+            cleanAuthor = cleanAuthor.replace('@lid', '@c.us');
+          }
           if (typeof (client as any).removeParticipants === 'function') {
             await (client as any).removeParticipants(cleanGroup, [cleanAuthor]);
           } else if (chat) {
-            await chat.removeParticipants([authorId]);
+            await chat.removeParticipants([cleanAuthor]);
           }
         } catch (err: any) {
           console.error(`❌ [AutoMod] Erro ao remover participante: ${err.message}`);
