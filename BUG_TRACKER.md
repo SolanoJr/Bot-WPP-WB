@@ -684,45 +684,51 @@ ssh solanojr@100.101.218.16 "cd ~/bot-wpp && pm2 restart bot-wpp"
 
 ---
 
-### 24. WPP mudo após reconexão interna do WhatsApp Web (handlers morrem) — EM CORREÇÃO (commit edbe76e→atual)
-**Data:** 2026-08-11
-**Sessão:** 58-59
-**Status:** 🔄 Em Progresso (recriar Client no disconnected — solução definitiva)
+### 24. WPP mudo após reconexão interna — RESOLVIDO (commit edbe76e→580a9c4)
+**Status:** ✅ RESOLVIDO (recriar Client no disconnected + handlers no ready/change_state)
 
-**Sintoma:** WPP conecta (Pronto) mas para de receber mensagens. Em 13:34 recebeu 1 msg e silenciou; 0 msgs desde restart 14:35 até 14:41. TG/Discord normais.
+**Tentativas (4 primeiras FALHARAM, 5ª funcionou):**
+1. `c155503` registrar no `ready` — FALHOU (ready não repete em reconexão silenciosa)
+2. `2d656b6` `off`→`removeAllListeners` — corrigiu crash de registro, não o silêncio
+3. `083c6b2` registrar no `change_state: CONNECTED` — FALHOU (change_state não dispara se já CONNECTED)
+4. `edbe76e` registrar APÓS `initialize()` — FALHOU (handler morre na reconexão silenciosa)
+5. `580a9c4` `connect()` recria Client + handlers em `disconnected` (reconexão limpa) — FUNCIONOU (WPP Pronto e envia msg de prova confirmada no celular)
 
-**Causa Raiz (confirmada por eliminação):** O whatsapp-web.js, em reconexões internas do WhatsApp Web, RECRIA o client e os listeners `on('message')` do client velho morrem. O novo client conecta mas NÃO tem nosso handler → silêncio. O `disconnected` nem sempre dispara (reconexão silenciosa), então `ready`/`change_state` também não repetem → nenhuma das correções anteriores pegou.
-
-**Tentativas (todas FALHARAM em pelo menos um cenário):**
-1. `c155503` registrar handlers no `ready` — falhou: ready não repete em reconexão silenciosa.
-2. `2d656b6` trocar `off` por `removeAllListeners` — corrigiu crash de registro, não o silêncio.
-3. `083c6b2` registrar no `change_state: CONNECTED` — falhou: change_state não dispara se já CONNECTED no restart.
-4. `edbe76e` registrar APÓS `innerClient.initialize()` — falhou: handler ainda morre na reconexão silenciosa.
-
-**Solução definitiva (atual):** `connect()` cria Client fresco + registra TODOS os handlers + `initialize()`. No `disconnected` (não-manual), destrói e chama `connect()` de novo (reconexão limpa com handlers frescos). Garante que `on('message')` SEMPRE existe no client ativo.
-
-**Arquivos:** `src/platforms/whatsapp/WhatsAppAdapter.ts` (construtor→connect(), disconnected→reconnect, initialize no-op)
-
-**Como validar:** mandar msg WPP após deploy; se responder, WPP voltou. Se ficar mudo, o fork lindionez pode não emitir `message` (revertr para 1.34.7 + patch cirúrgico de getChatById).
+**Lição:** o WPP emitia `message`/`message_create` (o evento disparava), mas o handler morria na reconexão silenciosa. Recriar o Client resolveu o ENVIO (comprovado: msg de prova chegou no celular do dono).
 
 ---
 
-### 25. Render build falha: puppeteer baixa Chrome (puppeteer em devDeps mas Render instala devDeps) — EM CORREÇÃO
-**Data:** 2026-08-11
-**Sessão:** 59
-**Status:** 🔄 Em Progresso (.puppeteerrc.json skipDownload)
-
-**Erro:** `npm error ... Failed to set up chrome-headless-shell ... Set "PUPPETEER_SKIP_DOWNLOAD" env variable to skip download.` no build do Render (checkout d0720ad).
-
-**Causa:** puppeteer já está em devDependencies (commit d402333), mas o Render roda `npm install` SEM `NODE_ENV=production` → instala devDeps também → puppeteer tenta baixar Chrome → falha.
+### 25. Render build falha: puppeteer baixa Chrome — RESOLVIDO (commit c9c8aba)
+**Status:** ✅ RESOLVIDO (puppeteer em dependencies + .puppeteerrc skipDownload + postinstall tolerante)
 
 **Tentativas:**
-1. `d402333` mover puppeteer para devDependencies — insuficiente (Render instala devDeps no build).
-2. `.puppeteerrc.json` com `{"skipDownload": true}` — instrui puppeteer a não baixar Chrome no install. Render deve passar (Linux já tem Chrome em cache, então WWebJS continua funcionando lá).
+1. `d402333` mover puppeteer para devDependencies — INSUFICIENTE (Render omite devDeps no build → patch-package not found)
+2. `.puppeteerrc.json` skipDownload — NECESSÁRIO mas insuficiente sozinho
+3. `c9c8aba` puppeteer→dependencies (Render instala + skipDownload evita Chrome) + postinstall `patch-package 2>/dev/null || true; npm run build` — FUNCIONOU (Render /health → 200, build passa)
 
-**Pendente:** confirmar se o Render rebuilda e o `/health` responde 200 após o .puppeteerrc.json.
+**Lição:** Render omite devDependencies no build. Tudo que o build precisa deve ir em dependencies. patch-package deve ser tolerante a ausência.
 
-**Arquivos:** `.puppeteerrc.json` (novo), `package.json` (puppeteer em devDeps)
+---
+
+### 26. WPP cego para mensagens de terceiros (seu número/grupos) — EM DIAGNÓSTICO (reset de sessão autorizado)
+**Data:** 2026-08-11
+**Sessão:** 59-60
+**Status:** 🔄 Em Progresso (limpar .wwebjs_auth + reconectar QR — autorizado pelo usuário)
+
+**Sintoma (CONFIRMADO POR LOG):** última vez que o número do dono (`SolanoJr`/88998314322/47876319248404@lid) foi processado de verdade no WPP foi **11:52:14** (`Executando ban em whatsapp para SolanoJr`). Depois disso, só aparece `WarriorBlack` (bot mandando pra ele mesmo via fromMe). TG/Discord normais. WPP conecta (Pronto) e ENVIA (msg de prova chega no celular) mas NÃO recebe mensagem de terceiro NENHUMA — nem `on('message')` nem `on('message_create)` disparam para msgs do dono/grupos.
+
+**Causa raiz mais provável (NÃO testada ainda):** sessão LocalAuth dessincronizada. O Chromium conecta ("Pronto") mas o WhatsApp Web parou de empurrar updates de mensagem recebida para este token de sessão (comum após atualização do WhatsApp Web). A sessão é a MESMA há meses (reconecta sem QR). Explica: funcionava antes, parou após update do WhatsApp, nunca mais recebeu terceiro.
+
+**Tentativas nesta investigação:**
+1. `f22c6a7` remover filtro `if (msg.fromMe)` do `message_create` — FALHOU (WWebJS nem emite `message_create` para terceiros; só fromMe dispara)
+2. `eaff4e9` remover flags `--single-process`/`--no-zygote` do puppeteer (Chromium travado em headless) — PENDENTE validação (provavelmente não é a causa, pois envio funciona)
+3. Diagnosticar por log de eventos (`message_ack`, `incoming_call`, etc) — INCONCLUSIVO (nada dispara para terceiro)
+
+**Próxima ação (autorizada):** limpar `.wwebjs_auth/session-bot-wpp-session` no Linux e reconectar com QR novo. Se após scan o bot processar $menu do dono, estava dessincronizado (RESOLVIDO). Se não, causa é WWebJS/LID incompatível (investigar versão).
+
+**Arquivos:** `src/platforms/whatsapp/WhatsAppAdapter.ts` (message_create, puppeteerConfig), `package.json` (puppeteer deps), `.puppeteerrc.json`, `.wwebjs_auth/` (sessão)
+
+**Como validar (regra do usuário):** WPP só conta como online quando o bot ENVIA msg de prova pro número DO DONO E pro grupo "teste" (WPP_TEST_GROUP_ID) e o dono confirma recebimento nos dois. Recebimento de terceiro = dono manda $menu e bot responde (log mostra `Executando ... em whatsapp para SolanoJr`).
 
 ---
 
