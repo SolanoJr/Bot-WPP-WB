@@ -152,9 +152,10 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
    * o client interno é recriado na reconexão. O off() previo evita duplicação.
    */
   private registerMessageHandlers(): void {
-    // off() pode não existir em clients mockados (testes); usar optional chaining.
-    this.innerClient.off?.('message');
-    this.innerClient.off?.('message_create');
+    // removeAllListeners(event) nao exige listener (off(event, listener) sim, e
+    // quebra com undefined). Usado para nao duplicar em multiplos 'ready'.
+    this.innerClient.removeAllListeners?.('message');
+    this.innerClient.removeAllListeners?.('message_create');
 
     this.innerClient.on('message', async (msg: Message) => {
       console.log('[WhatsAppAdapter] Mensagem recebida - msg:', !!msg, 'msg.from:', msg?.from, 'msg.author:', msg?.author);
