@@ -12,7 +12,7 @@
     "build:platforms": "tsup src/platforms/**/*.ts --out-dir dist/platforms --format cjs",
     "build:main": "tsup src/whatsapp.ts --out-dir dist --format cjs",
     "build:core": "tsup src/core/index.ts --out-dir dist/core --format cjs && tsup src/core/multiPlatform.ts --out-dir dist/core --format cjs",
-    "postinstall": "patch-package && npm run build",
+    "postinstall": "patch-package 2>/dev/null || true; npm run build",
     "start": "node dist/relay/server.js",
     "bot:start": "node dist/core/index.js",
     "test": "vitest run",
@@ -42,7 +42,8 @@
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
     "whatsapp-web.js": "^1.34.7",
-    "winston": "^3.19.0"
+    "winston": "^3.19.0",
+    "puppeteer": "^24.38.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
@@ -51,7 +52,6 @@
     "@types/qrcode-terminal": "^0.12.2",
     "jest": "^30.4.2",
     "patch-package": "^8.0.1",
-    "puppeteer": "^24.38.0",
     "rimraf": "^6.1.3",
     "supertest": "^7.2.2",
     "ts-node": "^10.9.2",
