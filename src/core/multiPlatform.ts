@@ -13,6 +13,23 @@ import { DiscordAdapter } from '../platforms/discord/DiscordAdapter';
 import { loadCommands } from '../bot/commands';
 import metricsService from '../services/metricsService';
 
+// 🕒 Timestamps globais em todos os logs (formato YYYY-MM-DD HH:MM:SS.mmm)
+// Sobrescreve console.* para prefixar horário, facilitando investigação cronológica.
+// Colocado aqui porque este é o entry point real do PM2 (dist/core/multiPlatform.js).
+const _origLog = console.log.bind(console);
+const _origErr = console.error.bind(console);
+const _origWarn = console.warn.bind(console);
+const _origInfo = console.info ? console.info.bind(console) : _origLog;
+const ts = () => {
+  const d = new Date();
+  const p = (n: number, l = 2) => String(n).padStart(l, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${p(d.getMilliseconds(), 3)}`;
+};
+console.log = (...args: any[]) => _origLog(`[${ts()}]`, ...args);
+console.error = (...args: any[]) => _origErr(`[${ts()}]`, ...args);
+console.warn = (...args: any[]) => _origWarn(`[${ts()}]`, ...args);
+console.info = (...args: any[]) => _origInfo(`[${ts()}]`, ...args);
+
 // Carregar variáveis de ambiente
 dotenv.config();
 
