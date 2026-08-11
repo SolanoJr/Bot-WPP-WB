@@ -79,6 +79,8 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     process.on('SIGTERM', () => shutdown('SIGTERM'));
 
     this.setupEventHandlers();
+    // Registra handlers de mensagem iniciais (o 'ready' re-registra em reconexões)
+    this.registerMessageHandlers();
   }
 
   private setupEventHandlers(): void {
@@ -110,6 +112,10 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       // O AutoMod agora é processado via messageHandler.ts para maior controle
       console.log('[WhatsApp] 🛡️ Sistema de AutoMod (via Handler) pronto');
       
+      // (Re)Registra handlers de mensagem em CADA reconexão (corrige WPP mudo
+      // após reconexão do WhatsApp Web, quando o client interno é recriado).
+      this.registerMessageHandlers();
+      
       if (this.readyHandler) this.readyHandler();
     });
 
@@ -118,6 +124,37 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       console.log(`[WhatsApp] 🔌 Desconectado: ${reason}`);
       if (this.disconnectedHandler) this.disconnectedHandler(reason);
     });
+
+    // Evento de entrada de novos membros no grupo
+    this.innerClient.on('group_join', async (notification: any) => {
+      try {
+        await this.handleMemberJoin(notification);
+      } catch (error) {
+        console.error('[WhatsApp] Erro ao processar entrada de membro:', error);
+      }
+    });
+
+    // Fallback: monitorar mudanças de participantes
+    this.innerClient.on('group_update', async (notification: any) => {
+      try {
+        if (notification.type === 'add') {
+          await this.handleMemberJoin(notification);
+        }
+      } catch (error) {
+        console.error('[WhatsApp] Erro ao processar atualização de grupo:', error);
+      }
+    });
+  }
+
+  /**
+   * (Re)Registra os handlers de mensagem. Chamado no 'ready' (que dispara em
+   * CADA reconexão do WWebJS) para garantir que o on('message') não morra quando
+   * o client interno é recriado na reconexão. O off() previo evita duplicação.
+   */
+  private registerMessageHandlers(): void {
+    // off() pode não existir em clients mockados (testes); usar optional chaining.
+    this.innerClient.off?.('message');
+    this.innerClient.off?.('message_create');
 
     this.innerClient.on('message', async (msg: Message) => {
       console.log('[WhatsAppAdapter] Mensagem recebida - msg:', !!msg, 'msg.from:', msg?.from, 'msg.author:', msg?.author);
@@ -133,10 +170,6 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       }
       
       // Desacoplar AutoMod/handleKeywords do caminho crítico de comandos.
-      // O despacho do comando (messageHandler) NUNCA deve ficar atrás de uma
-      // operação de I/O do whatsapp-web.js (ex: msg.getChat() pode pendurar em
-      // sessão instável). AutoMod/keywords rodam em paralelo (fire-and-forget),
-      // sem bloquear o processamento de comandos como $menu.
       void Promise.resolve().then(async () => {
         try {
           const moderated = await processAutoMod(msg, this.innerClient);
@@ -183,26 +216,6 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         } catch (normError: any) {
           console.error(`[WhatsAppAdapter] Erro ao normalizar message_create:`, normError.message);
         }
-      }
-    });
-
-    // Evento de entrada de novos membros no grupo
-    this.innerClient.on('group_join', async (notification: any) => {
-      try {
-        await this.handleMemberJoin(notification);
-      } catch (error) {
-        console.error('[WhatsApp] Erro ao processar entrada de membro:', error);
-      }
-    });
-
-    // Fallback: monitorar mudanças de participantes
-    this.innerClient.on('group_update', async (notification: any) => {
-      try {
-        if (notification.type === 'add') {
-          await this.handleMemberJoin(notification);
-        }
-      } catch (error) {
-        console.error('[WhatsApp] Erro ao processar atualização de grupo:', error);
       }
     });
   }

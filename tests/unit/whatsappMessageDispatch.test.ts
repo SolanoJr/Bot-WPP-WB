@@ -9,6 +9,10 @@ vi.mock('whatsapp-web.js', () => {
     on(event: string, cb: Function) {
       (this.listeners[event] = this.listeners[event] || []).push(cb);
     }
+    off(event: string, cb?: Function) {
+      if (!cb) this.listeners[event] = [];
+      else this.listeners[event] = (this.listeners[event] || []).filter((f) => f !== cb);
+    }
     emit(event: string, ...args: any[]) {
       (this.listeners[event] || []).forEach((cb) => cb(...args));
     }
