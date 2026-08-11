@@ -645,5 +645,9 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
 
   async initialize(): Promise<void> {
     await this.innerClient.initialize();
+    // Registra handlers de mensagem APOS o initialize() do client estar completo.
+    // Registrar no construtor (antes do initialize) pode nao pegar em algumas
+    // versoes do WWebJS/fork, deixando o WPP mudo.
+    this.registerMessageHandlers();
   }
 }
