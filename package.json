@@ -12,6 +12,7 @@
     "build:platforms": "tsup src/platforms/**/*.ts --out-dir dist/platforms --format cjs",
     "build:main": "tsup src/whatsapp.ts --out-dir dist --format cjs",
     "build:core": "tsup src/core/index.ts --out-dir dist/core --format cjs && tsup src/core/multiPlatform.ts --out-dir dist/core --format cjs",
+    "postinstall": "npm run build",
     "start": "node dist/relay/server.js",
     "bot:start": "node dist/core/index.js",
     "test": "vitest run",
