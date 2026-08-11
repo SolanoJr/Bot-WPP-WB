@@ -276,7 +276,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
 
       if (this.messageHandler) {
         try {
-          const platformMsg = this.normalizeMessage(msg);
+          const platformMsg = await this.normalizeMessage(msg);
           await this.messageHandler(platformMsg);
         } catch (normError: any) {
           console.error(`[WhatsAppAdapter] Erro ao normalizar mensagem:`, normError.message);
@@ -304,7 +304,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       
       if (this.messageHandler) {
         try {
-          const platformMsg = this.normalizeMessage(msg);
+          const platformMsg = await this.normalizeMessage(msg);
           await this.messageHandler(platformMsg);
         } catch (normError: any) {
           console.error(`[WhatsAppAdapter] Erro ao normalizar message_create:`, normError.message);
@@ -368,7 +368,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     }
   }
 
-  private normalizeMessage(msg: any): PlatformMessage {
+  private async normalizeMessage(msg: any): Promise<PlatformMessage> {
     const msgHash = Math.random().toString(36).substring(7);
     const stack = new Error().stack;
     
@@ -400,18 +400,21 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     const chatId = (msg.to && String(msg.to).endsWith('@g.us')) ? msg.to : msg.from;
     const isGroup = String(chatId).endsWith('@g.us');
     // userId do remetente. Em grupo, msg.author/msg.from podem vir como @lid
-    // (WhatsApp Web atual). O numero real (@c.us) esta em msg._data.key.participant.
+    // (WhatsApp Web atual). O numero real (@c.us) e' resolvido via getContactById.
     let userId = msg.fromMe
       ? (this.innerClient.info?.wid?._serialized || msg.from)
       : (isGroup ? (msg.author || msg.from) : msg.from);
     if (String(userId).endsWith('@lid')) {
-      const participant = (msg as any)._data?.key?.participant || (msg as any)._data?.participant;
-      if (participant && String(participant).endsWith('@c.us')) {
-        userId = participant;
+      try {
+        const contact = await this.innerClient.getContactById(String(userId).replace('@lid', '@c.us'));
+        const real = (contact as any)?.id?._serialized || (contact as any)?._serialized;
+        if (real && String(real).endsWith('@c.us')) {
+          userId = real;
+        }
+      } catch {
+        // mantem @lid se nao resolver
       }
-      console.log(`[normalizeMessage DEBUG] userId era @lid, participant resolvido=${participant}`);
     }
-    console.log(`[normalizeMessage DEBUG] userId final=${userId} isGroup=${isGroup}`);
     
     let extractedText = msg.body || '';
     if (!extractedText && (msg as any)._data) {
