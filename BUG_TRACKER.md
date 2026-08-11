@@ -728,7 +728,41 @@ ssh solanojr@100.101.218.16 "cd ~/bot-wpp && pm2 restart bot-wpp"
 
 **Lição:** sessão LocalAuth meses sem re-scan dessincroniza silenciosamente (WhatsApp Web para de empurrar updates). O bot fica "Pronto" mas cego para terceiros. Reset de sessão + QR novo resolve. (O usuário desconfiava que reset não funcionaria — funcionou desta vez.)
 
-**Pendente (relacionado):** `$kick`/`$ban`/`$mute`/`$promover` usam `getChatById`→`chat.removeParticipants`; com 1.34.7+patch #201832 o getChatById não dá r:r. Falta teste prático do dono em grupo onde ele é admin.
+
+### 27. $kick/$ban não removem (comando executa mas não remove) — RESOLVIDO (commit 8b7e11b)
+**Data:** 2026-08-11
+**Sessão:** 60
+**Status:** ✅ RESOLVIDO (3 correções no normalizeMessage/normalizeChat + @lid→@c.us no adapter)
+
+**Sintoma:** `$kick`/`$ban` rodavam (`Executando kick em whatsapp`) mas NÃO removiam ninguém. O dono reportou "ainda não funciona". O script direto `chat.removeParticipants(['X@c.us'])` FUNCIONAVA (prova de que a remoção em si funciona) — logo o bug era no FLUXO do comando, não no WWebJS.
+
+**Causa raiz (3 bugs no normalizeMessage/normalizeChat):**
+
+**Bug A — `isGroup` errado (linha 400-401):** `chatId = msg.from` e `isGroup = msg.from.endsWith('@g.us')`. Em grupo, `msg.from` é o LID do remetente (`2592935567439@lid`), NÃO o grupo. `isGroup=false` → `kick.ts` linha 12 (`if (!chat.isGroup)`) abortava com "só funciona em grupos".
+- Correção: `chatId = msg.to` (se terminar `@g.us`) senão `msg.from`. `isGroup = chatId.endsWith('@g.us')`.
+
+**Bug B — participants como string[] em vez de objetos (normalizeChat):** retornava `wpp:ID@c.us` (strings), mas `kick.ts` faz `participants.find(p => cleanId(p.id) === ...)` esperando OBJETOS `{id, isAdmin}`. `p.id` era undefined → `cleanId(undefined)` → null → bot NUNCA detectado como admin → "bot precisa ser admin".
+- Correção: `normalizeChat` retorna `{id, isAdmin, isSuperAdmin}[]` (PlatformUser).
+
+**Bug C — userId de fromMe = grupo (linha 402-404):** `userId = msg.fromMe ? msg.to : ...`. Para msg do bot em grupo, `msg.to` é o GRUPO (`@g.us`), não o bot. `isMaster(grupo)` = false → `kick.ts` linha 36 (`!isSenderAdmin && !isMaster`) bloqueava com "você não tem permissão".
+- Correção: `userId = msg.fromMe ? info.wid._serialized : ...` (o bot).
+
+**Bug D (bônus) — @lid→@c.us no adapter:** `removeParticipant`/`banParticipant` recebiam menção `@lid` (WWebJS atual) e `chat.removeParticipants(['X@lid'])` falhava silenciosamente. Convertido `@lid`→`@c.us`.
+
+**Tentativas (todas documentadas):**
+1. `f22c6a7` remover filtro fromMe do message_create — INSUFICIENTE (não era esse o bug)
+2. `eaff4e9` remover flags puppeteer — IRRELEVANTE
+3. Teste direto `removeParticipants(['13866030173@c.us'])` via script — FUNCIONOU (isolou que o bug é no fluxo do comando, não no WWebJS)
+4. `076248e` @lid→@c.us no adapter — NECESSÁRIO mas insuficiente sozinho
+5. `4c58325` Bug A (chatId de msg.to) — NECESSÁRIO mas insuficiente
+6. `48a6f71` Bug B (participants como objetos) — NECESSÁRIO mas insuficiente
+7. `2a89e4d` Bug C (userId fromMe = bot) — **CORREÇÃO FINAL** (junto com A+B+D, o $kick removeu de verdade)
+
+**Validação (EVIDÊNCIA REAL):**
+- Self-test: bot envia `$kick @13866030173` no grupo teste → log `removeParticipant - SUCESSO para 13866030173@c.us` + `✅ @13866030173 foi removido do grupo`.
+- Contagem de participantes ANTES: 7. DEPOIS: 6. `13866030173@c.us AINDA NO GRUPO? false` → **REMOVIDO DE VERDADE**.
+
+**Lição:** o `$kick` quebrava em 3 pontos de normalização (isGroup, participants, userId) mais o @lid. O script direto isolou que o WWebJS funcionava; o bug era 100% no normalizeMessage/normalizeChat. Sempre testar o COMANDO completo (não só a remoção crua).
 
 ---
 
