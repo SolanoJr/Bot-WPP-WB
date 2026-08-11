@@ -215,6 +215,58 @@ Falha de transporte ao enviar mensagem (202658048684056@c.us): No LID for user
 
 ---
 
+### 18. AutoMod crash: `Cannot read properties of null (reading 'id')`
+**Data:** 2026-08-11
+**Sessão:** 57
+**Status:** ✅ Resolvido (commit 552bfd9)
+
+**Erro (error log):**
+```
+❌ [AutoMod] Erro crítico: Cannot read properties of null (reading 'id')
+❌ [AutoMod] Erro stack: TypeError: Cannot read properties of null (reading 'id')
+```
+
+**Causa:** em `autoModService.ts:200` (REGRA 1 - DDI Estrangeiro), o código usava `chat.id._serialized` diretamente. Mas `chat` pode ser `null` quando `msg.getChat()` falha no catch da linha 154-158 (Issue #201838, grupos `@lid`). O `groupId` já era calculado na linha 159 com fallback (`chat?.id?._serialized || msg.from`), mas a linha 200 ignorava isso.
+
+**Correção:** linha 200 passou a usar `(groupId || msg.from)` em vez de `chat.id._serialized`. Elimina o crash; o AutoMod prossegue mesmo quando `getChat` falha (assumindo bot-admin, conforme BUG 15).
+
+**Arquivos:** `src/services/autoModService.ts`
+
+---
+
+### 19. `SQLITE_BUSY: database is locked` no logger de comandos
+**Data:** 2026-08-11
+**Sessão:** 57
+**Status:** ❌ Não corrigido (erro de auditoria, não quebra comandos)
+
+**Erro (error log):**
+```
+[PlatformManager] Erro ao registrar log de comando: [Error: SQLITE_BUSY: database is locked]
+```
+
+**Causa:** o `commandExecutor` (ou `databaseService`) grava no lowdb (SQLite/JSON) em paralelo com outras escritas → lock de concorrência. É um erro do logger (auditoria), NÃO impede a execução do comando nem a resposta ao usuário.
+
+**Impacto:** perda de alguns registros de auditoria em horários de pico. Funcionalidade do bot intacta.
+
+**Ação recomendada (futura):** habilitar WAL mode no lowdb ou serializar escritas com fila/mutex. Baixa prioridade.
+
+---
+
+### 20. Logs sem timestamp dificultam investigação cronológica
+**Data:** 2026-08-11
+**Sessão:** 57
+**Status:** ✅ Resolvido (commit 7b8a953)
+
+**Problema:** os `console.log` do bot não tinham horário, dificultando correlacionar eventos (ex: "kick falhou em qual grupo e quando?").
+
+**Causa:** o entry point real do PM2 é `dist/core/multiPlatform.js` (definido em `ecosystem.config.js`), NÃO `src/whatsapp.ts`. A primeira tentativa de override de `console.*` foi colocada em `whatsapp.ts` (não usado no Linux) → timestamps não apareciam.
+
+**Correção:** override de `console.log/error/warn/info` movido para o topo de `src/core/multiPlatform.ts` (entry point do PM2), prefixando `[YYYY-MM-DD HH:MM:SS.mmm]`. Confirmado em produção: `[2026-08-11 11:05:46.673] [PlatformManager] ✅ whatsapp pronto`.
+
+**Arquivos:** `src/core/multiPlatform.ts` (override adicionado), `src/whatsapp.ts` (override removido)
+
+---
+
 ### 11. Puppeteer Browser Launch Failed - Chrome Not Found/Timeout
 **Data:** 2026-08-05  
 **Sessão:** 45  
