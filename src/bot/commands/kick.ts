@@ -17,7 +17,6 @@ export const kickCommand: ICommand = {
       const participants = chat.participants || [];
       const botId = cleanId(ctx.client.userId);
       const senderId = cleanId(ctx.userId);
-      console.log(`[kick DEBUG] botId=${botId} senderId=${senderId} participants=${JSON.stringify(participants.map(p=>p.id))}`);
 
       // Se as permissões não puderam ser verificadas (WWebJS falhou ao obter
       // participantes — Issue #201838 / chat @lid), NÃO bloquear com erro falso

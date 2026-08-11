@@ -709,16 +709,16 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       isGroup: chat.isGroup,
       platform: 'whatsapp',
       participants: chat.participants?.map(p => {
-        // p.id._serialized pode vir como @lid (WhatsApp Web atual). O numero
-        // real esta em p.id.user. Normalizar para @c.us para comparacao.
         let raw = p.id._serialized || (p.id as any).user || String(p.id);
         if (raw.endsWith('@lid')) {
           const user = (p.id as any).user || raw.replace('@lid', '');
           raw = `${user}@c.us`;
         }
-        const norm = `wpp:${raw}`;
-        console.log(`[normalizeChat DEBUG] p.id._serialized=${p.id._serialized} p.id.user=${(p.id as any).user} -> ${norm}`);
-        return norm;
+        return {
+          id: `wpp:${raw}`,
+          isAdmin: Boolean((p as any).isAdmin),
+          isSuperAdmin: Boolean((p as any).isSuperAdmin),
+        } as any;
       }),
       raw: chat,
       isPermissionsVerified: true // Chat obtido com sucesso, permissões verificadas
