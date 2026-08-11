@@ -137,6 +137,12 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       // (Re)Registra handlers de mensagem em CADA reconexão (corrige WPP mudo
       // após reconexão do WhatsApp Web, quando o client interno é recriado).
       this.registerMessageHandlers();
+
+      // Prova de ENVIO: ao ficar pronto, manda msg de "online" pro num do dono.
+      // So consideramos WPP online apos esta msg chegar no celular dele.
+      this.sendMessage('558581344211@c.us', '🤖 WPP online (WarriorBlack). Conexão restabelecida e enviando esta mensagem como prova de funcionamento.')
+        .then(() => console.log('[WhatsApp] ✅ Mensagem de prova ENVIADA para 558581344211@c.us'))
+        .catch((e: any) => console.error('[WhatsApp] ❌ Falha ao enviar msg de prova:', e?.message));
       
       if (this.readyHandler) this.readyHandler();
     });
