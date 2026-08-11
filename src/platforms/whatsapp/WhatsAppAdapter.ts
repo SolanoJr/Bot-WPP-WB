@@ -194,6 +194,12 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     this.innerClient.on('message', async (msg: Message) => {
       console.log('[WhatsAppAdapter] Mensagem recebida - msg:', !!msg, 'msg.from:', msg?.from, 'msg.author:', msg?.author);
       
+      // Diagnostico: se o body vier vazio, logar o _data cru para achar o texto real
+      if (!msg?.body && (msg as any)?._data) {
+        const d = (msg as any)._data;
+        console.log('[DIAG] msg.body vazio. type:', msg?.type, '| _data.body:', d?.body, '| _data.conversation:', d?.conversation, '| _data.data:', typeof d?.data === 'object' ? JSON.stringify(d.data).slice(0,200) : d?.data, '| _data.keys:', Object.keys(d||{}).slice(0,20).join(','));
+      }
+      
       if (!msg) {
         console.error('[WhatsAppAdapter] ERRO: msg é null/undefined, ignorando');
         return;
@@ -346,8 +352,9 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       : (isGroup ? (msg.author || msg.from) : msg.from);
     
     let extractedText = msg.body || '';
-    if (!extractedText && msg.type === 'chat') {
-      extractedText = msg.body || '';
+    if (!extractedText && (msg as any)._data) {
+      const d = (msg as any)._data;
+      extractedText = d.body || d.conversation || d.text || (typeof d.data === 'string' ? d.data : '') || '';
     }
     if (!extractedText && msg.type === 'image') {
       extractedText = msg.caption || '';
