@@ -708,10 +708,20 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       name: chat.name || (chat.isGroup ? 'Grupo' : 'Chat Privado'),
       isGroup: chat.isGroup,
       platform: 'whatsapp',
-      participants: chat.participants?.map(p => this.normalizeUserId(p.id._serialized)),
+      participants: chat.participants?.map(p => {
+        // p.id._serialized pode vir como @lid (WhatsApp Web atual). O numero
+        // real esta em p.id.user. Normalizar para @c.us para comparacao.
+        let raw = p.id._serialized || (p.id as any).user || String(p.id);
+        if (raw.endsWith('@lid')) {
+          const user = (p.id as any).user || raw.replace('@lid', '');
+          raw = `${user}@c.us`;
+        }
+        return `wpp:${raw}`;
+      }),
       raw: chat,
       isPermissionsVerified: true // Chat obtido com sucesso, permissões verificadas
     };
+  }
   }
 
   private normalizeUser(contact: Contact): PlatformUser {
