@@ -166,13 +166,15 @@ Falha de transporte ao enviar mensagem (202658048684056@c.us): No LID for user
 ### 16. `$kick`/`$ban` e AutoMod: erro `r` é do WWebJS (sessão), não do código — tentativas e erros
 **Data:** 2026-08-10
 **Sessão:** 57
-**Status:** 🔶 Testando fallback nativo `window.Store` (tentativa 4)
+**Status:** ❌ Tentativas 1-4 esgotadas — grupo `120363410094452673@g.us` é invisível para o WWebJS
 
-**Tentativa 4 (2026-08-10, commit ec32096):** fallback `pupPage.evaluate` acessando `window.Store.Chat.get(chatId)` + `WAWebModifyParticipantsGroupAction.removeParticipants`, contornando o `getChat`. Deployado para validar. Se a Store não estiver exposta no browser, o log mostrará "chat nao encontrado na Store" e aí a única saída é versão diferente do WWebJS.
+**Tentativa 4 (falha, commit ec32096):** fallback `pupPage.evaluate` com `window.Store.Chat.get(chatId)` → erro `chat nao encontrado na Store` (log: `[kick] Erro: Error: chat nao encontrado na Store`). O `window.Store` **não está exposto** nessa versão do WWebJS.
 
-**Tentativa 3 (falha):** sessão nova via `WWEBJS_AUTH_DIR=.wwebjs_auth2` — o `r:r` persiste em grupos específicos independente de sessão (confirmado por log pós-restart). O `.wwebjs_auth` antigo tem arquivos `chattr`/immutable (Chromium) que impedem `rm` sem sudo.
+**Conclusão:** o grupo `120363410094452673@g.us` é **ilegível para o WWebJS** — nem `getChat` (r:r) nem `window.Store` (undefined) o enxergam. Nenhuma correção de código de comando resolve. O bot WPP está online e responde normalmente em outros grupos; só a moderação (kick/ban/AutoMod) desse grupo específico falha.
 
-**Arquivos:** `src/platforms/whatsapp/WhatsAppAdapter.ts` (fallback nativo), `ecosystem.config.js`/`.env` (WWEBJS_AUTH_DIR=.wwebjs_auth2)
+**Única saída real:** versão diferente do `whatsapp-web.js` (downgrade/upgrade) que consiga ler esse grupo — arriscado, pode quebrar outras funcionalidades. Decisão do usuário pendente.
+
+**Arquivos:** `src/platforms/whatsapp/WhatsAppAdapter.ts` (fallback nativo aplicado mas ineficaz p/ esse grupo), `ecosystem.config.js`/`.env` (WWEBJS_AUTH_DIR=.wwebjs_auth2)
 
 **Sintoma:** `$ban @MI030173` → `❌ Erro ao banir usuário: r`. `$kick @MI500179` → `❌ Falha ao executar remoção: r`. AutoMod parou de banir.
 
@@ -195,18 +197,21 @@ Falha de transporte ao enviar mensagem (202658048684056@c.us): No LID for user
 
 ---
 
-### 17. Render falha: `Cannot find module relay/server.js`
-**Data:** 2026-08-10
+### 17. Render falha: `Cannot find module relay/server.js` — RESOLVIDO
+**Data:** 2026-08-10/11
 **Sessão:** 57
-**Status:** ✅ Resolvido (render.yaml)
+**Status:** ✅ Resolvido (atalhos + postinstall, commit 30170d1)
 
-**Erro:** `Running 'node relay/server.js'` → `Error: Cannot find module '/opt/render/project/src/relay/server.js'`. O Render rodava só `npm install` (sem `npm run build`), então o `dist/` (gitignored) não era gerado e o `start` (`node dist/relay/server.js`) falhava.
+**Erro:** `Running 'node relay/server.js'` → `Error: Cannot find module '/opt/render/project/src/relay/server.js'`. O Render usava Start Command hardcoded `node relay/server.js` (ignorava o `render.yaml`). O `dist/` é gitignored e o Build Command era só `npm install` → sem dist → start falhava.
 
-**Causa:** Build Command do Render era `npm install` apenas; o `dist/relay/server.js` (gerado por `tsup` no `build:relay`) não existia no Render.
+**Correção (commit 30170d1):**
+- Criados `relay/server.js` e `src/relay/server.js` (atalhos que requirem `dist/relay/server.js`).
+- Adicionado `"postinstall": "npm run build"` no package.json → o `npm install` do Render agora gera o dist.
+- O Start Command `node relay/server.js` (ou `node src/relay/server.js`) agora acha o atalho → dist.
 
-**Correção:** criado `render.yaml` com `buildCommand: npm ci && npm run build` e `startCommand: node dist/relay/server.js`. O Render agora builda antes de startar.
+**Nota:** se o Render ainda falhar, o Start Command no painel deve ser `node dist/relay/server.js` ou `npm start`.
 
-**Arquivos:** `render.yaml` (novo)
+**Arquivos:** `relay/server.js`, `src/relay/server.js` (novos), `package.json` (postinstall)
 
 ---
 
