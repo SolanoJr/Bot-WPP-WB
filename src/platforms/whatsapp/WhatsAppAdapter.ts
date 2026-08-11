@@ -166,6 +166,11 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       this.isReady = false;
       console.log(`[WhatsApp] 🔌 Desconectado: ${reason}`);
       if (this.disconnectedHandler) this.disconnectedHandler(reason);
+      // Aviso de OFFLINE pro dono e grupo teste (ele pediu para saber qndo cai)
+      const msgOffline = `🔴 WPP OFFLINE (WarriorBlack). Motivo: ${reason}. Reconectando...`;
+      this.sendMessage('558581344211@c.us', msgOffline).catch(() => {});
+      const grpTeste = process.env.WPP_TEST_GROUP_ID;
+      if (grpTeste) this.sendMessage(grpTeste, msgOffline).catch(() => {});
       // Reconexao limpa: recria o Client com handlers frescos (corrige WPP mudo).
       // So pula se foi encerramento manual (SIGINT/SIGTERM).
       if (!this.isManuallyDestroyed) {
@@ -632,19 +637,30 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
   async removeParticipant(chatId: string, userId: string): Promise<void> {
     const cleanChatId = chatId.replace(/^wpp:/, '');
     const cleanUserId = userId.replace(/^wpp:/, '');
-    // Caminho correto do WWebJS: getChatById -> chat.removeParticipants.
-    // Com o fork lindionez/whatsapp-web.js (PR #201832) o getChatById não
-    // quebra mais com r:r (id._serialized -> id.$1 normalizado).
-    const chat = await this.innerClient.getChatById(cleanChatId);
-    await (chat as any).removeParticipants([cleanUserId]);
+    console.log(`[WhatsApp] removeParticipant - chatId: ${cleanChatId} userId: ${cleanUserId}`);
+    try {
+      const chat = await this.innerClient.getChatById(cleanChatId);
+      console.log(`[WhatsApp] removeParticipant - chat obtido: ${chat?.id?._serialized}`);
+      await (chat as any).removeParticipants([cleanUserId]);
+      console.log(`[WhatsApp] removeParticipant - SUCESSO para ${cleanUserId}`);
+    } catch (err: any) {
+      console.error(`[WhatsApp] removeParticipant ERRO:`, { msg: err?.message, stack: err?.stack?.split('\n').slice(0,3).join(' | ') });
+      throw err;
+    }
   }
 
   async banParticipant(chatId: string, userId: string): Promise<void> {
     const cleanChatId = chatId.replace(/^wpp:/, '');
     const cleanUserId = userId.replace(/^wpp:/, '');
-    // No WhatsApp não há "ban" real: ban = remover participante do grupo.
-    const chat = await this.innerClient.getChatById(cleanChatId);
-    await (chat as any).removeParticipants([cleanUserId]);
+    console.log(`[WhatsApp] banParticipant - chatId: ${cleanChatId} userId: ${cleanUserId}`);
+    try {
+      const chat = await this.innerClient.getChatById(cleanChatId);
+      await (chat as any).removeParticipants([cleanUserId]);
+      console.log(`[WhatsApp] banParticipant - SUCESSO para ${cleanUserId}`);
+    } catch (err: any) {
+      console.error(`[WhatsApp] banParticipant ERRO:`, { msg: err?.message, stack: err?.stack?.split('\n').slice(0,3).join(' | ') });
+      throw err;
+    }
     // Tenta bloquear o contato (best-effort) para evitar reentrada.
     try {
       const contact = await this.innerClient.getContactById(cleanUserId);

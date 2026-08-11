@@ -724,11 +724,11 @@ ssh solanojr@100.101.218.16 "cd ~/bot-wpp && pm2 restart bot-wpp"
 2. `eaff4e9` remover flags `--single-process`/`--no-zygote` do puppeteer (Chromium travado em headless) — PENDENTE validação (provavelmente não é a causa, pois envio funciona)
 3. Diagnosticar por log de eventos (`message_ack`, `incoming_call`, etc) — INCONCLUSIVO (nada dispara para terceiro)
 
-**Próxima ação (autorizada):** limpar `.wwebjs_auth/session-bot-wpp-session` no Linux e reconectar com QR novo. Se após scan o bot processar $menu do dono, estava dessincronizado (RESOLVIDO). Se não, causa é WWebJS/LID incompatível (investigar versão).
+**Resolução (16:40):** limpar sessão e reconectar com QR novo (pasta `.wwebjs_auth_fresh`) — **FUNCIONOU**. O dono escaneou o QR e o WPP voltou a receber mensagens de terceiros (`Executando ... em whatsapp para SolanoJr` volta a aparecer). Confirmado pelo dono: "voltamos a funcionar".
 
-**Arquivos:** `src/platforms/whatsapp/WhatsAppAdapter.ts` (message_create, puppeteerConfig), `package.json` (puppeteer deps), `.puppeteerrc.json`, `.wwebjs_auth/` (sessão)
+**Lição:** sessão LocalAuth meses sem re-scan dessincroniza silenciosamente (WhatsApp Web para de empurrar updates). O bot fica "Pronto" mas cego para terceiros. Reset de sessão + QR novo resolve. (O usuário desconfiava que reset não funcionaria — funcionou desta vez.)
 
-**Como validar (regra do usuário):** WPP só conta como online quando o bot ENVIA msg de prova pro número DO DONO E pro grupo "teste" (WPP_TEST_GROUP_ID) e o dono confirma recebimento nos dois. Recebimento de terceiro = dono manda $menu e bot responde (log mostra `Executando ... em whatsapp para SolanoJr`).
+**Pendente (relacionado):** `$kick`/`$ban`/`$mute`/`$promover` usam `getChatById`→`chat.removeParticipants`; com 1.34.7+patch #201832 o getChatById não dá r:r. Falta teste prático do dono em grupo onde ele é admin.
 
 ---
 
