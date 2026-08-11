@@ -684,5 +684,47 @@ ssh solanojr@100.101.218.16 "cd ~/bot-wpp && pm2 restart bot-wpp"
 
 ---
 
+### 24. WPP mudo após reconexão interna do WhatsApp Web (handlers morrem) — EM CORREÇÃO (commit edbe76e→atual)
+**Data:** 2026-08-11
+**Sessão:** 58-59
+**Status:** 🔄 Em Progresso (recriar Client no disconnected — solução definitiva)
+
+**Sintoma:** WPP conecta (Pronto) mas para de receber mensagens. Em 13:34 recebeu 1 msg e silenciou; 0 msgs desde restart 14:35 até 14:41. TG/Discord normais.
+
+**Causa Raiz (confirmada por eliminação):** O whatsapp-web.js, em reconexões internas do WhatsApp Web, RECRIA o client e os listeners `on('message')` do client velho morrem. O novo client conecta mas NÃO tem nosso handler → silêncio. O `disconnected` nem sempre dispara (reconexão silenciosa), então `ready`/`change_state` também não repetem → nenhuma das correções anteriores pegou.
+
+**Tentativas (todas FALHARAM em pelo menos um cenário):**
+1. `c155503` registrar handlers no `ready` — falhou: ready não repete em reconexão silenciosa.
+2. `2d656b6` trocar `off` por `removeAllListeners` — corrigiu crash de registro, não o silêncio.
+3. `083c6b2` registrar no `change_state: CONNECTED` — falhou: change_state não dispara se já CONNECTED no restart.
+4. `edbe76e` registrar APÓS `innerClient.initialize()` — falhou: handler ainda morre na reconexão silenciosa.
+
+**Solução definitiva (atual):** `connect()` cria Client fresco + registra TODOS os handlers + `initialize()`. No `disconnected` (não-manual), destrói e chama `connect()` de novo (reconexão limpa com handlers frescos). Garante que `on('message')` SEMPRE existe no client ativo.
+
+**Arquivos:** `src/platforms/whatsapp/WhatsAppAdapter.ts` (construtor→connect(), disconnected→reconnect, initialize no-op)
+
+**Como validar:** mandar msg WPP após deploy; se responder, WPP voltou. Se ficar mudo, o fork lindionez pode não emitir `message` (revertr para 1.34.7 + patch cirúrgico de getChatById).
+
+---
+
+### 25. Render build falha: puppeteer baixa Chrome (puppeteer em devDeps mas Render instala devDeps) — EM CORREÇÃO
+**Data:** 2026-08-11
+**Sessão:** 59
+**Status:** 🔄 Em Progresso (.puppeteerrc.json skipDownload)
+
+**Erro:** `npm error ... Failed to set up chrome-headless-shell ... Set "PUPPETEER_SKIP_DOWNLOAD" env variable to skip download.` no build do Render (checkout d0720ad).
+
+**Causa:** puppeteer já está em devDependencies (commit d402333), mas o Render roda `npm install` SEM `NODE_ENV=production` → instala devDeps também → puppeteer tenta baixar Chrome → falha.
+
+**Tentativas:**
+1. `d402333` mover puppeteer para devDependencies — insuficiente (Render instala devDeps no build).
+2. `.puppeteerrc.json` com `{"skipDownload": true}` — instrui puppeteer a não baixar Chrome no install. Render deve passar (Linux já tem Chrome em cache, então WWebJS continua funcionando lá).
+
+**Pendente:** confirmar se o Render rebuilda e o `/health` responde 200 após o .puppeteerrc.json.
+
+**Arquivos:** `.puppeteerrc.json` (novo), `package.json` (puppeteer em devDeps)
+
+---
+
 **Última Atualização:** 2026-08-11
 **Responsável:** WarriorBlack

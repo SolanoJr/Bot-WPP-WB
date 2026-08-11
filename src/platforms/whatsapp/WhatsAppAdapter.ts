@@ -30,11 +30,38 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
   private messageHandler: MessageHandler | null = null;
   private readyHandler: (() => void) | null = null;
   private disconnectedHandler: ((reason: string) => void) | null = null;
+  private isManuallyDestroyed = false;
   public userId = '';
   public userName = '';
   public isReady = false;
 
   constructor() {
+    this.client = this;
+
+    // Encerramento limpo (graceful shutdown)
+    const shutdown = (signal: string) => {
+      console.log(`[WhatsAppAdapter] Recebido ${signal} - encerrando cliente (client.destroy)...`);
+      try {
+        this.innerClient.destroy();
+      } catch (err: any) {
+        console.error(`[WhatsAppAdapter] Erro em client.destroy():`, err?.message);
+      }
+      this.isManuallyDestroyed = true;
+    };
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+    // Cria o client + handlers (pode ser chamado de novo no disconnected p/ reconexao limpa)
+    this.connect();
+  }
+
+  /**
+   * Cria um Client WWebJS fresco e registra TODOS os handlers. Chamado no
+   * construtor e novamente a cada 'disconnected' (reconexao limpa). Isso garante
+   * que o on('message') SEMPRE exista no client ativo — corrige o WPP mudo apos
+   * reconexoes internas do WhatsApp Web que matavam os handlers do client velho.
+   */
+  private connect(): void {
     const authPath = path.join(process.cwd(), process.env.WWEBJS_AUTH_DIR || '.wwebjs_auth');
     if (!fs.existsSync(authPath)) {
       fs.mkdirSync(authPath, { recursive: true });
@@ -57,31 +84,21 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       ]
     };
 
+    // Destroi client anterior (se houver) antes de criar o novo
+    try {
+      this.innerClient?.destroy?.();
+    } catch { /* ignora */ }
+
     this.innerClient = new Client({
       authStrategy: new LocalAuth({ dataPath: authPath }),
       puppeteer: puppeteerConfig
     });
 
-    this.client = this;
-
-    // Encerramento limpo (graceful shutdown): garante que o Chromium seja finalizado
-    // e não restem processos-filhos zumbis ao receber sinais de término.
-    const shutdown = (signal: string) => {
-      console.log(`[WhatsAppAdapter] Recebido ${signal} - encerrando cliente (client.destroy)...`);
-      try {
-        this.innerClient.destroy();
-      } catch (err: any) {
-        console.error(`[WhatsAppAdapter] Erro em client.destroy():`, err?.message);
-      }
-      // Não forçamos process.exit aqui: deixamos o PM2/SO finalizar o processo.
-    };
-    process.on('SIGINT', () => shutdown('SIGINT'));
-    process.on('SIGTERM', () => shutdown('SIGTERM'));
-
     this.setupEventHandlers();
-    // Registra handlers de mensagem iniciais (o 'ready' re-registra em reconexões)
     this.registerMessageHandlers();
+    this.innerClient.initialize();
   }
+
 
   private setupEventHandlers(): void {
     this.innerClient.on('qr', (qr: string) => {
@@ -128,6 +145,12 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       this.isReady = false;
       console.log(`[WhatsApp] 🔌 Desconectado: ${reason}`);
       if (this.disconnectedHandler) this.disconnectedHandler(reason);
+      // Reconexao limpa: recria o Client com handlers frescos (corrige WPP mudo).
+      // So pula se foi encerramento manual (SIGINT/SIGTERM).
+      if (!this.isManuallyDestroyed) {
+        console.log(`[WhatsApp] ♻️ Reconectando (nova instancia de Client)...`);
+        setTimeout(() => this.connect(), 3000);
+      }
     });
 
     // Evento de entrada de novos membros no grupo
@@ -644,10 +667,9 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
   }
 
   async initialize(): Promise<void> {
-    await this.innerClient.initialize();
-    // Registra handlers de mensagem APOS o initialize() do client estar completo.
-    // Registrar no construtor (antes do initialize) pode nao pegar em algumas
-    // versoes do WWebJS/fork, deixando o WPP mudo.
-    this.registerMessageHandlers();
+    // O construtor ja chama connect() (que cria o Client + initialize()).
+    // Mantido por compatibilidade com o PlatformManager; se o client ja
+    // foi inicializado pelo construtor, nao faz nada.
+    if (this.innerClient && (this.innerClient as any)._initialized) return;
   }
 }
