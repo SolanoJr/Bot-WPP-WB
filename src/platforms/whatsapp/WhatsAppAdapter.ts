@@ -566,57 +566,20 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
   async removeParticipant(chatId: string, userId: string): Promise<void> {
     const cleanChatId = chatId.replace(/^wpp:/, '');
     const cleanUserId = userId.replace(/^wpp:/, '');
-    try {
-      // Caminho normal do WWebJS (pode falhar com r:r em alguns grupos @g.us)
-      if (typeof (this.innerClient as any).removeParticipants === 'function') {
-        await (this.innerClient as any).removeParticipants(cleanChatId, [cleanUserId]);
-        return;
-      }
-      const chat = await this.innerClient.getChatById(cleanChatId);
-      await chat.removeParticipants([cleanUserId]);
-    } catch (err: any) {
-      // Fallback nativo: contornar getChat (r:r / Issue #201838) acessando a
-      // Store interna do WhatsApp Web via pupPage.evaluate. Funciona onde o
-      // getChat falha para grupos específicos.
-      console.warn(`[WhatsApp] removeParticipant fallback nativo (erro: ${err?.message}). Tentando window.Store...`);
-      await (this.innerClient as any).pupPage.evaluate(async (cId: string, uId: string) => {
-        const chat = (window as any).Store?.Chat?.get(cId);
-        if (!chat) throw new Error('chat nao encontrado na Store');
-        const participants = chat.groupMetadata?.participants;
-        let participant: any;
-        if (participants && typeof participants.get === 'function') {
-          participant = participants.get(uId) || participants.get(uId.replace('@lid', '@c.us')) || participants.get(uId.replace('@c.us', '@lid'));
-        }
-        if (!participant) throw new Error('participant nao encontrado na Store');
-        await (window as any).require('WAWebModifyParticipantsGroupAction').removeParticipants(chat, [participant]);
-      }, cleanChatId, cleanUserId);
-    }
+    // Caminho correto do WWebJS: getChatById -> chat.removeParticipants.
+    // Com o fork lindionez/whatsapp-web.js (PR #201832) o getChatById não
+    // quebra mais com r:r (id._serialized -> id.$1 normalizado).
+    const chat = await this.innerClient.getChatById(cleanChatId);
+    await (chat as any).removeParticipants([cleanUserId]);
   }
 
   async banParticipant(chatId: string, userId: string): Promise<void> {
     const cleanChatId = chatId.replace(/^wpp:/, '');
     const cleanUserId = userId.replace(/^wpp:/, '');
-    try {
-      if (typeof (this.innerClient as any).removeParticipants === 'function') {
-        await (this.innerClient as any).removeParticipants(cleanChatId, [cleanUserId]);
-      } else {
-        const chat = await this.innerClient.getChatById(cleanChatId);
-        await chat.removeParticipants([cleanUserId]);
-      }
-    } catch (err: any) {
-      console.warn(`[WhatsApp] banParticipant fallback nativo (erro: ${err?.message}). Tentando window.Store...`);
-      await (this.innerClient as any).pupPage.evaluate(async (cId: string, uId: string) => {
-        const chat = (window as any).Store?.Chat?.get(cId);
-        if (!chat) throw new Error('chat nao encontrado na Store');
-        const participants = chat.groupMetadata?.participants;
-        let participant: any;
-        if (participants && typeof participants.get === 'function') {
-          participant = participants.get(uId) || participants.get(uId.replace('@lid', '@c.us')) || participants.get(uId.replace('@c.us', '@lid'));
-        }
-        if (!participant) throw new Error('participant nao encontrado na Store');
-        await (window as any).require('WAWebModifyParticipantsGroupAction').removeParticipants(chat, [participant]);
-      }, cleanChatId, cleanUserId);
-    }
+    // No WhatsApp não há "ban" real: ban = remover participante do grupo.
+    const chat = await this.innerClient.getChatById(cleanChatId);
+    await (chat as any).removeParticipants([cleanUserId]);
+    // Tenta bloquear o contato (best-effort) para evitar reentrada.
     try {
       const contact = await this.innerClient.getContactById(cleanUserId);
       if (contact && typeof (contact as any).block === 'function') {
