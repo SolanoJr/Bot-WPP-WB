@@ -78,8 +78,6 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         '--disable-dev-shm-usage',
         '--disable-accelerated-2d-canvas',
         '--no-first-run',
-        '--no-zygote',
-        '--single-process',
         '--disable-gpu',
         '--disable-extensions'
       ]
@@ -125,6 +123,12 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         this.registerMessageHandlers();
       }
     });
+
+    // Diagnostico WPP mudo: logar QUALQUER evento que o WhatsApp empurre
+    this.innerClient.on('message_ack', (m: any, a: any) => console.log(`[DIAG] message_ack disparou - from: ${m?.from} ack: ${a}`));
+    this.innerClient.on('incoming_call', (c: any) => console.log(`[DIAG] incoming_call disparou - ${c?.from}`));
+    this.innerClient.on('message_revoke_everyone', () => console.log(`[DIAG] message_revoke_everyone disparou`));
+    this.innerClient.on('group_update', () => console.log(`[DIAG] group_update disparou`));
 
     this.innerClient.on('ready', () => {
       this.isReady = true;
