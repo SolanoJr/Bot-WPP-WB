@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { executeCommand } from '../../src/services/commandExecutor';
 
+// Isola o databaseService para não abrir SQLite real durante o teste
+vi.mock('../../src/services/databaseService', () => ({
+  recordCommandUsage: vi.fn().mockResolvedValue(undefined),
+  getDb: vi.fn(),
+}));
+
 describe('commandExecutor', () => {
   it('executa comando com sucesso', async () => {
     const command = {

@@ -1,6 +1,6 @@
 import { sendError } from './replyService';
-import { registerUsage } from './usageService';
 import { commandConfigService } from './commandConfigService';
+import { recordCommandUsage } from './databaseService';
 
 interface CommandContext {
     message: any;
@@ -43,7 +43,15 @@ const executeCommand = async (command: any, context: CommandContext): Promise<Co
 
         const value = await command.execute(context.message, context.args, context);
 
-        registerUsage(command.name, context.message.from);
+        // Persistência real no SQLite (com nome do grupo) — fire-and-forget p/ não atrasar resposta
+        const grpId = context.message?.chat?.id || context.message?.chatId || '';
+        const grpName = context.message?.chat?.name || '';
+        recordCommandUsage({
+          commandName: command.name,
+          userId: context.message.from,
+          groupId: grpId,
+          groupName: grpName,
+        }).catch(() => {});
 
         console.log(`Comando executado com sucesso: ${commandName}`);
 

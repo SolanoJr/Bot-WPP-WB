@@ -26,9 +26,17 @@ export async function initDatabase() {
       command_name TEXT,
       user_id TEXT,
       group_id TEXT,
+      group_name TEXT,
       timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  // Garante coluna group_name em instalações antigas (idempotente)
+  try {
+    await db.exec(`ALTER TABLE command_logs ADD COLUMN group_name TEXT`);
+  } catch {
+    // coluna já existe — ignorado
+  }
 
   // Tabela de Feedbacks
   await db.exec(`
@@ -72,4 +80,47 @@ export async function initDatabase() {
 export async function getDb() {
   // Retorna a conexão aberta (Singleton simples)
   return await initDatabase();
+}
+
+/**
+ * Registra uso de comando no SQLite (persistência real, com nome do grupo).
+ * Chamado pelo commandExecutor após cada execução bem-sucedida.
+ */
+export async function recordCommandUsage(opts: {
+  commandName: string;
+  userId: string;
+  groupId: string;
+  groupName?: string;
+}): Promise<void> {
+  try {
+    const db = await getDb();
+    await db.run(
+      `INSERT INTO command_logs (command_name, user_id, group_id, group_name) VALUES (?, ?, ?, ?)`,
+      opts.commandName,
+      opts.userId,
+      opts.groupId || '',
+      opts.groupName || ''
+    );
+  } catch (e: any) {
+    // Erro de auditoria não deve quebrar o comando
+    console.error('[DB] Falha ao registrar uso de comando:', e?.message);
+  }
+}
+
+/**
+ * Agrega "quantas vezes cada comando foi usado", por grupo (mostra nome do grupo).
+ */
+export async function getCommandMetrics(): Promise<
+  { group_id: string; group_name: string; command_name: string; count: number }[]
+> {
+  const db = await getDb();
+  return db.all(`
+    SELECT group_id,
+           COALESCE(NULLIF(group_name, ''), group_id) as group_name,
+           command_name,
+           COUNT(*) as count
+    FROM command_logs
+    GROUP BY group_id, command_name
+    ORDER BY group_id, count DESC
+  `);
 }
