@@ -101,6 +101,11 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
 
     this.innerClient.on('change_state', (state: string) => {
       console.log(`[WhatsApp] 🔄 Mudança de estado da conexão: ${state}`);
+      // WWebJS reconecta internamente via change_state sem repetir 'ready';
+      // re-registra handlers de mensagem para nao ficar mudo apos reconexao.
+      if (state === 'CONNECTED') {
+        this.registerMessageHandlers();
+      }
     });
 
     this.innerClient.on('ready', () => {
