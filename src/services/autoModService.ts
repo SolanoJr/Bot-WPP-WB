@@ -197,7 +197,7 @@ export async function processAutoMod(msg: Message, client: any): Promise<boolean
 
     // REGRA 1: DDI Estrangeiro + (Link ou Interativo) nos primeiros 10 minutos
     if (defaultConfig.filterForeignNumbers && isForeignNumber(authorId)) {
-        const cleanGroup = chat.id._serialized.replace(/^(wpp:|tg:|dc:)/, '');
+        const cleanGroup = (groupId || msg.from).replace(/^(wpp:|tg:|dc:)/, '');
         const cleanAuthor = authorId.replace(/^(wpp:|tg:|dc:)/, '');
         const joinKey = `${cleanGroup}:${cleanAuthor}`;
         const joinTime = joinTimestamps.get(joinKey);

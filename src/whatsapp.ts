@@ -6,6 +6,22 @@ import axios from 'axios';
 import dotenv from 'dotenv';
 dotenv.config();
 
+// 🕒 Timestamps globais em todos os logs (formato YYYY-MM-DD HH:MM:SS.mmm)
+// Sobrescreve console.* para prefixar horário, facilitando investigação cronológica.
+const _origLog = console.log.bind(console);
+const _origErr = console.error.bind(console);
+const _origWarn = console.warn.bind(console);
+const _origInfo = console.info ? console.info.bind(console) : _origLog;
+const ts = () => {
+  const d = new Date();
+  const p = (n: number, l = 2) => String(n).padStart(l, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${p(d.getMilliseconds(), 3)}`;
+};
+console.log = (...args: any[]) => _origLog(`[${ts()}]`, ...args);
+console.error = (...args: any[]) => _origErr(`[${ts()}]`, ...args);
+console.warn = (...args: any[]) => _origWarn(`[${ts()}]`, ...args);
+console.info = (...args: any[]) => _origInfo(`[${ts()}]`, ...args);
+
 // Error handler global para capturar erros não tratados
 process.on('uncaughtException', (error) => {
     console.error('❌ [UNCAUGHT EXCEPTION]:', error);
