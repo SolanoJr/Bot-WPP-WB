@@ -716,7 +716,9 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
           const user = (p.id as any).user || raw.replace('@lid', '');
           raw = `${user}@c.us`;
         }
-        return `wpp:${raw}`;
+        const norm = `wpp:${raw}`;
+        console.log(`[normalizeChat DEBUG] p.id._serialized=${p.id._serialized} p.id.user=${(p.id as any).user} -> ${norm}`);
+        return norm;
       }),
       raw: chat,
       isPermissionsVerified: true // Chat obtido com sucesso, permissões verificadas
