@@ -31,6 +31,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
   private readyHandler: (() => void) | null = null;
   private disconnectedHandler: ((reason: string) => void) | null = null;
   private isManuallyDestroyed = false;
+  private _processedMsgIds = new Set<string>();
   public userId = '';
   public userName = '';
   public isReady = false;
@@ -200,6 +201,11 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         console.log('[DIAG] msg.body vazio. type:', msg?.type, '| _data.body:', d?.body, '| _data.conversation:', d?.conversation, '| _data.data:', typeof d?.data === 'object' ? JSON.stringify(d.data).slice(0,200) : d?.data, '| _data.keys:', Object.keys(d||{}).slice(0,20).join(','));
       }
       
+      // Dedup: evita processar 2x se WWebJS emitir 'message' e 'message_create' p/ mesma msg
+      const mid = msg?.id?._serialized || msg?.id?.id;
+      if (mid && this._processedMsgIds.has(mid)) return;
+      if (mid) this._processedMsgIds.add(mid);
+      
       if (!msg) {
         console.error('[WhatsAppAdapter] ERRO: msg é null/undefined, ignorando');
         return;
@@ -250,7 +256,12 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         return;
       }
       
-      if (msg.fromMe && this.messageHandler) {
+      // Dedup: evita processar 2x se WWebJS emitir 'message' e 'message_create' p/ mesma msg
+      const mid = msg?.id?._serialized || msg?.id?.id;
+      if (mid && this._processedMsgIds.has(mid)) return;
+      if (mid) this._processedMsgIds.add(mid);
+      
+      if (this.messageHandler) {
         try {
           const platformMsg = this.normalizeMessage(msg);
           await this.messageHandler(platformMsg);
