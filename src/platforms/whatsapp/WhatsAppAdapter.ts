@@ -636,7 +636,12 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
 
   async removeParticipant(chatId: string, userId: string): Promise<void> {
     const cleanChatId = chatId.replace(/^wpp:/, '');
-    const cleanUserId = userId.replace(/^wpp:/, '');
+    let cleanUserId = userId.replace(/^wpp:/, '');
+    // O alvo pode vir como @lid (menção do WhatsApp Web atual). O WWebJS
+    // removeParticipants espera @c.us. Converter @lid -> @c.us.
+    if (cleanUserId.endsWith('@lid')) {
+      cleanUserId = cleanUserId.replace('@lid', '@c.us');
+    }
     console.log(`[WhatsApp] removeParticipant - chatId: ${cleanChatId} userId: ${cleanUserId}`);
     try {
       const chat = await this.innerClient.getChatById(cleanChatId);
@@ -651,7 +656,10 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
 
   async banParticipant(chatId: string, userId: string): Promise<void> {
     const cleanChatId = chatId.replace(/^wpp:/, '');
-    const cleanUserId = userId.replace(/^wpp:/, '');
+    let cleanUserId = userId.replace(/^wpp:/, '');
+    if (cleanUserId.endsWith('@lid')) {
+      cleanUserId = cleanUserId.replace('@lid', '@c.us');
+    }
     console.log(`[WhatsApp] banParticipant - chatId: ${cleanChatId} userId: ${cleanUserId}`);
     try {
       const chat = await this.innerClient.getChatById(cleanChatId);
