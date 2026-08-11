@@ -159,6 +159,28 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         console.log('[WhatsApp] ⚠️ WPP_TEST_GROUP_ID nao definido - pulando msg de prova no grupo teste');
       }
       
+      // SELF-TEST do $kick (apenas se WPP_KICK_SELFTEST=1). O bot envia um
+      // $kick @<nao-admin> no grupo teste; o message_create (sem filtro fromMe)
+      // processa e testa o fluxo real do comando.
+      if (process.env.WPP_KICK_SELFTEST === '1' && alvoTeste) {
+        setTimeout(async () => {
+          try {
+            const grp = await this.innerClient.getChatById(alvoTeste);
+            const me = this.innerClient.info.wid._serialized;
+            const target = (grp.participants || []).find(p => (p.id._serialized||p.id) !== me && !p.isAdmin && !p.isSuperAdmin);
+            if (target) {
+              const tid = target.id._serialized || target.id;
+              console.log('[SELFTEST] enviando $kick para', tid);
+              await this.innerClient.sendMessage(alvoTeste, '$kick @' + tid.split('@')[0], { mentions: [tid] });
+            } else {
+              console.log('[SELFTEST] nenhum nao-admin para kick');
+            }
+          } catch (e: any) {
+            console.error('[SELFTEST] erro:', e?.message);
+          }
+        }, 3000);
+      }
+      
       if (this.readyHandler) this.readyHandler();
     });
 
@@ -387,7 +409,9 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       if (participant && String(participant).endsWith('@c.us')) {
         userId = participant;
       }
+      console.log(`[normalizeMessage DEBUG] userId era @lid, participant resolvido=${participant}`);
     }
+    console.log(`[normalizeMessage DEBUG] userId final=${userId} isGroup=${isGroup}`);
     
     let extractedText = msg.body || '';
     if (!extractedText && (msg as any)._data) {
