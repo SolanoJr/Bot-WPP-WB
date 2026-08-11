@@ -722,7 +722,6 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       isPermissionsVerified: true // Chat obtido com sucesso, permissões verificadas
     };
   }
-  }
 
   private normalizeUser(contact: Contact): PlatformUser {
     return {
