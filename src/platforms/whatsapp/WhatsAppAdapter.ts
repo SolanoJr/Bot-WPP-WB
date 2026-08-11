@@ -400,7 +400,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     const chatId = (msg.to && String(msg.to).endsWith('@g.us')) ? msg.to : msg.from;
     const isGroup = String(chatId).endsWith('@g.us');
     const userId = msg.fromMe
-      ? (msg.to || this.innerClient.info?.wid?._serialized)
+      ? (this.innerClient.info?.wid?._serialized || msg.from)
       : (isGroup ? (msg.author || msg.from) : msg.from);
     
     let extractedText = msg.body || '';
