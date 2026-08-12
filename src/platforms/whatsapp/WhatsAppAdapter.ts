@@ -73,14 +73,22 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       headless: true,
       timeout: 120000,
       protocolTimeout: 180000,
+      // Chrome 120 (estável com wwebjs) — instalar via:
+      // npx puppeteer browsers install chrome@120
+      executablePath: process.env.WWEBJS_CHROME_PATH || '/home/solanojr/.cache/puppeteer/chrome/linux-120.0.6099.109/chrome-linux64/chrome',
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
         '--no-first-run',
-        '--disable-gpu',
-        '--disable-extensions'
+        '--disable-extensions',
+        // Renderização por SOFTWARE (swiftshader) — o WA Web moderno exige WebGL
+        // para desenhar a tela de QR; sem isso o Chromium headless trava no
+        // splashscreen e nunca gera o QR (BUG 32/33).
+        '--use-gl=swiftshader',
+        '--enable-webgl',
+        '--ignore-gpu-blocklist',
+        '--disable-gpu-sandbox'
       ]
     };
 
@@ -91,7 +99,10 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
 
     this.innerClient = new Client({
       authStrategy: new LocalAuth({ dataPath: authPath }),
-      puppeteer: puppeteerConfig
+      puppeteer: puppeteerConfig,
+      // User-Agent de Chrome real — o WA Web moderno detecta headless e trava
+      // a tela de QR sem um UA convincente (BUG 33).
+      userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.109 Safari/537.36'
     });
 
     this.setupEventHandlers();
@@ -99,16 +110,16 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     this.innerClient.initialize();
 
     // ⏱️ TIMEOUT DE DIAGNÓSTICO: se o WA Web não emitir 'ready' em 90s,
-    // a sessão está expirada/dessincronizada (padrão BUG 26). Loga erro CLARO
-    // em vez de travar em silêncio (CPU 0, sem QR, sem ready).
+    // o Chromium headless não conseguiu renderizar a tela de QR (ex: falta WebGL).
+    // Loga erro CLARO em vez de travar em silêncio (CPU 0, sem QR, sem ready).
     if (this.readyTimeout) clearTimeout(this.readyTimeout);
     this.readyTimeout = setTimeout(() => {
       if (!this.isReady) {
         console.error('────────────────────────────────────────────────────────');
         console.error('⚠️ [DIAG] WA Web NÃO autenticou em 90s. Bot está OFFLINE (mudo).');
-        console.error('⚠️ [DIAG] Causa provável: sessão .wwebjs_auth expirada/dessincronizada.');
-        console.error('⚠️ [DIAG] Correção: rm -rf .wwebjs_auth*  +  pm2 restart bot-wpp  + escanear QR novo.');
-        console.error('⚠️ [DIAG] (Se um QR apareceu no log, apenas escaneie — não precisa limpar.)');
+        console.error('⚠️ [DIAG] Causa provável: Chromium headless sem WebGL travou no splashscreen');
+        console.error('⚠️ [DIAG] (BUG 33). Correção: flags --use-gl=swiftshader + user-agent real no');
+        console.error('⚠️ [DIAG] WhatsAppAdapter.connect(). Se continuar, verifique o log por "QR Code".');
         console.error('────────────────────────────────────────────────────────');
       }
     }, 90000);
