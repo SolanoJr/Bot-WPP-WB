@@ -1,4 +1,5 @@
 import { ICommand } from './types';
+import { groupTag } from './format';
 
 export const muteCommand: ICommand = {
     name: 'mute',
@@ -20,6 +21,6 @@ export const muteCommand: ICommand = {
         
         const userToMute = mentioned[0];
         await client.mute(userToMute, 8 * 60 * 60); // 8 horas
-        await msg.reply(`✅ Usuário silenciado por 8 horas.`);
+        await msg.reply(`✅ Usuário silenciado por 8 horas.${groupTag(msg)}`);
     }
 };

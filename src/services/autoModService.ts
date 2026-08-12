@@ -261,7 +261,8 @@ export async function processAutoMod(msg: Message, client: any): Promise<boolean
 
         // 3. Notificar grupo
         try {
-          const notify = `🛡️ *AutoMod WarriorBlack*\n\n⚠️ Usuário removido!\n👤 @${authorId.split('@')[0]}\n📝 Motivo: ${reason}`;
+          const grpName = chat?.name ? ` 🏢 ${chat.name}` : '';
+          const notify = `🛡️ *AutoMod WarriorBlack*${grpName}\n\n⚠️ Usuário removido!\n👤 @${authorId.split('@')[0]}\n📝 Motivo: ${reason}`;
           if (typeof (client as any).sendMessage === 'function') {
             await (client as any).sendMessage(groupId, notify, { mentions: [authorId] });
           } else if (chat) {

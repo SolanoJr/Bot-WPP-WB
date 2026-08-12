@@ -1,4 +1,5 @@
 import { ICommand } from './types';
+import { groupTag } from './format';
 
 export const promoteCommand: ICommand = {
     name: 'promover',
@@ -20,6 +21,6 @@ export const promoteCommand: ICommand = {
         
         const userToPromote = mentioned[0];
         await client.promote(userToPromote);
-        await msg.reply(`✅ Usuário promovido a administrador.`);
+        await msg.reply(`✅ Usuário promovido a administrador.${groupTag(msg)}`);
     }
 };
