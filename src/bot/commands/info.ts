@@ -1,4 +1,5 @@
 import { ICommand } from './types';
+import { groupTag } from './format';
 
 export const infoCommand: ICommand = {
     name: 'info',
@@ -13,7 +14,7 @@ export const infoCommand: ICommand = {
             `⏰ Horário atual: ${timestamp}\n` +
             `💬 ID do chat: ${chatId}\n` +
             `📝 Número de argumentos: ${totalArgs}\n` +
-            `🤖 Bot: WhatsApp Bot v1.0`;
+            `🤖 Bot: WhatsApp Bot v1.0${groupTag(msg)}`;
 
         await msg.reply(response);
     }

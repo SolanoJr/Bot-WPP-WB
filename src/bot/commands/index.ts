@@ -42,6 +42,7 @@ import { banidosCommand } from './banidos';
 import { setwelcomeCommand } from './setwelcome';
 import { cantadaCommand } from './cantada';
 import { cmdToggleCommand } from './cmdToggle';
+import { automodCommand } from './automod';
 
 // Comandos registrados
 const commands: Record<string, ICommand> = {
@@ -89,6 +90,7 @@ const commands: Record<string, ICommand> = {
   setwelcome: setwelcomeCommand,
   cantada: cantadaCommand,
   cmdtoggle: cmdToggleCommand,
+  automod: automodCommand,
 };
 
 // Registrar comandos personalizados

@@ -142,9 +142,25 @@ export function isForeignNumber(userId: string): boolean {
 /**
  * Processa a moderação automática seguindo regras estritas
  */
-export async function processAutoMod(msg: Message, client: any): Promise<boolean> {
+export async function processAutoMod(msg: any, client: any): Promise<boolean> {
   console.log('[AutoMod] ENTRY - msg:', !!msg, 'client:', !!client);
-  if (!defaultConfig.enabled || msg.fromMe) return false;
+  // AutoMod por grupo (persistido): default DESLIGADO em grupos novos.
+  let groupIdForCheck = msg.from;
+  try {
+    const chat = await msg.getChat().catch(() => null);
+    groupIdForCheck = chat?.id?._serialized || msg.from;
+  } catch { /* ignora */ }
+  try {
+    const { isAutoModEnabledDB } = await import('./databaseService');
+    const autoEnabled = await isAutoModEnabledDB(groupIdForCheck);
+    if (!autoEnabled) {
+      console.log('[AutoMod] desativado neste grupo:', groupIdForCheck);
+      return false;
+    }
+  } catch (dbErr: any) {
+    console.error('[AutoMod] erro ao checar DB (assumindo off):', dbErr?.message);
+    return false;
+  }
 
   try {
     // Obter chat de forma resiliente: o WWebJS quebra com "r:r" (Issue #201838)

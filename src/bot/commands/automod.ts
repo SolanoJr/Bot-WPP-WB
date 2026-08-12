@@ -1,83 +1,33 @@
+// src/bot/commands/automod.ts
+/**
+ * Liga/desliga o AutoMod (moderação automática) no grupo atual.
+ * Persistido em SQLite por grupo. Default: DESLIGADO em grupos novos.
+ * Uso: $automod on  |  $automod off
+ */
 import { ICommand } from './types';
-import { getAutoModConfig, updateAutoModConfig, ModConfig } from '../../services/autoModService';
 import { isMaster } from '../../services/permissions';
+import { setAutoModEnabledDB } from '../../services/databaseService';
+import { groupTag } from './format';
 
 export const automodCommand: ICommand = {
-    name: 'automod',
-    description: 'Gerencia as configurações de moderação automática',
-    async execute(msg, client, args) {
-        const senderId = msg.author || msg.from;
-        
-        // Apenas Master ou Admin do grupo pode alterar
-        const chat = await msg.getChat();
-        let isAdmin = false;
-        if (chat.isGroup) {
-            // Reutilizar o chat já obtido - não chamar getChatById() novamente
-            const freshChat = chat;
-            const participants = freshChat?.participants || [];
-            const p = participants.find((part: any) => cleanId(part.id._serialized) === cleanId(senderId));
-            isAdmin = p?.isAdmin || p?.isSuperAdmin;
-        }
-
-        if (!isMaster(senderId) && !isAdmin) {
-            await msg.reply('❌ Apenas o Master ou Administradores podem alterar as configurações de AutoMod.');
-            return;
-        }
-
-        const config = getAutoModConfig();
-
-        if (args.length === 0) {
-            const status = [
-                '🛡️ *Configurações de AutoMod WarriorBlack:*',
-                '',
-                `${config.enabled ? '✅' : '❌'} Geral (enabled)`,
-                `${config.filterForeignNumbers ? '✅' : '❌'} Filtro DDI (ddi)`,
-                `${config.filterInteractiveMessages ? '✅' : '❌'} Filtro Interativo (interactive)`,
-                `${config.filterSuspiciousKeywords ? '✅' : '❌'} Palavras-Chave (keywords)`,
-                `${config.autoDeleteLinks ? '✅' : '❌'} Deletar Links (links)`,
-                '',
-                '_Use: $automod [tipo] [on/off]_',
-                '_Ex: $automod ddi off_'
-            ].join('\n');
-            await msg.reply(status);
-            return;
-        }
-
-        const type = args[0].toLowerCase();
-        const action = args[1]?.toLowerCase();
-
-        if (!['on', 'off'].includes(action)) {
-            await msg.reply('❌ Use "on" para ativar ou "off" para desativar.');
-            return;
-        }
-
-        const value = action === 'on';
-        const updates: Partial<ModConfig> = {};
-
-        const map: Record<string, keyof ModConfig> = {
-            'geral': 'enabled',
-            'enabled': 'enabled',
-            'ddi': 'filterForeignNumbers',
-            'interactive': 'filterInteractiveMessages',
-            'interativo': 'filterInteractiveMessages',
-            'keywords': 'filterSuspiciousKeywords',
-            'palavras': 'filterSuspiciousKeywords',
-            'links': 'autoDeleteLinks'
-        };
-
-        const key = map[type];
-        if (!key) {
-            await msg.reply('❌ Tipo inválido. Use: ddi, interactive, keywords, links ou geral.');
-            return;
-        }
-
-        updates[key] = value as any;
-        updateAutoModConfig(updates);
-
-        await msg.reply(`✅ Filtro *${type}* definido como *${action.toUpperCase()}*.`);
+  name: 'automod',
+  description: 'Ativa ou desativa a moderação automática (AutoMod) no grupo. Uso: $automod on|off',
+  async execute(ctx: any) {
+    const args = ctx.args || [];
+    const action = String(args[0] || '').toLowerCase();
+    if (!['on', 'off'].includes(action)) {
+      return ctx.reply('⚠️ Uso: `$automod on` ou `$automod off`');
     }
+    const enable = action === 'on';
+    const isAdmin = ctx.isMaster || ctx.isAdmin || isMaster(ctx.userId);
+    if (!isAdmin) {
+      return ctx.reply('🚫 Apenas administradores podem usar este comando.');
+    }
+    const chatId = ctx.chatId;
+    if (!chatId || !String(chatId).endsWith('@g.us')) {
+      return ctx.reply('⚠️ Este comando só funciona em grupos.');
+    }
+    await setAutoModEnabledDB(chatId, enable);
+    return ctx.reply(`🛡️ AutoMod ${enable ? 'ATIVADO' : 'DESATIVADO'} neste grupo${groupTag(ctx)}.`);
+  },
 };
-
-function cleanId(id: string) {
-    return id.replace(/\D/g, '');
-}

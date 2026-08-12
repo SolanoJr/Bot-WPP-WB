@@ -1,6 +1,7 @@
 import { ICommand } from './types';
 import axios from 'axios';
 import { isMaster, cleanId } from '../../services/permissions';
+import { groupTag } from './format';
 
 export const setwelcomeCommand: ICommand = {
     name: 'setwelcome',
@@ -52,7 +53,7 @@ export const setwelcomeCommand: ICommand = {
             });
 
             if (response.data.success) {
-                await msg.reply('✅ Mensagem de boas-vindas atualizada com sucesso!');
+                await msg.reply(`✅ Mensagem de boas-vindas atualizada com sucesso!${groupTag(msg)}`);
             } else {
                 throw new Error('Falha na resposta do Relay');
             }
