@@ -346,6 +346,16 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       const { getWelcomeMessage } = await import('../../bot/commands/welcome');
       const customMessage = getWelcomeMessage(groupId);
 
+      // Boas-vindas automáticas respeitam o toggle por grupo (group_mod.bemvindo)
+      try {
+        const { getGroupMod } = await import('../../services/databaseService');
+        const mod = await getGroupMod(groupId);
+        if (!mod.bemvindo) {
+          console.log(`[handleMemberJoin] bemvindo DESATIVADO no grupo ${groupId} - pulando saudacao`);
+          return;
+        }
+      } catch { /* se falhar, envia mesmo assim */ }
+
       // Verificar histórico de membros para detectar se é retorno
       // TODO: implementar storage de histórico de membros
 

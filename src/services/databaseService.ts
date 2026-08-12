@@ -87,13 +87,51 @@ export async function initDatabase() {
     );
   `);
 
-  // Tabela de Configuração de AutoMod POR GRUPO
+  // Tabela de Configuração de MODERAÇÃO AUTOMÁTICA POR GRUPO
+  // Cada função tem seu próprio toggle (personalizado por grupo).
   await db.exec(`
-    CREATE TABLE IF NOT EXISTS group_automod (
+    CREATE TABLE IF NOT EXISTS group_mod (
       group_id TEXT PRIMARY KEY,
-      enabled INTEGER DEFAULT 0
+      antispam INTEGER DEFAULT 0,
+      antiestrangeiro INTEGER DEFAULT 0,
+      bemvindo INTEGER DEFAULT 0,
+      autolink INTEGER DEFAULT 0,
+      detectar INTEGER DEFAULT 0,
+      remover INTEGER DEFAULT 0
     );
   `);
+
+  // SEED: grupos onde o bot JÁ moderava (AutoMod era global=true) ficam com tudo
+  // ligado. Só roda 1x (quando a tabela está vazia). O grupo teste é sempre incluído.
+  try {
+    const count = await db.get(`SELECT COUNT(*) as c FROM group_mod`);
+    if (count && count.c === 0) {
+      const groupsToSeed: string[] = [];
+      const testGroup = process.env.WPP_TEST_GROUP_ID;
+      if (testGroup) groupsToSeed.push(testGroup);
+      // Tenta descobrir os grupos atuais do bot (se o client já estiver disponível)
+      try {
+        const { platformManager } = await import('../platforms/PlatformManager');
+        const wpp = platformManager.getClient('whatsapp');
+        if (wpp && typeof (wpp as any).getChats === 'function') {
+          const chats = await (wpp as any).getChats();
+          for (const c of chats) {
+            const id = c.id?._serialized || c.id;
+            if (id && String(id).endsWith('@g.us')) groupsToSeed.push(id);
+          }
+        }
+      } catch { /* ignora se ainda não disponível */ }
+      for (const g of [...new Set(groupsToSeed)]) {
+        await db.run(
+          `INSERT OR IGNORE INTO group_mod (group_id, antispam, antiestrangeiro, bemvindo, autolink, detectar, remover) VALUES (?,1,1,1,1,1,1)`,
+          g
+        );
+      }
+      if (groupsToSeed.length) console.log(`[DB] Seed group_mod: ${groupsToSeed.length} grupo(s) com AutoMod ligado (mantendo comportamento anterior).`);
+    }
+  } catch (e: any) {
+    console.error('[DB] Falha no seed de group_mod:', e?.message);
+  }
 
   return db;
 }
@@ -185,6 +223,83 @@ export async function setAutoModEnabledDB(groupId: string, enabled: boolean): Pr
   } catch (e: any) {
     console.error('[DB] Falha ao salvar AutoMod:', e?.message);
   }
+}
+
+export interface GroupModConfig {
+  antispam: boolean;
+  antiestrangeiro: boolean;
+  bemvindo: boolean;
+  autolink: boolean;
+  detectar: boolean;
+  remover: boolean;
+}
+
+const MOD_FIELDS: (keyof GroupModConfig)[] = ['antispam', 'antiestrangeiro', 'bemvindo', 'autolink', 'detectar', 'remover'];
+
+/** Retorna a config de moderação do grupo (default: tudo desligado). */
+export async function getGroupMod(groupId: string): Promise<GroupModConfig> {
+  const empty: GroupModConfig = {
+    antispam: false, antiestrangeiro: false, bemvindo: false,
+    autolink: false, detectar: false, remover: false,
+  };
+  try {
+    const db = await getDb();
+    const row = await db.get(`SELECT * FROM group_mod WHERE group_id = ?`, groupId);
+    if (!row) return empty;
+    const cfg: any = { ...empty };
+    for (const f of MOD_FIELDS) cfg[f] = !!row[f];
+    return cfg;
+  } catch (e: any) {
+    console.error('[DB] Falha ao ler group_mod:', e?.message);
+    return empty;
+  }
+}
+
+/** Define um campo específico da moderação do grupo. */
+export async function setGroupModField(groupId: string, field: keyof GroupModConfig, value: boolean): Promise<void> {
+  try {
+    const db = await getDb();
+    const row = await db.get(`SELECT group_id FROM group_mod WHERE group_id = ?`, groupId);
+    if (!row) {
+      const cfg = { antispam: 0, antiestrangeiro: 0, bemvindo: 0, autolink: 0, detectar: 0, remover: 0 } as any;
+      cfg[field] = value ? 1 : 0;
+      await db.run(
+        `INSERT INTO group_mod (group_id, antispam, antiestrangeiro, bemvindo, autolink, detectar, remover) VALUES (?,?,?,?,?,?,?)`,
+        groupId, cfg.antispam, cfg.antiestrangeiro, cfg.bemvindo, cfg.autolink, cfg.detectar, cfg.remover
+      );
+    } else {
+      await db.run(`UPDATE group_mod SET ${field} = ? WHERE group_id = ?`, value ? 1 : 0, groupId);
+    }
+  } catch (e: any) {
+    console.error('[DB] Falha ao salvar group_mod:', e?.message);
+  }
+}
+
+/** Liga/desliga TODOS os campos de um grupo (toggle mestre). */
+export async function setGroupModAll(groupId: string, value: boolean): Promise<void> {
+  try {
+    const db = await getDb();
+    await db.run(
+      `INSERT INTO group_mod (group_id, antispam, antiestrangeiro, bemvindo, autolink, detectar, remover)
+       VALUES (?,?,?,?,?,?,?)
+       ON CONFLICT(group_id) DO UPDATE SET
+         antispam=excluded.antispam, antiestrangeiro=excluded.antiestrangeiro,
+         bemvindo=excluded.bemvindo, autolink=excluded.autolink,
+         detectar=excluded.detectar, remover=excluded.remover`,
+      groupId, value?1:0, value?1:0, value?1:0, value?1:0, value?1:0, value?1:0
+    );
+  } catch (e: any) {
+    console.error('[DB] Falha ao salvar group_mod (all):', e?.message);
+  }
+}
+
+/** Estado agregado para o comando $automod (mestre): 'on' | 'off' | 'personalizado'. */
+export async function getGroupModState(groupId: string): Promise<'on' | 'off' | 'personalizado'> {
+  const cfg = await getGroupMod(groupId);
+  const vals = MOD_FIELDS.map(f => cfg[f]);
+  if (vals.every(Boolean)) return 'on';
+  if (vals.every(v => !v)) return 'off';
+  return 'personalizado';
 }
 
 /**

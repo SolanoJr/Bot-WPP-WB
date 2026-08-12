@@ -144,17 +144,18 @@ export function isForeignNumber(userId: string): boolean {
  */
 export async function processAutoMod(msg: any, client: any): Promise<boolean> {
   console.log('[AutoMod] ENTRY - msg:', !!msg, 'client:', !!client);
-  // AutoMod por grupo (persistido): default DESLIGADO em grupos novos.
+  // AutoMod por grupo (persistido): lê a config. Se nada relevante estiver ligado, pula.
   let groupIdForCheck = msg.from;
   try {
     const chat = await msg.getChat().catch(() => null);
     groupIdForCheck = chat?.id?._serialized || msg.from;
   } catch { /* ignora */ }
   try {
-    const { isAutoModEnabledDB } = await import('./databaseService');
-    const autoEnabled = await isAutoModEnabledDB(groupIdForCheck);
-    if (!autoEnabled) {
-      console.log('[AutoMod] desativado neste grupo:', groupIdForCheck);
+    const { getGroupMod } = await import('./databaseService');
+    const mod = await getGroupMod(groupIdForCheck);
+    const anyOn = mod.antispam || mod.antiestrangeiro || mod.autolink;
+    if (!anyOn) {
+      console.log('[AutoMod] nenhum módulo de mensagem ligado neste grupo:', groupIdForCheck);
       return false;
     }
   } catch (dbErr: any) {
@@ -216,82 +217,99 @@ export async function processAutoMod(msg: any, client: any): Promise<boolean> {
     }
     if (authorIsAdmin) return false;
 
-    let shouldBan = false;
+    const { getGroupMod, banUser } = await import('./databaseService');
+    const mod = await getGroupMod(groupId);
+
+    let detected = false;
     let reason = '';
 
     // REGRA 1: DDI Estrangeiro + (Link ou Interativo) nos primeiros 10 minutos
-    if (defaultConfig.filterForeignNumbers && isForeignNumber(authorId)) {
+    if (mod.antiestrangeiro && isForeignNumber(authorId)) {
         const cleanGroup = (groupId || msg.from).replace(/^(wpp:|tg:|dc:)/, '');
         const cleanAuthor = authorId.replace(/^(wpp:|tg:|dc:)/, '');
         const joinKey = `${cleanGroup}:${cleanAuthor}`;
         const joinTime = joinTimestamps.get(joinKey);
         
         if (joinTime && (Date.now() - joinTime) < FIRST_MINUTES_LIMIT_MS) {
-            const hasLink = /https?:\/\/[^\s]+/i.test(messageText) || messageText.includes('http://') || messageText.includes('https://');
+            const hasLink = /https?:\/\/[^\\s]+/i.test(messageText) || messageText.includes('http://') || messageText.includes('https://');
             if (hasLink || isInteractive) {
-                shouldBan = true;
+                detected = true;
                 reason = '🚫 [DDI ESTRANGEIRO] Link ou Mensagem Interativa nos primeiros 10 minutos no grupo.';
             }
         }
     }
 
     // REGRA 2: Palavras-Chave / Regex de Spam
-    if (!shouldBan && defaultConfig.filterSuspiciousKeywords) {
+    if (!detected && mod.antispam) {
         for (const pattern of SPAM_PATTERNS) {
             if (pattern.test(messageText)) {
-                shouldBan = true;
+                detected = true;
                 reason = `🚫 [SPAM DETECTADO] Conteúdo suspeito: "${pattern.source}"`;
                 break;
             }
         }
     }
 
-    if (shouldBan) {
-      console.log(`🛡️ [AutoMod] Aplicando punição para ${authorId}. Motivo: ${reason}`);
-
-      // Ações de Punição Imediata
-      try {
-        // 1. Deletar mensagem para todos
-        try {
-          await msg.delete(true);
-        } catch (err: any) {
-          console.error(`❌ [AutoMod] Erro ao deletar mensagem: ${err.message}`);
+    // REGRA 3: Links (antilink) — apaga a mensagem se ligado
+    if (!detected && mod.autolink) {
+        const hasLink = /https?:\/\/[^\\s]+/i.test(messageText);
+        if (hasLink) {
+            detected = true;
+            reason = '🚫 [ANTILINK] Links não são permitidos neste grupo.';
         }
-        
-        // 2. Banir usuário (remover do grupo) — usar adapter.removeParticipant
-        // (que resolve o ID real no groupMetadata, evitando "expected at least 1 children").
-        try {
-          if (typeof (client as any).removeParticipant === 'function') {
-            await (client as any).removeParticipant(groupId, authorId);
-          } else if (typeof (client as any).removeParticipants === 'function') {
-            const cleanGroup = groupId.replace(/^(wpp:|tg:|dc:)/, '');
-            let cleanAuthor = authorId.replace(/^(wpp:|tg:|dc:)/, '');
-            if (cleanAuthor.endsWith('@lid')) cleanAuthor = cleanAuthor.replace('@lid', '@c.us');
-            await (client as any).removeParticipants(cleanGroup, [cleanAuthor]);
-          } else if (chat) {
-            await chat.removeParticipants([authorId.replace(/^(wpp:|tg:|dc:)/, '')]);
-          }
-        } catch (err: any) {
-          console.error(`❌ [AutoMod] Erro ao remover participante: ${err.message}`);
-        }
+    }
 
-        // 3. Notificar grupo
+    if (detected) {
+      console.log(`🛡️ [AutoMod] Detectado para ${authorId}. Motivo: ${reason} | detectar=${mod.detectar} remover=${mod.remover}`);
+
+      const grpName = chat?.name ? ` 🏢 ${chat.name}` : '';
+
+      // 1. Detectar = avisar o grupo (mesmo se não remover)
+      if (mod.detectar) {
         try {
-          const grpName = chat?.name ? ` 🏢 ${chat.name}` : '';
-          const notify = `🛡️ *AutoMod WarriorBlack*${grpName}\n\n⚠️ Usuário removido!\n👤 @${authorId.split('@')[0]}\n📝 Motivo: ${reason}`;
+          const notify = `🛡️ *AutoMod WarriorBlack*${grpName}\n\n⚠️ Detectado!\n👤 @${authorId.split('@')[0]}\n📝 Motivo: ${reason}${mod.remover ? '' : '\nℹ️ (Remoção desativada — apenas aviso)'}`;
           if (typeof (client as any).sendMessage === 'function') {
             await (client as any).sendMessage(groupId, notify, { mentions: [authorId] });
           } else if (chat) {
             await chat.sendMessage(notify, { mentions: [authorId] });
           }
         } catch (err: any) {
-          console.error(`❌ [AutoMod] Erro ao enviar notificação: ${err.message}`);
+          console.error(`❌ [AutoMod] Erro ao notificar detecção: ${err.message}`);
         }
-
-        return true;
-      } catch (err: any) {
-        console.error(`❌ [AutoMod] Erro ao punir: ${err.message}`);
       }
+
+      // 2. Remover = banir (remover do grupo + lista negra + bloquear)
+      if (mod.remover) {
+        try {
+          // Apagar mensagem
+          try { await msg.delete(true); } catch { /* ignora */ }
+          // Salvar na lista negra
+          try {
+            await banUser({ groupId, userId: authorId, bannedBy: 'AutoMod', reason });
+          } catch { /* ignora */ }
+          // Bloquear contato
+          try { await (client as any).blockContact?.(authorId); } catch { /* ignora */ }
+          // Remover do grupo
+          try {
+            if (typeof (client as any).removeParticipant === 'function') {
+              await (client as any).removeParticipant(groupId, authorId);
+            } else if (typeof (client as any).removeParticipants === 'function') {
+              const cleanGroup = groupId.replace(/^(wpp:|tg:|dc:)/, '');
+              let cleanAuthor = authorId.replace(/^(wpp:|tg:|dc:)/, '');
+              if (cleanAuthor.endsWith('@lid')) cleanAuthor = cleanAuthor.replace('@lid', '@c.us');
+              await (client as any).removeParticipants(cleanGroup, [cleanAuthor]);
+            } else if (chat) {
+              await chat.removeParticipants([authorId.replace(/^(wpp:|tg:|dc:)/, '')]);
+            }
+          } catch (err: any) {
+            console.error(`❌ [AutoMod] Erro ao remover participante: ${err.message}`);
+          }
+        } catch (err: any) {
+          console.error(`❌ [AutoMod] Erro ao punir: ${err.message}`);
+        }
+      }
+
+      return true;
     }
 
     return false;
