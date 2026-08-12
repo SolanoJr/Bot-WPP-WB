@@ -43,10 +43,10 @@ export const kickCommand: ICommand = {
       let targetId = '';
 
       if (mentioned && mentioned.length > 0) {
-        targetId = mentioned[0].id.replace('@lid', '@c.us').replace(/^wpp:/, '');
+        targetId = mentioned[0].id.replace('@lid', '@c.us');
       } else if (ctx.msg.replyToMessageId && ctx.msg.raw?.quoted) {
         const quoted = ctx.msg.raw.quoted;
-        targetId = (quoted.author || quoted.from || '').replace('@lid', '@c.us').replace(/^wpp:/, '');
+        targetId = (quoted.author || quoted.from || '').replace('@lid', '@c.us');
       }
 
       if (!targetId) {
