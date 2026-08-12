@@ -155,6 +155,14 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         this.sendMessage(alvoTeste, msgOnline)
           .then(() => console.log('[WhatsApp] ✅ Mensagem de prova ENVIADA para grupo teste', alvoTeste))
           .catch((e: any) => console.error('[WhatsApp] ❌ Falha ao enviar msg de prova para grupo teste:', e?.message));
+        // Diagnostico: logar participants do grupo teste com isAdmin (ver se bot/Alberto sao admins)
+        setTimeout(async () => {
+          try {
+            const grp = await this.innerClient.getChatById(alvoTeste);
+            const me = this.innerClient.info.wid._serialized;
+            console.log(`[DIAG grupo teste] me=${me} participants=${JSON.stringify((grp.participants||[]).map(p=>({id:p.id._serialized, isAdmin:p.isAdmin, isSuperAdmin:p.isSuperAdmin})))}`);
+          } catch (e: any) { console.error('[DIAG grupo teste] erro:', e?.message); }
+        }, 4000);
       } else {
         console.log('[WhatsApp] ⚠️ WPP_TEST_GROUP_ID nao definido - pulando msg de prova no grupo teste');
       }
