@@ -33,7 +33,17 @@ export const kickCommand: ICommand = {
       }
 
       const isSenderAdmin = Boolean(senderPart?.isAdmin || senderPart?.isSuperAdmin);
-      if (!isSenderAdmin && !isMaster(ctx.userId)) {
+      // Se o getChat nao entregou participants confiaveis (senderPart indefinido),
+      // verificar admin no groupMetadata (autoritativo) em vez de barrar injustamente.
+      let senderIsAdmin = isSenderAdmin;
+      if (!senderIsAdmin && !isMaster(ctx.userId) && (ctx.client as any).isParticipantAdmin) {
+        try {
+          senderIsAdmin = await (ctx.client as any).isParticipantAdmin(ctx.chatId, ctx.userId);
+        } catch {
+          senderIsAdmin = false;
+        }
+      }
+      if (!senderIsAdmin && !isMaster(ctx.userId)) {
         await ctx.reply('❌ Você não tem permissão para usar este comando.');
         return;
       }
@@ -62,7 +72,13 @@ export const kickCommand: ICommand = {
       }
 
       await ctx.client.removeParticipant(ctx.chatId, targetId);
-      await ctx.reply(`✅ @${targetClean.split('@')[0]} foi removido do grupo.`, {
+      // Capturar o NOME de quem foi removido para confirmar na resposta
+      let removedName = targetClean.split('@')[0];
+      try {
+        const nm = await (ctx.client as any).getParticipantName?.(ctx.chatId, targetId);
+        if (nm) removedName = nm;
+      } catch { /* ignora */ }
+      await ctx.reply(`✅ ${removedName} foi removido do grupo.`, {
         // Telegram/Discord interpretam mentions via parseMode; no WhatsApp usamos o ID bruto
         ...(ctx.platform === 'whatsapp' ? { mentions: [targetId] } : {}),
       } as any);

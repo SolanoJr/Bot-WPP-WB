@@ -33,7 +33,17 @@ export const banCommand: ICommand = {
       }
 
       const isSenderAdmin = Boolean(senderPart?.isAdmin || senderPart?.isSuperAdmin);
-      if (!isSenderAdmin && !isMaster(ctx.userId)) {
+      // Se o getChat nao entregou participants confiaveis (senderPart indefinido),
+      // verificar admin no groupMetadata (autoritativo) em vez de barrar injustamente.
+      let senderIsAdmin = isSenderAdmin;
+      if (!senderIsAdmin && !isMaster(ctx.userId) && (ctx.client as any).isParticipantAdmin) {
+        try {
+          senderIsAdmin = await (ctx.client as any).isParticipantAdmin(ctx.chatId, ctx.userId);
+        } catch {
+          senderIsAdmin = false;
+        }
+      }
+      if (!senderIsAdmin && !isMaster(ctx.userId)) {
         await ctx.reply('❌ Você precisa ser administrador para usar este comando.');
         return;
       }

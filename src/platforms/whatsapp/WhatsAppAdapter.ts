@@ -665,8 +665,44 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
 
   async getUser(userId: string): Promise<PlatformUser> {
     const cleanUserId = userId.replace(/^wpp:/, '');
-    const contact = await this.innerClient.getContactById(cleanUserId);
-    return this.normalizeUser(contact);
+    try {
+      const contact = await this.innerClient.getContactById(cleanUserId);
+      return this.normalizeUser(contact);
+    } catch {
+      return { id: `wpp:${cleanUserId}`, name: cleanUserId.split('@')[0], isBot: false, platform: 'whatsapp', raw: null } as any;
+    }
+  }
+
+  async getParticipantName(chatId: string, userId: string): Promise<string | null> {
+    const cleanChatId = chatId.replace(/^wpp:/, '');
+    const cleanUserId = userId.replace(/^wpp:/, '').replace('@c.us', '@lid');
+    try {
+      return await this.innerClient.pupPage.evaluate(
+        async (cid: string, cuid: string, tlid: string) => {
+          const c = await (window as any).WWebJS.getChat(cid, { getAsModel: false });
+          const parts = c.groupMetadata?.participants;
+          if (!parts) return null;
+          const find = (key: string) => {
+            if (!key) return null;
+            const match = (p: any) =>
+              (p?.lid?._serialized || p?.lid?.$1 || '') === key
+              || (p?.id?._serialized || p?.id?.$1 || '') === key;
+            if (Array.isArray(parts)) return parts.find(match) || null;
+            if (typeof parts.get === 'function') return parts.get(key) || null;
+            if (typeof parts === 'object') return Object.values(parts).find(match) || null;
+            return null;
+          };
+          const hit = find(cuid) || find(tlid);
+          if (!hit) return null;
+          return hit.notify || hit.name || hit.displayName || (hit.id?._serialized || '').split('@')[0] || null;
+        },
+        cleanChatId,
+        cleanUserId,
+        cleanUserId
+      ) || null;
+    } catch {
+      return null;
+    }
   }
 
   async getChats(): Promise<PlatformChat[]> {
@@ -719,6 +755,38 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     } catch (err: any) {
       console.error(`[WhatsApp] removeParticipant ERRO:`, { msg: err?.message, stack: err?.stack?.split('\n').slice(0,3).join(' | ') });
       throw err;
+    }
+  }
+
+  async isParticipantAdmin(chatId: string, userId: string): Promise<boolean> {
+    const cleanChatId = chatId.replace(/^wpp:|^tg:|^dc:/, '');
+    let cleanUserId = userId.replace(/^wpp:/, '');
+    const targetLid = cleanUserId.replace('@c.us', '@lid');
+    try {
+      return await this.innerClient.pupPage.evaluate(
+        async (cid: string, cuid: string, tlid: string) => {
+          const c = await (window as any).WWebJS.getChat(cid, { getAsModel: false });
+          const parts = c.groupMetadata?.participants;
+          if (!parts) return false;
+          const find = (key: string) => {
+            if (!key) return null;
+            const match = (p: any) =>
+              (p?.lid?._serialized || p?.lid?.$1 || '') === key
+              || (p?.id?._serialized || p?.id?.$1 || '') === key;
+            if (Array.isArray(parts)) return parts.find(match) || null;
+            if (typeof parts.get === 'function') return parts.get(key) || null;
+            if (typeof parts === 'object') return Object.values(parts).find(match) || null;
+            return null;
+          };
+          const hit = find(cuid) || find(tlid);
+          return !!(hit && (hit.isAdmin || hit.isSuperAdmin));
+        },
+        cleanChatId,
+        cleanUserId,
+        targetLid
+      );
+    } catch {
+      return false;
     }
   }
 

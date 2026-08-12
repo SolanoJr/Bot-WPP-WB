@@ -190,7 +190,15 @@ export async function processAutoMod(msg: Message, client: any): Promise<boolean
       return pId === authorClean;
     });
     console.log('[AutoMod] authorPart:', !!authorPart, 'authorPart.isAdmin:', authorPart?.isAdmin, 'authorPart.isSuperAdmin:', authorPart?.isSuperAdmin);
-    if (authorPart?.isAdmin || authorPart?.isSuperAdmin) return false;
+    // Se o getChat nao entregou participants confiaveis, verificar admin no
+    // groupMetadata (autoritativo) antes de decidir se eh admin.
+    let authorIsAdmin = Boolean(authorPart?.isAdmin || authorPart?.isSuperAdmin);
+    if (!authorIsAdmin && typeof (client as any).isParticipantAdmin === 'function') {
+      try {
+        authorIsAdmin = await (client as any).isParticipantAdmin(groupId || msg.from, authorId);
+      } catch { authorIsAdmin = false; }
+    }
+    if (authorIsAdmin) return false;
 
     let shouldBan = false;
     let reason = '';
@@ -234,20 +242,18 @@ export async function processAutoMod(msg: Message, client: any): Promise<boolean
           console.error(`❌ [AutoMod] Erro ao deletar mensagem: ${err.message}`);
         }
         
-        // 2. Banir usuário (remover do grupo) — usar client.removeParticipants direto
-        // (evita chat.removeParticipants que depende de getChatById quebrado em @lid).
+        // 2. Banir usuário (remover do grupo) — usar adapter.removeParticipant
+        // (que resolve o ID real no groupMetadata, evitando "expected at least 1 children").
         try {
-          const cleanGroup = groupId.replace(/^(wpp:|tg:|dc:)/, '');
-          // authorId pode vir como @lid (WhatsApp Web atual). O WWebJS removeParticipants
-          // espera @c.us. Converter @lid -> @c.us.
-          let cleanAuthor = authorId.replace(/^(wpp:|tg:|dc:)/, '');
-          if (cleanAuthor.endsWith('@lid')) {
-            cleanAuthor = cleanAuthor.replace('@lid', '@c.us');
-          }
-          if (typeof (client as any).removeParticipants === 'function') {
+          if (typeof (client as any).removeParticipant === 'function') {
+            await (client as any).removeParticipant(groupId, authorId);
+          } else if (typeof (client as any).removeParticipants === 'function') {
+            const cleanGroup = groupId.replace(/^(wpp:|tg:|dc:)/, '');
+            let cleanAuthor = authorId.replace(/^(wpp:|tg:|dc:)/, '');
+            if (cleanAuthor.endsWith('@lid')) cleanAuthor = cleanAuthor.replace('@lid', '@c.us');
             await (client as any).removeParticipants(cleanGroup, [cleanAuthor]);
           } else if (chat) {
-            await chat.removeParticipants([cleanAuthor]);
+            await chat.removeParticipants([authorId.replace(/^(wpp:|tg:|dc:)/, '')]);
           }
         } catch (err: any) {
           console.error(`❌ [AutoMod] Erro ao remover participante: ${err.message}`);
