@@ -764,7 +764,29 @@ ssh solanojr@100.101.218.16 "cd ~/bot-wpp && pm2 restart bot-wpp"
 
 **Lição:** o `$kick` quebrava em 3 pontos de normalização (isGroup, participants, userId) mais o @lid. O script direto isolou que o WWebJS funcionava; o bug era 100% no normalizeMessage/normalizeChat. Sempre testar o COMANDO completo (não só a remoção crua).
 
+### 28. $kick aborta em "Mencione alguém" (mentions vazio no normalizeMessage) — RESOLVIDO (commit 0f4adbb)
+**Data:** 2026-08-12
+**Sessão:** 60→61
+**Status:** ✅ RESOLVIDO (extractMentions lê multiple fontes + @lid→@c.us)
+
+**Lógica do dono (VERDADE FACTUAL, não palpite):** "Se eu marquei @alberto no $kick, é porque o alberto EXISTE no grupo e é admin. Não tem como marcar @alguém se ela não existe. Se o comando falha, o erro é no CÓDIGO, não na menção (que existe)."
+
+**Causa raiz:** o `normalizeMessage` populava `mentions` SÓ de `msg.mentionedIds` (linha 488). No WhatsApp Web atual (IDs @lid), a menção NÃO vem em `msg.mentionedIds` (vem `undefined`) — ela está em `msg.mentionedJidList` ou `msg._data.mentionedJidList`. Como `msg.mentionedIds` era `undefined`, o `mentions` ficava **vazio**. O `kick.ts` linha 42-55 via `mentioned.length === 0` e abortava com "Mencione alguém ou responda" — NUNCA chegava no `removeParticipant`. A pessoa não saía.
+
+**Por que o self-test de ontem (BUG 27) funcionou mesmo assim?** Porque o bot ENVIOU a msg `$kick @13866030173` com `mentions: [tid]` explícito (via `sendMessage` com option `mentions`), então o `msg.mentionedIds` veio preenchido. Mas quando VOCÊ manda `$kick @alberto` pelo celular, o WWebJS entrega a menção em `mentionedJidList`/`_data.mentionedJidList`, não em `mentionedIds` → vazio → aborta.
+
+**Correção:** novo método `extractMentions(msg)` que lê de TODAS as fontes (`mentionedIds` → `mentionedJidList` → `_data.mentionedJidList`), normaliza `@lid`→`@c.us`, e loga qual fonte pegou. `kick.ts` também converte `@lid`→`@c.us` no alvo.
+
+**Tentativas:**
+1. Chutar que o alvo "não existia" / menção vazia por erro do usuário — REFUTADO pela lógica do dono (menção existe sempre que marcada).
+2. Chutar @lid→@c.us no adapter — NECESSÁRIO mas insuficiente (o `mentions` ni chegava ao adapter, abortava antes).
+3. `extractMentions` multi-fonte — **CORREÇÃO** (popula mentions corretamente do WWebJS moderno).
+
+**Validação pendente (self-test não dá pq conflita sessão):** dono manda `$kick @<não-admin>` no grupo teste → log deve mostrar `extractMentions - fontes: ..._data.mentionedJidList=N [...] ids=["X@c.us"]` e `removeParticipant - SUCESSO`. Se aparecer, resolvido por evidência.
+
+**Lição:** NUNCA assumir que o input do usuário está errado quando ele garante que marcou. O bug era 100% no código (campo de menção errado no WWebJS moderno). A lógica do dono ("se marquei, existe") isolou isso.
+
 ---
 
-**Última Atualização:** 2026-08-11
+**Última Atualização:** 2026-08-12
 **Responsável:** WarriorBlack
