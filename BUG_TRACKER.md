@@ -1,8 +1,19 @@
 # 🐛 Bug Tracker - WarriorBlack Bot
 
-Este documento rastreia bugs, erros e suas soluções para evitar repetição de problemas.
+Este documente rastreia bugs, erros e suas soluções para evitar repetição de problemas.
 
 ---
+
+## BUG 31 (2026-08-12, deploy 85142c1): WPP não conecta após deploy — travado em initialize() sem QR/ready
+- **Sintoma:** `pm2 restart` sobe o processo (PID novo), carrega os 40 comandos (incl. antispam/bemvindo novos),
+  loga "✅ WhatsApp inicializado" e "📊 Plataformas ativas: whatsapp", MAS nunca emite `ready` nem QR.
+  CPU 0.0, TIME travado em ~0:04. Chromium do puppeteer está vivo (PID visível) mas o WA Web não autentica.
+- **Causa provável:** Sessão `.wwebjs_auth_fresh` expirada/dessincronizada (padrão do BUG 26). Não é código:
+  build limpo, 107/107 testes verdes, comandos carregam. É estado de sessão.
+- **Não é regressão das mudanças de AutoMod:** os toggles (antispam/antiestrangeiro/autolink/bemvindo/detectar/remover)
+  foram validados em build+teste; o travamento é no boot do adapter WPP (antes de qualquer comando).
+- **Ação:** Reset de sessão (apagar `.wwebjs_auth_fresh` + restart + escanear QR novo) — PENDENTE aprovação do dono.
+- **Status:** 🔄 Em espera (bot online mas WPP mudo — igual ao BUG 26 pré-reset).
 
 ## 📋 Índice
 
