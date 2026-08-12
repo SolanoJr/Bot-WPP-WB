@@ -685,21 +685,28 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     try {
       const chat = await this.innerClient.getChatById(cleanChatId);
       console.log(`[WhatsApp] removeParticipant - chat obtido: ${chat?.id?._serialized}`);
-      // Achar o participante real no groupMetadata usando tanto @c.us quanto @lid
+      // Achar o participante real no groupMetadata usando tanto @c.us quanto @lid.
+      // O groupMetadata.participants pode ser Map, Array ou objeto plano dependendo
+      // da versao do WhatsApp Web - ser defensivo.
       const targetLid = cleanUserId.replace('@c.us', '@lid');
       const resolvedId = await this.innerClient.pupPage.evaluate(
         async (cid: string, cuid: string, tlid: string) => {
           const c = await (window as any).WWebJS.getChat(cid, { getAsModel: false });
-          const parts = c.groupMetadata.participants;
+          const parts = c.groupMetadata?.participants;
+          const type = parts ? (Array.isArray(parts) ? 'array' : typeof parts) : 'undefined';
+          console.log('[resolveId] groupMetadata.participants type:', type);
           const find = (key: string) => {
-            if (!key) return null;
-            return parts.get(key)
-              || [...parts.values()].find((p: any) =>
-                  (p.lid?._serialized || p.lid?.$1 || '') === key
-                  || (p.id?._serialized || p.id?.$1 || '') === key);
+            if (!key || !parts) return null;
+            const match = (p: any) =>
+              (p?.lid?._serialized || p?.lid?.$1 || '') === key
+              || (p?.id?._serialized || p?.id?.$1 || '') === key;
+            if (Array.isArray(parts)) return parts.find(match) || null;
+            if (typeof parts.get === 'function') return parts.get(key) || null;
+            if (typeof parts === 'object') return Object.values(parts).find(match) || null;
+            return null;
           };
-          return (find(cuid) || find(tlid))?.id?._serialized
-            || (find(cuid) || find(tlid))?.lid?._serialized || null;
+          const hit = find(cuid) || find(tlid);
+          return hit ? (hit.id?._serialized || hit.lid?._serialized || null) : null;
         },
         cleanChatId,
         cleanUserId,
@@ -730,16 +737,21 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       const resolvedId = await this.innerClient.pupPage.evaluate(
         async (cid: string, cuid: string, tlid: string) => {
           const c = await (window as any).WWebJS.getChat(cid, { getAsModel: false });
-          const parts = c.groupMetadata.participants;
+          const parts = c.groupMetadata?.participants;
+          const type = parts ? (Array.isArray(parts) ? 'array' : typeof parts) : 'undefined';
+          console.log('[resolveId] groupMetadata.participants type:', type);
           const find = (key: string) => {
-            if (!key) return null;
-            return parts.get(key)
-              || [...parts.values()].find((p: any) =>
-                  (p.lid?._serialized || p.lid?.$1 || '') === key
-                  || (p.id?._serialized || p.id?.$1 || '') === key);
+            if (!key || !parts) return null;
+            const match = (p: any) =>
+              (p?.lid?._serialized || p?.lid?.$1 || '') === key
+              || (p?.id?._serialized || p?.id?.$1 || '') === key;
+            if (Array.isArray(parts)) return parts.find(match) || null;
+            if (typeof parts.get === 'function') return parts.get(key) || null;
+            if (typeof parts === 'object') return Object.values(parts).find(match) || null;
+            return null;
           };
-          return (find(cuid) || find(tlid))?.id?._serialized
-            || (find(cuid) || find(tlid))?.lid?._serialized || null;
+          const hit = find(cuid) || find(tlid);
+          return hit ? (hit.id?._serialized || hit.lid?._serialized || null) : null;
         },
         cleanChatId,
         cleanUserId,
