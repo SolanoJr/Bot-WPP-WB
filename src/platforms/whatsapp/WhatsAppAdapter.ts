@@ -159,28 +159,6 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         console.log('[WhatsApp] ⚠️ WPP_TEST_GROUP_ID nao definido - pulando msg de prova no grupo teste');
       }
       
-      // SELF-TEST do $kick (apenas se WPP_KICK_SELFTEST=1). O bot envia um
-      // $kick @<nao-admin> no grupo teste; o message_create (sem filtro fromMe)
-      // processa e testa o fluxo real do comando.
-      if (process.env.WPP_KICK_SELFTEST === '1' && alvoTeste) {
-        setTimeout(async () => {
-          try {
-            const grp = await this.innerClient.getChatById(alvoTeste);
-            const me = this.innerClient.info.wid._serialized;
-            const target = (grp.participants || []).find(p => (p.id._serialized||p.id) !== me && !p.isAdmin && !p.isSuperAdmin);
-            if (target) {
-              const tid = target.id._serialized || target.id;
-              console.log('[SELFTEST] enviando $kick para', tid);
-              await this.innerClient.sendMessage(alvoTeste, '$kick @' + tid.split('@')[0], { mentions: [tid] });
-            } else {
-              console.log('[SELFTEST] nenhum nao-admin para kick');
-            }
-          } catch (e: any) {
-            console.error('[SELFTEST] erro:', e?.message);
-          }
-        }, 3000);
-      }
-      
       if (this.readyHandler) this.readyHandler();
     });
 
@@ -696,22 +674,24 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       cleanUserId = cleanUserId.replace('@lid', '@c.us');
     }
     console.log(`[WhatsApp] banParticipant - chatId: ${cleanChatId} userId: ${cleanUserId}`);
+    // 1. Remover do grupo (essencial)
     try {
       const chat = await this.innerClient.getChatById(cleanChatId);
       await (chat as any).removeParticipants([cleanUserId]);
-      console.log(`[WhatsApp] banParticipant - SUCESSO para ${cleanUserId}`);
+      console.log(`[WhatsApp] banParticipant - SUCESSO remoção para ${cleanUserId}`);
     } catch (err: any) {
-      console.error(`[WhatsApp] banParticipant ERRO:`, { msg: err?.message, stack: err?.stack?.split('\n').slice(0,3).join(' | ') });
+      console.error(`[WhatsApp] banParticipant ERRO removeParticipants:`, { msg: err?.message });
       throw err;
     }
-    // Tenta bloquear o contato (best-effort) para evitar reentrada.
+    // 2. Bloquear contato (best-effort, NUNCA deve quebrar o $ban)
     try {
       const contact = await this.innerClient.getContactById(cleanUserId);
       if (contact && typeof (contact as any).block === 'function') {
         await (contact as any).block();
+        console.log(`[WhatsApp] banParticipant - contato bloqueado ${cleanUserId}`);
       }
-    } catch (blockError) {
-      console.warn(`[WhatsApp] banParticipant: falha ao bloquear contato ${cleanUserId}:`, blockError);
+    } catch (blockError: any) {
+      console.warn(`[WhatsApp] banParticipant: falha ao bloquear ${cleanUserId} (ignorado):`, blockError?.message);
     }
   }
 
