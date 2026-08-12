@@ -320,6 +320,28 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         console.error('[WhatsApp] Erro stack:', err.stack);
       }
 
+      // Verificar se algum membro está BANIDO (persistência) e remover automaticamente
+      try {
+        const { isUserBanned } = await import('../../services/databaseService');
+        for (const memberId of newMembers) {
+          const cleanMember = memberId.replace('@lid', '@c.us');
+          const banned = await isUserBanned(cleanMember, groupId);
+          if (banned) {
+            console.log(`[handleMemberJoin] ${memberId} está BANIDO - removendo automaticamente`);
+            try {
+              await this.removeParticipant(groupId, memberId);
+              await this.innerClient.sendMessage(groupId, `🚫 @${memberId.split('@')[0]} foi banido anteriormente e não pode entrar neste grupo.`, {
+                mentions: [memberId]
+              }).catch(() => {});
+            } catch (rmErr: any) {
+              console.error('[handleMemberJoin] Falha ao remover banido que entrou:', rmErr?.message);
+            }
+          }
+        }
+      } catch (err: any) {
+        console.error('[WhatsApp] Erro ao verificar banidos na entrada:', err.message);
+      }
+
       // Importar função para obter mensagem personalizada
       const { getWelcomeMessage } = await import('../../bot/commands/welcome');
       const customMessage = getWelcomeMessage(groupId);
@@ -675,7 +697,15 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
 
   async getParticipantName(chatId: string, userId: string): Promise<string | null> {
     const cleanChatId = chatId.replace(/^wpp:/, '');
-    const cleanUserId = userId.replace(/^wpp:/, '').replace('@c.us', '@lid');
+    const cleanUserId = userId.replace(/^wpp:/, '').replace('@lid', '@c.us');
+    // 1. Tentar contato (pushname real, mais confiavel)
+    try {
+      const contact = await this.innerClient.getContactById(cleanUserId);
+      const name = (contact as any)?.pushname || (contact as any)?.name;
+      if (name) return name;
+    } catch { /* ignora */ }
+    // 2. Fallback: groupMetadata (notify/name/displayName)
+    const cleanLid = userId.replace(/^wpp:/, '').replace('@c.us', '@lid');
     try {
       return await this.innerClient.pupPage.evaluate(
         async (cid: string, cuid: string, tlid: string) => {
@@ -698,7 +728,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         },
         cleanChatId,
         cleanUserId,
-        cleanUserId
+        cleanLid
       ) || null;
     } catch {
       return null;

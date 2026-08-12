@@ -82,6 +82,19 @@ export const banCommand: ICommand = {
 
       await ctx.client.banParticipant(ctx.chatId, userToBan);
 
+      // Salvar no banco de banidos (persistência - impede re-entrada)
+      try {
+        const { banUser } = await import('../../services/databaseService');
+        await banUser({
+          groupId: ctx.chatId,
+          userId: userToBan,
+          bannedBy: ctx.userId,
+          reason: 'Banido por comando'
+        });
+      } catch (dbErr) {
+        console.warn('[ban] Falha ao salvar banido no DB (não crítico):', dbErr);
+      }
+
       await ctx.reply(
         `✅ Usuário banido com sucesso!\n` +
         `🗑️ ${deletedCount > 0 ? 'Última mensagem apagada' : 'Nenhuma mensagem encontrada'}\n` +
