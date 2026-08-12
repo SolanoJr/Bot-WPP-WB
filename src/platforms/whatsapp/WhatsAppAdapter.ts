@@ -677,17 +677,38 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
   async removeParticipant(chatId: string, userId: string): Promise<void> {
     const cleanChatId = chatId.replace(/^wpp:/, '');
     let cleanUserId = userId.replace(/^wpp:/, '');
-    // O alvo pode vir como @lid (menção do WhatsApp Web atual). O WWebJS
-    // removeParticipants espera @c.us. Converter @lid -> @c.us.
-    if (cleanUserId.endsWith('@lid')) {
-      cleanUserId = cleanUserId.replace('@lid', '@c.us');
-    }
+    // O alvo pode vir como @lid ou @c.us. O WWebJS removeParticipants chama
+    // enforceLidAndPnRetrieval e, se nao resolver, o participants vem VAZIO ->
+    // erro "expected at least 1 children, but found 0". Para evitar, resolvemos
+    // o ID real do participante no groupMetadata (que pode ser @lid ou @c.us).
     console.log(`[WhatsApp] removeParticipant - chatId: ${cleanChatId} userId: ${cleanUserId}`);
     try {
       const chat = await this.innerClient.getChatById(cleanChatId);
       console.log(`[WhatsApp] removeParticipant - chat obtido: ${chat?.id?._serialized}`);
-      await (chat as any).removeParticipants([cleanUserId]);
-      console.log(`[WhatsApp] removeParticipant - SUCESSO para ${cleanUserId}`);
+      // Achar o participante real no groupMetadata usando tanto @c.us quanto @lid
+      const targetLid = cleanUserId.replace('@c.us', '@lid');
+      const resolvedId = await this.innerClient.pupPage.evaluate(
+        async (cid: string, cuid: string, tlid: string) => {
+          const c = await (window as any).WWebJS.getChat(cid, { getAsModel: false });
+          const parts = c.groupMetadata.participants;
+          const find = (key: string) => {
+            if (!key) return null;
+            return parts.get(key)
+              || [...parts.values()].find((p: any) =>
+                  (p.lid?._serialized || p.lid?.$1 || '') === key
+                  || (p.id?._serialized || p.id?.$1 || '') === key);
+          };
+          return (find(cuid) || find(tlid))?.id?._serialized
+            || (find(cuid) || find(tlid))?.lid?._serialized || null;
+        },
+        cleanChatId,
+        cleanUserId,
+        targetLid
+      );
+      const finalId = resolvedId || cleanUserId;
+      console.log(`[WhatsApp] removeParticipant - ID resolvido no groupMetadata: ${finalId}`);
+      await (chat as any).removeParticipants([finalId]);
+      console.log(`[WhatsApp] removeParticipant - SUCESSO para ${finalId}`);
     } catch (err: any) {
       console.error(`[WhatsApp] removeParticipant ERRO:`, { msg: err?.message, stack: err?.stack?.split('\n').slice(0,3).join(' | ') });
       throw err;
@@ -701,11 +722,33 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       cleanUserId = cleanUserId.replace('@lid', '@c.us');
     }
     console.log(`[WhatsApp] banParticipant - chatId: ${cleanChatId} userId: ${cleanUserId}`);
-    // 1. Remover do grupo (essencial)
+    // 1. Remover do grupo (essencial) — resolver ID real no groupMetadata p/ evitar
+    // "expected at least 1 children" (enforceLidAndPnRetrieval falha com @c.us)
     try {
       const chat = await this.innerClient.getChatById(cleanChatId);
-      await (chat as any).removeParticipants([cleanUserId]);
-      console.log(`[WhatsApp] banParticipant - SUCESSO remoção para ${cleanUserId}`);
+      const targetLid = cleanUserId.replace('@c.us', '@lid');
+      const resolvedId = await this.innerClient.pupPage.evaluate(
+        async (cid: string, cuid: string, tlid: string) => {
+          const c = await (window as any).WWebJS.getChat(cid, { getAsModel: false });
+          const parts = c.groupMetadata.participants;
+          const find = (key: string) => {
+            if (!key) return null;
+            return parts.get(key)
+              || [...parts.values()].find((p: any) =>
+                  (p.lid?._serialized || p.lid?.$1 || '') === key
+                  || (p.id?._serialized || p.id?.$1 || '') === key);
+          };
+          return (find(cuid) || find(tlid))?.id?._serialized
+            || (find(cuid) || find(tlid))?.lid?._serialized || null;
+        },
+        cleanChatId,
+        cleanUserId,
+        targetLid
+      );
+      const finalId = resolvedId || cleanUserId;
+      console.log(`[WhatsApp] banParticipant - ID resolvido no groupMetadata: ${finalId}`);
+      await (chat as any).removeParticipants([finalId]);
+      console.log(`[WhatsApp] banParticipant - SUCESSO remoção para ${finalId}`);
     } catch (err: any) {
       console.error(`[WhatsApp] banParticipant ERRO removeParticipants:`, { msg: err?.message });
       throw err;
