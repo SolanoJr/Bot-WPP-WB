@@ -104,6 +104,7 @@ export interface CommandContext {
   chatId: string;
   userId: string;
   userName: string;
+  groupName?: string;
   isGroup: boolean;
   isMaster: boolean;
   isAdmin: boolean;

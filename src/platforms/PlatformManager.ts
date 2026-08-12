@@ -267,7 +267,7 @@ export class PlatformManager {
     }
 
     // Criar contexto unificado
-    const ctx = this.createCommandContext(message, adapter.client);
+    const ctx = await this.createCommandContext(message, adapter.client);
 
     try {
       console.log(`[PlatformManager] Executando ${message.commandName} em ${adapter.platform} para ${message.userName}`);
@@ -318,7 +318,12 @@ export class PlatformManager {
   /**
    * Cria CommandContext unificado
    */
-  private createCommandContext(message: PlatformMessage, client: PlatformClient): CommandContext {
+  private async createCommandContext(message: PlatformMessage, client: PlatformClient): Promise<CommandContext> {
+    let groupName: string | undefined;
+    try {
+      const chat = await client.getChat(message.chatId);
+      groupName = (chat as any)?.name;
+    } catch { /* ignora */ }
     return {
       msg: message,
       client,
@@ -327,6 +332,7 @@ export class PlatformManager {
       chatId: message.chatId,
       userId: message.userId,
       userName: message.userName,
+      groupName,
       isGroup: message.raw?.isGroup || false,
       isMaster: false, // Será preenchido pelo requirePermission
       isAdmin: false,

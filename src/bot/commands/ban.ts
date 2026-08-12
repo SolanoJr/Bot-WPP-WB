@@ -98,7 +98,8 @@ export const banCommand: ICommand = {
       await ctx.reply(
         `✅ Usuário banido com sucesso!\n` +
         `🗑️ ${deletedCount > 0 ? 'Última mensagem apagada' : 'Nenhuma mensagem encontrada'}\n` +
-        `🚫 Contato bloqueado`
+        `🚫 Contato bloqueado` +
+        (ctx.groupName ? `\n🏢 Grupo: ${ctx.groupName}` : '')
       );
     } catch (error: any) {
       console.error('[ban] Erro:', error);

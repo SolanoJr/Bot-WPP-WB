@@ -78,7 +78,8 @@ export const kickCommand: ICommand = {
         const nm = await (ctx.client as any).getParticipantName?.(ctx.chatId, targetId);
         if (nm) removedName = nm;
       } catch { /* ignora */ }
-      await ctx.reply(`✅ ${removedName} foi removido do grupo.`, {
+      const grp = ctx.groupName ? ` (${ctx.groupName})` : '';
+      await ctx.reply(`✅ ${removedName} foi removido do grupo${grp}.`, {
         // Telegram/Discord interpretam mentions via parseMode; no WhatsApp usamos o ID bruto
         ...(ctx.platform === 'whatsapp' ? { mentions: [targetId] } : {}),
       } as any);
