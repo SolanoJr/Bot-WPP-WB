@@ -813,3 +813,29 @@ ssh solanojr@100.101.218.16 "cd ~/bot-wpp && pm2 restart bot-wpp"
 
 **Última Atualização:** 2026-08-12
 **Responsável:** WarriorBlack
+
+---
+
+### 30. Banco de banidos (persistência + auto-remoção de quem entra) — IMPLEMENTADO (commit 6d764fd)
+**Data:** 2026-08-12
+**Sessão:** 61
+**Status:** ✅ IMPLEMENTADO (deploy 12:36; aguardando teste de $ban + re-entrada)
+
+**Pergunta do dono:** "existe algum banco de dados salvando o numero dos banidos daquele grupo pra n entrarem mais?"
+
+**Resposta anterior (errada):** NÃO existia. O `$ban` só removia do grupo + bloqueava contato (efêmero). O `$banidos` tentava ler de um RELAY externo (`bot-wpp-relay.onrender.com/bans`) que NÃO existe no código (`src/relay/` não tem rota `/bans`). Ou seja: banido podia re-entrar tranquilo.
+
+**Implementação (commit 6d764fd):**
+1. `databaseService.ts`: tabela `banned_users(group_id, user_id, banned_by, reason, banned_at, UNIQUE(group_id,user_id))` + funções `banUser()`, `isUserBanned()`, `listBanned()`.
+2. `ban.ts`: após `banParticipant`, chama `banUser()` (salva no SQLite).
+3. `banidos.ts`: REESCRITO para ler do SQLite local (`listBanned`) em vez do relay inexistente.
+4. `WhatsAppAdapter.handleMemberJoin`: ao entrar membro, verifica `isUserBanned(groupId)` e, se banido, remove automaticamente + avisa o grupo.
+
+**Validação pendente:** dono manda `$ban @<alguém>` no grupo teste → deve salvar no DB e o `$banidos` (master) deve listar. Depois, se a pessoa entrar de novo, o `group_join` deve removê-la automaticamente.
+
+**Lição:** antes de assumir que "existe banco de banidos", ver o código. O `$banidos` apontava pra um relay fantasma. Agora a persistência é local (SQLite), coerente com o resto do bot.
+
+---
+
+**Última Atualização:** 2026-08-12
+**Responsável:** WarriorBlack
