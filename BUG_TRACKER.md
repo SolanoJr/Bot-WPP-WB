@@ -782,9 +782,15 @@ ssh solanojr@100.101.218.16 "cd ~/bot-wpp && pm2 restart bot-wpp"
 2. Chutar @lid→@c.us no adapter — NECESSÁRIO mas insuficiente (o `mentions` ni chegava ao adapter, abortava antes).
 3. `extractMentions` multi-fonte — **CORREÇÃO** (popula mentions corretamente do WWebJS moderno).
 
-**Validação pendente (self-test não dá pq conflita sessão):** dono manda `$kick @<não-admin>` no grupo teste → log deve mostrar `extractMentions - fontes: ..._data.mentionedJidList=N [...] ids=["X@c.us"]` e `removeParticipant - SUCESSO`. Se aparecer, resolvido por evidência.
+**CORREÇÃO DE ANÁLISE (11:37):** o agente ERROU ao afirmar que o $kick funcionava. O log mostra que TODAS as tentativas de VOCÊS (09:31, 09:54, 11:24 — SolanoJr/alberto/caio, todos adm marcando alvo) deram: `removeParticipant - chat obtido` + **`❌ Falha ao executar remoção: expected at least 1 children, but found 0`**. NENHUMA de vocês removeu ninguém. Os `SUCESSO` de 17:36/17:38/18:02/18:07 eram SELF-TEST do bot (Chromium fresco do script), não de vocês.
 
-**Lição:** NUNCA assumir que o input do usuário está errado quando ele garante que marcou. O bug era 100% no código (campo de menção errado no WWebJS moderno). A lógica do dono ("se marquei, existe") isolou isso.
+**Causa raiz REAL (lida no código WWebJS GroupChat.js:267-298):** `chat.removeParticipants` chama `window.WWebJS.enforceLidAndPnRetrieval(p)` para cada ID. Se não resolver lid/phone, o `participants` filtrado fica VAZIO → `removeParticipants(chat, [])` → WhatsApp Web abre modal de remoção com 0 filhos → erro `expected at least 1 children, but found 0`. Passar `@c.us` (ex: `251964977872908@c.us`) NÃO era resolvido pelo `enforceLidAndPnRetrieval` no grupo (que usa `@lid` como chave no `groupMetadata`). Por isso MEUS self-tests (que passavam `@c.us` que o `enforceLidAndPnRetrieval` às vezes resolvia) funcionavam intermitentemente, e os de vocês não.
+
+**Correção (commit 3982818):** `removeParticipant`/`banParticipant` agora resolvem o ID REAL do participante no `groupMetadata` via `pupPage.evaluate` (buscando por `@c.us` E `@lid` no `groupMetadata.participants`), e passam esse ID resolvido ao `chat.removeParticipants`. Assim o `enforceLidAndPnRetrieval` recebe um ID que o grupo reconhece e não vem vazio.
+
+**Validação pendente:** dono (ou alberto/caio) manda `$kick @<não-admin>` no grupo teste → log deve mostrar `ID resolvido no groupMetadata: X@...` + `removeParticipant - SUCESSO` + sem `expected at least 1 children`. Se aparecer, resolvido por evidência.
+
+**Lição (do dono):** "NUNCA diga que funciona se não viu o SUCESSO real no log." O agente viu `removeParticipant - chatId` e assumiu remoção; o erro `expected at least 1 children` estava 2 linhas abaixo. Sempre ler o log COMPLETO (antes E depois da chamada).
 
 ---
 
