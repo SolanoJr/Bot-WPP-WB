@@ -788,9 +788,26 @@ ssh solanojr@100.101.218.16 "cd ~/bot-wpp && pm2 restart bot-wpp"
 
 **Correção (commit 3982818):** `removeParticipant`/`banParticipant` agora resolvem o ID REAL do participante no `groupMetadata` via `pupPage.evaluate` (buscando por `@c.us` E `@lid` no `groupMetadata.participants`), e passam esse ID resolvido ao `chat.removeParticipants`. Assim o `enforceLidAndPnRetrieval` recebe um ID que o grupo reconhece e não vem vazio.
 
-**Validação pendente:** dono (ou alberto/caio) manda `$kick @<não-admin>` no grupo teste → log deve mostrar `ID resolvido no groupMetadata: X@...` + `removeParticipant - SUCESSO` + sem `expected at least 1 children`. Se aparecer, resolvido por evidência.
+**Validação (11:43:58):** dono mandou `$kick @188558375710755` → log `removeParticipant - ID resolvido no groupMetadata: 188558375710755@lid` + `removeParticipant - SUCESSO para 188558375710755@lid` → **REMOVIDO DE VERDADE**. A correção do `groupMetadata` resolveu o `expected at least 1 children`.
 
-**Lição (do dono):** "NUNCA diga que funciona se não viu o SUCESSO real no log." O agente viu `removeParticipant - chatId` e assumiu remoção; o erro `expected at least 1 children` estava 2 linhas abaixo. Sempre ler o log COMPLETO (antes E depois da chamada).
+### 29. $kick só funciona para o DONO (outra pessoa barrada por "sem permissão") — RESOLVIDO (commit d5e311d)
+**Data:** 2026-08-12
+**Sessão:** 61
+**Status:** 🔄 Em validação (deploy 11:55; aguardando teste de outra pessoa)
+
+**Sintoma (CONFIRMADO POR LOG):** após o $kick passar a remover (BUG 28), o dono relatou "agora só eu e você conseguimos". O log de 11:38:34 mostra Jannyfer.Florentino mandando `$kick @251964977872908` e o bot respondendo `❌ Você não tem permissão para usar este comando.` Ela É admin (confirmado pelo dono: "todos são adm"), mas foi barrada.
+
+**Causa raiz:** o `kick.ts`/`ban.ts` verificam `isSenderAdmin = Boolean(senderPart?.isAdmin)` onde `senderPart` vem do `getChat().participants` (normalizeChat). Quando o `getChatById` retorna fallback vazio (participants=[]), `senderPart` é undefined → `isSenderAdmin=false`. O dono passa porque é `isMaster` (não depende de `senderPart`); OUTRA PESSOA (não master) é barrada injustamente por "sem permissão".
+
+**Correção (commit d5e311d):**
+1. Novo método `isParticipantAdmin(chatId, userId)` no adapter: usa `pupPage.evaluate` no `groupMetadata` (autoritativo, igual ao resolveId) para verificar se o sender é admin.
+2. `kick.ts`/`ban.ts`: se `senderPart` do getChat não confirma admin, chamam `isParticipantAdmin` antes de barrar.
+3. `getParticipantName(chatId, userId)` no adapter: captura o NOME de quem foi removido (notify/name do groupMetadata) → resposta mostra o nome real.
+4. `autoModService` (autokick): mesmo fix — verifica admin via `isParticipantAdmin` e usa `client.removeParticipant` (adapter, com correção @lid) em vez de `client.removeParticipants` cru (que dava `expected at least 1 children`).
+
+**Validação pendente:** alberto/caio/jannyfer mandam `$kick @<não-admin>` no grupo teste → log deve mostrar `isParticipantAdmin: true` (sem "Você não tem permissão") + `SUCESSO` + resposta com NOME. Se aparecer, resolvido por evidência.
+
+**Lição:** o portão de permissão dependia de `getChat().participants` (frágil em @lid). Sempre validar admin no `groupMetadata` (fonte autoritativa do WhatsApp Web), não no `normalizeChat` convertido.
 
 ---
 
