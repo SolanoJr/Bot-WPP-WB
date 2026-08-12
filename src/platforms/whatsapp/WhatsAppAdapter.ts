@@ -32,6 +32,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
   private disconnectedHandler: ((reason: string) => void) | null = null;
   private isManuallyDestroyed = false;
   private _processedMsgIds = new Set<string>();
+  private readyTimeout: ReturnType<typeof setTimeout> | null = null;
   public userId = '';
   public userName = '';
   public isReady = false;
@@ -96,12 +97,28 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     this.setupEventHandlers();
     this.registerMessageHandlers();
     this.innerClient.initialize();
+
+    // ⏱️ TIMEOUT DE DIAGNÓSTICO: se o WA Web não emitir 'ready' em 90s,
+    // a sessão está expirada/dessincronizada (padrão BUG 26). Loga erro CLARO
+    // em vez de travar em silêncio (CPU 0, sem QR, sem ready).
+    if (this.readyTimeout) clearTimeout(this.readyTimeout);
+    this.readyTimeout = setTimeout(() => {
+      if (!this.isReady) {
+        console.error('────────────────────────────────────────────────────────');
+        console.error('⚠️ [DIAG] WA Web NÃO autenticou em 90s. Bot está OFFLINE (mudo).');
+        console.error('⚠️ [DIAG] Causa provável: sessão .wwebjs_auth expirada/dessincronizada.');
+        console.error('⚠️ [DIAG] Correção: rm -rf .wwebjs_auth*  +  pm2 restart bot-wpp  + escanear QR novo.');
+        console.error('⚠️ [DIAG] (Se um QR apareceu no log, apenas escaneie — não precisa limpar.)');
+        console.error('────────────────────────────────────────────────────────');
+      }
+    }, 90000);
   }
 
 
   private setupEventHandlers(): void {
     this.innerClient.on('qr', (qr: string) => {
       console.log('[WhatsApp] 🔑 QR Code recebido — ESCANEIE com seu WhatsApp (App > Dispositivos conectados):');
+      console.log('[WhatsApp] ⚠️ Bot AINDA NÃO está online. Ele só fica online após escanear o QR ou restaurar a sessão.');
       qrcode.generate(qr, { small: true });
       console.log('[WhatsApp] (Se não precisar escanear, a sessão foi restaurada do cache LocalAuth.)');
     });
@@ -131,6 +148,8 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     this.innerClient.on('group_update', () => console.log(`[DIAG] group_update disparou`));
 
     this.innerClient.on('ready', () => {
+      // Cancela o timeout de diagnóstico (conexão realmente estabelecida)
+      if (this.readyTimeout) { clearTimeout(this.readyTimeout); this.readyTimeout = null; }
       this.isReady = true;
       this.userId = this.innerClient.info?.wid._serialized || '';
       this.userName = this.innerClient.info?.pushname || 'Bot-WPP';
