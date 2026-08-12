@@ -5,15 +5,34 @@ Este documente rastreia bugs, erros e suas soluções para evitar repetição de
 ---
 
 ## BUG 31 (2026-08-12, deploy 85142c1): WPP não conecta após deploy — travado em initialize() sem QR/ready
-- **Sintoma:** `pm2 restart` sobe o processo (PID novo), carrega os 40 comandos (incl. antispam/bemvindo novos),
-  loga "✅ WhatsApp inicializado" e "📊 Plataformas ativas: whatsapp", MAS nunca emite `ready` nem QR.
-  CPU 0.0, TIME travado em ~0:04. Chromium do puppeteer está vivo (PID visível) mas o WA Web não autentica.
-- **Causa provável:** Sessão `.wwebjs_auth_fresh` expirada/dessincronizada (padrão do BUG 26). Não é código:
-  build limpo, 107/107 testes verdes, comandos carregam. É estado de sessão.
-- **Não é regressão das mudanças de AutoMod:** os toggles (antispam/antiestrangeiro/autolink/bemvindo/detectar/remover)
-  foram validados em build+teste; o travamento é no boot do adapter WPP (antes de qualquer comando).
-- **Ação:** Reset de sessão (apagar `.wwebjs_auth_fresh` + restart + escanear QR novo) — PENDENTE aprovação do dono.
-- **Status:** 🔄 Em espera (bot online mas WPP mudo — igual ao BUG 26 pré-reset).
+- **Sintoma:** `pm2 restart` sobe o processo, carrega os 40 comandos, loga "WhatsApp inicializado" e
+  "Plataformas ativas: whatsapp", MAS nunca emite `ready` nem QR. CPU 0.0, TIME travado. Chromium vivo mas WA Web não carrega.
+- **INVESTIGAÇÃO (com evidência):**
+  - Não é sessão: testado com `WWEBJS_AUTH_DIR=.wwebjs_auth_v2` (sessão 100% nova) → MESMO travamento, sem QR.
+  - Não é rede: `curl https://web.whatsapp.com` → HTTP 200 em 1.1s; Google → 200.
+  - Não é código: build limpo, 107/107 testes verdes, 40 comandos carregam.
+  - **É o Chromium headless do puppeteer congelando**: `node -e puppeteer.launch + goto(google)` TRAVA (80s timeout).
+    Com `--single-process` nem sobe ("WS endpoint URL não aparece").
+  - Indício: pastas `.wwebjs_auth*/.wwebjs_cache` têm arquivos com DONO ROOT (Permission denied no rm/chmod) →
+    Chromium rodou como root antes e deixou cache em estado ruim.
+- **Causa raiz:** Chromium do puppeteer corrompido/incompatível no servidor (cache root-locked). Precisa de sudo p/ limpar.
+- **CORREÇÃO (exige sudo no terminal Linux — Hermes bloqueia pipe de senha):**
+  ```bash
+  cd /home/solanojr/bot-wpp
+  sudo rm -rf .wwebjs_auth .wwebjs_auth2 .wwebjs_auth_v2 .wwebjs_cache
+  sudo rm -rf ~/.cache/puppeteer
+  npx puppeteer browsers install chrome   # reinstala Chromium limpo
+  pm2 restart bot-wpp
+  ```
+  Depois: escanear QR que aparecerá no log (`pm2 logs bot-wpp`).
+- **Status:** 🔄 Bloqueado aguardando sudo do dono (Hermes não tem mecanismo de sudo interativo).
+- **Nota:** timeout de diagnóstico de 90s implementado em WhatsAppAdapter.connect() (commit 038d93b) — agora loga
+  erro claro se não conectar, em vez de travar mudo.
+
+## BUG 32 (2026-08-12): Chromium headless congela ao navegar (causa do BUG 31)
+- Chromium do puppeteer (linux-146) abre mas `page.goto` TRAVA (timeout). curl funciona.
+- Pastas de sessão/cache com dono root (rm/chmod dão Permission denied) indicam Chromium rodou como root antes.
+- Ver BUG 31 para correção (sudo + reinstall chrome).
 
 ## 📋 Índice
 
