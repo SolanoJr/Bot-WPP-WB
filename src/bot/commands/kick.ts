@@ -38,15 +38,15 @@ export const kickCommand: ICommand = {
         return;
       }
 
-      // Identificar alvo: menção ou mensagem respondida
+      // Identificar alvo: menção (@lid ou @c.us) ou mensagem respondida
       const mentioned = ctx.msg.mentions;
       let targetId = '';
 
       if (mentioned && mentioned.length > 0) {
-        targetId = mentioned[0].id;
+        targetId = mentioned[0].id.replace('@lid', '@c.us').replace(/^wpp:/, '');
       } else if (ctx.msg.replyToMessageId && ctx.msg.raw?.quoted) {
         const quoted = ctx.msg.raw.quoted;
-        targetId = quoted.author || quoted.from;
+        targetId = (quoted.author || quoted.from || '').replace('@lid', '@c.us').replace(/^wpp:/, '');
       }
 
       if (!targetId) {

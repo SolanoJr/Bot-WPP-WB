@@ -485,19 +485,38 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       hasMedia: msg.hasMedia,
       mediaType: this.getMediaType(msg),
       replyToMessageId: msg.hasQuotedMsg ? `wpp:${msg.quotedMsg?.id._serialized}` : undefined,
-      mentions: (msg.mentionedIds || []).map((id: string) => ({
-        id: `wpp:${id}`,
-        name: id.split('@')[0],
-        isBot: false,
-        platform: 'whatsapp' as const,
-        raw: { id }
-      }))
+      mentions: this.extractMentions(msg)
     };
 
     // Log de auditoria: confirma a entrega do payload normalizado ao messageHandler.
     // Trata @lid (identificador de privacidade/dispositivo) como conversa privada válida.
     console.log(`[WhatsAppAdapter] Payload normalizado e enviado ao handler: ID=${messageId} Chat=${chatId} User=${userId} Text="${payload.text}" isGroup=${isGroup}`);
     return payload;
+  }
+
+  private extractMentions(msg: any): any[] {
+    // O WhatsApp Web moderno (IDs @lid) pode expor menções em campos diferentes.
+    // Tentar todas as fontes conhecidas para não perder a menção.
+    let ids: string[] = [];
+    if (Array.isArray(msg.mentionedIds) && msg.mentionedIds.length) {
+      ids = msg.mentionedIds;
+    } else if (Array.isArray(msg.mentionedJidList) && msg.mentionedJidList.length) {
+      ids = msg.mentionedJidList;
+    } else if (msg._data && Array.isArray((msg._data as any).mentionedJidList) && (msg._data as any).mentionedJidList.length) {
+      ids = (msg._data as any).mentionedJidList;
+    }
+    console.log(`[WhatsApp] extractMentions - fontes: mentionedIds=${(msg.mentionedIds||[]).length} mentionedJidList=${(msg.mentionedJidList||[]).length} _data.mentionedJidList=${(msg._data?.mentionedJidList||[]).length} -> ids=${JSON.stringify(ids)}`);
+    return ids.map((id: string) => {
+      // Normalizar @lid -> @c.us (WWebJS removeParticipants espera @c.us)
+      const clean = id.replace('@lid', '@c.us');
+      return {
+        id: `wpp:${clean}`,
+        name: clean.split('@')[0],
+        isBot: false,
+        platform: 'whatsapp' as const,
+        raw: { id: clean }
+      };
+    });
   }
 
   private getMediaType(msg: Message): PlatformMessage['mediaType'] {
