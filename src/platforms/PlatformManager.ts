@@ -248,26 +248,6 @@ export class PlatformManager {
       return;
     }
 
-    // Verificar se comando está HABILITADO no grupo (persistido em SQLite).
-    // Em grupos novos, comandos começam DESLIGADOS (exceto os de gestão).
-    // Em chat privado (DM), comandos ficam habilitados.
-    const isGroupChat = message.chatId.endsWith('@g.us');
-    if (isGroupChat) {
-      try {
-        const { isCommandEnabledDB } = await import('../services/databaseService');
-        const enabled = await isCommandEnabledDB(message.chatId, message.commandName!);
-        if (!enabled) {
-          // Só informa se quem chamou não for o próprio bot/automated
-          console.log(`[PlatformManager] Comando ${message.commandName} DESATIVADO no grupo ${message.chatId}`);
-          // Não responde para evitar flood; apenas ignora.
-          return;
-        }
-      } catch (dbErr: any) {
-        console.error('[PlatformManager] Erro ao checar habilitação (assumindo off):', dbErr?.message);
-        return;
-      }
-    }
-
     // Verificar permissões
     const hasPermission = await this.checkPermissions(message, command);
     if (!hasPermission) {

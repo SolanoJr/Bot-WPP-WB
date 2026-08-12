@@ -87,16 +87,6 @@ export async function initDatabase() {
     );
   `);
 
-  // Tabela de Configuração de Comandos POR GRUPO (persistência real)
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS command_configs (
-      group_id TEXT,
-      command TEXT,
-      enabled INTEGER DEFAULT 0,
-      PRIMARY KEY (group_id, command)
-    );
-  `);
-
   // Tabela de Configuração de AutoMod POR GRUPO
   await db.exec(`
     CREATE TABLE IF NOT EXISTS group_automod (
@@ -162,45 +152,6 @@ export async function listBanned(limit = 10): Promise<any[]> {
   } catch (e: any) {
     console.error('[DB] Falha ao listar banidos:', e?.message);
     return [];
-  }
-}
-
-/**
- * Comandos que SEMPRE ficam ligados por padrão (gestão/navegação, sem risco).
- * O resto começa DESLIGADO em grupos novos.
- */
-const ALWAYS_ON_COMMANDS = new Set(['cmd', 'menu', 'help', 'banidos', 'ondeestou', 'info', 'alive']);
-
-/**
- * Verifica se um comando está habilitado num grupo (persistido em SQLite).
- * Default: OFF para comandos normais; ON para comandos de gestão (ALWAYS_ON_COMMANDS).
- */
-export async function isCommandEnabledDB(groupId: string, command: string): Promise<boolean> {
-  if (ALWAYS_ON_COMMANDS.has(command)) return true;
-  try {
-    const db = await getDb();
-    const row = await db.get(`SELECT enabled FROM command_configs WHERE group_id = ? AND command = ?`, groupId, command);
-    if (!row) return false; // não configurado = desligado
-    return !!row.enabled;
-  } catch (e: any) {
-    console.error('[DB] Falha ao checar comando habilitado:', e?.message);
-    return ALWAYS_ON_COMMANDS.has(command);
-  }
-}
-
-/**
- * Define se um comando está habilitado num grupo (persistido).
- */
-export async function setCommandEnabledDB(groupId: string, command: string, enabled: boolean): Promise<void> {
-  try {
-    const db = await getDb();
-    await db.run(
-      `INSERT INTO command_configs (group_id, command, enabled) VALUES (?, ?, ?)
-       ON CONFLICT(group_id, command) DO UPDATE SET enabled = excluded.enabled`,
-      groupId, command, enabled ? 1 : 0
-    );
-  } catch (e: any) {
-    console.error('[DB] Falha ao salvar config de comando:', e?.message);
   }
 }
 

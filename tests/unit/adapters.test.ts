@@ -139,24 +139,24 @@ describe('CommandConfigService', () => {
     service = new CommandConfigService();
   });
 
-  it('retorna false por padrão para comando não configurado (começa desligado)', async () => {
-    expect(await service.isEnabled('grupo1', 'ping')).toBe(false);
+  it('retorna true por padrão para comando não configurado', async () => {
+    expect(await service.isEnabled('grupo1', 'ping')).toBe(true);
   });
 
   it('desabilita e reabilita comando por grupo', async () => {
-    await service.setEnabled('grupo1', 'ban', true);
-    expect(await service.isEnabled('grupo1', 'ban')).toBe(true);
-
     await service.setEnabled('grupo1', 'ban', false);
     expect(await service.isEnabled('grupo1', 'ban')).toBe(false);
+
+    await service.setEnabled('grupo1', 'ban', true);
+    expect(await service.isEnabled('grupo1', 'ban')).toBe(true);
   });
 
   it('configuração de um grupo não afeta outro grupo', async () => {
     await service.setEnabled('grupo1', 'ban', false);
-    expect(await service.isEnabled('grupo2', 'ban')).toBe(false);
+    expect(await service.isEnabled('grupo2', 'ban')).toBe(true);
   });
 
-  it('desabilitar comando retorna false ao tentar executar', async () => {
+  it('desabilitar comando retorna mensagem de aviso ao tentar executar', async () => {
     await service.setEnabled('grupo1', 'ban', false);
     const enabled = await service.isEnabled('grupo1', 'ban');
     expect(enabled).toBe(false);
