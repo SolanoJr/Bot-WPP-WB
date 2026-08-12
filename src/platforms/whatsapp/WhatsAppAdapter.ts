@@ -109,20 +109,21 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     this.registerMessageHandlers();
     this.innerClient.initialize();
 
-    // ⏱️ TIMEOUT DE DIAGNÓSTICO: se o WA Web não emitir 'ready' em 90s,
-    // o Chromium headless não conseguiu renderizar a tela de QR (ex: falta WebGL).
-    // Loga erro CLARO em vez de travar em silêncio (CPU 0, sem QR, sem ready).
+    // ⏱️ TIMEOUT DE DIAGNÓSTICO: se o WA Web não emitir 'ready' em 240s,
+    // algo está errado (Chromium travado, sessão corrompida). Com swiftshader
+    // o QR demora ~90s pra aparecer, então 90s era falso-positivo (BUG 33).
+    // 240s dá margem: o bot autentica normalmente antes disso.
     if (this.readyTimeout) clearTimeout(this.readyTimeout);
     this.readyTimeout = setTimeout(() => {
       if (!this.isReady) {
         console.error('────────────────────────────────────────────────────────');
-        console.error('⚠️ [DIAG] WA Web NÃO autenticou em 90s. Bot está OFFLINE (mudo).');
-        console.error('⚠️ [DIAG] Causa provável: Chromium headless sem WebGL travou no splashscreen');
-        console.error('⚠️ [DIAG] (BUG 33). Correção: flags --use-gl=swiftshader + user-agent real no');
-        console.error('⚠️ [DIAG] WhatsAppAdapter.connect(). Se continuar, verifique o log por "QR Code".');
+        console.error('⚠️ [DIAG] WA Web NÃO autenticou em 240s. Verifique o log:');
+        console.error('⚠️ [DIAG] - Se apareceu "QR Code recebido", apenas ESCANEIE o QR.');
+        console.error('⚠️ [DIAG] - Se NÃO apareceu QR, o Chromium pode estar travado (swiftshader).');
+        console.error('⚠️ [DIAG] Correção: rm -rf .wwebjs_auth* + pm2 restart + escanear QR novo.');
         console.error('────────────────────────────────────────────────────────');
       }
-    }, 90000);
+    }, 240000);
   }
 
 
