@@ -867,5 +867,35 @@ ssh solanojr@100.101.218.16 "cd ~/bot-wpp && pm2 restart bot-wpp"
 
 ---
 
+## BUG 33 (2026-08-12): WPP não conectava — Chromium travava no splashscreen do WA Web (sem WebGL) + lixo de log
+
+- **Sintoma:** Bot sobe, carrega 49 comandos, para em "Plataformas ativas: whatsapp", sem QR, sem `ready`, sem erro. CPU 0.
+- **Causa raiz (3 fatores):** 
+  1. **Chromium headless sem WebGL travava no splashscreen do WhatsApp Web** (WA Web moderno exige WebGL para renderizar a tela de QR). Sem `--use-gl=swiftshader`, o Chromium abria mas a página nunca saía do splashscreen → não emitia o evento `qr`.
+  2. **`user-agent` de headless detectado pelo WA Web** → travava a tela de QR. Corrigido com UA de Chrome real.
+  3. **Pacote `qrcode` ausente no Linux** (sumiu após `npm install`): o handler `qr` chamava `qrcode.generate()` e quebrava ANTES de exibir o QR → bot parecia mudo.
+- **Correções (commit c7c4ce5 / ca5fb7a):**
+  1. `WhatsAppAdapter.connect()`: `puppeteerConfig` com `--use-gl=swiftshader --enable-webgl --ignore-gpu-blocklist` + `executablePath` do Chrome 120 (instalado via `npx puppeteer browsers install chrome@120`).
+  2. `new Client({ ..., userAgent: 'Mozilla/5.0 (X11; Linux x86_64)...Chrome/120.0.6099.109...' })`.
+  3. `npm install qrcode` no Linux (já estava em `package.json` ^1.5.4, mas o lock não o resolvia).
+  4. Timeout de diagnóstico **90s → 240s** (com swiftshader o QR demora ~90s; 90s era falso-positivo que mentia "Bot OFFLINE").
+- **⚠️ ARMADILHA CRÍTICA PARA OUTRAS IAs (e humanos): LOG ERRADO.**
+  - O PM2 escreve o log ATIVO em **`bot-wpp-out-0.log`** (e `-1`, `-2`... conforme rotate), NÃO em `bot-wpp-out.log`.
+  - `bot-wpp-out.log` e `bot-wpp-error.log` na raiz são de **06 de Agosto** (antigos, não refletem o estado atual).
+  - LER `bot-wpp-out.log` dá a impressão de que o bot nunca conecta (porque aquele arquivo parou de ser escrito em Agosto/06).
+  - **Sempre inspecionar `bot-wpp-out-0.log`** (ou `pm2 logs bot-wpp` ao vivo). Exemplo de como o bot está realmente online:
+    ```
+    [2026-08-12 17:41:03] [WhatsApp] ✅ Pronto como WarriorBlack (558581344211@c.us)
+    [2026-08-12 17:41:04] [WhatsApp] ✅ Mensagem de prova ENVIADA para 558581344211@c.us
+    ```
+- **Outros lixos encontrados e removidos nesta revisão (2026-08-12):**
+  - Linux: `core.746733` (398MB) + `core.771601` (108MB) — **core dumps** de crash do bot (11/Ago); `.wwebjs_auth_v2/` (pasta de teste criada na investigação); `package.json`/`package-lock.json` desviados pelo `npm install qrcode` (revertidos via `git checkout`).
+  - Windows: `debug.log` (Chromium crashpad de 2025), pastas de outras IAs (`.amazonq`, `.devin`, `.openclaude`), `src/commands/base/` (vazia), `.wwebjs_auth/` (106MB, root-locked — removido).
+  - **NÃO remover** `src/whatsapp.ts` (legado): ainda é importado por `src/core/bootServices.ts`.
+- **Lição:** não confie no primeiro arquivo de log que aparece. Verifique `ls -la ~/.pm2/logs/` e pegue o `-0.log`. E: Chromium headless + WA Web moderno EXIGE swiftshader + UA real; sem isso, trava silencioso no splashscreen.
+- **Status:** ✅ Resolvido. Bot online e estável (PID renovado a cada `pm2 restart`, autenticando em ~90s com swiftshader).
+
+---
+
 **Última Atualização:** 2026-08-12
 **Responsável:** WarriorBlack

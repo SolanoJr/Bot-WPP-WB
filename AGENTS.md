@@ -71,6 +71,34 @@ Os agentes de IA podem assumir diversos papéis dentro do ciclo de vida do Bot-W
 -   **Perguntar em Caso de Dúvida:** Se houver incerteza sobre a melhor abordagem ou o impacto de uma ação, o agente DEVE perguntar ao usuário humano antes de prosseguir.
 -   **Atualização Contínua:** Agentes devem estar cientes das últimas melhores práticas e tecnologias, e propor atualizações quando apropriado.
 
+## 5. Armadilhas Conhecidas (LEIA ANTES DE DEBUGAR)
+
+### 5.1. LOG DO PM2 — arquivo correto
+- O log **ATIVO** do bot é `~/.pm2/logs/bot-wpp-out-0.log` (e `-1`, `-2` conforme rotate).
+- `bot-wpp-out.log` / `bot-wpp-error.log` na raiz são **antigos (06/Ago)** e NÃO refletem o estado atual.
+- **Nunca** conclua "bot não conecta / não autentica" lendo `bot-wpp-out.log`. Use `bot-wpp-out-0.log` ou `pm2 logs bot-wpp`.
+- Prova de que o bot está online aparece assim no `-0.log`:
+  ```
+  [YYYY-MM-DD HH:MM:SS] [WhatsApp] ✅ Pronto como WarriorBlack (558581344211@c.us)
+  [YYYY-MM-DD HH:MM:SS] [WhatsApp] ✅ Mensagem de prova ENVIADA para 558581344211@c.us
+  ```
+
+### 5.2. Chromium headless + WhatsApp Web moderno
+- O WA Web moderno **exige WebGL** para renderizar a tela de QR. Sem `--use-gl=swiftshader`, o Chromium trava no splashscreen (sem QR, sem erro, CPU 0).
+- Use sempre: `--use-gl=swiftshader --enable-webgl --ignore-gpu-blocklist` + `userAgent` de Chrome real no `puppeteerConfig`/`Client` do `WhatsAppAdapter`.
+- `qrcode` DEVE estar instalado (`npm install qrcode`); sem ele o handler `qr` quebra antes de exibir o QR.
+- Timeout de diagnóstico de "não autenticou" deve ser **≥ 240s** (swiftshader demora ~90s só para gerar o QR; 90s é falso-positivo).
+
+### 5.3. Arquitetura atual (não confundir com a doc legada)
+- **Entry point real do PM2:** `dist/core/multiPlatform.js` (configurado em `ecosystem.config.js`). O sistema multi-plataforma (`PlatformManager` + adapters) É o ativo.
+- `src/whatsapp.ts` (legado) AINDA É importado por `src/core/bootServices.ts` — **não remova**.
+- Detalhes de anti-regressão estrutural: `docs/ARCHITECTURE_FIXES.md` (tratamento `@lid`, despacho `startAll`, AutoMod desacoplado, etc).
+
+### 5.4. Sincronização de ambientes
+- Windows (dev) → GitHub → Linux (PM2). Sempre `git pull` no Linux + `npm run build` + `pm2 restart` após push.
+- O bot Linux está online; **não fazer `pm2 stop`/`restart` em loop** durante investigação — isso gera processos zumbis (Chromium) que saturaram a CPU (load 15) e impediam o QR.
+- Ver BUG_TRACKER.md (útimo: BUG 33) para histórico completo.
+
 ## 4. Política de Atualização do AGENTS.md
 
 Este documento deve ser revisado e atualizado sempre que houver uma mudança significativa nos papéis dos agentes, nas diretrizes de segurança, ou na arquitetura do projeto. As atualizações devem ser propostas pelo Agente de Documentação ou por qualquer outro agente que identifique a necessidade, e aprovadas pelo usuário humano ou por um Agente de Governança (se definido).

@@ -15,12 +15,12 @@ O Bot-WPP é um sistema distribuído projetado para operar como um bot multi-pla
 - **CommandContext**: Contexto unificado para execução de comandos
 - **Entry Point**: `src/core/multiPlatform.ts` (configurado no PM2)
 
-### Estado Atual (CRÍTICO)
-⚠️ **CONFLITO DE SISTEMAS**: O projeto tem dois sistemas em paralelo:
-1. Sistema legado (`src/whatsapp.ts`) - sendo usado atualmente
-2. Sistema multi-plataforma (`src/core/multiPlatform.ts`) - configurado no PM2 mas não está sendo usado corretamente
+### Estado Atual (2026-08-12 — ATUALIZADO)
+✅ **O sistema multi-plataforma (`PlatformManager` + adapters) É o ativo e funciona.** O entry point do PM2 é `dist/core/multiPlatform.js` (ver `ecosystem.config.js`). O `src/whatsapp.ts` (legado) ainda existe mas só é importado por `src/core/bootServices.ts` (código compartilhado) — **não é o entry point ativo**.
 
-**Impacto**: Comandos não funcionam corretamente, verificações de plataforma falham, permissões de admin não são verificadas.
+Comandos são despachados corretamente via `platformManager.startAll()` → `setupAdapterHandlers()` → `onMessage` → `messageHandler`. O bot conecta no WhatsApp (Chromium headless + swiftshader), Telegram e Discord simultaneamente, e responde a comandos (`$menu`, `$kick`, `$automod`, etc). Ver `docs/ARCHITECTURE_FIXES.md` para regras de anti-regressão (tratamento `@lid`, despacho `startAll`, AutoMod desacoplado, estabilidade do Chromium).
+
+> Nota: a seção "Sistema Atual (Legado)" abaixo está retida apenas como histórico; o legado NÃO é mais o sistema ativo.
 
 ## Bugs Críticos Recentes
 
