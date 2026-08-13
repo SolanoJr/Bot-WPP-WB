@@ -202,29 +202,6 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         console.log('[WhatsApp] ⚠️ WPP_TEST_GROUP_ID nao definido - pulando msg de prova no grupo teste');
       }
 
-      // TESTE TEMPORÁRIO (remover após validar comandos pós-fix): bot manda $kick e $ban c/ menção
-      if (alvoTeste) {
-        setTimeout(async () => {
-          try {
-            const grp = await this.innerClient.getChatById(alvoTeste);
-            const me = this.innerClient.info.wid._serialized;
-            const target = (grp.participants || []).find((p: any) => {
-              const pid = (p.id._serialized || p.id).replace('@lid', '@c.us');
-              return pid !== me && !p.isAdmin && !p.isSuperAdmin;
-            });
-            if (target) {
-              const tid = (target.id._serialized || target.id).replace('@lid', '@c.us');
-              await this.sendMessage(alvoTeste, '$kick', { mentions: [tid] } as any);
-              console.log('[TESTE] $kick com menção enviado para', tid);
-              await this.sendMessage(alvoTeste, '$ban', { mentions: [tid] } as any);
-              console.log('[TESTE] $ban com menção enviado para', tid);
-            } else {
-              console.log('[TESTE] nenhum alvo não-admin no grupo teste');
-            }
-          } catch (e: any) { console.error('[TESTE] falha kick/ban:', e?.message); }
-        }, 6000);
-      }
-
       // TELEMETRIA (heartbeat) - opcional via env HEARTBEAT_CHAT e/ou HEARTBEAT_URL.
       const hbChat = process.env.HEARTBEAT_CHAT;
       const hbUrl = process.env.HEARTBEAT_URL;
