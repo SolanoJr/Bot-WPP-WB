@@ -52,8 +52,9 @@ describe('runtime command registry', () => {
     expect(text).toContain('$jogos');
     expect(text).toContain('$pergunta');
     expect(text).not.toContain('!');
-    expect(text).not.toContain('$banidos');
-    expect(text).not.toContain('$grupos');
+    // $banidos e $grupos sao comandos reais e devem aparecer no menu:
+    expect(text).toContain('$banidos');
+    expect(text).toContain('$grupos');
     expect(text).not.toContain('$noticias');
     expect(text).not.toContain('Bat:');
   });
