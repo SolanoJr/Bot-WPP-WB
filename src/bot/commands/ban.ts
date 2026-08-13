@@ -1,6 +1,7 @@
 import { ICommand } from './types';
 import { CommandContext } from '../../platforms/base/PlatformTypes';
 import { cleanId, isMaster } from '../../services/permissions';
+import { groupTag } from './format';
 
 export const banCommand: ICommand = {
   name: 'ban',
@@ -82,6 +83,10 @@ export const banCommand: ICommand = {
 
       await ctx.client.banParticipant(ctx.chatId, userToBan);
 
+      // Nome da pessoa banida (participants do chat: name/pushname; fallback número)
+      const bannedName =
+        (userPart as any)?.name || (userPart as any)?.pushname || userToBanClean;
+
       // Salvar no banco de banidos (persistência - impede re-entrada)
       try {
         const { banUser } = await import('../../services/databaseService');
@@ -96,10 +101,9 @@ export const banCommand: ICommand = {
       }
 
       await ctx.reply(
-        `✅ Usuário banido com sucesso!\n` +
+        `✅ ${bannedName} foi banido com sucesso!${groupTag(ctx)}\n` +
         `🗑️ ${deletedCount > 0 ? 'Última mensagem apagada' : 'Nenhuma mensagem encontrada'}\n` +
-        `🚫 Contato bloqueado` +
-        (ctx.groupName ? `\n🏢 Grupo: ${ctx.groupName}` : '')
+        `🚫 Contato bloqueado`
       );
     } catch (error: any) {
       console.error('[ban] Erro:', error);

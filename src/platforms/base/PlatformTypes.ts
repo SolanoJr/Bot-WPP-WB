@@ -4,7 +4,14 @@
  * Interfaces agnósticas de plataforma para unificar WhatsApp, Telegram e Discord
  */
 
-export type PlatformType = 'whatsapp' | 'telegram' | 'discord';
+export type PlatformType = string;
+// Valores conhecidos: 'whatsapp' | 'telegram' | 'discord'.
+// Para múltiplas contas WhatsApp (multi-número), usamos chaves derivadas:
+//   whatsapp:<phone>  (ex: 'whatsapp:558581344211')
+// O PlatformManager aceita qualquer string como chave de adapter.
+export function wppSessionKey(phone: string): string {
+  return `whatsapp:${phone.replace(/[^0-9]/g, '')}`;
+}
 
 export interface PlatformUser {
   id: string;                    // ID único na plataforma (ex: "5511999999999@c.us" | "123456789" | "123456789012345678")

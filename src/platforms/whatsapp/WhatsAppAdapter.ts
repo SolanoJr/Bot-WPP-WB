@@ -36,8 +36,11 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
   public userId = '';
   public userName = '';
   public isReady = false;
+  /** Diretório de sessão isolado (multi-número). Se omitido, usa WWEBJS_AUTH_DIR ou .wwebjs_auth. */
+  private authDir: string;
 
-  constructor() {
+  constructor(config?: { authDir?: string }) {
+    this.authDir = config?.authDir || process.env.WWEBJS_AUTH_DIR || '.wwebjs_auth';
     this.client = this;
 
     // Encerramento limpo (graceful shutdown)
@@ -64,7 +67,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
    * reconexoes internas do WhatsApp Web que matavam os handlers do client velho.
    */
   private connect(): void {
-    const authPath = path.join(process.cwd(), process.env.WWEBJS_AUTH_DIR || '.wwebjs_auth');
+    const authPath = path.join(process.cwd(), this.authDir);
     if (!fs.existsSync(authPath)) {
       fs.mkdirSync(authPath, { recursive: true });
     }

@@ -176,7 +176,7 @@ export class PlatformManager {
    * Normaliza chat ID com prefixo da plataforma
    */
   private normalizeChatId(chatId: string, platform: PlatformType): string {
-    const prefix = platform === 'whatsapp' ? 'wpp:' : platform === 'telegram' ? 'tg:' : 'dc:';
+    const prefix = platform.startsWith('whatsapp') ? 'wpp:' : platform === 'telegram' ? 'tg:' : 'dc:';
     return chatId.startsWith(prefix) ? chatId : `${prefix}${chatId}`;
   }
 
@@ -184,7 +184,7 @@ export class PlatformManager {
    * Normaliza user ID com prefixo da plataforma
    */
   private normalizeUserId(userId: string, platform: PlatformType): string {
-    const prefix = platform === 'whatsapp' ? 'wpp:' : platform === 'telegram' ? 'tg:' : 'dc:';
+    const prefix = platform.startsWith('whatsapp') ? 'wpp:' : platform === 'telegram' ? 'tg:' : 'dc:';
     return userId.startsWith(prefix) ? userId : `${prefix}${userId}`;
   }
 

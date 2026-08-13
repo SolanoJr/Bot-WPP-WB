@@ -1,6 +1,7 @@
 import { ICommand } from './types';
 import { CommandContext } from '../../platforms/base/PlatformTypes';
 import { cleanId, isMaster } from '../../services/permissions';
+import { groupTag } from './format';
 
 export const kickCommand: ICommand = {
   name: 'kick',
@@ -74,14 +75,14 @@ export const kickCommand: ICommand = {
       }
 
       await ctx.client.removeParticipant(ctx.chatId, targetId);
-      // Capturar o NOME de quem foi removido para confirmar na resposta
-      let removedName = targetClean.split('@')[0];
-      try {
-        const nm = await (ctx.client as any).getParticipantName?.(ctx.chatId, targetId);
-        if (nm) removedName = nm;
-      } catch { /* ignora */ }
-      const grp = ctx.groupName ? ` (${ctx.groupName})` : '';
-      await ctx.reply(`✅ ${removedName} foi removido do grupo${grp}.`, {
+      // Capturar o NOME de quem foi removido para confirmar na resposta.
+      // Fonte: participants do chat (name/pushname) — mais confiável que getParticipantName()
+      // que retorna vazio no WWebJS moderno. Fallback: o número (cleanId).
+      const removedName =
+        (targetPart as any)?.name ||
+        (targetPart as any)?.pushname ||
+        targetClean;
+      await ctx.reply(`✅ ${removedName} foi removido do grupo${groupTag(ctx)}.`, {
         // Telegram/Discord interpretam mentions via parseMode; no WhatsApp usamos o ID bruto
         ...(ctx.platform === 'whatsapp' ? { mentions: [targetId] } : {}),
       } as any);

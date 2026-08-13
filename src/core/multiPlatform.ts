@@ -7,7 +7,7 @@
 
 import dotenv from 'dotenv';
 import { platformManager } from '../platforms/PlatformManager';
-import { WhatsAppAdapter } from '../platforms/whatsapp/WhatsAppAdapter';
+import { registerWhatsAppSessions } from '../services/sessionManager';
 import { TelegramAdapter } from '../platforms/telegram/TelegramAdapter';
 import { DiscordAdapter } from '../platforms/discord/DiscordAdapter';
 import { loadCommands } from '../bot/commands';
@@ -41,10 +41,10 @@ async function initializePlatforms() {
     // Continuar mesmo sem comandos para permitir debug
   }
 
-  // Registrar adapters (WhatsApp sempre ativo; Telegram/Discord se token configurado)
+  // Registrar adapters (WhatsApp: 1 sessão legada OU múltiplas via WPP_SESSIONS;
+  // Telegram/Discord se token configurado)
   try {
-    const whatsappAdapter = new WhatsAppAdapter();
-    platformManager.registerAdapter(whatsappAdapter);
+    registerWhatsAppSessions();
   } catch (error) {
     console.error('❌ Erro ao registrar WhatsApp:', error);
   }
