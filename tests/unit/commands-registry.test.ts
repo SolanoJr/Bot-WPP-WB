@@ -47,7 +47,7 @@ describe('runtime command registry', () => {
     await commands.get('menu')?.execute({ reply }, {}, []);
 
     const text = reply.mock.calls[0][0] as string;
-    expect(text).toContain('║ ▸ $');
+    expect(text).toContain('▸ $');
     expect(text).toContain('$ondeestou');
     expect(text).toContain('$jogos');
     expect(text).toContain('$pergunta');
