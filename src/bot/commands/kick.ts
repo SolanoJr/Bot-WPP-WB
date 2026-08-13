@@ -75,11 +75,15 @@ export const kickCommand: ICommand = {
       }
 
       await ctx.client.removeParticipant(ctx.chatId, targetId);
-      // Capturar o NOME de quem foi removido para confirmar na resposta.
-      // Usa getTargetDisplayName (busca contato real; WWebJS @lid nao traz name no participant).
+      // No WhatsApp, o nome é exibido pelo próprio WA a partir da MENÇÃO
+      // (mesmo padrão do welcome de novato: @numero + mentions).
+      // Em TG/Discord usamos o nome real (getTargetDisplayName).
+      const numero = String(targetId).replace('@c.us', '').replace('@lid', '');
       const removedName = await getTargetDisplayName(ctx.client, targetId, participants);
-      await ctx.reply(`✅ ${removedName} foi removido do grupo${groupTag(ctx)}.`, {
-        // Telegram/Discord interpretam mentions via parseMode; no WhatsApp usamos o ID bruto
+      const texto = ctx.platform === 'whatsapp'
+        ? `✅ @${numero} foi removido do grupo${groupTag(ctx)}.`
+        : `✅ ${removedName || numero} foi removido do grupo${groupTag(ctx)}.`;
+      await ctx.reply(texto, {
         ...(ctx.platform === 'whatsapp' ? { mentions: [targetId] } : {}),
       } as any);
     } catch (error: any) {

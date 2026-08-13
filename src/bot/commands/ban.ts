@@ -99,10 +99,18 @@ export const banCommand: ICommand = {
         console.warn('[ban] Falha ao salvar banido no DB (não crítico):', dbErr);
       }
 
+      const numeroBan = String(userToBan).replace('@c.us', '').replace('@lid', '');
       await ctx.reply(
-        `✅ ${bannedName} foi banido com sucesso!${groupTag(ctx)}\n` +
-        `🗑️ ${deletedCount > 0 ? 'Última mensagem apagada' : 'Nenhuma mensagem encontrada'}\n` +
-        `🚫 Contato bloqueado`
+        ctx.platform === 'whatsapp'
+          ? `✅ @${numeroBan} foi banido com sucesso!${groupTag(ctx)}\n` +
+            `🗑️ ${deletedCount > 0 ? 'Última mensagem apagada' : 'Nenhuma mensagem encontrada'}\n` +
+            `🚫 Contato bloqueado`
+          : `✅ ${bannedName || numeroBan} foi banido com sucesso!${groupTag(ctx)}\n` +
+            `🗑️ ${deletedCount > 0 ? 'Última mensagem apagada' : 'Nenhuma mensagem encontrada'}\n` +
+            `🚫 Contato bloqueado`,
+        {
+          ...(ctx.platform === 'whatsapp' ? { mentions: [userToBan] } : {}),
+        } as any
       );
     } catch (error: any) {
       console.error('[ban] Erro:', error);
