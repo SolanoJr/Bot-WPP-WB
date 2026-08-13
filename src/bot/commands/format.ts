@@ -24,7 +24,7 @@ export function personName(ctx: any, fallbackId?: string): string {
  * Nome de exibição de um alvo (usuário sendo kickado/banido/etc).
  * Prioriza o nome real do contato (getUser), depois participants do chat,
  * e cai no número limpo se nada vier. Resolve o caso WWebJS moderno (@lid)
- * onde participants não trazem name/pushname.
+ * onde participants não trazem name/pushname e getUser pode retornar o número.
  */
 export async function getTargetDisplayName(
   client: any,
@@ -36,9 +36,21 @@ export async function getTargetDisplayName(
   try {
     if (client?.getUser) {
       const u = await client.getUser(targetId);
-      const n = (u as any)?.name || (u as any)?.pushname || (u as any)?.username;
-      if (n && !/^\d+$/.test(String(n).replace('@c.us', '').replace('@lid', ''))) {
-        return String(n);
+      const raw: any = (u as any)?.raw || {};
+      console.log(`[NAMEDEBUG] getUser(${targetId}) -> name=${JSON.stringify((u as any)?.name)} pushname=${JSON.stringify(raw?.pushname)} nameRaw=${JSON.stringify(raw?.name)} shortName=${JSON.stringify(raw?.shortName)}`);
+      const candidates = [
+        (u as any)?.name,
+        (u as any)?.pushname,
+        raw?.pushname,
+        raw?.name,
+        raw?.shortName,
+        raw?.displayName,
+      ];
+      for (const n of candidates) {
+        const s = String(n || '').trim();
+        if (s && !/^\d+$/.test(s.replace('@c.us', '').replace('@lid', '')) && !s.startsWith('+')) {
+          return s;
+        }
       }
     }
   } catch { /* ignore */ }
