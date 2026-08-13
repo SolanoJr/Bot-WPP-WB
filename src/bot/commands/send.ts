@@ -32,7 +32,7 @@ export const sendCommand: ICommand = {
           targets.push(`⚠️ ${platform}: adapter indisponível`);
           continue;
         }
-        await adapter.sendMessage(chatId, `🔗 [ponte ${ctx.platform}] ${text}`);
+        await adapter.client.sendMessage(chatId, `🔗 [ponte ${ctx.platform}] ${text}`);
         targets.push(`✅ ${platform}: ${chatId}`);
       } catch (e: any) {
         targets.push(`❌ ${platform}: ${e?.message || 'erro'}`);
