@@ -698,6 +698,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
           raw: null
         } as PlatformMessage;
       }
+      } // fecha catch (sendErr)
     const duration = Date.now() - startTime;
 
     console.log(`[WhatsAppAdapter.sendMessage] ⏱️ sendMessage demorou ${duration}ms`);
