@@ -37,7 +37,6 @@ export async function getTargetDisplayName(
     if (client?.getUser) {
       const u = await client.getUser(targetId);
       const raw: any = (u as any)?.raw || {};
-      console.log(`[NAMEDEBUG] getUser(${targetId}) -> name=${JSON.stringify((u as any)?.name)} pushname=${JSON.stringify(raw?.pushname)} nameRaw=${JSON.stringify(raw?.name)} shortName=${JSON.stringify(raw?.shortName)}`);
       const candidates = [
         (u as any)?.name,
         (u as any)?.pushname,
