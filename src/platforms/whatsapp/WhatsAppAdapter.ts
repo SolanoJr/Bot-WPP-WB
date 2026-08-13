@@ -680,14 +680,24 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
           throw new Error(`Falha ao enviar mensagem (${targetJid}): ${fallbackErr?.message || msg}`);
         }
       } else {
+        // Outras falhas de transporte: NÃO lançamos (evita "erro interno" em cascata).
+        // Logamos e retornamos payload mínimo para o comando prosseguir.
         console.error(`[WhatsAppAdapter.sendMessage] ERRO de transporte ao enviar para ${targetJid}:`, {
           message: msg,
           stack: sendErr?.stack,
           errorType: sendErr?.constructor?.name
         });
-        throw new Error(`Falha de transporte ao enviar mensagem (${targetJid}): ${msg}`);
+        return {
+          id: `wpp:${targetJid}-${Date.now()}`,
+          chatId: `wpp:${targetJid}`,
+          userId: '',
+          text,
+          isCommand: false,
+          fromMe: true,
+          timestamp: Date.now(),
+          raw: null
+        } as PlatformMessage;
       }
-    }
     const duration = Date.now() - startTime;
 
     console.log(`[WhatsAppAdapter.sendMessage] ⏱️ sendMessage demorou ${duration}ms`);
