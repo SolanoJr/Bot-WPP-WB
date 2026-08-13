@@ -713,10 +713,25 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     }
     
     console.log(`[WhatsAppAdapter.sendMessage] ✅ Mensagem enviada com sucesso`);
-    // WWebJS moderno (waitUntilMsgSent) nem sempre devolve 'from' em mensagens enviadas.
-    // O normalizeMessage exige 'from'; garantimos fallback para não lançar erro falso.
-    if (sent && !sent.from) (sent as any).from = targetJid;
-    return this.normalizeMessage(sent);
+    // WWebJS moderno (waitUntilMsgSent) nem sempre devolve 'from'/'id' em mensagens enviadas.
+    // Se o normalizeMessage falhar, retornamos payload mínimo em vez de lançar erro falso
+    // (que virava "erro interno ao executar comando" em todos os comandos).
+    try {
+      if (sent && !sent.from) (sent as any).from = targetJid;
+      return this.normalizeMessage(sent);
+    } catch (normErr: any) {
+      console.error(`[WhatsAppAdapter.sendMessage] normalizeMessage falhou (msg.from/id ausente no WWebJS) - retornando payload mínimo:`, normErr?.message);
+      return {
+        id: `wpp:${targetJid}-${Date.now()}`,
+        chatId: `wpp:${targetJid}`,
+        userId: '',
+        text,
+        isCommand: false,
+        fromMe: true,
+        timestamp: Date.now(),
+        raw: (sent as any) ?? null
+      } as PlatformMessage;
+    }
   }
 
   async sendMedia(chatId: string, media: MediaPayload, caption?: string): Promise<PlatformMessage> {
