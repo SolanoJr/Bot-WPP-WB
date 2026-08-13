@@ -202,17 +202,33 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         console.log('[WhatsApp] ⚠️ WPP_TEST_GROUP_ID nao definido - pulando msg de prova no grupo teste');
       }
 
-      // TELEMETRIA (heartbeat) - opcional via env HEARTBEAT_CHAT.
-      // Se definido, envia ping com numero + commit + plataformas para o chat dono.
-      // Nao atrapalha quem clonar (so dispara se a env estiver setada).
+      // TELEMETRIA (heartbeat) - opcional via env HEARTBEAT_CHAT e/ou HEARTBEAT_URL.
+      // HEARTBEAT_CHAT: HEARTBEAT_URL envia POST para backend de telemetria.
+      // Nao atrapalha quem clonar (so dispara se as envs estiverem setadas).
       const hbChat = process.env.HEARTBEAT_CHAT;
-      if (hbChat) {
+      const hbUrl = process.env.HEARTBEAT_URL;
+      if (hbChat || hbUrl) {
         try {
           let hash = 'local';
           try { hash = execSync('git rev-parse --short HEAD', { cwd: process.cwd() }).toString().trim(); } catch { /* ignore */ }
-          const plats = platformManager.getActivePlatforms().join(', ');
-          const ping = `💓 [HEARTBEAT] bot=${this.userId} commit=${hash} plataformas=[${plats}] uptime=${Math.floor(process.uptime())}s`;
-          this.sendMessage(hbChat, ping).catch(() => {});
+          const plats = platformManager.getActivePlatforms();
+          const payload = {
+            bot: this.userId,
+            commit: hash,
+            platforms: plats,
+            uptime: Math.floor(process.uptime()),
+          };
+          if (hbChat) {
+            const ping = `💓 [HEARTBEAT] bot=${this.userId} commit=${hash} plataformas=[${plats.join(', ')}] uptime=${payload.uptime}s`;
+            this.sendMessage(hbChat, ping).catch(() => {});
+          }
+          if (hbUrl) {
+            fetch(hbUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            }).catch(() => {});
+          }
         } catch { /* ignore */ }
       }
       
