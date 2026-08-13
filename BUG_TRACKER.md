@@ -893,9 +893,19 @@ ssh solanojr@100.101.218.16 "cd ~/bot-wpp && pm2 restart bot-wpp"
   - Windows: `debug.log` (Chromium crashpad de 2025), pastas de outras IAs (`.amazonq`, `.devin`, `.openclaude`), `src/commands/base/` (vazia), `.wwebjs_auth/` (106MB, root-locked — removido).
   - **NÃO remover** `src/whatsapp.ts` (legado): ainda é importado por `src/core/bootServices.ts`.
 - **Lição:** não confie no primeiro arquivo de log que aparece. Verifique `ls -la ~/.pm2/logs/` e pegue o `-0.log`. E: Chromium headless + WA Web moderno EXIGE swiftshader + UA real; sem isso, trava silencioso no splashscreen.
+- **UPDATE (2026-08-13):** o log do PM2 agora é estável em **`~/.pm2/logs/bot-wpp-stable.out.log`** (configurado em `ecosystem.config.js` com `merge_logs` + `out_file` fixo). O `-0.log` ainda existe mas o estável é o `bot-wpp-stable.out.log`. E `src/whatsapp.ts` (legado) FOI removido (commit 08a16e2) — não existe mais, não há risco.
 - **Status:** ✅ Resolvido. Bot online e estável (PID renovado a cada `pm2 restart`, autenticando em ~90s com swiftshader).
 
 ---
 
-**Última Atualização:** 2026-08-12
+## BUG 34 (2026-08-13): $kick e $ban não mostravam o NOME da pessoa (só o número)
+
+- **Sintoma:** `$kick @fulano` e `$ban @fulano` respondiam "X foi removido/banido" mas o X era o NÚMERO, não o nome. O dono notou nos logs que o nome não aparecia.
+- **Causa:** `kick.ts` usava `getParticipantName?.(ctx.chatId, targetId)` (que retorna vazio no WWebJS moderno) e caía no fallback do número; `ban.ts` nem tentava pegar o nome (só "Usuário banido com sucesso").
+- **Correção (commit 40f9ee4):** usar `participants[].name` / `participants[].pushname` do chat (fonte confiável) como nome primário, fallback para número. Aplicado `groupTag(ctx)` para incluir o nome do grupo em ambos. Importado `groupTag` de `format.ts`.
+- **Status:** ✅ Resolvido. `$kick`/`$ban` agora mostram "✅ NomeDaPessoa foi removido do grupo (NomeDoGrupo)."
+
+---
+
+**Última Atualização:** 2026-08-13
 **Responsável:** WarriorBlack

@@ -112,3 +112,41 @@ flags de status). Sempre manter ou melhorar — **nunca piorar** a apresentaçã
 **Sintoma de violação das Regras 1/2:** nos logs, só aparece `[WhatsApp] ✅ Pronto` e o Telegram/
 Discord não aparecem como prontos; ou o Telegram recebe msgs mas `Executando <cmd> em telegram`
 não aparece no log. Corrigir voltando ao padrão paralelo + launch em background.
+
+## 9. Multi-número / Multi-sessão (SessionManager) — base para escalar (anti-regressão)
+
+**Objetivo:** rodar N contas WhatsApp (números) no mesmo processo, cada uma com sessão
+Chromium isolada. Implementado em `src/services/sessionManager.ts` (commit 40f9ee4).
+
+**Como funciona:**
+- `PlatformType` agora é `string` (não mais union fixa). Chaves válidas: `'whatsapp'`,
+  `'telegram'`, `'discord'`, e `'whatsapp:<phone>'` (ex: `'whatsapp:558581344211'`).
+- `getSessionConfigs()` lê `WPP_SESSIONS` do `.env` (CSV de números: `558581344211,559999999999`).
+- `registerWhatsAppSessions()` cria 1 `WhatsAppAdapter` por número, cada um com `authDir`
+  isolado em `sessions/<phone>`, e registra no `PlatformManager` sob a chave `whatsapp:<phone>`.
+- Se `WPP_SESSIONS` estiver vazio → **modo legado**: 1 adapter com `platform='whatsapp'`
+  (compatibilidade retroativa; usa `WWEBJS_AUTH_DIR` ou `.wwebjs_auth`).
+- `WhatsAppAdapter` aceita `constructor({ authDir })`. O `connect()` usa `this.authDir`.
+
+**Regras de anti-regressão:**
+1. NUNCA hardcoded `platform === 'whatsapp'` para prefixar IDs. Usar `platform.startsWith('whatsapp')`
+   (senão sessões `whatsapp:<phone>` perdem o prefixo `wpp:` nos chatId/userId).
+2. Ao adicionar comando que opera em "todos os grupos do WhatsApp", iterar sobre as chaves
+   `whatsapp*` do `PlatformManager`, NÃO assumir que existe só um adapter `'whatsapp'`.
+3. Cada número = 1 processo Chromium (~300-500MB RAM). RAM é o gargalo real do escalonamento,
+   não o código. Para "inúmeros números", prefira subir mais RAM OU migrar para Baileys (sem Chromium).
+4. Para adicionar um novo número: apenas inclua no `WPP_SESSIONS` e `pm2 restart`. Sem código extra.
+
+**Próximo passo (quando expandir de verdade):** comandos como `$automod`, `$menu`, broadcast
+devem iterar todas as sessões `whatsapp:*`. Hoje só a sessão legada é coberta.
+
+## 10. Otimização futura: Baileys (substituir Chromium/whatsapp-web.js)
+
+O `whatsapp-web.js` exige 1 Chromium headless por sessão (swiftshader + UA real, BUG 33).
+Isso limita o escalonamento por RAM/CPU. **Baileys** (WebSocket puro, sem navegador) elimina o
+Chromium → muito menor footprint por número. Caminho de migração (mini-início documentado):
+- `PlatformAdapter`/`PlatformClient` já são agnósticos → criar `BaileysAdapter` implementando a mesma interface.
+- Substituir `whatsapp-web.js` por `@whiskeysockets/baileys` no adapter WPP.
+- Manter o mesmo `messageHandler`/`CommandContext` (já desacoplado).
+- **Não fazer agora** — só quando o número de sessões WPP saturar a RAM da máquina.
+

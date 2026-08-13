@@ -74,10 +74,10 @@ Os agentes de IA podem assumir diversos papéis dentro do ciclo de vida do Bot-W
 ## 5. Armadilhas Conhecidas (LEIA ANTES DE DEBUGAR)
 
 ### 5.1. LOG DO PM2 — arquivo correto
-- O log **ATIVO** do bot é `~/.pm2/logs/bot-wpp-out-0.log` (e `-1`, `-2` conforme rotate).
-- `bot-wpp-out.log` / `bot-wpp-error.log` na raiz são **antigos (06/Ago)** e NÃO refletem o estado atual.
-- **Nunca** conclua "bot não conecta / não autentica" lendo `bot-wpp-out.log`. Use `bot-wpp-out-0.log` ou `pm2 logs bot-wpp`.
-- Prova de que o bot está online aparece assim no `-0.log`:
+- O log **ATIVO e estável** do bot é `~/.pm2/logs/bot-wpp-stable.out.log` (configurado em `ecosystem.config.js` com `merge_logs` + `out_file` fixo).
+- `bot-wpp-out.log` / `bot-wpp-error.log` na raiz são **antigos (06/Ago)** e NÃO refletem o estado atual. `bot-wpp-out-0.log` também existe (rotate legado) mas o canônico é o `bot-wpp-stable.out.log`.
+- **Nunca** conclua "bot não conecta / não autentica" lendo `bot-wpp-out.log`. Use `bot-wpp-stable.out.log` ou `pm2 logs bot-wpp`.
+- Prova de que o bot está online aparece assim no log estável:
   ```
   [YYYY-MM-DD HH:MM:SS] [WhatsApp] ✅ Pronto como WarriorBlack (558581344211@c.us)
   [YYYY-MM-DD HH:MM:SS] [WhatsApp] ✅ Mensagem de prova ENVIADA para 558581344211@c.us
@@ -86,18 +86,18 @@ Os agentes de IA podem assumir diversos papéis dentro do ciclo de vida do Bot-W
 ### 5.2. Chromium headless + WhatsApp Web moderno
 - O WA Web moderno **exige WebGL** para renderizar a tela de QR. Sem `--use-gl=swiftshader`, o Chromium trava no splashscreen (sem QR, sem erro, CPU 0).
 - Use sempre: `--use-gl=swiftshader --enable-webgl --ignore-gpu-blocklist` + `userAgent` de Chrome real no `puppeteerConfig`/`Client` do `WhatsAppAdapter`.
-- `qrcode` DEVE estar instalado (`npm install qrcode`); sem ele o handler `qr` quebra antes de exibir o QR.
-- Timeout de diagnóstico de "não autenticou" deve ser **≥ 240s** (swiftshader demora ~90s só para gerar o QR; 90s é falso-positivo).
+- `qrcode-terminal` DEVE estar instalado (já está em `package.json`); o código usa `qrcode-terminal`, NÃO `qrcode` (não instalar `qrcode` solto).
+- Timeout de diagnóstico de "não autenticou" é **240s** (swiftshader demora ~90s só para gerar o QR; 90s é falso-positivo).
 
 ### 5.3. Arquitetura atual (não confundir com a doc legada)
 - **Entry point real do PM2:** `dist/core/multiPlatform.js` (configurado em `ecosystem.config.js`). O sistema multi-plataforma (`PlatformManager` + adapters) É o ativo.
-- `src/whatsapp.ts` (legado) AINDA É importado por `src/core/bootServices.ts` — **não remova**.
-- Detalhes de anti-regressão estrutural: `docs/ARCHITECTURE_FIXES.md` (tratamento `@lid`, despacho `startAll`, AutoMod desacoplado, etc).
+- **Multi-número:** `src/services/sessionManager.ts` lê `WPP_SESSIONS` (CSV de números) e cria 1 `WhatsAppAdapter` por número (authDir isolado `sessions/<phone>`), registrado no `PlatformManager` como `whatsapp:<phone>`. Se `WPP_SESSIONS` vazio → modo legado (1 sessão `whatsapp`). `PlatformType` é `string` (não union).
+- Detalhes de anti-regressão estrutural: `docs/ARCHITECTURE_FIXES.md` (tratamento `@lid`, despacho `startAll`, AutoMod desacoplado, **multi-sessão seção 9**, Baileys seção 10).
 
 ### 5.4. Sincronização de ambientes
-- Windows (dev) → GitHub → Linux (PM2). Sempre `git pull` no Linux + `npm run build` + `pm2 restart` após push.
+- Windows (dev) → GitHub → Linux (PM2). Sempre `git pull` no Linux + `npm run build` + `pm2 restart` (ou `pm2 delete` + `pm2 start ecosystem.config.js` se mudou log) após push.
 - O bot Linux está online; **não fazer `pm2 stop`/`restart` em loop** durante investigação — isso gera processos zumbis (Chromium) que saturaram a CPU (load 15) e impediam o QR.
-- Ver BUG_TRACKER.md (útimo: BUG 33) para histórico completo.
+- Ver BUG_TRACKER.md (último: BUG 34) para histórico completo.
 
 ## 4. Política de Atualização do AGENTS.md
 
