@@ -36,9 +36,12 @@ export async function handleKeywords(msg: any, client: any): Promise<boolean> {
     const botWord = /\bbot\b/i.test(body);
 
     if (mentionedBot || repliedToBot || (botWord && body.length < 40)) {
-      // Responde CITANDO a mensagem original (reply/quote)
+      // Responde CITANDO a mensagem original (reply/quote).
+      // WWebJS moderno não cita @lid -> só cita se o ID for @c.us.
+      const qid = msg?.id?._serialized;
+      const quotedId = qid && !qid.includes('@lid') ? qid : undefined;
       try {
-        await msg.reply(getSarcasticResponse(), { quotedMessageId: msg?.id?._serialized });
+        await msg.reply(getSarcasticResponse(), quotedId ? { quotedMessageId: quotedId } : undefined);
       } catch {
         await msg.reply(getSarcasticResponse());
       }

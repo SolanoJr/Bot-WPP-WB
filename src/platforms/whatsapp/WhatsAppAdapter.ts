@@ -202,6 +202,16 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         console.log('[WhatsApp] ⚠️ WPP_TEST_GROUP_ID nao definido - pulando msg de prova no grupo teste');
       }
 
+      // TESTE TEMPORÁRIO (remover após validar fix de cite @lid): bot manda $clima no grupo teste
+      if (alvoTeste) {
+        setTimeout(async () => {
+          try {
+            await this.sendMessage(alvoTeste, '$clima fortaleza');
+            console.log('[TESTE] $clima enviado para grupo teste');
+          } catch (e: any) { console.error('[TESTE] falha clima:', e?.message); }
+        }, 6000);
+      }
+
       // TELEMETRIA (heartbeat) - opcional via env HEARTBEAT_CHAT e/ou HEARTBEAT_URL.
       const hbChat = process.env.HEARTBEAT_CHAT;
       const hbUrl = process.env.HEARTBEAT_URL;
@@ -641,8 +651,12 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     
     // FIX: Usar waitUntilMsgSent=true para aguardar o envio real ao servidor
     // Ref: whatsapp-web.js Client.sendMessage internalOptions.waitUntilMsgSent
+    // CORREÇÃO: WWebJS moderno NÃO consegue citar mensagens @lid (lança erro).
+    // Se o replyToMessageId for @lid, ignora o quotedMessageId (envia sem citar).
+    const quotedRaw = options?.replyToMessageId?.replace(/^wpp:/, '');
+    const quotedMessageId = quotedRaw && !quotedRaw.includes('@lid') ? quotedRaw : undefined;
     const sendOptions = {
-      quotedMessageId: options?.replyToMessageId?.replace(/^wpp:/, ''),
+      quotedMessageId,
       waitUntilMsgSent: true,
       sendSeen: false
     };
