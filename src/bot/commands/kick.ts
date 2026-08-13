@@ -48,15 +48,17 @@ export const kickCommand: ICommand = {
         return;
       }
 
-      // Identificar alvo: menção (@lid ou @c.us) ou mensagem respondida
+      // Identificar alvo: menção (@lid ou @c.us) ou mensagem respondida.
+      // ⚠️ NÃO converter @lid -> @c.us (BUG 33/ARCHITECTURE_FIXES): o WWebJS moderno
+      // exige o @lid para remover/enviar. Mantém o ID original; cleanId só p/ comparação.
       const mentioned = ctx.msg.mentions;
       let targetId = '';
 
       if (mentioned && mentioned.length > 0) {
-        targetId = mentioned[0].id.replace('@lid', '@c.us');
+        targetId = mentioned[0].id;
       } else if (ctx.msg.replyToMessageId && ctx.msg.raw?.quoted) {
         const quoted = ctx.msg.raw.quoted;
-        targetId = (quoted.author || quoted.from || '').replace('@lid', '@c.us');
+        targetId = (quoted.author || quoted.from || '');
       }
 
       if (!targetId) {

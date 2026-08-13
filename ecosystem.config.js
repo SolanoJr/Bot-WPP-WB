@@ -8,6 +8,14 @@ module.exports = {
     autorestart: true,
     watch: false,
     max_memory_restart: '1G',
+    // Logs estáveis e legíveis (anti-armadilha BUG 33):
+    // - merge_logs: junta stdout+stderr num único arquivo
+    // - out_file/error_file fixos (NÃO rotaciona para -0.log/-1.log confusos)
+    // - log_date_format: PM2 prefixa o timestamp (evita duplo timestamp do código)
+    merge_logs: true,
+    out_file: '/home/solanojr/bot-wpp/logs/bot-wpp.out.log',
+    error_file: '/home/solanojr/bot-wpp/logs/bot-wpp.err.log',
+    log_date_format: 'YYYY-MM-DD HH:mm:ss.SSS',
     env_file: '/home/solanojr/bot-wpp/.env',
     env: {
       NODE_ENV: 'production'
