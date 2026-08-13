@@ -40,6 +40,7 @@ import { noticiasCommand } from './noticias';
 import { banidosCommand } from './banidos';
 import { setwelcomeCommand } from './setwelcome';
 import { cantadaCommand } from './cantada';
+import { fakechatCommand } from './interacao';
 import { cmdToggleCommand } from './cmdToggle';
 import { automodCommand, antispamModCommand, antiestrangeiroModCommand, autolinkModCommand, bemvindoModCommand, detectarModCommand, removerModCommand } from './modToggle';
 
@@ -87,6 +88,7 @@ const commands: Record<string, ICommand> = {
   banidos: banidosCommand,
   setwelcome: setwelcomeCommand,
   cantada: cantadaCommand,
+  fakechat: fakechatCommand,
   cmdtoggle: cmdToggleCommand,
   automod: automodCommand,
   antispam: antispamModCommand,
@@ -337,6 +339,6 @@ export {
   nickCommand, gttsCommand, ondeEstouCommand, jogosCommand, jokesCommand, voteCommand, delVoteCommand,
   addCmdCommand, antispamCommand, conselhoCommand, conselhobCommand, aleatoriaCommand,
   alarmeCommand, lembreteCommand, shutdownCommand, infoCommand, adminCommand,
-  gruposCommand, noticiasCommand, banidosCommand, setwelcomeCommand, cantadaCommand,
+  gruposCommand, noticiasCommand, banidosCommand, setwelcomeCommand, cantadaCommand, fakechatCommand,
   cmdToggleCommand, sendMessageCommand,
 };
