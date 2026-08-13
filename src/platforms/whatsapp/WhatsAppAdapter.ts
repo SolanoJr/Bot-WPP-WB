@@ -541,13 +541,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       isFromMe: msg.fromMe,
       isCommand: false, // Será determinado pelo PlatformManager
       platform: 'whatsapp' as const,
-      raw: {
-        ...msg,
-        isGroup,
-        chat: msg.chat,
-        author: msg.author,
-        _data: msg._data // Preservar dados brutos para análise profunda no AutoMod
-      },
+      raw: msg, // Referência direta ao Message do WWebJS (preserva métodos como .react())
       hasMedia: msg.hasMedia,
       mediaType: this.getMediaType(msg),
       replyToMessageId: msg.hasQuotedMsg ? `wpp:${msg.quotedMsg?.id._serialized}` : undefined,

@@ -6,6 +6,16 @@ on:
   pull_request:
     branches: [ main ]
 
+# ⚠️ DEPLOY REMOVIDO DESTE WORKFLOW (2026-08-13):
+# O deploy SSH (appleboy/ssh-action) falha com "dial tcp ***:22: i/o timeout"
+# porque o SERVER_IP é o IP do Tailscale (100.x), inalcançável pelo runner do GitHub
+# (nuvem, fora da Tailscale network). O sync Linux é feito manualmente via Hermes
+# (SSH pela Tailscale) após cada push.
+# PARA REATIVAR DEPLOY AUTOMÁTICO no futuro: instalar um GitHub Self-Hosted Runner
+# DENTRO do servidor Linux (que está na Tailscale) — assim o runner é o próprio
+# servidor e o deploy roda localmente, sem SSH pela nuvem. Veja:
+# Settings > Actions > Runners > New self-hosted runner.
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -27,21 +37,3 @@ jobs:
     
     - name: Build project
       run: npm run build
-
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    
-    steps:
-    - name: Deploy to server
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.SERVER_IP }}
-        username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          cd ~/bot-wpp
-          git pull
-          npm run build
-          pm2 restart bot-wpp
