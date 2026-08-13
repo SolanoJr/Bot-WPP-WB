@@ -713,6 +713,9 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     }
     
     console.log(`[WhatsAppAdapter.sendMessage] ✅ Mensagem enviada com sucesso`);
+    // WWebJS moderno (waitUntilMsgSent) nem sempre devolve 'from' em mensagens enviadas.
+    // O normalizeMessage exige 'from'; garantimos fallback para não lançar erro falso.
+    if (sent && !sent.from) (sent as any).from = targetJid;
     return this.normalizeMessage(sent);
   }
 
