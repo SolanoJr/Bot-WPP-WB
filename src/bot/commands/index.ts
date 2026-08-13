@@ -32,7 +32,6 @@ import { conselhobCommand } from './conselhob';
 import { aleatoriaCommand } from './aleatoria';
 import { alarmeCommand } from './alarme';
 import { lembreteCommand } from './lembrete';
-import { bemvindoCommand } from './bemvindo';
 import { shutdownCommand } from './shutdown';
 import { infoCommand } from './info';
 import { adminCommand } from './admin';
@@ -74,13 +73,12 @@ const commands: Record<string, ICommand> = {
   delvoto: delVoteCommand,
   addcmd: addCmdCommand,
   sendmsg: sendMessageCommand,
-  antispam: antispamCommand,
+  ratelimit: antispamCommand,
   conselho: conselhoCommand,
   conselhob: conselhobCommand,
   aleatoria: aleatoriaCommand,
   alarme: alarmeCommand,
   lembrete: lembreteCommand,
-  bemvindo: bemvindoCommand,
   shutdown: shutdownCommand,
   info: infoCommand,
   admin: adminCommand,
@@ -94,7 +92,6 @@ const commands: Record<string, ICommand> = {
   antispam: antispamModCommand,
   antiestrangeiro: antiestrangeiroModCommand,
   autolink: autolinkModCommand,
-  bemvindo: bemvindoModCommand,
   detectar: detectarModCommand,
   remover: removerModCommand,
 };
@@ -339,7 +336,7 @@ export {
   forcaCommand, velhaCommand, sorteioCommand, climaCommand, feedbackCommand, statsCommand, perguntaCommand,
   nickCommand, gttsCommand, ondeEstouCommand, jogosCommand, jokesCommand, voteCommand, delVoteCommand,
   addCmdCommand, antispamCommand, conselhoCommand, conselhobCommand, aleatoriaCommand,
-  alarmeCommand, lembreteCommand, bemvindoCommand, shutdownCommand, infoCommand, adminCommand,
+  alarmeCommand, lembreteCommand, shutdownCommand, infoCommand, adminCommand,
   gruposCommand, noticiasCommand, banidosCommand, setwelcomeCommand, cantadaCommand,
   cmdToggleCommand, sendMessageCommand,
 };
