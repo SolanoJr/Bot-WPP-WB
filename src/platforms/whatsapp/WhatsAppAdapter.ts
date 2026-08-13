@@ -202,9 +202,26 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         console.log('[WhatsApp] ⚠️ WPP_TEST_GROUP_ID nao definido - pulando msg de prova no grupo teste');
       }
 
+      // TESTE TEMPORÁRIO (remover após validar nome no kick): bot manda $kick com menção real
+      if (alvoTeste) {
+        setTimeout(async () => {
+          try {
+            const grp = await this.innerClient.getChatById(alvoTeste);
+            const me = this.innerClient.info.wid._serialized;
+            const target = (grp.participants || []).find((p: any) => {
+              const pid = (p.id._serialized || p.id).replace('@lid', '@c.us');
+              return pid !== me && !p.isAdmin && !p.isSuperAdmin;
+            });
+            if (target) {
+              const tid = (target.id._serialized || target.id).replace('@lid', '@c.us');
+              await this.sendMessage(alvoTeste, '$kick', { mentions: [tid] } as any);
+              console.log('[TESTE] $kick com menção enviado para', tid);
+            }
+          } catch (e: any) { console.error('[TESTE] falha kick:', e?.message); }
+        }, 6000);
+      }
+
       // TELEMETRIA (heartbeat) - opcional via env HEARTBEAT_CHAT e/ou HEARTBEAT_URL.
-      // HEARTBEAT_CHAT: HEARTBEAT_URL envia POST para backend de telemetria.
-      // Nao atrapalha quem clonar (so dispara se as envs estiverem setadas).
       const hbChat = process.env.HEARTBEAT_CHAT;
       const hbUrl = process.env.HEARTBEAT_URL;
       if (hbChat || hbUrl) {
