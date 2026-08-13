@@ -692,7 +692,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
 
     console.log(`[WhatsAppAdapter.sendMessage] ⏱️ sendMessage demorou ${duration}ms`);
     console.log(`[WhatsAppAdapter.sendMessage] 📋 RETORNO: typeof: ${typeof sent}, constructor: ${sent?.constructor?.name || 'N/A'}`);
-    console.log(`[WhatsAppAdapter.sendMessage] 📋 sent.id:`, sent?.id, 'sent.id._serialized:', sent?.id?._serialized`);
+    console.log(`[WhatsAppAdapter.sendMessage] 📋 sent.id:`, sent?.id, 'sent.id._serialized:', sent?.id?._serialized);
 
     if (!sent || !sent.id) {
       // O WWebJS moderno (JIDs @lid / waitUntilMsgSent) nem sempre devolve o objeto
