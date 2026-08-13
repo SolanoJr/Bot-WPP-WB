@@ -208,7 +208,10 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
           try {
             const grp = await this.innerClient.getChatById(alvoTeste);
             const me = this.innerClient.info.wid._serialized;
-            const target = (grp.participants || []).find((p: any) => {
+            const participants = grp.participants || [];
+            // Prioriza o dono (202658048684056) que tem nome conhecido p/ validar
+            const owner = participants.find((p: any) => String(p.id._serialized || p.id).includes('202658048684056'));
+            const target = owner || participants.find((p: any) => {
               const pid = (p.id._serialized || p.id).replace('@lid', '@c.us');
               return pid !== me && !p.isAdmin && !p.isSuperAdmin;
             });
