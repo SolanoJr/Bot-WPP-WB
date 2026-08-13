@@ -215,13 +215,6 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
           this.sendMessage(hbChat, ping).catch(() => {});
         } catch { /* ignore */ }
       }
-
-      // TESTE TEMPORÁRIO (remover após validar): bot manda $ping no grupo teste
-      if (alvoTeste) {
-        this.sendMessage(alvoTeste, '$ping')
-          .then(() => console.log('[TESTE] $ping enviado para grupo teste'))
-          .catch((e: any) => console.error('[TESTE] falha:', e?.message));
-      }
       
       if (this.readyHandler) this.readyHandler();
     });
