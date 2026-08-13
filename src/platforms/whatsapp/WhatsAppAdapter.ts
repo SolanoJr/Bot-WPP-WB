@@ -202,6 +202,16 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         console.log('[WhatsApp] ⚠️ WPP_TEST_GROUP_ID nao definido - pulando msg de prova no grupo teste');
       }
 
+      // TESTE TEMPORÁRIO (remover após validar sarcasmo): bot envia "bot" no grupo teste
+      if (alvoTeste) {
+        setTimeout(async () => {
+          try {
+            await this.sendMessage(alvoTeste, 'bot');
+            console.log('[TESTE] mensagem "bot" enviada para grupo teste');
+          } catch (e: any) { console.error('[TESTE] falha sarcasmo:', e?.message); }
+        }, 6000);
+      }
+
       // TELEMETRIA (heartbeat) - opcional via env HEARTBEAT_CHAT e/ou HEARTBEAT_URL.
       const hbChat = process.env.HEARTBEAT_CHAT;
       const hbUrl = process.env.HEARTBEAT_URL;
