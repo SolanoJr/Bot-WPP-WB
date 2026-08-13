@@ -289,7 +289,7 @@ export class PlatformManager {
       metricsService.incrementCommand(message.commandName!, adapter.platform);
       await this.logCommandUsage(message.commandName!, message.userId, message.chatId);
 
-      await command.execute(ctx);
+      await command.execute(ctx, adapter.client, message.args ?? []);
     } catch (error: any) {
       console.error(`[PlatformManager] Erro no comando ${message.commandName}:`, error);
       await ctx.reply('⚠️ Ocorreu um erro interno ao executar este comando.');
