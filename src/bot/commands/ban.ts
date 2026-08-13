@@ -1,7 +1,7 @@
 import { ICommand } from './types';
 import { CommandContext } from '../../platforms/base/PlatformTypes';
 import { cleanId, isMaster } from '../../services/permissions';
-import { groupTag } from './format';
+import { groupTag, getTargetDisplayName } from './format';
 
 export const banCommand: ICommand = {
   name: 'ban',
@@ -83,9 +83,8 @@ export const banCommand: ICommand = {
 
       await ctx.client.banParticipant(ctx.chatId, userToBan);
 
-      // Nome da pessoa banida (participants do chat: name/pushname; fallback número)
-      const bannedName =
-        (userPart as any)?.name || (userPart as any)?.pushname || userToBanClean;
+      // Nome da pessoa banida (busca contato real; WWebJS @lid nao traz name no participant)
+      const bannedName = await getTargetDisplayName(ctx.client, userToBan, participants);
 
       // Salvar no banco de banidos (persistência - impede re-entrada)
       try {

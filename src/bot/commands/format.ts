@@ -19,3 +19,38 @@ export function personName(ctx: any, fallbackId?: string): string {
   if (fallbackId) return String(fallbackId).split('@')[0];
   return '';
 }
+
+/**
+ * Nome de exibição de um alvo (usuário sendo kickado/banido/etc).
+ * Prioriza o nome real do contato (getUser), depois participants do chat,
+ * e cai no número limpo se nada vier. Resolve o caso WWebJS moderno (@lid)
+ * onde participants não trazem name/pushname.
+ */
+export async function getTargetDisplayName(
+  client: any,
+  targetId: string,
+  participants: any[] = []
+): Promise<string> {
+  const clean = String(targetId).replace('@c.us', '').replace('@lid', '');
+  // 1. Contato real (pushname/name) se o client suportar
+  try {
+    if (client?.getUser) {
+      const u = await client.getUser(targetId);
+      const n = (u as any)?.name || (u as any)?.pushname || (u as any)?.username;
+      if (n && !/^\d+$/.test(String(n).replace('@c.us', '').replace('@lid', ''))) {
+        return String(n);
+      }
+    }
+  } catch { /* ignore */ }
+  // 2. participants do chat
+  const part = participants.find((p: any) => {
+    const pid = String(p?.id || '').replace('@c.us', '').replace('@lid', '');
+    return pid === clean;
+  });
+  const pn = (part as any)?.name || (part as any)?.pushname || (part as any)?.displayName;
+  if (pn && !/^\d+$/.test(String(pn).replace('@c.us', '').replace('@lid', ''))) {
+    return String(pn);
+  }
+  // 3. fallback número
+  return clean;
+}

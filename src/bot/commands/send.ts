@@ -9,7 +9,7 @@ import { platformManager } from '../../platforms/PlatformManager';
  */
 export const sendCommand: ICommand = {
   name: 'send',
-  description: '[TESTE] Envia mensagem para outras plataformas (ponte cross-platform)',
+  description: 'Envia mensagem para outras plataformas (ponte cross-platform)',
   async execute(ctx: CommandContext) {
     const text = ctx.args.join(' ').trim();
     if (!text) {
