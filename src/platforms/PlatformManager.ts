@@ -30,6 +30,8 @@ export class PlatformManager {
   private disconnectedHandlers: Array<(platform: PlatformType, reason: string) => void> = [];
   private commandRegistry = new Map<string, ICommand>();
   private initialized = false;
+  // Rastreia o último chatId visto em cada plataforma (para comandos de ponte como $send)
+  private lastChatByPlatform = new Map<PlatformType, string>();
 
   private constructor() {}
 
@@ -110,6 +112,9 @@ export class PlatformManager {
     client.onMessage(async (rawMessage: PlatformMessage) => {
       // Normalizar e enriquecer mensagem
       const message = this.enrichMessage(rawMessage, adapter.platform);
+
+      // Rastrear último chat visto nesta plataforma (para ponte $send)
+      this.lastChatByPlatform.set(adapter.platform, message.chatId);
 
       // Verificar se é comando
       const prefix = this.getCommandPrefix(adapter.platform);
@@ -468,10 +473,24 @@ export class PlatformManager {
   }
 
   /**
+   * Retorna o adapter de uma plataforma específica
+   */
+  getAdapter(platform: PlatformType): PlatformAdapter | undefined {
+    return this.adapters.get(platform);
+  }
+
+  /**
    * Obtém registry de comandos
    */
   getCommandRegistry(): Map<string, ICommand> {
     return this.commandRegistry;
+  }
+
+  /**
+   * Retorna o último chatId visto em uma plataforma (para comandos de ponte entre plataformas)
+   */
+  getLastChat(platform: PlatformType): string | undefined {
+    return this.lastChatByPlatform.get(platform);
   }
 }
 

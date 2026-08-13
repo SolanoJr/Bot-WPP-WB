@@ -41,6 +41,7 @@ import { banidosCommand } from './banidos';
 import { setwelcomeCommand } from './setwelcome';
 import { cantadaCommand } from './cantada';
 import { fakechatCommand } from './interacao';
+import { sendCommand } from './send';
 import { cmdToggleCommand } from './cmdToggle';
 import { automodCommand, antispamModCommand, antiestrangeiroModCommand, autolinkModCommand, bemvindoModCommand, detectarModCommand, removerModCommand } from './modToggle';
 
@@ -89,6 +90,7 @@ const commands: Record<string, ICommand> = {
   setwelcome: setwelcomeCommand,
   cantada: cantadaCommand,
   fakechat: fakechatCommand,
+  send: sendCommand,
   cmdtoggle: cmdToggleCommand,
   automod: automodCommand,
   antispam: antispamModCommand,
@@ -339,6 +341,6 @@ export {
   nickCommand, gttsCommand, ondeEstouCommand, jogosCommand, jokesCommand, voteCommand, delVoteCommand,
   addCmdCommand, antispamCommand, conselhoCommand, conselhobCommand, aleatoriaCommand,
   alarmeCommand, lembreteCommand, shutdownCommand, infoCommand, adminCommand,
-  gruposCommand, noticiasCommand, banidosCommand, setwelcomeCommand, cantadaCommand, fakechatCommand,
+  gruposCommand, noticiasCommand, banidosCommand, setwelcomeCommand, cantadaCommand, fakechatCommand, sendCommand,
   cmdToggleCommand, sendMessageCommand,
 };
