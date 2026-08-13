@@ -135,16 +135,11 @@ export class PlatformManager {
         await this.executeCommand(message, adapter);
         // Reagir com 👍 na mensagem de comando (feedback visual) se o raw suportar
         try {
-          const reactFn = message.raw?.react;
-          if (typeof reactFn === 'function') {
-            console.log('[REACT] aplicando 👍 em comando; typeof raw.react=', typeof reactFn);
-            await reactFn.call(message.raw, '👍');
-            console.log('[REACT] 👍 aplicado com sucesso');
-          } else {
-            console.log('[REACT] raw.react não é função (typeof=', typeof reactFn, '); pulando');
+          if (typeof message.raw?.react === 'function') {
+            await message.raw.react('👍');
           }
         } catch (reactErr: any) {
-          console.error('[REACT] erro ao reagir:', reactErr?.message);
+          console.error('[REACT] erro ao reagir com 👍:', reactErr?.message);
         }
       }
     });

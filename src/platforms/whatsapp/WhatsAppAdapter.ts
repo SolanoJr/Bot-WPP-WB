@@ -200,13 +200,6 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       } else {
         console.log('[WhatsApp] ⚠️ WPP_TEST_GROUP_ID nao definido - pulando msg de prova no grupo teste');
       }
-
-      // TESTE TEMPORÁRIO (remover após validar react): bot manda $menu no grupo teste
-      if (alvoTeste) {
-        this.sendMessage(alvoTeste, '$menu')
-          .then(() => console.log('[TESTE] $menu enviado para grupo teste (validar react)'))
-          .catch((e: any) => console.error('[TESTE] falha:', e?.message));
-      }
       
       if (this.readyHandler) this.readyHandler();
     });
