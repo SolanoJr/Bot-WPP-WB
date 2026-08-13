@@ -667,10 +667,6 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       sent = await this.innerClient.sendMessage(targetJid, text, sendOptions);
     } catch (sendErr: any) {
       const msg = String(sendErr?.message || '');
-      // Falha conhecida com novos IDs @lid / WhatsApp Web atualizado:
-      // "message.serialize is not a function" (interno do getMessageModel).
-      // Fallback: resolver a conversa e enviar diretamente via chat.sendMessage(),
-      // que contorna o modelo de mensagem problemático do client.sendMessage.
       if (msg.includes('serialize') || msg.includes('getMessageModel')) {
         console.warn(`[WhatsAppAdapter.sendMessage] sendMessage falhou (${msg}). Tentando fallback via getChatById+chat.sendMessage...`);
         try {
@@ -684,7 +680,6 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
           throw new Error(`Falha ao enviar mensagem (${targetJid}): ${fallbackErr?.message || msg}`);
         }
       } else {
-        // Outras falhas de transporte (Puppeteer/CdpPage.evaluate) não mascaram o comando.
         console.error(`[WhatsAppAdapter.sendMessage] ERRO de transporte ao enviar para ${targetJid}:`, {
           message: msg,
           stack: sendErr?.stack,
@@ -694,10 +689,10 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       }
     }
     const duration = Date.now() - startTime;
-    
+
     console.log(`[WhatsAppAdapter.sendMessage] ⏱️ sendMessage demorou ${duration}ms`);
     console.log(`[WhatsAppAdapter.sendMessage] 📋 RETORNO: typeof: ${typeof sent}, constructor: ${sent?.constructor?.name || 'N/A'}`);
-    console.log(`[WhatsAppAdapter.sendMessage] 📋 sent.id:`, sent?.id, 'sent.id._serialized:', sent?.id?._serialized);
+    console.log(`[WhatsAppAdapter.sendMessage] 📋 sent.id:`, sent?.id, 'sent.id._serialized:', sent?.id?._serialized`);
 
     if (!sent || !sent.id) {
       // O WWebJS moderno (JIDs @lid / waitUntilMsgSent) nem sempre devolve o objeto
