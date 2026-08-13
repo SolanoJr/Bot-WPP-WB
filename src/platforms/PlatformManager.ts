@@ -133,6 +133,12 @@ export class PlatformManager {
       // Se é comando, executar
       if (message.isCommand && message.commandName) {
         await this.executeCommand(message, adapter);
+        // Reagir com 👍 na mensagem de comando (feedback visual) se o raw suportar
+        try {
+          if (typeof message.raw?.react === 'function') {
+            await message.raw.react('👍');
+          }
+        } catch { /* ignora se não suportar */ }
       }
     });
 
@@ -337,7 +343,12 @@ export class PlatformManager {
       isMaster: false, // Será preenchido pelo requirePermission
       isAdmin: false,
       reply: async (text: string, options?: SendOptions) => {
-        await client.sendMessage(message.chatId, text, options);
+        // Cita a mensagem de comando por padrão (quoted/reply), a menos que o caller já passe replyToMessageId
+        const opts: SendOptions = {
+          ...options,
+          replyToMessageId: options?.replyToMessageId ?? message.id,
+        };
+        await client.sendMessage(message.chatId, text, opts);
       },
       replyPrivate: async (text: string) => {
         // Para WhatsApp, envia no privado do usuário
