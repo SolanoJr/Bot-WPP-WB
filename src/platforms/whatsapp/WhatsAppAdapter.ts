@@ -23,7 +23,7 @@ import {
 import { platformManager } from '../PlatformManager';
 import { processAutoMod } from '../../services/autoModService';
 import { handleKeywords } from '../../services/keywordHandler';
-import { runSelfTests } from '../../devtest/selftest';
+import { runSelfTests, runSelfTestOndeEstou } from '../../devtest/selftest';
 
 export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
   readonly platform: PlatformType = 'whatsapp';
@@ -207,6 +207,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       // VC = bot 558581344211 marca alvo válido e manda $kick/$ban/$clima no grupo teste.
       if (alvoTeste) {
         setTimeout(() => runSelfTests(this, alvoTeste).catch((e: any) => console.error('[SELFTEST] erro:', e?.message)), 6000);
+        setTimeout(() => runSelfTestOndeEstou(this).catch((e: any) => console.error('[SELFTEST] ondeestou erro:', e?.message)), 7000);
       }
 
       // TELEMETRIA (heartbeat) - opcional via env HEARTBEAT_CHAT e/ou HEARTBEAT_URL.

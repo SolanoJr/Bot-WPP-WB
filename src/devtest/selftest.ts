@@ -87,3 +87,18 @@ export async function runSelfTests(adapter: SelfTestAdapter, alvoTeste: string):
     log(`FALHA no self-test: ${e?.message}`);
   }
 }
+
+/**
+ * Teste do $ondeestou em chat PRIVADO (VC = bot manda pra si mesmo; message_create dispara).
+ * O comando usa ctx.chatId (privado). Se o WWebJS processar, responde no privado.
+ */
+export async function runSelfTestOndeEstou(adapter: SelfTestAdapter): Promise<void> {
+  const privado = '558581344211@c.us'; // o próprio bot (self chat)
+  try {
+    log('=== SELFTEST $ondeestou (privado) ===');
+    await adapter.sendMessage(privado, '$ondeestou');
+    log('$ondeestou enviado no privado (self)');
+  } catch (e: any) {
+    log(`FALHA no self-test $ondeestou: ${e?.message}`);
+  }
+}

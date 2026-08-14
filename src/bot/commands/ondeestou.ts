@@ -4,12 +4,13 @@ export const ondeEstouCommand: ICommand = {
   name: 'ondeestou',
   description: 'Gera um link seguro para envio de localização.',
   async execute(msg, client, args) {
+    // Compat: PlatformManager chama execute(ctx, client, args). O ctx tem chatId (não .from).
+    const chatId = msg.chatId || msg.from;
     const interfaceUrl = process.env.LOCATION_INTERFACE_URL || 'https://bot-wpp-wb-sc.pages.dev';
     const relayUrl = (process.env.RELAY_URL && process.env.RELAY_URL.includes('bot-wpp-relay.onrender.com'))
       ? process.env.RELAY_URL
       : 'https://bot-wpp-relay.onrender.com';
     const token = `loc_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-    const chatId = msg.from;
 
     if (!chatId) {
       await msg.reply('⚠️ Não consegui identificar este chat para gerar o link de localização.');
