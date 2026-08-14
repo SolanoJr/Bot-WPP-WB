@@ -11,11 +11,13 @@ const respondedIds = new Set<string>();
  */
 export async function handleKeywords(msg: any, client: any): Promise<boolean> {
   const body = (msg?.body || '').toLowerCase();
+  // Dedup: usa o id núcleo (msg.id.id) para pegar message + message_create da mesma msg
   const mid = msg?.id?._serialized || msg?.id?.id;
+  const coreId = msg?.id?.id || msg?.id?._serialized;
 
   // Dedup: se já respondemos a esta mensagem, não responde de novo.
-  if (mid && respondedIds.has(mid)) return false;
-  if (mid) respondedIds.add(mid);
+  if (coreId && respondedIds.has(coreId)) return false;
+  if (coreId) respondedIds.add(coreId);
 
   // 1. Detecção de Trollagem (Falso Banimento/Saída)
   const trollPatterns = [
