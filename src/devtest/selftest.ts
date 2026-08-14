@@ -2,10 +2,11 @@
  * Kit de auto-teste do Hermes (em produção, no Linux).
  * NÃO apagar esta pasta — é o laboratório de validação do dono.
  *
- * runSelfTestMod: testa o sarcasmo (handleKeywords) de 3 formas:
+ * runSelfTestMod: testa o sarcasmo (handleKeywords) de 4 formas:
  *   1. palavra "bot" solta (msg de outro user)
  *   2. menção ao bot via @lid (caso real: usuario marca @WarriorBlack)
  *   3. fluxo real: bot (Hermes) digita "bot" no grupo -> message_create captura
+ *   4. humano dá reply numa msg do bot (fromMe=false, quotedAuthor=bot) sem palavra "bot"
  */
 
 export interface SelfTestAdapter {
@@ -28,7 +29,7 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
   if ((global as any).__selftestModRan) return; // não rodar 2x se PM2 fizer double restart
   (global as any).__selftestModRan = true;
   try {
-    log('=== SELFTEST sarcasmo: "bot" solto + menção @lid + fluxo real ===');
+    log('=== SELFTEST sarcasmo: bot solto + marcacao + fluxo + reply em msg do bot ===');
     const kw = (adapter as any).selfTestHandleKeywords;
     const sent: string[] = [];
     const fakeReply = async (text: string) => { sent.push(text); await adapter.sendMessage(alvoTeste, '🤖 [SELFTEST sarc] ' + text); return true; };
@@ -40,7 +41,7 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     } as any, (adapter as any).innerClient);
     log(`1) "bot" solto -> intercepted=${intercepted} resposta="${sent[sent.length-1] || ''}"`);
 
-    // 2. menção ao bot via @lid (caso real: usuario marca @WarriorBlack -> mentionedIds tem 2592935567439@lid)
+    // 2. menção ao bot via @lid
     sent.length = 0;
     intercepted = await kw({
       body: 'olha @bot', mentionedIds: ['2592935567439@lid'], hasQuotedMsg: false, quotedMsg: undefined,
@@ -48,9 +49,18 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     } as any, (adapter as any).innerClient);
     log(`2) menção @lid do bot -> intercepted=${intercepted} resposta="${sent[sent.length-1] || ''}"`);
 
-    // 3. fluxo real: bot (Hermes) digita "bot" no grupo -> message_create captura e dá reply
+    // 3. fluxo real: bot (Hermes) digita "bot" -> message_create captura
     await adapter.sendMessage(alvoTeste, 'bot');
-    log('3) "bot" enviado pelo bot (message_create). handleKeywords deve dar reply com a frase.');
+    log('3) "bot" enviado pelo bot (message_create). handleKeywords deve dar reply.');
+
+    // 4. humano dá reply numa msg do bot (fromMe=false, quotedAuthor=bot) sem palavra "bot"
+    sent.length = 0;
+    intercepted = await kw({
+      body: 'sai dai fulero', mentionedIds: [], hasQuotedMsg: true,
+      quotedMsg: { fromMe: false, author: '558581344211@c.us' },
+      author: alvoTeste, from: alvoTeste, id: { _serialized: 'fake_reply_2' }, reply: fakeReply, delete: async () => true,
+    } as any, (adapter as any).innerClient);
+    log(`4) reply em msg do bot (sem "bot") -> intercepted=${intercepted} resposta="${sent[sent.length-1] || ''}"`);
   } catch (e: any) {
     log(`FALHA no self-test sarcasmo: ${e?.message}`);
   }
