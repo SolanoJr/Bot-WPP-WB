@@ -58,30 +58,7 @@ export async function runSelfTestOndeEstou(adapter: SelfTestAdapter, alvoTeste: 
  * @param alvoTeste JID do grupo teste (ex: 120363410094452673@g.us)
  */
 export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string): Promise<void> {
-  if ((global as any).__selftestModRan) return; // não rodar 2x se PM2 fizer double restart
-  (global as any).__selftestModRan = true;
-  try {
-    log('=== SELFTEST sarcasmo (chama handleKeywords com msg "bot") ===');
-    // Simula uma mensagem de outro usuário com a palavra "bot" para exercitar o gatilho.
-    const { handleKeywords } = await import('../../services/keywordHandler');
-    const fakeMsg: any = {
-      body: 'bot',
-      mentionedIds: [],
-      hasQuotedMsg: false,
-      quotedMsg: undefined,
-      author: alvoTeste,
-      from: alvoTeste,
-      id: { _serialized: 'fake_selftest_bot_1' },
-      reply: async (text: string, opts?: any) => {
-        await adapter.sendMessage(alvoTeste, '🤖 [SELFTEST sarcasmo] ' + text, opts);
-        return true;
-      },
-      delete: async () => true,
-    };
-    const intercepted = await handleKeywords(fakeMsg, (adapter as any).innerClient);
-    log(`handleKeywords retornou intercepted=${intercepted}`);
-    log('=== SELFTEST sarcasmo agendado. Verifique o log (procure "Palavra-chave detectada"). ===');
-  } catch (e: any) {
-    log(`FALHA no self-test sarcasmo: ${e?.message}`);
-  }
+  // Sarcasmo NÃO é auto-testável (só dispara em mensagem de OUTRO usuário, não do bot).
+  // Validação é feita pelo dono mandando "bot"/marcando/reply no grupo.
+  log('=== SELFTEST mod desligado (sarcasmo exige msg de outro user; dono valida) ===');
 }

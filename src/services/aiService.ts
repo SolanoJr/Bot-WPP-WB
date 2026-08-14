@@ -113,11 +113,11 @@ ${context}`;
  */
 function getSarcasticResponse(): string {
     const responses = [
-        "Tenho nada a ver com isso.",
-        "Eu sou apenas um bot, por que me envolve nisso?",
-        "Sei de nada, sou inocente.",
-        "Não fui eu, foi o código.",
-        "Isso soa como um problema de humano, não meu."
+        "tenho nada ver com isso não sinhô",
+        "tenho nada a ver com isso não sinhô, pergunta não.",
+        "não foi meu, foi o código sinhô, eu só obedeço.",
+        "eu só um bot, não me envolva não sinhô.",
+        "isso é contigo não comigo não sinhô."
     ];
     return responses[Math.floor(Math.random() * responses.length)];
 }
