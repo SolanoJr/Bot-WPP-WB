@@ -23,7 +23,7 @@ import {
 import { platformManager } from '../PlatformManager';
 import { processAutoMod } from '../../services/autoModService';
 import { handleKeywords } from '../../services/keywordHandler';
-import { runSelfTestOndeEstou, runSelfTestMod } from '../../devtest/selftest';
+import { runSelfTestMod } from '../../devtest/selftest';
 import { startLocationPoller } from '../../services/locationPoller';
 
 export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
@@ -242,7 +242,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       // Inicia o poller de localização (recebe localização do relay e responde no chat).
       // Só uma vez (startLocationPoller tem guard interno).
       startLocationPoller(5000);
-      // Auto-teste de moderação ($automod + $banidos) no grupo teste (visível).
+      // Auto-teste de $automod (1 comando por vez, visível no grupo teste).
       if (alvoTeste) {
         setTimeout(() => runSelfTestMod(this, alvoTeste).catch(() => {}), 6000);
       }

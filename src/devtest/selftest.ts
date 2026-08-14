@@ -59,14 +59,11 @@ export async function runSelfTestOndeEstou(adapter: SelfTestAdapter, alvoTeste: 
  */
 export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string): Promise<void> {
   try {
-    log('=== SELFTEST moderação (grupo teste, visível) ===');
+    log('=== SELFTEST $automod (grupo teste, visível) ===');
     await adapter.sendMessage(alvoTeste, '$automod');
     log('$automod enviado no grupo teste');
-    await new Promise((r) => setTimeout(r, 2000));
-    await adapter.sendMessage(alvoTeste, '$banidos');
-    log('$banidos enviado no grupo teste');
-    log('=== SELFTEST moderação agendado. Verifique o log estável. ===');
+    log('=== SELFTEST $automod agendado. Verifique o log estável. ===');
   } catch (e: any) {
-    log(`FALHA no self-test moderação: ${e?.message}`);
+    log(`FALHA no self-test $automod: ${e?.message}`);
   }
 }
