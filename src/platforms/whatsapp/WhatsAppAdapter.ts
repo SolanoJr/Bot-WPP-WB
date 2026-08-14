@@ -327,6 +327,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
             console.log(`🛡️ [WhatsAppAdapter] Mensagem moderada e deletada de ${msg.author || msg.from}`);
             return;
           }
+          console.log(`[DIAG keyword] body="${(msg?.body || '').slice(0,50)}" mentionedIds=${(msg?.mentionedIds||[]).length} author=${msg?.author||msg?.from}`);
           const intercepted = await handleKeywords(msg, this.innerClient);
           if (intercepted) {
             console.log(`😏 [WhatsAppAdapter] Palavra-chave detectada, resposta enviada`);
