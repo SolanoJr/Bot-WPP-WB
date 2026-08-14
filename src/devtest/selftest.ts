@@ -13,6 +13,8 @@ export interface SelfTestAdapter {
   getLastChat?(...args: any[]): Promise<any>;
 }
 
+import { handleKeywords } from '../../services/keywordHandler';
+
 function log(msg: string): void {
   const ts = new Date().toISOString().replace('T', ' ').slice(0, 19);
   console.log(`[SELFTEST ${ts}] ${msg}`);
@@ -28,7 +30,6 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
   (global as any).__selftestModRan = true;
   try {
     log('=== SELFTEST sarcasmo (handleKeywords + handler real) ===');
-    const { handleKeywords } = await import('../../services/keywordHandler');
     const sent: string[] = [];
     const fakeReply = async (text: string) => { sent.push(text); await adapter.sendMessage(alvoTeste, '🤖 [SELFTEST sarc] ' + text); return true; };
 
