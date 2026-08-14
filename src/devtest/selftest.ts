@@ -2,10 +2,9 @@
  * Kit de auto-teste do Hermes (em produção, no Linux).
  * NÃO apagar esta pasta — é o laboratório de validação do dono.
  *
- * runSelfTestMod: exercita o sarcasmo (handleKeywords) de 3 formas:
- *   1. handleKeywords direto com body "bot" (msg de outro user)
- *   2. handleKeywords direto com reply numa msg do bot (quotedMsg.fromMe=true)
- *   3. sendMessage("bot") no grupo -> dispara o handler real (DIAG keyword no log)
+ * runSelfTestMod: único teste do sarcasmo = mandar "bot" no grupo.
+ * O bot (Hermes) digita "bot"; o handleKeywords (no message_create) captura
+ * a palavra e dá reply na própria mensagem com a frase do dono.
  */
 
 export interface SelfTestAdapter {
@@ -13,8 +12,6 @@ export interface SelfTestAdapter {
   getLastChat?(...args: any[]): Promise<any>;
   selfTestHandleKeywords?(msg: any): Promise<boolean>;
 }
-
-import { handleKeywords } from '../../services/keywordHandler';
 
 function log(msg: string): void {
   const ts = new Date().toISOString().replace('T', ' ').slice(0, 19);
@@ -30,31 +27,11 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
   if ((global as any).__selftestModRan) return; // não rodar 2x se PM2 fizer double restart
   (global as any).__selftestModRan = true;
   try {
-    log('=== SELFTEST sarcasmo (handleKeywords + handler real) ===');
-    const kw = (adapter as any).selfTestHandleKeywords || handleKeywords;
-    const sent: string[] = [];
-    const fakeReply = async (text: string) => { sent.push(text); await adapter.sendMessage(alvoTeste, '🤖 [SELFTEST sarc] ' + text); return true; };
-
-    // 1. palavra "bot" em msg de outro user
-    let intercepted = await kw({
-      body: 'bot', mentionedIds: [], hasQuotedMsg: false, quotedMsg: undefined,
-      author: alvoTeste, from: alvoTeste, id: { _serialized: 'fake_bot_1' }, reply: fakeReply, delete: async () => true,
-    } as any, (adapter as any).innerClient);
-    log(`1) "bot" -> intercepted=${intercepted} resposta="${sent[sent.length-1] || ''}"`);
-
-    // 2. reply numa msg do bot (quotedMsg.fromMe=true), qualquer texto
-    sent.length = 0;
-    const replyMsg: any = {
-      body: 'e aí', mentionedIds: [], hasQuotedMsg: true,
-      quotedMsg: { fromMe: true, author: '558581344211@c.us' },
-      author: alvoTeste, from: alvoTeste, id: { _serialized: 'fake_reply_1' }, reply: fakeReply, delete: async () => true,
-    };
-    log(`2) msg tem hasQuotedMsg=${replyMsg.hasQuotedMsg} quotedFromMe=${replyMsg.quotedMsg?.fromMe} quotedAuthor=${replyMsg.quotedMsg?.author}`);
-    intercepted = await kw(replyMsg, (adapter as any).innerClient);
-    log(`2) reply no bot -> intercepted=${intercepted} resposta="${sent[sent.length-1] || ''}"`);
-
-    log('=== SELFTEST sarcasmo concluído (1=bot, 2=reply no bot). Veja respostas no grupo. ===');
+    log('=== SELFTEST sarcasmo: Hermes digita "bot" no grupo ===');
+    // O bot manda "bot". O WWebJS emite message_create -> handleKeywords captura e dá reply.
+    await adapter.sendMessage(alvoTeste, 'bot');
+    log('=== "bot" enviado pelo bot. O handleKeywords (message_create) deve dar reply com a frase. ===');
   } catch (e: any) {
-    log(`FALHA no self-test sarcasmo: ${e.message}`);
+    log(`FALHA no self-test sarcasmo: ${e?.message}`);
   }
 }

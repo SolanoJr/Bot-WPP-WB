@@ -369,6 +369,19 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       if (mid && this._processedMsgIds.has(mid)) return;
       if (mid) this._processedMsgIds.add(mid);
       
+      // handleKeywords (sarcasmo) também no message_create: quando o PRÓPRIO bot
+      // manda "bot" (teste do Hermes), o WWebJS emite message_create (não message),
+      // e o handleKeywords precisa rodar aqui para capturar e dar reply.
+      try {
+        const intercepted = await handleKeywords(msg, this.innerClient);
+        if (intercepted) {
+          console.log(`😏 [WhatsAppAdapter] Palavra-chave detectada (message_create), resposta enviada`);
+          return; // sarcasmo tratou; não roda comando/AutoMod por cima
+        }
+      } catch (err: any) {
+        console.error(`[WhatsAppAdapter] Erro em handleKeywords (message_create):`, err?.message);
+      }
+
       if (this.messageHandler) {
         try {
           const platformMsg = await this.normalizeMessage(msg);
