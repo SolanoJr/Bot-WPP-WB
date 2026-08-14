@@ -1,8 +1,6 @@
 import axios from 'axios';
 import { getDb } from './databaseService';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-
 /**
  * Envia uma pergunta para a IA do Gemini com suporte a memória de contexto
  * @param prompt - Pergunta do usuário
@@ -10,6 +8,9 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
  * @returns Resposta da IA
  */
 async function askAI(prompt: string, userId: string = 'unknown'): Promise<string> {
+    // Lazy read: o dotenv.config() roda no entry point, mas os imports são hoisted.
+    // Ler aqui garante que process.env já foi populado em runtime.
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
     if (!GEMINI_API_KEY) {
         console.error('❌ Erro: Chave da API (GEMINI_API_KEY ou GOOGLE_API_KEY) não encontrada.');
         return "⚠️ Erro: API_KEY não configurada. Verifique o arquivo .env.";
