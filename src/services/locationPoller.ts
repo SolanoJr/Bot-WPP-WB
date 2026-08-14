@@ -75,10 +75,7 @@ export function startLocationPoller(intervalMs = 5000): void {
         }
         pending.delete(chatId);
       } catch (e: any) {
-        // 204 (sem pendente) é normal; não logar como erro.
-        if (e?.response?.status !== 204) {
-          console.error('[LocationPoller] erro ao processar', chatId, ':', e?.message);
-        }
+        console.error('[LocationPoller] erro ao processar', chatId, ':', e?.message, '| status=', e?.response?.status, '| code=', e?.code);
       }
     }
   }, intervalMs);
