@@ -41,11 +41,13 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
 
     // 2. reply numa msg do bot (quotedMsg.fromMe=true), qualquer texto
     sent.length = 0;
-    intercepted = await handleKeywords({
+    const replyMsg: any = {
       body: 'e aí', mentionedIds: [], hasQuotedMsg: true,
       quotedMsg: { fromMe: true, author: '558581344211@c.us' },
       author: alvoTeste, from: alvoTeste, id: { _serialized: 'fake_reply_1' }, reply: fakeReply, delete: async () => true,
-    } as any, (adapter as any).innerClient);
+    };
+    log(`2) msg tem hasQuotedMsg=${replyMsg.hasQuotedMsg} quotedFromMe=${replyMsg.quotedMsg?.fromMe} quotedAuthor=${replyMsg.quotedMsg?.author}`);
+    intercepted = await handleKeywords(replyMsg, (adapter as any).innerClient);
     log(`2) reply no bot -> intercepted=${intercepted} resposta="${sent[sent.length-1] || ''}"`);
 
     // 3. dispara o handler REAL: manda "bot" no grupo (bot recebe como message de outro? não, mas o handler real roda p/ msgs reais)
