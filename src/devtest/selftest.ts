@@ -2,20 +2,17 @@
  * selftest.ts — Testes autônomos em PRODUÇÃO feitos pelo PRÓPRIO BOT.
  *
  * Objetivo: o Hermes (operando como o bot 558581344211@c.us, logado no Linux)
- * se auto-testa mandando comandos reais no grupo teste, marcando alvos válidos.
+ * se auto-testa mandando comandos reais em chats visíveis (grupo teste), para
+ * validar sem encher o grupo com comandos já aprovados.
  *
- * REGRA DE OURO (anotada depois de 93847298374 falhas):
- *  - O comando $kick/$ban EXIGE uma MENÇÃO REAL resolvida pelo WWebJS.
- *  - Para marcar, passe em `mentions:[tid]` o `id._serialized` CRU do participant
- *    (NÃO fazer .replace('@lid','@c.us') — isso corrompe e a menção não é criada).
- *  - Só funciona se o alvo for um NÃO-ADMIN e diferente de mim (bot).
- *  - Se o grupo teste não tiver não-admin, o teste avisa e não faz nada (não loopa).
+ * REGRA (anotada depois de várias lutas):
+ *  - NUNCA apagar o teste após funcionar. Este arquivo é o "kit" do Hermes.
+ *  - Só testar 1 comando por vez (foco do dono). Kick/ban JÁ foram validados
+ *    (remoção + nome via menção/getTargetDisplayName + groupTag) — não repetir.
+ *  - O comando $ondeestou usa ctx.chatId (não msg.from) — corrigido em 14/08.
  *
- * O bot NÃO processa comando de chat privado de OUTRO número (só grupo/self).
- * Por isso o self-test usa message_create (bot manda $kick com mentions -> dispara).
- *
- * Este arquivo NUNCA deve ser apagado após o teste funcionar. É o "kit de teste"
- * do Hermes. Para desligar em produção, basta não definir WPP_TEST_GROUP_ID.
+ * Este arquivo NUNCA deve ser apagado após o teste funcionar. Para desligar,
+ * basta não definir WPP_TEST_GROUP_ID (o adapter só chama se alvoTeste existir).
  */
 
 import * as fs from 'fs';
@@ -40,64 +37,16 @@ export interface SelfTestAdapter {
 }
 
 /**
- * Roda os auto-testes em produção.
- * @param adapter adapter do WhatsApp (tem sendMessage + innerClient)
+ * Teste do $ondeestou no GRUPO TESTE (canto visível para o dono).
+ * @param adapter adapter do WhatsApp
  * @param alvoTeste JID do grupo teste (ex: 120363410094452673@g.us)
  */
-export async function runSelfTests(adapter: SelfTestAdapter, alvoTeste: string): Promise<void> {
-  log('=== INICIANDO SELFTEST (VC = bot 558581344211) ===');
+export async function runSelfTestOndeEstou(adapter: SelfTestAdapter, alvoTeste: string): Promise<void> {
   try {
-    const grp = await adapter.innerClient.getChatById(alvoTeste);
-    const me = adapter.innerClient.info.wid._serialized;
-    const participants: any[] = grp.participants || [];
-
-    const target = participants.find((p: any) => {
-      const pid = String(p.id?._serialized || p.id || '');
-      return pid !== me && !p.isAdmin && !p.isSuperAdmin;
-    });
-
-    if (!target) {
-      log('NENHUM alvo não-admin no grupo teste — self-test de kick/ban pulado (não há o que marcar).');
-    } else {
-      const tid = String(target.id?._serialized || target.id); // CRU, sem replace!
-      // TEXTO com @<numero> + mentions[] = WWebJS cria (ou extractMentions faz fallback).
-      // Caio = primeiro não-admin (kick); Alberto = segundo não-admin (ban).
-      const naoAdmins = participants.filter((p: any) => {
-        const pid = String(p.id?._serialized || p.id || '');
-        return pid !== me && !p.isAdmin && !p.isSuperAdmin;
-      });
-      const caio = naoAdmins[0];
-      const alberto = naoAdmins[1] || naoAdmins[0];
-      if (caio) {
-        const cid = String(caio.id?._serialized || caio.id);
-        log(`Caio(alvo kick): ${cid} — mandando $kick com menção`);
-        await adapter.sendMessage(alvoTeste, `$kick @${cid}`, { mentions: [cid] } as any);
-        log(`$kick enviado marcando ${cid}`);
-      }
-      if (alberto) {
-        const aid = String(alberto.id?._serialized || alberto.id);
-        log(`Alberto(alvo ban): ${aid} — mandando $ban com menção`);
-        await adapter.sendMessage(alvoTeste, `$ban @${aid}`, { mentions: [aid] } as any);
-        log(`$ban enviado marcando ${aid}`);
-      }
-    }
-
-    log('=== SELFTEST (kick Caio + ban Alberto) agendado. Verifique o log estável. ===');
-  } catch (e: any) {
-    log(`FALHA no self-test: ${e?.message}`);
-  }
-}
-
-/**
- * Teste do $ondeestou em chat PRIVADO (VC = bot manda pra si mesmo; message_create dispara).
- * O comando usa ctx.chatId (privado). Se o WWebJS processar, responde no privado.
- */
-export async function runSelfTestOndeEstou(adapter: SelfTestAdapter): Promise<void> {
-  const privado = '558581344211@c.us'; // o próprio bot (self chat)
-  try {
-    log('=== SELFTEST $ondeestou (privado) ===');
-    await adapter.sendMessage(privado, '$ondeestou');
-    log('$ondeestou enviado no privado (self)');
+    log('=== SELFTEST $ondeestou (grupo teste, visível) ===');
+    await adapter.sendMessage(alvoTeste, '$ondeestou');
+    log('$ondeestou enviado no grupo teste');
+    log('=== SELFTEST $ondeestou agendado. Verifique o log estável (procure "Solicitação de Localização"). ===');
   } catch (e: any) {
     log(`FALHA no self-test $ondeestou: ${e?.message}`);
   }
