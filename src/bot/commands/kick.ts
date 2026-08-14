@@ -80,8 +80,10 @@ export const kickCommand: ICommand = {
       // Em TG/Discord usamos o nome real (getTargetDisplayName).
       const numero = String(targetId).replace('@c.us', '').replace('@lid', '');
       const removedName = await getTargetDisplayName(ctx.client, targetId, participants);
+      // No WhatsApp o nome aparece via MENÇÃO (@numero + mentions, igual ao welcome do novato).
+      // Garantimos o nome também no TEXTO (se o WA não renderizar) usando removedName.
       const texto = ctx.platform === 'whatsapp'
-        ? `✅ @${numero} foi removido do grupo${groupTag(ctx)}.`
+        ? `✅ ${removedName || '@' + numero} foi removido do grupo${groupTag(ctx)}.`
         : `✅ ${removedName || numero} foi removido do grupo${groupTag(ctx)}.`;
       await ctx.reply(texto, {
         ...(ctx.platform === 'whatsapp' ? { mentions: [targetId] } : {}),

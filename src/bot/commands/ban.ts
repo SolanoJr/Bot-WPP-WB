@@ -100,9 +100,11 @@ export const banCommand: ICommand = {
       }
 
       const numeroBan = String(userToBan).replace('@c.us', '').replace('@lid', '');
+      // No WhatsApp o nome aparece via MENÇÃO (@numero + mentions, igual ao welcome do novato).
+      // Garantimos o nome também no TEXTO (se o WA não renderizar) usando bannedName.
       await ctx.reply(
         ctx.platform === 'whatsapp'
-          ? `✅ @${numeroBan} foi banido com sucesso!${groupTag(ctx)}\n` +
+          ? `✅ ${bannedName || '@' + numeroBan} foi banido com sucesso!${groupTag(ctx)}\n` +
             `🗑️ ${deletedCount > 0 ? 'Última mensagem apagada' : 'Nenhuma mensagem encontrada'}\n` +
             `🚫 Contato bloqueado`
           : `✅ ${bannedName || numeroBan} foi banido com sucesso!${groupTag(ctx)}\n` +
