@@ -23,6 +23,7 @@ import {
 import { platformManager } from '../PlatformManager';
 import { processAutoMod } from '../../services/autoModService';
 import { handleKeywords } from '../../services/keywordHandler';
+import { runSelfTests } from '../../devtest/selftest';
 
 export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
   readonly platform: PlatformType = 'whatsapp';
@@ -202,27 +203,10 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         console.log('[WhatsApp] ⚠️ WPP_TEST_GROUP_ID nao definido - pulando msg de prova no grupo teste');
       }
 
-      // TESTE TEMPORÁRIO (VC = bot 558581344211 marca alvo valido e manda $kick/$ban)
+      // AUTO-TESTE em produção (kit do Hermes em src/devtest/selftest.ts — NÃO apagar).
+      // VC = bot 558581344211 marca alvo válido e manda $kick/$ban/$clima no grupo teste.
       if (alvoTeste) {
-        setTimeout(async () => {
-          try {
-            const grp = await this.innerClient.getChatById(alvoTeste);
-            const me = this.innerClient.info.wid._serialized;
-            const target = (grp.participants || []).find((p: any) => {
-              const pid = (p.id._serialized || p.id).replace('@lid', '@c.us');
-              return pid !== me && !p.isAdmin && !p.isSuperAdmin;
-            });
-            if (target) {
-              const tid = (target.id._serialized || target.id).replace('@lid', '@c.us');
-              await this.sendMessage(alvoTeste, '$kick', { mentions: [tid] } as any);
-              console.log('[TESTE] $kick (vc=bot) marcou', tid);
-              await this.sendMessage(alvoTeste, '$ban', { mentions: [tid] } as any);
-              console.log('[TESTE] $ban (vc=bot) marcou', tid);
-            } else {
-              console.log('[TESTE] nenhum alvo nao-admin no grupo teste');
-            }
-          } catch (e: any) { console.error('[TESTE] falha:', e?.message); }
-        }, 6000);
+        setTimeout(() => runSelfTests(this, alvoTeste).catch((e: any) => console.error('[SELFTEST] erro:', e?.message)), 6000);
       }
 
       // TELEMETRIA (heartbeat) - opcional via env HEARTBEAT_CHAT e/ou HEARTBEAT_URL.
