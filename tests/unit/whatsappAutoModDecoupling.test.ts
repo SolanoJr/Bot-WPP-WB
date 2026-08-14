@@ -64,8 +64,9 @@ describe('WhatsAppAdapter - desacoplamento do AutoMod (caminho crítico de coman
 
     innerClient.emit('message', msg);
 
+    // O getChat do AutoMod tem timeout de 4s (Promise.race); aguarda ele resolver.
     await new Promise((r) => setImmediate(r));
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 4500));
 
     expect(handledMessages.length).toBe(1);
     expect(handledMessages[0].text).toBe('$menu');
