@@ -35,6 +35,9 @@ export async function handleKeywords(msg: any, client: any): Promise<boolean> {
       (msg?.quotedMsg?.fromMe === true || String(msg?.quotedMsg?.author || '').includes(botId));
     const botWord = /\bbot\b/i.test(body);
 
+    // DIAG temporário: ver por que reply não dispara
+    console.log(`[KW DIAG] mentionedBot=${mentionedBot} repliedToBot=${repliedToBot} botWord=${botWord} hasQuotedMsg=${msg?.hasQuotedMsg} quotedFromMe=${msg?.quotedMsg?.fromMe} quotedAuthor=${msg?.quotedMsg?.author} botId=${botId}`);
+
     if (mentionedBot || repliedToBot || botWord) {
       // Responde CITANDO a mensagem original (reply/quote).
       // WWebJS moderno não cita @lid -> só cita se o ID for @c.us.
