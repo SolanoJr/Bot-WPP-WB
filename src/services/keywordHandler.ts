@@ -1,7 +1,7 @@
 import { getSarcasticResponse } from './aiService';
 
-// Dedup: não responde 2x a mesma mensagem (WWebJS pode emitir message + message_create).
-const respondedIds = new Set<string>();
+// Dedup por conteúdo: chat|autor|texto -> timestamp (janela 5s).
+const respondedDup = new Map<string, number>();
 
 /**
  * Processa mensagens em busca de palavras-chave ou tentativas de trollagem
@@ -11,13 +11,16 @@ const respondedIds = new Set<string>();
  */
 export async function handleKeywords(msg: any, client: any): Promise<boolean> {
   const body = (msg?.body || '').toLowerCase();
-  // Dedup: usa o id núcleo (msg.id.id) para pegar message + message_create da mesma msg
-  const mid = msg?.id?._serialized || msg?.id?.id;
-  const coreId = msg?.id?.id || msg?.id?._serialized;
 
-  // Dedup: se já respondemos a esta mensagem, não responde de novo.
-  if (coreId && respondedIds.has(coreId)) return false;
-  if (coreId) respondedIds.add(coreId);
+  // Dedup por CONTEÚDO: o WWebJS às vezes emite a mesma mensagem 2x (mids diferentes).
+  // Ignora se (chat+autor+texto) repetiu nos últimos 5s.
+  const chatId = msg?.from || msg?.to || '';
+  const author = msg?.author || msg?.from || '';
+  const dupKey = `${chatId}|${author}|${body}`;
+  const now = Date.now();
+  const last = respondedDup.get(dupKey);
+  if (last && now - last < 5000) return false;
+  respondedDup.set(dupKey, now);
 
   // 1. Detecção de Trollagem (Falso Banimento/Saída)
   const trollPatterns = [
