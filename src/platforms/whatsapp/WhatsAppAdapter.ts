@@ -205,12 +205,10 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       }
 
       // AUTO-TESTE em produção (kit do Hermes em src/devtest/selftest.ts — NÃO apagar).
-      // Foco atual: $ondeestou no grupo teste (canto visível). Kick/ban já validados.
+      // Foco: $automod (1 comando por vez, visível no grupo teste).
       if (alvoTeste) {
-        setTimeout(() => runSelfTestOndeEstou(this, alvoTeste).catch((e: any) => console.error('[SELFTEST] ondeestou erro:', e?.message)), 6000);
+        setTimeout(() => runSelfTestMod(this, alvoTeste).catch(() => {}), 6000);
       }
-
-      // TELEMETRIA (heartbeat) - opcional via env HEARTBEAT_CHAT e/ou HEARTBEAT_URL.
       const hbChat = process.env.HEARTBEAT_CHAT;
       const hbUrl = process.env.HEARTBEAT_URL;
       if (hbChat || hbUrl) {
