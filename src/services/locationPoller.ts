@@ -1,0 +1,80 @@
+/**
+ * locationPoller.ts — Polling de localização recebida via Relay.
+ *
+ * O comando $ondeestou gera um link e adiciona o chatId em global.pendingChatIds.
+ * O usuário clica, envia a localização (frontend -> relay POST /location), e o relay
+ * guarda. Este poller busca a localização pendente e manda a resposta no chat.
+ *
+ * SEM este poller, o bot NUNCA responde após o usuário enviar a localização
+ * (era o bug: o $ondeestou só gerava o link, faltava o lado de receber/responder).
+ */
+
+import axios from 'axios';
+import { platformManager } from '../platforms/PlatformManager';
+
+const RELAY_URL = (process.env.RELAY_URL || 'https://bot-wpp-relay.onrender.com').trim();
+const API_KEY = process.env.WARRIOR_AUTH_KEY || '';
+
+let started = false;
+
+export function startLocationPoller(intervalMs = 5000): void {
+  if (started) return;
+  started = true;
+
+  if (!(global as any).pendingChatIds || typeof (global as any).pendingChatIds.add !== 'function') {
+    (global as any).pendingChatIds = new Set<string>();
+  }
+  const pending = (global as any).pendingChatIds as Set<string>;
+
+  console.log('[LocationPoller] Iniciado (polling a cada ' + intervalMs + 'ms em ' + RELAY_URL + ')');
+
+  setInterval(async () => {
+    if (pending.size === 0) return;
+    for (const chatId of Array.from(pending)) {
+      try {
+        const res = await axios.get(`${RELAY_URL}/pending/${encodeURIComponent(chatId)}`, {
+          headers: { 'x-api-key': API_KEY },
+          timeout: 5000,
+        });
+        if (res.status === 204 || !res.data || !res.data.location) continue;
+
+        const loc = res.data;
+        const lat = Number(loc.location.lat);
+        const lng = Number(loc.location.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+
+        const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+
+        // Nome do grupo (se houver) para contexto na resposta.
+        let groupName = '';
+        try {
+          const adapter = platformManager.getAdapter('whatsapp');
+          if (adapter?.client?.getChat) {
+            const cleanId = chatId.replace(/^wpp:/, '');
+            const chat = await adapter.client.getChat(cleanId);
+            groupName = (chat as any)?.name || '';
+          }
+        } catch { /* ignore */ }
+
+        const text = [
+          '📍 *Localização recebida!*',
+          groupName ? `Grupo: ${groupName}` : '',
+          `🔗 ${mapsUrl}`,
+          loc.location.accuracy ? `🎯 Precisão: ~${Math.round(loc.location.accuracy)}m` : '',
+        ].filter(Boolean).join('\n');
+
+        const adapter = platformManager.getAdapter('whatsapp');
+        if (adapter?.client?.sendMessage) {
+          await adapter.client.sendMessage(chatId, text);
+          console.log(`[LocationPoller] Localização enviada para ${chatId} (${lat},${lng})`);
+        }
+        pending.delete(chatId);
+      } catch (e: any) {
+        // 204 (sem pendente) é normal; não logar como erro.
+        if (e?.response?.status !== 204) {
+          console.error('[LocationPoller] erro ao processar', chatId, ':', e?.message);
+        }
+      }
+    }
+  }, intervalMs);
+}

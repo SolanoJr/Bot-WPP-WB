@@ -24,6 +24,7 @@ import { platformManager } from '../PlatformManager';
 import { processAutoMod } from '../../services/autoModService';
 import { handleKeywords } from '../../services/keywordHandler';
 import { runSelfTestOndeEstou } from '../../devtest/selftest';
+import { startLocationPoller } from '../../services/locationPoller';
 
 export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
   readonly platform: PlatformType = 'whatsapp';
@@ -238,6 +239,9 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       }
       
       if (this.readyHandler) this.readyHandler();
+      // Inicia o poller de localização (recebe localização do relay e responde no chat).
+      // Só uma vez (startLocationPoller tem guard interno).
+      startLocationPoller(5000);
     });
 
     this.innerClient.on('disconnected', (reason: string) => {
