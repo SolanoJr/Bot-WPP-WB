@@ -57,23 +57,16 @@ export async function runSelfTests(adapter: SelfTestAdapter, alvoTeste: string):
     });
 
     if (!target) {
-      log('NENHUM alvo não-admin no grupo teste — self-test de kick/ban pulado (não há o que marcar).');
+      log('NENHUM alvo não-admin no grupo teste — self-test de kick pulado (não há o que marcar).');
     } else {
       const tid = String(target.id?._serialized || target.id); // CRU, sem replace!
-      // CORREÇÃO DO MEU TESTE (83847298374ª vez): o WWebJS só cria menção se o TEXTO
-      // contiver '@<numero>' E o array mentions tiver o id. Igual ao welcome do novato.
-      log(`Alvo encontrado: ${tid} — mandando $kick e $ban com menção`);
+      // TEXTO com @<numero> + mentions[] = WWebJS cria (ou extractMentions faz fallback).
+      log(`Alvo encontrado: ${tid} — mandando SÓ $kick com menção`);
       await adapter.sendMessage(alvoTeste, `$kick @${tid}`, { mentions: [tid] } as any);
       log(`$kick enviado marcando ${tid}`);
-      await adapter.sendMessage(alvoTeste, `$ban @${tid}`, { mentions: [tid] } as any);
-      log(`$ban enviado marcando ${tid}`);
     }
 
-    // Teste do $clima (não precisa de menção)
-    await adapter.sendMessage(alvoTeste, '$clima fortaleza');
-    log('$clima fortaleza enviado');
-
-    log('=== SELFTEST agendado. Verifique o log estável do Linux para o resultado. ===');
+    log('=== SELFTEST (só $kick) agendado. Verifique o log estável do Linux para o resultado. ===');
   } catch (e: any) {
     log(`FALHA no self-test: ${e?.message}`);
   }

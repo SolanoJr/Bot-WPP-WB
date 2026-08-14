@@ -602,6 +602,17 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       ids = (msg._data as any).mentionedJidList;
     }
     console.log(`[WhatsApp] extractMentions - fontes: mentionedIds=${(msg.mentionedIds||[]).length} mentionedJidList=${(msg.mentionedJidList||[]).length} _data.mentionedJidList=${(msg._data?.mentionedJidList||[]).length} -> ids=${JSON.stringify(ids)}`);
+    // FALLBACK: se o WWebJS não populou mentionedIds (comum quando o PRÓPRIO bot
+    // envia a mensagem com mentions[] e o WA não resolve), tentar extrair do texto
+    // "@<numero>". Isso garante que comandos de moderação reconheçam a menção mesmo
+    // quando o WA não cria o mentionedIds.
+    if (ids.length === 0 && typeof msg.body === 'string') {
+      const m = msg.body.match(/@(\d{8,})/g);
+      if (m) {
+        ids = m.map((x: string) => x.replace('@', '') + '@c.us');
+        console.log(`[WhatsApp] extractMentions - fallback por texto: ids=${JSON.stringify(ids)}`);
+      }
+    }
     return ids.map((id: string) => {
       // Normalizar @lid -> @c.us (WWebJS removeParticipants espera @c.us)
       const clean = id.replace('@lid', '@c.us');
