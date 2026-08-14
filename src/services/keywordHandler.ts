@@ -27,16 +27,14 @@ export async function handleKeywords(msg: any, client: any): Promise<boolean> {
   // 2. Trigger Sarcástico: menção ao bot, resposta ao bot, ou palavra "bot"
   const isCommand = (msg?.body || '').startsWith('$');
   if (!isCommand) {
-    const botId = (client?.info?.wid?._serialized || '').replace('@c.us', '').replace('@lid', '');
+    const botNumber = '558581344211';
     const mentionedBot = Array.isArray(msg?.mentionedIds)
-      ? msg.mentionedIds.some((id: string) => String(id).replace('@c.us', '').replace('@lid', '').includes(botId))
+      ? msg.mentionedIds.some((id: string) => String(id).replace('@c.us', '').replace('@lid', '').includes(botNumber))
       : false;
-    const repliedToBot = Boolean(msg?.hasQuotedMsg) &&
-      (msg?.quotedMsg?.fromMe === true || String(msg?.quotedMsg?.author || '').includes(botId));
+    const isReply = Boolean(msg?.hasQuotedMsg || msg?.type === 'reply' || msg?._data?.isQuotedMessage);
+    const quotedAuthor = String(msg?.quotedMsg?.author || msg?.quotedMsg?.participant || msg?._data?.quotedMsg?.author || '');
+    const repliedToBot = isReply && (msg?.quotedMsg?.fromMe === true || quotedAuthor.includes(botNumber) || quotedAuthor.includes('558581344211'));
     const botWord = /\bbot\b/i.test(body);
-
-    // DIAG temporário: ver por que reply não dispara
-    console.log(`[KW DIAG] mentionedBot=${mentionedBot} repliedToBot=${repliedToBot} botWord=${botWord} hasQuotedMsg=${msg?.hasQuotedMsg} quotedFromMe=${msg?.quotedMsg?.fromMe} quotedAuthor=${msg?.quotedMsg?.author} botId=${botId}`);
 
     if (mentionedBot || repliedToBot || botWord) {
       // Responde CITANDO a mensagem original (reply/quote).
