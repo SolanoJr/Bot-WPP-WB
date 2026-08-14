@@ -60,12 +60,12 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     log(`[sarc] FALHA: ${e?.message}`);
   }
 
-  // Teste de COMANDO REAL (1x só, isolado): $noticias
+  // Teste de COMANDO REAL (1x só, isolado): $cantada
   try {
-    log('[cmd] mandando $noticias 1x (comando real)...');
-    await adapter.sendMessage(alvoTeste, '$noticias');
-    log('[cmd] $noticias enviado. Veja a resposta TOP NOTÍCIAS no log.');
+    log('[cmd] mandando $cantada 1x (comando real)...');
+    await adapter.sendMessage(alvoTeste, '$cantada');
+    log('[cmd] $cantada enviado. Veja a resposta no log.');
   } catch (e: any) {
-    log(`[cmd] FALHA $noticias: ${e?.message}`);
+    log(`[cmd] FALHA $cantada: ${e?.message}`);
   }
 }
