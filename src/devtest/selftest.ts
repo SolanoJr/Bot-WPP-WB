@@ -57,16 +57,32 @@ export async function runSelfTests(adapter: SelfTestAdapter, alvoTeste: string):
     });
 
     if (!target) {
-      log('NENHUM alvo não-admin no grupo teste — self-test de kick pulado (não há o que marcar).');
+      log('NENHUM alvo não-admin no grupo teste — self-test de kick/ban pulado (não há o que marcar).');
     } else {
       const tid = String(target.id?._serialized || target.id); // CRU, sem replace!
       // TEXTO com @<numero> + mentions[] = WWebJS cria (ou extractMentions faz fallback).
-      log(`Alvo encontrado: ${tid} — mandando SÓ $kick com menção`);
-      await adapter.sendMessage(alvoTeste, `$kick @${tid}`, { mentions: [tid] } as any);
-      log(`$kick enviado marcando ${tid}`);
+      // Caio = primeiro não-admin (kick); Alberto = segundo não-admin (ban).
+      const naoAdmins = participants.filter((p: any) => {
+        const pid = String(p.id?._serialized || p.id || '');
+        return pid !== me && !p.isAdmin && !p.isSuperAdmin;
+      });
+      const caio = naoAdmins[0];
+      const alberto = naoAdmins[1] || naoAdmins[0];
+      if (caio) {
+        const cid = String(caio.id?._serialized || caio.id);
+        log(`Caio(alvo kick): ${cid} — mandando $kick com menção`);
+        await adapter.sendMessage(alvoTeste, `$kick @${cid}`, { mentions: [cid] } as any);
+        log(`$kick enviado marcando ${cid}`);
+      }
+      if (alberto) {
+        const aid = String(alberto.id?._serialized || alberto.id);
+        log(`Alberto(alvo ban): ${aid} — mandando $ban com menção`);
+        await adapter.sendMessage(alvoTeste, `$ban @${aid}`, { mentions: [aid] } as any);
+        log(`$ban enviado marcando ${aid}`);
+      }
     }
 
-    log('=== SELFTEST (só $kick) agendado. Verifique o log estável do Linux para o resultado. ===');
+    log('=== SELFTEST (kick Caio + ban Alberto) agendado. Verifique o log estável. ===');
   } catch (e: any) {
     log(`FALHA no self-test: ${e?.message}`);
   }
