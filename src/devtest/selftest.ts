@@ -51,3 +51,22 @@ export async function runSelfTestOndeEstou(adapter: SelfTestAdapter, alvoTeste: 
     log(`FALHA no self-test $ondeestou: ${e?.message}`);
   }
 }
+
+/**
+ * Teste dos comandos de moderação ($automod e $banidos) no GRUPO TESTE.
+ * @param adapter adapter do WhatsApp
+ * @param alvoTeste JID do grupo teste (ex: 120363410094452673@g.us)
+ */
+export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string): Promise<void> {
+  try {
+    log('=== SELFTEST moderação (grupo teste, visível) ===');
+    await adapter.sendMessage(alvoTeste, '$automod');
+    log('$automod enviado no grupo teste');
+    await new Promise((r) => setTimeout(r, 2000));
+    await adapter.sendMessage(alvoTeste, '$banidos');
+    log('$banidos enviado no grupo teste');
+    log('=== SELFTEST moderação agendado. Verifique o log estável. ===');
+  } catch (e: any) {
+    log(`FALHA no self-test moderação: ${e?.message}`);
+  }
+}

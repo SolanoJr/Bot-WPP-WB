@@ -1,6 +1,7 @@
 import { ICommand } from './types';
 import { isMaster } from '../../services/permissions';
 import { listBanned } from '../../services/databaseService';
+import { getTargetDisplayName } from './format';
 
 export const banidosCommand: ICommand = {
   name: 'banidos',
@@ -17,13 +18,25 @@ export const banidosCommand: ICommand = {
       }
 
       let list = '🚫 **LISTA DE BANIDOS (Últimos 10)**\n\n';
-      bans.forEach((ban: any, index: number) => {
+      for (let i = 0; i < bans.length; i++) {
+        const ban: any = bans[i];
         const date = new Date(ban.banned_at || Date.now()).toLocaleDateString('pt-BR');
-        list += `${index + 1}. 👤 @${String(ban.user_id).split('@')[0]}\n`;
-        list += `   📍 Grupo: ${String(ban.group_id).split('@')[0]}\n`;
+        // Nome real da pessoa (cai no número se não achar)
+        let nome = String(ban.user_id).split('@')[0];
+        try {
+          nome = await getTargetDisplayName(ctx.client, ban.user_id, undefined) || nome;
+        } catch { /* ignore */ }
+        // Nome do grupo (cai no ID se não achar)
+        let grupo = String(ban.group_id).split('@')[0];
+        try {
+          const chat = await ctx.client.getChat(ban.group_id);
+          grupo = (chat as any)?.name || grupo;
+        } catch { /* ignore */ }
+        list += `${i + 1}. 👤 ${nome}\n`;
+        list += `   📍 Grupo: ${grupo}\n`;
         list += `   📅 Data: ${date}\n`;
         list += `   📝 Motivo: ${ban.reason || 'Não informado'}\n\n`;
-      });
+      }
 
       await ctx.reply(list);
     } catch (error: any) {
