@@ -53,12 +53,8 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     intercepted = await kw(replyMsg, (adapter as any).innerClient);
     log(`2) reply no bot -> intercepted=${intercepted} resposta="${sent[sent.length-1] || ''}"`);
 
-    // 3. dispara o handler REAL: manda "bot" no grupo (bot recebe como message de outro? não, mas o handler real roda p/ msgs reais)
-    await adapter.sendMessage(alvoTeste, 'bot');
-    log('3) sendMessage("bot") no grupo enviado — veja [DIAG keyword] no log estável');
-
-    log('=== SELFTEST sarcasmo concluído. Veja o log (DIAG keyword + respostas no grupo). ===');
+    log('=== SELFTEST sarcasmo concluído (1=bot, 2=reply no bot). Veja respostas no grupo. ===');
   } catch (e: any) {
-    log(`FALHA no self-test sarcasmo: ${e?.message}`);
+    log(`FALHA no self-test sarcasmo: ${e.message}`);
   }
 }

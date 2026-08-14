@@ -324,7 +324,6 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       // o sarcasmo. Agora o getChat do AutoMod tem timeout de 4s. Rodamos direto (await)
       // para garantir que o fluxo e os logs executem no handler.
       try {
-        console.log(`[DIAG keyword] body="${(msg?.body || '').slice(0,50)}" mentionedIds=${(msg?.mentionedIds||[]).length} author=${msg?.author||msg?.from}`);
         const intercepted = await handleKeywords(msg, this.innerClient);
         if (intercepted) {
           console.log(`😏 [WhatsAppAdapter] Palavra-chave detectada, resposta enviada`);
