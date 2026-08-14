@@ -30,12 +30,14 @@ export function startLocationPoller(intervalMs = 5000): void {
 
   setInterval(async () => {
     if (pending.size === 0) return;
+    console.log(`[LocationPoller] tick - pending.size=${pending.size} chats=${JSON.stringify(Array.from(pending))}`);
     for (const chatId of Array.from(pending)) {
       try {
         const res = await axios.get(`${RELAY_URL}/pending/${encodeURIComponent(chatId)}`, {
           headers: { 'x-api-key': API_KEY },
           timeout: 5000,
         });
+        console.log(`[LocationPoller] GET ${chatId} -> status=${res.status} hasData=${!!res.data?.location}`);
         if (res.status === 204 || !res.data || !res.data.location) continue;
 
         const loc = res.data;
