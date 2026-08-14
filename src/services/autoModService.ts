@@ -147,7 +147,10 @@ export async function processAutoMod(msg: any, client: any): Promise<boolean> {
   // AutoMod por grupo (persistido): lê a config. Se nada relevante estiver ligado, pula.
   let groupIdForCheck = msg.from;
   try {
-    const chat = await msg.getChat().catch(() => null);
+    const chat = await Promise.race([
+      msg.getChat().catch(() => null),
+      new Promise((res) => setTimeout(() => res(null), 4000))
+    ]).catch(() => null);
     groupIdForCheck = chat?.id?._serialized || msg.from;
   } catch { /* ignora */ }
   try {
@@ -169,7 +172,10 @@ export async function processAutoMod(msg: any, client: any): Promise<boolean> {
     // ASSUMIR que o bot é admin (prosseguir) — o WWebJS retorna erro real se não for.
     let chat: any = null;
     try {
-      chat = await msg.getChat();
+      chat = await Promise.race([
+        msg.getChat(),
+        new Promise((res) => setTimeout(() => res(null), 4000))
+      ]).catch(() => null);
     } catch (gcErr: any) {
       console.warn(`[AutoMod] getChat falhou (${gcErr?.message}); assumindo bot admin.`);
     }
