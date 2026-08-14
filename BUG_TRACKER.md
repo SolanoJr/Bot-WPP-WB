@@ -521,6 +521,32 @@ at PlatformManager.loadCommands (src/platforms/PlatformManager.ts:347)
 
 ---
 
+### 35. Sarcasmo (keywordHandler) — 4 gatilhos + dedup anti-2x
+**Data:** 2026-08-14
+**Sessão:** 60+
+**Status:** ✅ Resolvido (validado por selftest + logs)
+
+**Erro:** bot não respondia menção/marcação/reply com "bot"; quando respondia, mandava 2x ("bot doido" → 2 respostas).
+
+**Causa raiz (3 problemas):**
+1. `processAutoMod` rodava ANTES do `handleKeywords` e travava silenciosamente em `msg.getChat()` para `@lid` (WWebJS Issue #201838), bloqueando o sarcasmo.
+2. `repliedToBot`/`mentionedBot` só checavam o número `558581344211`; quando o humano marca/dá reply, o WWebJS popula `mentionedIds`/`quotedMsg.author` com o **LID** `2592935567439`, não o número → gatilho não disparava.
+3. WWebJS emite a mesma mensagem "bot" **2x** (mids diferentes, ambos `false_`) → resposta dupla.
+
+**Correção:**
+- `handleKeywords` roda ANTES do `processAutoMod` no handler `message` (e também no `message_create`, para o bot testar a si mesmo).
+- `botNumbers = ['558581344211','2592935567439']` reconhece ambos os IDs em menção e reply.
+- Reply em msg do bot usa `getQuotedMessage()` quando `quotedMsg` não vem populado.
+- `getChat()` do AutoMod com timeout 4s (`Promise.race`) — não trava.
+- **Dedup por conteúdo** `(chat|autor|texto)` com janela 5s → mata o 2x do WWebJS.
+- Frase do dono: `tenho nada ver com isso não sinhô` (+ variações). Só reply + texto.
+
+**Arquivos:** `src/services/keywordHandler.ts`, `src/platforms/whatsapp/WhatsAppAdapter.ts`, `src/services/autoModService.ts`
+
+**⚠️ Regra anti-regressão:** NUNCA colocar `processAutoMod` antes do `handleKeywords` (trava o sarcasmo em `@lid`). Manter dedup por conteúdo no `keywordHandler`.
+
+---
+
 ## ✅ Bugs Resolvidos (Histórico)
 
 ### 5. TypeScript - Property 'removeParticipants' does not exist on type 'Chat'
@@ -907,5 +933,5 @@ ssh solanojr@100.101.218.16 "cd ~/bot-wpp && pm2 restart bot-wpp"
 
 ---
 
-**Última Atualização:** 2026-08-13
-**Responsável:** WarriorBlack
+**Última Atualização:** 2026-08-14
+**Responsável:** WarriorBlack / Hermes

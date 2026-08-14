@@ -1,5 +1,26 @@
 # 📜 ChangeLog - WarriorBlack Bot
 
+## [v1.2.0] - 2026-08-14
+### 🎯 Sarcasmo (keywordHandler), $automod, $ondeestou, $kick/$ban com nome
+
+#### Adicionado / Corrigido
+- **Sarcasmo (`src/services/keywordHandler.ts`):** 4 gatilhos funcionando por evidência:
+  1. Palavra "bot" em qualquer texto (dedup por conteúdo 5s evita resposta dupla do WWebJS double-emit)
+  2. Menção ao bot (`@WarriorBlack`) — reconhece ambos os IDs (`558581344211` e LID `2592935567439`)
+  3. Bot digita "bot" → `message_create` handler também roda `handleKeywords`
+  4. Reply em qualquer mensagem do bot → usa `getQuotedMessage()` quando `quotedMsg` não vem populado
+  - Frase do dono: `tenho nada ver com isso não sinhô` (+ variações). Só reply + texto.
+- **$automod (`modToggle.ts` + `PlatformManager.createCommandContext`):** aceita dono (isMaster) OU admin de grupo (`isAdmin` populado de `chat.participants`).
+- **$ondeestou (`ondeestou.ts` + `locationPoller.ts`):** gera link + recebe loc do relay + posta Google Maps + texto de espionagem no grupo (validado 11:35:35).
+- **$kick / $ban (BUG 34):** mostram NOME real da pessoa (via `getTargetDisplayName`) + menção.
+- **$banidos:** lista com NOME da pessoa + NOME do grupo (getChat().name). Só MASTER.
+- **AutoMod resilience:** `getChat()` com timeout 4s (`Promise.race`) — não trava mais em `@lid` (Issue #201838).
+- **handleKeywords ANTES do processAutoMod** no `message` handler (AutoMod travava e bloqueava o sarcasmo).
+
+#### Status
+- Build OK; suite **97/97 (16 files)** — zero falhas.
+- Deploy Linux PID atual com as correções. Sarcasmo validado por selftest + logs; $banidos/$ban-reentrada/$kick-outro-adm pendentes de validação em produção pelo dono.
+
 ## [v1.1.9] - 2026-08-10
 ### 🔧 Correção crítica: `$kick`/`$ban` e AutoMod (erro `r` / Issue #201838 / `@lid`)
 
