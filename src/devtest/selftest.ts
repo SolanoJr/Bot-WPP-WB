@@ -60,11 +60,12 @@ export async function runSelfTests(adapter: SelfTestAdapter, alvoTeste: string):
       log('NENHUM alvo não-admin no grupo teste — self-test de kick/ban pulado (não há o que marcar).');
     } else {
       const tid = String(target.id?._serialized || target.id); // CRU, sem replace!
+      // CORREÇÃO DO MEU TESTE (83847298374ª vez): o WWebJS só cria menção se o TEXTO
+      // contiver '@<numero>' E o array mentions tiver o id. Igual ao welcome do novato.
       log(`Alvo encontrado: ${tid} — mandando $kick e $ban com menção`);
-
-      await adapter.sendMessage(alvoTeste, '$kick', { mentions: [tid] } as any);
+      await adapter.sendMessage(alvoTeste, `$kick @${tid}`, { mentions: [tid] } as any);
       log(`$kick enviado marcando ${tid}`);
-      await adapter.sendMessage(alvoTeste, '$ban', { mentions: [tid] } as any);
+      await adapter.sendMessage(alvoTeste, `$ban @${tid}`, { mentions: [tid] } as any);
       log(`$ban enviado marcando ${tid}`);
     }
 
