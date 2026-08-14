@@ -11,6 +11,7 @@
 export interface SelfTestAdapter {
   sendMessage(chatId: string, text: string, options?: any): Promise<any>;
   getLastChat?(...args: any[]): Promise<any>;
+  selfTestHandleKeywords?(msg: any): Promise<boolean>;
 }
 
 import { handleKeywords } from '../../services/keywordHandler';
@@ -30,11 +31,12 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
   (global as any).__selftestModRan = true;
   try {
     log('=== SELFTEST sarcasmo (handleKeywords + handler real) ===');
+    const kw = (adapter as any).selfTestHandleKeywords || handleKeywords;
     const sent: string[] = [];
     const fakeReply = async (text: string) => { sent.push(text); await adapter.sendMessage(alvoTeste, '🤖 [SELFTEST sarc] ' + text); return true; };
 
     // 1. palavra "bot" em msg de outro user
-    let intercepted = await handleKeywords({
+    let intercepted = await kw({
       body: 'bot', mentionedIds: [], hasQuotedMsg: false, quotedMsg: undefined,
       author: alvoTeste, from: alvoTeste, id: { _serialized: 'fake_bot_1' }, reply: fakeReply, delete: async () => true,
     } as any, (adapter as any).innerClient);
@@ -48,7 +50,7 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
       author: alvoTeste, from: alvoTeste, id: { _serialized: 'fake_reply_1' }, reply: fakeReply, delete: async () => true,
     };
     log(`2) msg tem hasQuotedMsg=${replyMsg.hasQuotedMsg} quotedFromMe=${replyMsg.quotedMsg?.fromMe} quotedAuthor=${replyMsg.quotedMsg?.author}`);
-    intercepted = await handleKeywords(replyMsg, (adapter as any).innerClient);
+    intercepted = await kw(replyMsg, (adapter as any).innerClient);
     log(`2) reply no bot -> intercepted=${intercepted} resposta="${sent[sent.length-1] || ''}"`);
 
     // 3. dispara o handler REAL: manda "bot" no grupo (bot recebe como message de outro? não, mas o handler real roda p/ msgs reais)

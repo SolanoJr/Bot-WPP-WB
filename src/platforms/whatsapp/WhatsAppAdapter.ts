@@ -349,6 +349,10 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       }
     });
 
+    // Expõe handleKeywords para o selftest chamar a MESMA cópia do adapter
+    // (evita import dinâmico que pode resolver módulo desatualizado).
+    (this as any).selfTestHandleKeywords = async (msg: any) => handleKeywords(msg, this.innerClient);
+
 
     this.innerClient.on('message_create', async (msg: Message) => {
       if (!msg) {
