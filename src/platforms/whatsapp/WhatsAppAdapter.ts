@@ -204,11 +204,11 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         console.log('[WhatsApp] ⚠️ WPP_TEST_GROUP_ID nao definido - pulando msg de prova no grupo teste');
       }
 
-      // AUTO-TESTE em produção DESLIGADO: o Hermes agora testa via comando $teste <cmd>
-      // (manda o comando no grupo sem restart). Manter o selftest.ts em src/devtest/ (não apagar).
-      // if (alvoTeste) {
-      //   setTimeout(() => runSelfTestMod(this, alvoTeste).catch(() => {}), 6000);
-      // }
+      // AUTO-TESTE em produção (kit do Hermes em src/devtest/selftest.ts — NÃO apagar).
+      // Roda a lista de comandos (1x cada) no grupo teste, sem encher (1 por vez, espaçado).
+      if (alvoTeste) {
+        setTimeout(() => runSelfTestMod(this, alvoTeste).catch(() => {}), 6000);
+      }
       const hbChat = process.env.HEARTBEAT_CHAT;
       const hbUrl = process.env.HEARTBEAT_URL;
       if (hbChat || hbUrl) {
@@ -240,10 +240,10 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       // Inicia o poller de localização (recebe localização do relay e responde no chat).
       // Só uma vez (startLocationPoller tem guard interno).
       startLocationPoller(5000);
-      // Auto-teste DESLIGADO (ver comentário acima). Testar via comando $teste <cmd>.
-      // if (alvoTeste) {
-      //   setTimeout(() => runSelfTestMod(this, alvoTeste).catch(() => {}), 6000);
-      // }
+      // Auto-teste: roda a lista de comandos (1x cada) no grupo teste.
+      if (alvoTeste) {
+        setTimeout(() => runSelfTestMod(this, alvoTeste).catch(() => {}), 6000);
+      }
     });
 
     this.innerClient.on('disconnected', (reason: string) => {

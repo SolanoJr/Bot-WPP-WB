@@ -44,7 +44,6 @@ import { fakechatCommand } from './interacao';
 import { sendCommand } from './send';
 import { cmdToggleCommand } from './cmdToggle';
 import { automodCommand, antispamModCommand, antiestrangeiroModCommand, autolinkModCommand, bemvindoModCommand, detectarModCommand, removerModCommand } from './modToggle';
-import { testeCommand } from './teste';
 
 // Comandos registrados
 const commands: Record<string, ICommand> = {
@@ -99,7 +98,6 @@ const commands: Record<string, ICommand> = {
   autolink: autolinkModCommand,
   detectar: detectarModCommand,
   remover: removerModCommand,
-  teste: testeCommand,
 };
 
 // Registrar comandos personalizados
