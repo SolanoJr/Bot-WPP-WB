@@ -319,27 +319,24 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         return;
       }
       
-      // Desacoplar AutoMod/handleKeywords do caminho crítico de comandos.
       // handleKeywords (sarcasmo) roda ANTES do processAutoMod: o processAutoMod
-      // trava silenciosamente em msg.getChat() para @lid (Issue #201838), e se ficasse
-      // antes bloquearia o sarcasmo de rodar. Sarcasmo não deve ser barrado pela moderação.
-      void Promise.resolve().then(async () => {
-        try {
-          console.log(`[DIAG keyword] body="${(msg?.body || '').slice(0,50)}" mentionedIds=${(msg?.mentionedIds||[]).length} author=${msg?.author||msg?.from}`);
-          const intercepted = await handleKeywords(msg, this.innerClient);
-          if (intercepted) {
-            console.log(`😏 [WhatsAppAdapter] Palavra-chave detectada, resposta enviada`);
-            return; // sarcasmo tratou a mensagem; não roda AutoMod por cima
-          }
+      // travava silenciosamente em msg.getChat() para @lid (Issue #201838), bloqueando
+      // o sarcasmo. Agora o getChat do AutoMod tem timeout de 4s. Rodamos direto (await)
+      // para garantir que o fluxo e os logs executem no handler.
+      try {
+        console.log(`[DIAG keyword] body="${(msg?.body || '').slice(0,50)}" mentionedIds=${(msg?.mentionedIds||[]).length} author=${msg?.author||msg?.from}`);
+        const intercepted = await handleKeywords(msg, this.innerClient);
+        if (intercepted) {
+          console.log(`😏 [WhatsAppAdapter] Palavra-chave detectada, resposta enviada`);
+        } else {
           const moderated = await processAutoMod(msg, this.innerClient);
           if (moderated) {
             console.log(`🛡️ [WhatsAppAdapter] Mensagem moderada e deletada de ${msg.author || msg.from}`);
-            return;
           }
-        } catch (err: any) {
-          console.error(`[WhatsAppAdapter] Erro em AutoMod/Keywords (nao bloqueante):`, err?.message);
         }
-      });
+      } catch (err: any) {
+        console.error(`[WhatsAppAdapter] Erro em AutoMod/Keywords (nao bloqueante):`, err?.message);
+      }
 
       if (this.messageHandler) {
         try {
