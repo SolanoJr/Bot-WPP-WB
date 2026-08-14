@@ -53,14 +53,14 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     await adapter.sendMessage(alvoTeste, 'bot');
     log('3) "bot" enviado pelo bot (message_create). handleKeywords deve dar reply.');
 
-    // 4. humano dá reply numa msg do bot (fromMe=false, quotedAuthor=bot) sem palavra "bot"
+    // 4. humano dá reply numa msg do bot (hasQuotedMsg=true, quotedMsg vazio -> WWebJS real não popula author)
     sent.length = 0;
     intercepted = await kw({
-      body: 'sai dai fulero', mentionedIds: [], hasQuotedMsg: true,
-      quotedMsg: { fromMe: false, author: '558581344211@c.us' },
+      body: 'sai dai doido', mentionedIds: [], hasQuotedMsg: true, quotedMsg: undefined,
+      getQuotedMessage: async () => ({ fromMe: true, author: '558581344211@c.us', participant: '558581344211@c.us' }),
       author: alvoTeste, from: alvoTeste, id: { _serialized: 'fake_reply_2' }, reply: fakeReply, delete: async () => true,
     } as any, (adapter as any).innerClient);
-    log(`4) reply em msg do bot (sem "bot") -> intercepted=${intercepted} resposta="${sent[sent.length-1] || ''}"`);
+    log(`4) reply em msg do bot (sem "bot", quotedMsg vazio) -> intercepted=${intercepted} resposta="${sent[sent.length-1] || ''}"`);
   } catch (e: any) {
     log(`FALHA no self-test sarcasmo: ${e?.message}`);
   }

@@ -1,5 +1,8 @@
 import { getSarcasticResponse } from './aiService';
 
+// Dedup: não responde 2x a mesma mensagem (WWebJS pode emitir message + message_create).
+const respondedIds = new Set<string>();
+
 /**
  * Processa mensagens em busca de palavras-chave ou tentativas de trollagem
  * @param msg - Objeto de mensagem do WWebJS
@@ -8,6 +11,11 @@ import { getSarcasticResponse } from './aiService';
  */
 export async function handleKeywords(msg: any, client: any): Promise<boolean> {
   const body = (msg?.body || '').toLowerCase();
+  const mid = msg?.id?._serialized || msg?.id?.id;
+
+  // Dedup: se já respondemos a esta mensagem, não responde de novo.
+  if (mid && respondedIds.has(mid)) return false;
+  if (mid) respondedIds.add(mid);
 
   // 1. Detecção de Trollagem (Falso Banimento/Saída)
   const trollPatterns = [
@@ -35,9 +43,31 @@ export async function handleKeywords(msg: any, client: any): Promise<boolean> {
           return botNumbers.some((bn) => clean.includes(bn));
         })
       : false;
+
+    // Reply em mensagem do bot: WWebJS pode não popular quotedMsg.author; buscamos a msg citada.
     const isReply = Boolean(msg?.hasQuotedMsg || msg?.type === 'reply' || msg?._data?.isQuotedMessage);
-    const quotedAuthor = String(msg?.quotedMsg?.author || msg?.quotedMsg?.participant || msg?._data?.quotedMsg?.author || '');
-    const repliedToBot = isReply && (msg?.quotedMsg?.fromMe === true || botNumbers.some((bn) => quotedAuthor.includes(bn)));
+    let repliedToBot = false;
+    if (isReply) {
+      // Tenta o quotedMsg já disponível
+      const q = msg?.quotedMsg;
+      const qAuthor = String(q?.author || q?.participant || msg?._data?.quotedMsg?.author || msg?._data?.quotedMsg?.participant || '');
+      const qFromMe = q?.fromMe === true || msg?._data?.quotedMsg?.fromMe === true;
+      if (qFromMe || botNumbers.some((bn) => qAuthor.includes(bn))) {
+        repliedToBot = true;
+      } else {
+        // Fallback: busca a mensagem citada de forma assíncrona (WWebJS popula sob demanda)
+        try {
+          const quoted = await msg.getQuotedMessage?.();
+          if (quoted) {
+            const qa = String(quoted.author || quoted.participant || '');
+            if (quoted.fromMe === true || botNumbers.some((bn) => qa.includes(bn))) {
+              repliedToBot = true;
+            }
+          }
+        } catch { /* ignora */ }
+      }
+    }
+
     const botWord = /\bbot\b/i.test(body);
 
     if (mentionedBot || repliedToBot || botWord) {
