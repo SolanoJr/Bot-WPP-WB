@@ -32,8 +32,11 @@ export function startLocationPoller(intervalMs = 5000): void {
     if (pending.size === 0) return;
     console.log(`[LocationPoller] tick - pending.size=${pending.size} chats=${JSON.stringify(Array.from(pending))}`);
     for (const chatId of Array.from(pending)) {
+      console.log(`[LocationPoller] processando chatId=${chatId}`);
       try {
-        const res = await axios.get(`${RELAY_URL}/pending/${encodeURIComponent(chatId)}`, {
+        const url = `${RELAY_URL}/pending/${encodeURIComponent(chatId)}`;
+        console.log(`[LocationPoller] GET ${url}`);
+        const res = await axios.get(url, {
           headers: { 'x-api-key': API_KEY },
           timeout: 5000,
         });
