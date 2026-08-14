@@ -27,13 +27,17 @@ export async function handleKeywords(msg: any, client: any): Promise<boolean> {
   // 2. Trigger Sarcástico: menção ao bot, resposta ao bot, ou palavra "bot"
   const isCommand = (msg?.body || '').startsWith('$');
   if (!isCommand) {
-    const botNumber = '558581344211';
+    // O bot no Linux tem dois IDs possíveis: número real e LID (usado em menções/reply).
+    const botNumbers = ['558581344211', '2592935567439'];
     const mentionedBot = Array.isArray(msg?.mentionedIds)
-      ? msg.mentionedIds.some((id: string) => String(id).replace('@c.us', '').replace('@lid', '').includes(botNumber))
+      ? msg.mentionedIds.some((id: string) => {
+          const clean = String(id).replace('@c.us', '').replace('@lid', '');
+          return botNumbers.some((bn) => clean.includes(bn));
+        })
       : false;
     const isReply = Boolean(msg?.hasQuotedMsg || msg?.type === 'reply' || msg?._data?.isQuotedMessage);
     const quotedAuthor = String(msg?.quotedMsg?.author || msg?.quotedMsg?.participant || msg?._data?.quotedMsg?.author || '');
-    const repliedToBot = isReply && (msg?.quotedMsg?.fromMe === true || quotedAuthor.includes(botNumber) || quotedAuthor.includes('558581344211'));
+    const repliedToBot = isReply && (msg?.quotedMsg?.fromMe === true || botNumbers.some((bn) => quotedAuthor.includes(bn)));
     const botWord = /\bbot\b/i.test(body);
 
     if (mentionedBot || repliedToBot || botWord) {
