@@ -19,6 +19,7 @@ import {
 } from './base/PlatformTypes';
 import { rateLimiter } from '../services/rateLimiter';
 import metricsService from '../services/metricsService';
+import { isMaster } from '../services/permissions';
 
 type AdapterFactory = () => Promise<PlatformAdapter>;
 
@@ -333,9 +334,18 @@ export class PlatformManager {
    */
   private async createCommandContext(message: PlatformMessage, client: PlatformClient): Promise<CommandContext> {
     let groupName: string | undefined;
+    let contextIsAdmin = false;
     try {
       const chat = await client.getChat(message.chatId);
       groupName = (chat as any)?.name;
+      // Admin do grupo: verifica se o userId está em participants com isAdmin/isSuperAdmin
+      const cleanUser = String(message.userId).split('@')[0].replace(/^wpp:/, '');
+      const parts = (chat as any)?.participants || [];
+      const isGroupAdmin = parts.some((p: any) => {
+        const pid = String(p.id?._serialized || p.id || '').split('@')[0].replace(/^wpp:/, '');
+        return pid === cleanUser && (p.isAdmin || p.isSuperAdmin);
+      });
+      contextIsAdmin = isGroupAdmin;
     } catch { /* ignora */ }
     return {
       msg: message,
@@ -347,8 +357,8 @@ export class PlatformManager {
       userName: message.userName,
       groupName,
       isGroup: message.raw?.isGroup || false,
-      isMaster: false, // Será preenchido pelo requirePermission
-      isAdmin: false,
+      isMaster: isMaster(message.userId),
+      isAdmin: contextIsAdmin,
       reply: async (text: string, options?: SendOptions) => {
         // Cita a mensagem de comando por padrão (quoted/reply), a menos que o caller já passe replyToMessageId
         const opts: SendOptions = {

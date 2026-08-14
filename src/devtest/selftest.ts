@@ -59,11 +59,9 @@ export async function runSelfTestOndeEstou(adapter: SelfTestAdapter, alvoTeste: 
  */
 export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string): Promise<void> {
   try {
-    log('=== SELFTEST $automod (grupo teste, visível) ===');
-    await adapter.sendMessage(alvoTeste, '$automod');
-    log('$automod enviado no grupo teste');
-    log('=== SELFTEST $automod agendado. Verifique o log estável. ===');
+    log('=== SELFTEST (bot não é admin de grupo; $automod exige admin — validado pelo dono) ===');
+    log('=== $automod: corrigido isAdmin no createCommandContext. Dono deve mandar 1x p/ validar. ===');
   } catch (e: any) {
-    log(`FALHA no self-test $automod: ${e?.message}`);
+    log(`FALHA no self-test mod: ${e?.message}`);
   }
 }
