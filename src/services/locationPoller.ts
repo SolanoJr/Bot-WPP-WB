@@ -9,11 +9,9 @@
  * (era o bug: o $ondeestou só gerava o link, faltava o lado de receber/responder).
  */
 
-import axios from 'axios';
 import { platformManager } from '../platforms/PlatformManager';
 
 const RELAY_URL = (process.env.RELAY_URL || 'https://bot-wpp-relay.onrender.com').trim();
-const API_KEY = process.env.WARRIOR_AUTH_KEY || '';
 
 let started = false;
 
@@ -21,6 +19,11 @@ export function startLocationPoller(intervalMs = 5000): void {
   if (started) return;
   started = true;
 
+  // Lido DENTRO da função (não no topo do módulo) porque o dotenv.config() roda
+  // no entry point APÓS os imports — se capturasse no topo, viria vazio e o relay
+  // responderia 401.
+  const API_KEY = process.env.WARRIOR_AUTH_KEY || '';
+  console.log('[LocationPoller] API_KEY carregada?', API_KEY ? 'SIM (len ' + API_KEY.length + ')' : 'NÃO');
   if (!(global as any).pendingChatIds || typeof (global as any).pendingChatIds.add !== 'function') {
     (global as any).pendingChatIds = new Set<string>();
   }
