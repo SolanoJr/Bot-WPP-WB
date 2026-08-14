@@ -58,6 +58,8 @@ export async function runSelfTestOndeEstou(adapter: SelfTestAdapter, alvoTeste: 
  * @param alvoTeste JID do grupo teste (ex: 120363410094452673@g.us)
  */
 export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string): Promise<void> {
+  if ((global as any).__selftestModRan) return; // não rodar 2x se PM2 fizer double restart
+  (global as any).__selftestModRan = true;
   try {
     log('=== SELFTEST $automod (bot é admin do grupo) ===');
     await adapter.sendMessage(alvoTeste, '$automod');
