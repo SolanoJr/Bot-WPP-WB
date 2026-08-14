@@ -2,11 +2,12 @@
  * Kit de auto-teste do Hermes (em produção, no Linux).
  * NÃO apagar esta pasta — é o laboratório de validação do dono.
  *
- * runSelfTestMod: testa o sarcasmo (handleKeywords) de 4 formas:
+ * runSelfTestMod: testa o sarcasmo (handleKeywords) de 4 formas + $noticias:
  *   1. palavra "bot" solta (msg de outro user)
  *   2. menção ao bot via @lid (caso real: usuario marca @WarriorBlack)
  *   3. fluxo real: bot (Hermes) digita "bot" no grupo -> message_create captura
- *   4. humano dá reply numa msg do bot (fromMe=false, quotedAuthor=bot) sem palavra "bot"
+ *   4. humano dá reply numa msg do bot (quotedMsg vazio) sem palavra "bot"
+ *   5. $noticias: bot manda o comando -> messageHandler executa -> resposta no grupo
  */
 
 export interface SelfTestAdapter {
@@ -29,7 +30,7 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
   if ((global as any).__selftestModRan) return; // não rodar 2x se PM2 fizer double restart
   (global as any).__selftestModRan = true;
   try {
-    log('=== SELFTEST sarcasmo: bot solto + marcacao + fluxo + reply em msg do bot ===');
+    log('=== SELFTEST sarcasmo: bot solto + marcacao + fluxo + reply + $noticias ===');
     const kw = (adapter as any).selfTestHandleKeywords;
     const sent: string[] = [];
     const fakeReply = async (text: string) => { sent.push(text); await adapter.sendMessage(alvoTeste, '🤖 [SELFTEST sarc] ' + text); return true; };
@@ -61,6 +62,11 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
       author: alvoTeste, from: alvoTeste, id: { _serialized: 'fake_reply_2' }, reply: fakeReply, delete: async () => true,
     } as any, (adapter as any).innerClient);
     log(`4) reply em msg do bot (sem "bot", quotedMsg vazio) -> intercepted=${intercepted} resposta="${sent[sent.length-1] || ''}"`);
+
+    // 5. $noticias: bot (Hermes) manda o comando -> messageHandler executa -> resposta no grupo
+    log('5) mandando $noticias no grupo (comando real)...');
+    await adapter.sendMessage(alvoTeste, '$noticias');
+    log('5) $noticias enviado. Verifique no log a resposta TOP NOTICIAS ou erro de IA.');
   } catch (e: any) {
     log(`FALHA no self-test sarcasmo: ${e?.message}`);
   }
