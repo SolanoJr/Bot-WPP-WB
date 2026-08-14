@@ -29,9 +29,8 @@ async function askAI(prompt: string, userId: string = 'unknown'): Promise<string
             context = history.reverse().map((h: any) => `Usuário: ${h.prompt}\nIA: ${h.response}`).join('\n\n');
         }
 
-        // O modelo gemini-2.5-flash pode não estar disponível para todos ou ter cota muito baixa.
-        // Usando gemini-1.5-flash que é estável e tem cota generosa no tier gratuito.
-        const model = "gemini-1.5-flash";
+        // Usando gemini-2.5-flash (gemini-1.5-flash foi descontinuado - retorna 404).
+        const model = "gemini-2.5-flash";
         // Usando v1beta para modelos flash mais novos
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
 
