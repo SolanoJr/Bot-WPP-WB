@@ -36,14 +36,16 @@ export function startLocationPoller(intervalMs = 5000): void {
       try {
         const url = `${RELAY_URL}/pending/${encodeURIComponent(chatId)}`;
         console.log(`[LocationPoller] GET ${url}`);
-        const res = await axios.get(url, {
+        const res = await fetch(url, {
+          method: 'GET',
           headers: { 'x-api-key': API_KEY },
-          timeout: 5000,
         });
-        console.log(`[LocationPoller] GET ${chatId} -> status=${res.status} hasData=${!!res.data?.location}`);
-        if (res.status === 204 || !res.data || !res.data.location) continue;
-
-        const loc = res.data;
+        console.log(`[LocationPoller] GET ${chatId} -> status=${res.status}`);
+        if (res.status === 204) continue;
+        const data: any = await res.json().catch(() => null);
+        console.log(`[LocationPoller] GET ${chatId} -> hasData=${!!data?.location}`);
+        if (!data || !data.location) continue;
+        const loc = data;
         const lat = Number(loc.location.lat);
         const lng = Number(loc.location.lng);
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
