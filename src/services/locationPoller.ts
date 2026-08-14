@@ -47,6 +47,7 @@ export function startLocationPoller(intervalMs = 5000): void {
         });
         if (res.status === 204) continue;
         const data: any = await res.json().catch(() => null);
+        console.log(`[LocationPoller] GET ${chatId} -> status=${res.status} hasData=${!!data?.location}`);
         if (!data || !data.location) continue;
 
         const loc = data;
