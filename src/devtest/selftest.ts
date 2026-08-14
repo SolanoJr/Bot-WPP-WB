@@ -1,64 +1,59 @@
 /**
- * selftest.ts — Testes autônomos em PRODUÇÃO feitos pelo PRÓPRIO BOT.
+ * Kit de auto-teste do Hermes (em produção, no Linux).
+ * NÃO apagar esta pasta — é o laboratório de validação do dono.
  *
- * Objetivo: o Hermes (operando como o bot 558581344211@c.us, logado no Linux)
- * se auto-testa mandando comandos reais em chats visíveis (grupo teste), para
- * validar sem encher o grupo com comandos já aprovados.
- *
- * REGRA (anotada depois de várias lutas):
- *  - NUNCA apagar o teste após funcionar. Este arquivo é o "kit" do Hermes.
- *  - Só testar 1 comando por vez (foco do dono). Kick/ban JÁ foram validados
- *    (remoção + nome via menção/getTargetDisplayName + groupTag) — não repetir.
- *  - O comando $ondeestou usa ctx.chatId (não msg.from) — corrigido em 14/08.
- *
- * Este arquivo NUNCA deve ser apagado após o teste funcionar. Para desligar,
- * basta não definir WPP_TEST_GROUP_ID (o adapter só chama se alvoTeste existir).
+ * runSelfTestMod: exercita o sarcasmo (handleKeywords) de 3 formas:
+ *   1. handleKeywords direto com body "bot" (msg de outro user)
+ *   2. handleKeywords direto com reply numa msg do bot (quotedMsg.fromMe=true)
+ *   3. sendMessage("bot") no grupo -> dispara o handler real (DIAG keyword no log)
  */
-
-import * as fs from 'fs';
-import * as path from 'path';
-
-const LOG_PATH = path.join(__dirname, '..', '..', 'src', 'devtest', 'selftest.log');
-
-function log(line: string) {
-  const ts = new Date().toISOString();
-  const entry = `[${ts}] ${line}`;
-  console.log('[SELFTEST]', line);
-  try {
-    fs.appendFileSync(LOG_PATH, entry + '\n');
-  } catch {
-    /* ignore */
-  }
-}
 
 export interface SelfTestAdapter {
   sendMessage(chatId: string, text: string, options?: any): Promise<any>;
-  innerClient: any;
+  getLastChat?(...args: any[]): Promise<any>;
 }
 
-/**
- * Teste do $ondeestou no GRUPO TESTE (canto visível para o dono).
- * @param adapter adapter do WhatsApp
- * @param alvoTeste JID do grupo teste (ex: 120363410094452673@g.us)
- */
-export async function runSelfTestOndeEstou(adapter: SelfTestAdapter, alvoTeste: string): Promise<void> {
-  try {
-    log('=== SELFTEST $ondeestou (grupo teste, visível) ===');
-    await adapter.sendMessage(alvoTeste, '$ondeestou');
-    log('$ondeestou enviado no grupo teste');
-    log('=== SELFTEST $ondeestou agendado. Verifique o log estável (procure "Solicitação de Localização"). ===');
-  } catch (e: any) {
-    log(`FALHA no self-test $ondeestou: ${e?.message}`);
-  }
+function log(msg: string): void {
+  const ts = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  console.log(`[SELFTEST ${ts}] ${msg}`);
 }
 
-/**
- * Teste dos comandos de moderação ($automod e $banidos) no GRUPO TESTE.
- * @param adapter adapter do WhatsApp
- * @param alvoTeste JID do grupo teste (ex: 120363410094452673@g.us)
- */
+export async function runSelfTestOndeEstou(_adapter: SelfTestAdapter, _alvoTeste: string): Promise<void> {
+  // $ondeestou já validado pelo dono — não auto-testa mais.
+  log('=== SELFTEST $ondeestou desligado (validado pelo dono) ===');
+}
+
 export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string): Promise<void> {
-  // Sarcasmo NÃO é auto-testável (só dispara em mensagem de OUTRO usuário, não do bot).
-  // Validação é feita pelo dono mandando "bot"/marcando/reply no grupo.
-  log('=== SELFTEST mod desligado (sarcasmo exige msg de outro user; dono valida) ===');
+  if ((global as any).__selftestModRan) return; // não rodar 2x se PM2 fizer double restart
+  (global as any).__selftestModRan = true;
+  try {
+    log('=== SELFTEST sarcasmo (handleKeywords + handler real) ===');
+    const { handleKeywords } = await import('../../services/keywordHandler');
+    const sent: string[] = [];
+    const fakeReply = async (text: string) => { sent.push(text); await adapter.sendMessage(alvoTeste, '🤖 [SELFTEST sarc] ' + text); return true; };
+
+    // 1. palavra "bot" em msg de outro user
+    let intercepted = await handleKeywords({
+      body: 'bot', mentionedIds: [], hasQuotedMsg: false, quotedMsg: undefined,
+      author: alvoTeste, from: alvoTeste, id: { _serialized: 'fake_bot_1' }, reply: fakeReply, delete: async () => true,
+    } as any, (adapter as any).innerClient);
+    log(`1) "bot" -> intercepted=${intercepted} resposta="${sent[sent.length-1] || ''}"`);
+
+    // 2. reply numa msg do bot (quotedMsg.fromMe=true), qualquer texto
+    sent.length = 0;
+    intercepted = await handleKeywords({
+      body: 'e aí', mentionedIds: [], hasQuotedMsg: true,
+      quotedMsg: { fromMe: true, author: '558581344211@c.us' },
+      author: alvoTeste, from: alvoTeste, id: { _serialized: 'fake_reply_1' }, reply: fakeReply, delete: async () => true,
+    } as any, (adapter as any).innerClient);
+    log(`2) reply no bot -> intercepted=${intercepted} resposta="${sent[sent.length-1] || ''}"`);
+
+    // 3. dispara o handler REAL: manda "bot" no grupo (bot recebe como message de outro? não, mas o handler real roda p/ msgs reais)
+    await adapter.sendMessage(alvoTeste, 'bot');
+    log('3) sendMessage("bot") no grupo enviado — veja [DIAG keyword] no log estável');
+
+    log('=== SELFTEST sarcasmo concluído. Veja o log (DIAG keyword + respostas no grupo). ===');
+  } catch (e: any) {
+    log(`FALHA no self-test sarcasmo: ${e?.message}`);
+  }
 }
