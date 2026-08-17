@@ -26,7 +26,7 @@ function log(msg: string): void {
 // OBS: comandos de moderação (mute/promover/kick/ban) PRECISAM de menção de HUMANO
 // (o selftest não consegue simular). Teste esses manualmente no grupo.
 const LISTA = [
-  'stats',
+  'mute',
 ];
 
 export async function runSelfTestOndeEstou(_adapter: SelfTestAdapter, _alvoTeste: string): Promise<void> {
