@@ -45,6 +45,26 @@ export const muteCommand: ICommand = {
             return;
         }
 
+        // $mute off @pessoa -> desmuta
+        if (sub === 'off') {
+            const mentioned = (payload.mentions && payload.mentions.length)
+              ? payload.mentions
+              : (payload.mentionedIds || msg.mentionedIds || []);
+            if (!mentioned || mentioned.length === 0) {
+                await msg.reply('❌ Marque o usuário a desmutar. Ex: $mute off @usuario');
+                return;
+            }
+            const userToUnmute = normId(mentioned[0].id ?? mentioned[0]);
+            const chatId = normId((chat as any).id?._serialized || (chat as any).id || payload.chatId);
+            const key = `${chatId}:${userToUnmute}`;
+            if (mutedUsers.delete(key)) {
+                await msg.reply(`🔊 Usuário desmutado. As mensagens dele não serão mais apagadas.${groupTag(msg)}`);
+            } else {
+                await msg.reply(`ℹ️ Este usuário não estava mutado.${groupTag(msg)}`);
+            }
+            return;
+        }
+
         const mentioned = (payload.mentions && payload.mentions.length)
           ? payload.mentions
           : (payload.mentionedIds || msg.mentionedIds || []);
@@ -63,6 +83,14 @@ export const muteCommand: ICommand = {
         await msg.reply(`✅ Usuário silenciado por 8 horas: todas as mensagens dele serão apagadas.${groupTag(msg)}`);
     }
 };
+
+// Remove um usuário da lista de mutados (usado por $desmute e $mute off)
+export function unmuteUser(chatId: string, userId: string): boolean {
+  const key = `${normId(chatId)}:${normId(userId)}`;
+  const ok = mutedUsers.delete(key);
+  if (ok) console.log(`[mute] DESMUTE: key=${key}`);
+  return ok;
+}
 
 // Helper usado pelo messageHandler: se o autor estiver mutado, apaga a mensagem.
 export async function handleMutedMessage(platformMsg: any): Promise<boolean> {

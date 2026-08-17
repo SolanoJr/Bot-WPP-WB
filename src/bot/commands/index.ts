@@ -9,6 +9,7 @@ import { aliveCommand } from './alive';
 import { banCommand } from './ban';
 import { kickCommand } from './kick';
 import { muteCommand } from './mute';
+import { desmuteCommand } from './desmute';
 import { promoteCommand } from './promover';
 import { forcaCommand } from './forca';
 import { velhaCommand } from './velha';
@@ -54,6 +55,7 @@ const commands: Record<string, ICommand> = {
   ban: banCommand,
   kick: kickCommand,
   mute: muteCommand,
+  desmute: desmuteCommand,
   promover: promoteCommand,
   'forca': forcaCommand,
   'velha': velhaCommand,
