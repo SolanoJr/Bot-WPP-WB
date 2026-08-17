@@ -144,7 +144,18 @@ Falha de transporte ao enviar mensagem (202658048684056@c.us): No LID for user
 ### 37. Menção vazia em comandos de moderação (BUG 37) — 2026-08-17
 **Data:** 2026-08-17
 **Sessão:** 60+
-**Status:** ✅ Resolvido (mas o SELFTEST não consegue simular menção do bot)
+**Status:** ✅ Resolvido
+
+**Erro recorrente:** comandos de moderação (`mute`, `promover`, `kick`, `ban`) caíam em "Marque o usuário".
+
+**Causa raiz (3 camadas):**
+1. `mute.ts`/`promover.ts` liam `msg.mentionedIds` (sempre vazio no nosso fluxo) → corrigido para ler `msg.mentions` (populado pelo adapter).
+2. O `sendMessage` do `WhatsAppAdapter` **descartava o `options`** que o selftest passava (`{mentionedIds:[...]}`), não repassando `mentions` pro WWebJS → corrigido: `sendOptions` agora inclui `mentions` quando presente em `options`.
+3. O `extractMentions` fazia fallback por texto lendo SÓ `msg.body`, que vem **vazio no loopback do próprio bot** (o texto real está em `msg._data.body`). Por isso mesmo marcando via API, a menção não era detectada → corrigido: `extractMentions(msg, text)` recebe o `extractedText` (body OU _data.body) e usa no fallback `/@(\d{8,})/g`.
+
+**COMO TESTAR menção (não esquecer):** o selftest marca um participante real do grupo via `innerClient.getChatById(alvoTeste).participants` (pega o 1º que não seja o bot, geralmente `@lid`), manda `$mute @<num>` com `mentionedIds:[alvo]`. Funciona porque o `extractMentions` agora lê o texto real. Participantes no WA moderno vêm como `@lid`, não `@c.us` — tratar os dois.
+
+**Lição:** sempre que um comando precisar de menção, ler `msg.mentions` (não `msg.mentionedIds`); o adapter repassa `mentions` no `sendMessage`; e o `extractMentions` deve ler o texto de TODAS as fontes (body + _data.body), não só `msg.body`.
 
 **Erro recorrente:** comandos de moderação (`mute`, `promover`, `kick`, `ban`) caíam em "Marque o usuário". O comando lia `msg.mentionedIds` que o WWebJS NÃO popula quando o PRÓPRIO bot envia a mensagem (loopback) ou quando a menção vem como `@lid`.
 

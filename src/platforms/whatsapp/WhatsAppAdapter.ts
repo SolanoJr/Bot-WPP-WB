@@ -627,7 +627,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       hasMedia: msg.hasMedia,
       mediaType: this.getMediaType(msg),
       replyToMessageId: msg.hasQuotedMsg ? `wpp:${msg.quotedMsg?.id._serialized}` : undefined,
-      mentions: this.extractMentions(msg)
+      mentions: this.extractMentions(msg, extractedText)
     };
 
     // Log de auditoria: confirma a entrega do payload normalizado ao messageHandler.
@@ -636,7 +636,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     return payload;
   }
 
-  private extractMentions(msg: any): any[] {
+  private extractMentions(msg: any, text?: string): any[] {
     // O WhatsApp Web moderno (IDs @lid) pode expor menções em campos diferentes.
     // Tentar todas as fontes conhecidas para não perder a menção.
     let ids: string[] = [];
@@ -650,10 +650,11 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     console.log(`[WhatsApp] extractMentions - fontes: mentionedIds=${(msg.mentionedIds||[]).length} mentionedJidList=${(msg.mentionedJidList||[]).length} _data.mentionedJidList=${(msg._data?.mentionedJidList||[]).length} -> ids=${JSON.stringify(ids)}`);
     // FALLBACK: se o WWebJS não populou mentionedIds (comum quando o PRÓPRIO bot
     // envia a mensagem com mentions[] e o WA não resolve), tentar extrair do texto
-    // "@<numero>". Isso garante que comandos de moderação reconheçam a menção mesmo
-    // quando o WA não cria o mentionedIds.
-    if (ids.length === 0 && typeof msg.body === 'string') {
-      const m = msg.body.match(/@(\d{8,})/g);
+    // "@<numero>". Usa o texto REAL (extractedText), que vem de msg.body OU
+    // msg._data.body — o msg.body pode vir vazio no loopback do próprio bot.
+    if (ids.length === 0) {
+      const txt = (typeof text === 'string' && text) || (typeof msg.body === 'string' ? msg.body : '') || (msg._data?.body || '');
+      const m = String(txt).match(/@(\d{8,})/g);
       if (m) {
         ids = m.map((x: string) => x.replace('@', '') + '@c.us');
         console.log(`[WhatsApp] extractMentions - fallback por texto: ids=${JSON.stringify(ids)}`);
