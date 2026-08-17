@@ -63,11 +63,13 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     log(`[sarc] FALHA: ${e?.message}`);
   }
 
-  // TESTE MUTE: marca a Janny (558781303081) para validar o ciclo de apagar msg.
+  // TESTE MUTE + DESMUTE: marca a Janny e em seguida desmuta, validando ambos.
   try {
     const janny = '558781303081@c.us';
     await adapter.sendMessage(alvoTeste, `$mute @558781303081`, { mentionedIds: [janny] });
-    log(`[mute-test] marcou Janny. Peca pra ela mandar 1 msg e veja se some.`);
+    await new Promise(r => setTimeout(r, 2000));
+    await adapter.sendMessage(alvoTeste, `$desmute @558781303081`, { mentionedIds: [janny] });
+    log(`[mute-test] marcou e desmutou Janny. Veja logs GRAVOU/DESMUTE.`);
   } catch (e: any) {
     log(`[mute-test] ERRO: ${e?.message}`);
   }
