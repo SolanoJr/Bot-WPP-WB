@@ -22,8 +22,9 @@ function log(msg: string): void {
 }
 
 // Lista de comandos a testar (1 por vez, isolado). Edite conforme a sequência.
+// Para comandos com args, inclua os args na string (será prefixado com $).
 const LISTA = [
-  'lembrete',
+  'votar teste1 "votacao hermes" sim 60',
 ];
 
 export async function runSelfTestOndeEstou(_adapter: SelfTestAdapter, _alvoTeste: string): Promise<void> {
