@@ -94,7 +94,11 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         '--use-gl=swiftshader',
         '--enable-webgl',
         '--ignore-gpu-blocklist',
-        '--disable-gpu-sandbox'
+        '--disable-gpu-sandbox',
+        // DNS explicito: contorna o /etc/resolv.conf do servidor quando o DNS
+        // do PVE/Tailscale (100.100.100.100) cai. Sem isso o WA Web nao resolve
+        // web.whatsapp.com e o bot fica mudo. (BUG 36)
+        '--dns-server=8.8.8.8,1.1.1.1'
       ]
     };
 
