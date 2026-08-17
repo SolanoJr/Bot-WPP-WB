@@ -63,15 +63,14 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     log(`[sarc] FALHA: ${e?.message}`);
   }
 
-  // TESTE MUTE + DESMUTE: marca a Janny e em seguida desmuta, validando ambos.
+  // TESTE MUTE GRUPO: liga (so admins) e desliga, validando o setMessagesAdminsOnly.
   try {
-    const janny = '558781303081@c.us';
-    await adapter.sendMessage(alvoTeste, `$mute @558781303081`, { mentionedIds: [janny] });
+    await adapter.sendMessage(alvoTeste, '$mute grupo');
     await new Promise(r => setTimeout(r, 2000));
-    await adapter.sendMessage(alvoTeste, `$desmute @558781303081`, { mentionedIds: [janny] });
-    log(`[mute-test] marcou e desmutou Janny. Veja logs GRAVOU/DESMUTE.`);
+    await adapter.sendMessage(alvoTeste, '$mute grupo off');
+    log(`[mute-grupo-test] ligou e desligou modo so-admins. Veja logs.`);
   } catch (e: any) {
-    log(`[mute-test] ERRO: ${e?.message}`);
+    log(`[mute-grupo-test] ERRO: ${e?.message}`);
   }
   log('=== SELFTEST concluído. Leia o log das respostas. ===');
 }
