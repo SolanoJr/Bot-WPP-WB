@@ -63,16 +63,13 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     log(`[sarc] FALHA: ${e?.message}`);
   }
 
-  // TESTE JOGOS: menu + forca (inicia/chuta) + velha (inicia/joga)
-  const jogos = ['jogos', 'forca', 'forca A', 'velha', 'velha 5'];
-  for (const j of jogos) {
-    try {
-      await adapter.sendMessage(alvoTeste, '$' + j);
-      await new Promise(r => setTimeout(r, 1500));
-      log(`[jogos-test] mandou $${j}`);
-    } catch (e: any) {
-      log(`[jogos-test] ERRO $${j}: ${e?.message}`);
-    }
+  // TESTE GTTS: converte texto em audio (voz)
+  try {
+    await adapter.sendMessage(alvoTeste, '$gtts ola mundo este e um teste de voz');
+    await new Promise(r => setTimeout(r, 2000));
+    log(`[gtts-test] mandou $gtts`);
+  } catch (e: any) {
+    log(`[gtts-test] ERRO: ${e?.message}`);
   }
   log('=== SELFTEST concluído. Leia o log das respostas. ===');
 }
