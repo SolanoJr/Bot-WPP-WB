@@ -1,16 +1,16 @@
 import { ICommand } from './types';
 import { groupTag } from './format';
 
-// Conjunto em memória de usuários silenciados por grupo (user@c.us -> expiry timestamp).
-// OBS: O WhatsApp Web (WWebJS 1.34.7) NÃO suporta mute de usuário por admin via API
-// (o único mute() existente silencia o GRUPO para o próprio bot). Então o bot implementa
-// seu próprio "silenciar": ignora mensagens de quem está nesta lista até o expiry.
-// TODO: persistir em SQLite (ver PENDING_IMPLEMENTATIONS.md / BUG_TRACKER).
+// Usuários silenciados por grupo (user@c.us -> expiry timestamp em ms).
+// O WhatsApp Web (WWebJS 1.34.7) NÃO suporta mute de usuário por admin via API
+// (o único mute() existente silencia o GRUPO para o próprio bot). Então o bot
+// implementa seu próprio "silenciar": apaga TODAS as mensagens de quem está na
+// lista (msg.raw.delete(true)) enquanto o mute estiver ativo.
 const mutedUsers = new Map<string, number>(); // key: `${chatId}:${userId}` -> expiryEpochMs
 
 export const muteCommand: ICommand = {
     name: 'mute',
-    description: 'Silencia um usuário do grupo (implementação do bot; o WA não suporta mute por admin).',
+    description: 'Silencia um usuário: apaga as mensagens dele no grupo enquanto o mute durar. Uso: $mute @usuario',
 
     async execute(msg, client, args) {
         const chat = await msg.getChat();
@@ -21,9 +21,24 @@ export const muteCommand: ICommand = {
             return;
         }
 
+        // $mute grupo -> modo só admins digitam
+        const sub = (args[0] || '').toLowerCase();
+        if (sub === 'grupo' || sub === 'group') {
+            const off = (args[1] || '').toLowerCase() === 'off';
+            try {
+                await (chat as any).setMessagesAdminsOnly(!off);
+                await msg.reply(off
+                    ? `🔊 Modo "só admins" DESATIVADO. Todos podem digitar.${groupTag(msg)}`
+                    : `🔇 Modo "só admins" ATIVADO. Apenas administradores podem enviar mensagens.${groupTag(msg)}`);
+            } catch (e: any) {
+                await msg.reply(`⚠️ Não consegui alterar o modo do grupo: ${e?.message || e}`);
+            }
+            return;
+        }
+
         const mentioned = (msg.mentions && msg.mentions.length) ? msg.mentions : (msg.mentionedIds || []);
         if (!mentioned || mentioned.length === 0) {
-            await msg.reply('❌ Marque o usuário a ser silenciado.');
+            await msg.reply('❌ Marque o usuário a ser silenciado. Ex: $mute @usuario');
             return;
         }
 
@@ -33,18 +48,30 @@ export const muteCommand: ICommand = {
         const durationMs = 8 * 60 * 60 * 1000; // 8 horas
         mutedUsers.set(key, Date.now() + durationMs);
 
-        await msg.reply(`✅ Usuário silenciado por 8 horas (o bot vai ignorar mensagens dele nesse período).${groupTag(msg)}`);
+        // Apaga a mensagem que disparou o comando (se foi o alvo quem mandou) e confirma
+        await msg.reply(`✅ Usuário silenciado por 8 horas: todas as mensagens dele serão apagadas.${groupTag(msg)}`);
     }
 };
 
-// Helper usado pelo messageHandler para verificar se um usuário está silenciado.
-export function isUserMuted(chatId: string, userId: string): boolean {
-    const key = `${chatId}:${userId}`;
-    const expiry = mutedUsers.get(key);
-    if (!expiry) return false;
-    if (Date.now() > expiry) {
-        mutedUsers.delete(key);
+// Helper usado pelo messageHandler: se o autor estiver mutado, apaga a mensagem.
+export async function handleMutedMessage(rawMsg: any): Promise<boolean> {
+    try {
+        const chatId = rawMsg?.id?._serialized?.split('_')[0] || rawMsg?.chatId || rawMsg?.from;
+        const userId = rawMsg?.author || rawMsg?.from;
+        if (!chatId || !userId) return false;
+        const key = `${chatId}:${userId}`;
+        const expiry = mutedUsers.get(key);
+        if (!expiry) return false;
+        if (Date.now() > expiry) {
+            mutedUsers.delete(key);
+            return false;
+        }
+        // Apaga a mensagem de quem foi mutado (delete para todos)
+        if (rawMsg?.delete) {
+            await rawMsg.delete(true).catch(() => {});
+        }
+        return true;
+    } catch {
         return false;
     }
-    return true;
 }

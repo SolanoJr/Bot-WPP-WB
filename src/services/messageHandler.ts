@@ -2,6 +2,7 @@ import axios from 'axios';
 import { handleKeywords } from './keywordHandler';
 import { processAutoMod } from './autoModService';
 import { splitArgs } from './argParser';
+import { handleMutedMessage } from '../bot/commands/mute';
 
 /**
  * Handler centralizado para todas as mensagens recebidas
@@ -15,6 +16,17 @@ async function processMessage(msg: any, client: any, commands: Map<string, any>)
     console.log(`De (ID): ${msg.author || msg.from}`);
     console.log(`Conteúdo: ${msg.body}`);
     console.log(`---------------------\n`);
+
+    // 1.5. Silenciados: apaga mensagens de quem está mutado (implementação do $mute)
+    try {
+        const deleted = await handleMutedMessage(msg.raw || msg);
+        if (deleted) {
+            console.log('[messageHandler] Mensagem de usuário mutado apagada.');
+            return;
+        }
+    } catch (e: any) {
+        console.error('[messageHandler] Erro ao checar mute:', e?.message);
+    }
 
     // 2. Ignorar moderação e interceptação para comandos legítimos
     const body = msg.body || '';

@@ -141,7 +141,21 @@ Falha de transporte ao enviar mensagem (202658048684056@c.us): No LID for user
 
 **Prevenção:** o `systemd-resolved` com FallbackDNS garante que, se o DNS primário do PVE cair de novo, o bot usa 8.8.8.8 automaticamente.
 
-**Correção:** `TelegramAdapter.initialize()` agora dispara `launch()` em background (`.catch`) e retorna imediatamente, permitindo que o `setupAdapterHandlers` registre o despacho.
+### 37. Menção vazia em comandos de moderação (BUG 37) — 2026-08-17
+**Data:** 2026-08-17
+**Sessão:** 60+
+**Status:** ✅ Resolvido (mas o SELFTEST não consegue simular menção do bot)
+
+**Erro recorrente:** comandos de moderação (`mute`, `promover`, `kick`, `ban`) caíam em "Marque o usuário". O comando lia `msg.mentionedIds` que o WWebJS NÃO popula quando o PRÓPRIO bot envia a mensagem (loopback) ou quando a menção vem como `@lid`.
+
+**Causa:** `mute.ts`/`promover.ts` liam `msg.mentionedIds` (sempre vazio no nosso fluxo). O adapter já tem `extractMentions()` que tenta `mentionedIds` → `mentionedJidList` → `_data.mentionedJidList` → **fallback por texto** (`@<numero>` do body). Mas os comandos não usavam `msg.mentions`.
+
+**Correção:** `mute.ts` e `promover.ts` agora leem `(msg.mentions && msg.mentions.length) ? msg.mentions : (msg.mentionedIds || [])` e extraem o id com `.id.replace('wpp:','')`. `kick.ts`/`ban.ts` já estavam certos (usam `msg.mentions`).
+
+**COMO TESTAR menção (não esquecer):** o selftest NÃO consegue simular menção do bot (o `sendMessage` com `mentionedIds` não gera `mentionedIds` nem preserva `@numero` no body quando o bot manda). **A menção REAL só vem de mensagem de HUMANO** (dono ou outro). Portanto, comandos de moderação DEVEM ser testados mandando a menção manualmente no grupo (`$mute @202658048684056`, `$promover @<num>`, etc) — o extractMentions pega do body via fallback. Anotado para não perder tempo de novo.
+
+**Lição:** sempre que um comando precisar de menção, ler `msg.mentions` (não `msg.mentionedIds`) e testar com mensagem de humano, não do selftest.
+
 
 **Arquivos:** `src/platforms/telegram/TelegramAdapter.ts` (`initialize`)
 
