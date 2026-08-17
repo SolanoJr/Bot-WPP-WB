@@ -36,7 +36,10 @@ export const muteCommand: ICommand = {
             return;
         }
 
-        const mentioned = (msg.mentions && msg.mentions.length) ? msg.mentions : (msg.mentionedIds || []);
+        // msg aqui é o CommandContext; a menção vem do payload em msg.msg.mentions
+        const mentioned = (msg.msg?.mentions && msg.msg.mentions.length)
+          ? msg.msg.mentions
+          : (msg.msg?.mentionedIds || msg.mentionedIds || []);
         if (!mentioned || mentioned.length === 0) {
             await msg.reply('❌ Marque o usuário a ser silenciado. Ex: $mute @usuario');
             return;
