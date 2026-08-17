@@ -44,6 +44,7 @@ export const gttsCommand: ICommand = {
             fs.writeFileSync(audioPath, response.data);
 
             // Enviar como mensagem de áudio (voz) usando o cliente WWebJS direto
+            const media = MessageMedia.fromFilePath(audioPath);
             const wppClient = (client as any).innerClient;
             if (!wppClient || typeof wppClient.sendMessage !== 'function') {
                 throw new Error('cliente WWebJS indisponível para enviar voz');
