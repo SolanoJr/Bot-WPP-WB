@@ -68,10 +68,10 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     try {
       log(`[cmd] mandando $${cmd} ...`);
       if (cmd === 'mute') {
-        // Teste de mute: marca o dono (SolanoJr) para validar o ciclo completo.
-        const solanoJr = '202658048684056@lid';
-        const num = '5588998314322';
-        await adapter.sendMessage(alvoTeste, `$mute @${num}`, { mentionedIds: [solanoJr] });
+        // Teste de mute: marca a Janny (tem JID proprio no grupo) para validar o ciclo.
+        const janny = '558781303081@c.us';
+        const num = '558781303081';
+        await adapter.sendMessage(alvoTeste, `$mute @${num}`, { mentionedIds: [janny] });
       } else {
         await adapter.sendMessage(alvoTeste, '$' + cmd);
       }
