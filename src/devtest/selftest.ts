@@ -68,13 +68,23 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
   for (const cmd of LISTA) {
     try {
       log(`[cmd] mandando $${cmd} ...`);
-      // $mute precisa de menção real -> pega um participante do grupo (não o bot)
+      // $mute precisa de menção real -> marca a Janny (ou 1º participante não-bot)
       if (cmd === 'mute') {
-        const chat = await (adapter as any).innerClient.getChatById(alvoTeste);
+        const client = (adapter as any).innerClient;
+        const chat = await client.getChatById(alvoTeste);
         const parts = (chat?.participants || []);
         log(`[cmd] $mute: ${parts.length} participantes`);
-        const alvo = parts.find((p: any) => !String(p.id).includes('2592935567439'));
-        const alvoId = alvo?.id?._serialized || alvo?.id;
+        let alvoId: string | undefined;
+        for (const p of parts) {
+          const id = p.id?._serialized || p.id;
+          if (!id || id.includes('2592935567439') || id.includes('558899855554')) continue;
+          try {
+            const u = await client.getUser(id);
+            const nome = (u as any)?.name || (u as any)?.pushname || '';
+            if (/janny/i.test(nome)) { alvoId = id; break; }
+          } catch {}
+          if (!alvoId) alvoId = id; // fallback: 1º válido
+        }
         if (!alvoId) { log(`[cmd] $mute: nenhum participante p/ mencionar`); continue; }
         const num = String(alvoId).replace('@c.us', '').replace('@lid', '');
         log(`[cmd] $mute marcando ${alvoId}`);
