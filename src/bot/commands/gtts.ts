@@ -43,9 +43,12 @@ export const gttsCommand: ICommand = {
             const audioPath = path.join(tempDir, `tts_${Date.now()}.mp3`);
             fs.writeFileSync(audioPath, response.data);
 
-            // Enviar como mensagem de áudio usando MessageMedia
-            const media = MessageMedia.fromFilePath(audioPath);
-            await client.sendMessage(msg.from, media, { sendAudioAsVoice: true });
+            // Enviar como mensagem de áudio (voz) usando o cliente WWebJS direto
+            const wppClient = (client as any).innerClient;
+            if (!wppClient || typeof wppClient.sendMessage !== 'function') {
+                throw new Error('cliente WWebJS indisponível para enviar voz');
+            }
+            await wppClient.sendMessage(msg.chatId, media, { sendAudioAsVoice: true });
 
             // Limpar arquivo temporário após envio
             setTimeout(() => {
@@ -56,9 +59,9 @@ export const gttsCommand: ICommand = {
                 }
             }, 5000);
 
-        } catch (error) {
-            console.error('Erro ao converter texto para voz:', error);
-            await msg.reply('⚠️ Erro ao converter texto para voz. Tente novamente mais tarde.');
+        } catch (error: any) {
+            console.error('Erro ao converter texto para voz:', error?.message || error);
+            await msg.reply(`⚠️ Erro ao converter texto para voz: ${error?.message || error}. Tente novamente mais tarde.`);
         }
     }
 };
