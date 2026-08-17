@@ -57,10 +57,19 @@ export const muteCommand: ICommand = {
 };
 
 // Helper usado pelo messageHandler: se o autor estiver mutado, apaga a mensagem.
-export async function handleMutedMessage(rawMsg: any): Promise<boolean> {
+export async function handleMutedMessage(platformMsg: any): Promise<boolean> {
     try {
-        const chatId = rawMsg?.id?._serialized?.split('_')[0] || rawMsg?.chatId || rawMsg?.from;
-        const userId = rawMsg?.author || rawMsg?.from;
+        // Aceita tanto o PlatformMessage (payload) quanto o WWebJS Message (raw).
+        const raw = platformMsg?.raw || platformMsg;
+        // chatId: do payload (correto) ou extraído do _serialized (formato true_<chat>_<mid>_<author>)
+        let chatId = platformMsg?.chatId || platformMsg?.from;
+        if (!chatId && raw?.id?._serialized) {
+            const parts = raw.id._serialized.split('_');
+            // parts[1] é o chatId (ex: 120363...@g.us); se não, usa o remote
+            chatId = parts[1] && parts[1].includes('@') ? parts[1] : (raw.id.remote || raw.from);
+        }
+        // userId da mensagem: author (grupo) ou from
+        const userId = platformMsg?.userId || raw?.author || raw?.from;
         if (!chatId || !userId) return false;
         const key = `${chatId}:${userId}`;
         const expiry = mutedUsers.get(key);
@@ -70,11 +79,13 @@ export async function handleMutedMessage(rawMsg: any): Promise<boolean> {
             return false;
         }
         // Apaga a mensagem de quem foi mutado (delete para todos)
-        if (rawMsg?.delete) {
-            await rawMsg.delete(true).catch(() => {});
+        if (raw?.delete) {
+            await raw.delete(true).catch((e: any) => console.error('[mute] falha ao apagar msg mutada:', e?.message));
+            return true;
         }
-        return true;
-    } catch {
+        return false;
+    } catch (e: any) {
+        console.error('[mute] erro em handleMutedMessage:', e?.message);
         return false;
     }
 }

@@ -23,10 +23,10 @@ function log(msg: string): void {
 
 // Lista de comandos a testar (1 por vez, isolado). Edite conforme a sequência.
 // Para comandos com args, inclua os args na string (será prefixado com $).
-// OBS: comandos de moderação (mute/promover/kick/ban) PRECISAM de menção de HUMANO
-// (o selftest não consegue simular). Teste esses manualmente no grupo.
+// OBS: $mute já validado (marca + registra). O DELETE da msg do mutado é testado
+// MANUALMENTE (precisa da pessoa digitar após o mute). Selftest não repete mute.
 const LISTA = [
-  'mute',
+  'stats',
 ];
 
 export async function runSelfTestOndeEstou(_adapter: SelfTestAdapter, _alvoTeste: string): Promise<void> {
@@ -68,30 +68,7 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
   for (const cmd of LISTA) {
     try {
       log(`[cmd] mandando $${cmd} ...`);
-      // $mute precisa de menção real -> marca a Janny (ou 1º participante não-bot)
-      if (cmd === 'mute') {
-        const client = (adapter as any).innerClient;
-        const chat = await client.getChatById(alvoTeste);
-        const parts = (chat?.participants || []);
-        log(`[cmd] $mute: ${parts.length} participantes`);
-        let alvoId: string | undefined;
-        for (const p of parts) {
-          const id = p.id?._serialized || p.id;
-          if (!id || id.includes('2592935567439') || id.includes('558899855554')) continue;
-          try {
-            const u = await client.getUser(id);
-            const nome = (u as any)?.name || (u as any)?.pushname || '';
-            if (/janny/i.test(nome)) { alvoId = id; break; }
-          } catch {}
-          if (!alvoId) alvoId = id; // fallback: 1º válido
-        }
-        if (!alvoId) { log(`[cmd] $mute: nenhum participante p/ mencionar`); continue; }
-        const num = String(alvoId).replace('@c.us', '').replace('@lid', '');
-        log(`[cmd] $mute marcando ${alvoId}`);
-        await adapter.sendMessage(alvoTeste, `$mute @${num}`, { mentionedIds: [alvoId] });
-      } else {
-        await adapter.sendMessage(alvoTeste, '$' + cmd);
-      }
+      await adapter.sendMessage(alvoTeste, '$' + cmd);
       await new Promise(r => setTimeout(r, 3000));
       log(`[cmd] $${cmd} enviado. Veja resposta no log.`);
     } catch (e: any) {
