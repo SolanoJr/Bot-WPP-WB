@@ -66,9 +66,9 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
   for (const cmd of LISTA) {
     try {
       log(`[cmd] mandando $${cmd} ...`);
-      // $mute precisa de menção real -> marca o SolanoJr (dono do celular)
+      // $mute precisa de menção real no texto -> marca o SolanoJr (dono do celular)
       if (cmd === 'mute') {
-        await adapter.sendMessage(alvoTeste, '$mute', { mentionedIds: ['5588998314322@c.us'] });
+        await adapter.sendMessage(alvoTeste, '$mute @202658048684056');
       } else {
         await adapter.sendMessage(alvoTeste, '$' + cmd);
       }
