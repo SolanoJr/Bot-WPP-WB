@@ -20,6 +20,12 @@ import metricsService from '../services/metricsService';
 // Carregar variáveis de ambiente
 dotenv.config();
 
+// DNS fixo de processo: contorna o /etc/resolv.conf do servidor quando o DNS
+// do PVE/Tailscale (100.100.100.100) cai. Sem isso o Node não resolve
+// web.whatsapp.com e o bot fica mudo (ERR_NAME_NOT_RESOLVED). (BUG 36)
+import dns from 'dns';
+try { dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']); } catch { /* ignore */ }
+
 async function initializePlatforms() {
   console.log('🚀 Inicializando Bot-WPP Multi-Platform...');
 
