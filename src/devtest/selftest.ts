@@ -63,23 +63,21 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     log(`[sarc] FALHA: ${e?.message}`);
   }
 
-  // Lista de comandos: manda 1x cada, espaçado 3s.
-  for (const cmd of LISTA) {
-    try {
-      log(`[cmd] mandando $${cmd} ...`);
-      if (cmd === 'mute') {
-        // Teste de mute: marca a Janny (tem JID proprio no grupo) para validar o ciclo.
-        const janny = '558781303081@c.us';
-        const num = '558781303081';
-        await adapter.sendMessage(alvoTeste, `$mute @${num}`, { mentionedIds: [janny] });
-      } else {
-        await adapter.sendMessage(alvoTeste, '$' + cmd);
-      }
-      await new Promise(r => setTimeout(r, 3000));
-      log(`[cmd] $${cmd} enviado. Veja resposta no log.`);
-    } catch (e: any) {
-      log(`[cmd] FALHA $${cmd}: ${e?.message}`);
+  // TESTE DE DELETE: apagar a ÚLTIMA mensagem JÁ EXISTENTE do grupo de teste.
+  try {
+    const client = (adapter as any).innerClient;
+    const chat = await client.getChatById(alvoTeste);
+    const msgs = await chat.fetchMessages({ count: 1 });
+    if (msgs && msgs.length) {
+      const last = msgs[0];
+      log(`[delete-test] ultima msg: ${last.id?._serialized} body="${(last.body || '').slice(0,40)}" autor=${last.author || last.from}`);
+      await last.delete(true).catch((e: any) => log(`[delete-test] FALHA: ${e?.message}`));
+      log(`[delete-test] delete(true) chamado. Veja se sumiu do grupo.`);
+    } else {
+      log(`[delete-test] nenhuma mensagem no grupo pra apagar`);
     }
+  } catch (e: any) {
+    log(`[delete-test] ERRO: ${e?.message}`);
   }
   log('=== SELFTEST concluído. Leia o log das respostas. ===');
 }
