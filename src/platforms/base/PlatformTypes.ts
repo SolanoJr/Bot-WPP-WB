@@ -81,6 +81,7 @@ export interface SendOptions {
   parseMode?: 'markdown' | 'html' | 'none';
   disablePreview?: boolean;
   buttons?: ButtonOptions[];
+  mentionedIds?: string[];
 }
 
 export interface ButtonOptions {

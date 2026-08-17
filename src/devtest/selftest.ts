@@ -68,9 +68,14 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
   for (const cmd of LISTA) {
     try {
       log(`[cmd] mandando $${cmd} ...`);
-      // $mute precisa de menção real no texto -> marca o SolanoJr (dono do celular)
+      // $mute precisa de menção real -> pega um participante do grupo (não o bot)
       if (cmd === 'mute') {
-        await adapter.sendMessage(alvoTeste, '$mute @202658048684056');
+        const chat = await (adapter as any).innerClient.getChatById(alvoTeste);
+        const parts = (chat?.participants || []).filter((p: any) => !p.isMe);
+        const alvo = parts[0]?.id?._serialized || parts[0]?.id;
+        if (!alvo) { log(`[cmd] $mute: nenhum participante p/ mencionar`); continue; }
+        const num = String(alvo).replace('@c.us', '').replace('@lid', '');
+        await adapter.sendMessage(alvoTeste, `$mute @${num}`, { mentionedIds: [alvo] });
       } else {
         await adapter.sendMessage(alvoTeste, '$' + cmd);
       }

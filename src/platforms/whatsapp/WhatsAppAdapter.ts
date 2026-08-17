@@ -709,10 +709,14 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     // Se o replyToMessageId for @lid, ignora o quotedMessageId (envia sem citar).
     const quotedRaw = options?.replyToMessageId?.replace(/^wpp:/, '');
     const quotedMessageId = quotedRaw && !quotedRaw.includes('@lid') ? quotedRaw : undefined;
+    // Repassar menções (essenciais p/ comandos de moderação como $mute/$kick/$ban).
+    // O WWebJS espera `mentions: [jid]` (array de strings ou Contact).
+    const mentions = (options as any)?.mentionedIds || (options as any)?.mentions || undefined;
     const sendOptions = {
       quotedMessageId,
       waitUntilMsgSent: true,
-      sendSeen: false
+      sendSeen: false,
+      ...(mentions ? { mentions } : {})
     };
 
     const startTime = Date.now();
