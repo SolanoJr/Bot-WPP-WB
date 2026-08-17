@@ -30,12 +30,13 @@ export const muteCommand: ICommand = {
             return;
         }
 
-        // $mute grupo -> modo só admins digitam
+        // $mute grupo -> modo só admins digitam (WWebJS Chat.setMessagesAdminsOnly)
         const sub = (args[0] || '').toLowerCase();
         if (sub === 'grupo' || sub === 'group') {
             const off = (args[1] || '').toLowerCase() === 'off';
             try {
-                await (chat as any).setMessagesAdminsOnly(!off);
+                const wppChat = (chat as any).raw || chat;
+                await wppChat.setMessagesAdminsOnly(!off);
                 await msg.reply(off
                     ? `🔊 Modo "só admins" DESATIVADO. Todos podem digitar.${groupTag(msg)}`
                     : `🔇 Modo "só admins" ATIVADO. Apenas administradores podem enviar mensagens.${groupTag(msg)}`);
