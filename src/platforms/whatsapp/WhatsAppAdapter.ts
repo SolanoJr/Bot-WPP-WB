@@ -156,6 +156,15 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       // re-registra handlers de mensagem para nao ficar mudo apos reconexao.
       if (state === 'CONNECTED') {
         this.registerMessageHandlers();
+        // AUTO-TESTE: roda 1x quando o WA conecta (o 'ready' nao dispara em sessao restaurada).
+        if (!(this as any)._selftestRan) {
+          (this as any)._selftestRan = true;
+          const alvoTesteSelftest = process.env.WPP_TEST_GROUP_ID || '';
+          console.log('[DIAG] change_state CONNECTED -> alvoTeste =', JSON.stringify(alvoTesteSelftest));
+          if (alvoTesteSelftest) {
+            setTimeout(() => runSelfTestMod(this, alvoTesteSelftest).catch(() => {}), 6000);
+          }
+        }
       }
     });
 
