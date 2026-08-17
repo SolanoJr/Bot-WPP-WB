@@ -184,6 +184,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       // e pro grupo "teste". So consideramos WPP online apos ambas chegarem.
       const alvoDono = '558581344211@c.us';
       const alvoTeste = process.env.WPP_TEST_GROUP_ID || '';
+      console.log('[DIAG] alvoTeste =', JSON.stringify(alvoTeste), '| WPP_TEST_GROUP_ID env =', JSON.stringify(process.env.WPP_TEST_GROUP_ID));
       const msgOnline = '🤖 WPP online (WarriorBlack). Conexão restabelecida e enviando esta mensagem como prova de funcionamento.';
       this.sendMessage(alvoDono, msgOnline)
         .then(() => console.log('[WhatsApp] ✅ Mensagem de prova ENVIADA para', alvoDono))
