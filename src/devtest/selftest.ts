@@ -23,8 +23,10 @@ function log(msg: string): void {
 
 // Lista de comandos a testar (1 por vez, isolado). Edite conforme a sequência.
 // Para comandos com args, inclua os args na string (será prefixado com $).
+// OBS: comandos de moderação (mute/promover/kick/ban) PRECISAM de menção de HUMANO
+// (o selftest não consegue simular). Teste esses manualmente no grupo.
 const LISTA = [
-  'promover',
+  'stats',
 ];
 
 export async function runSelfTestOndeEstou(_adapter: SelfTestAdapter, _alvoTeste: string): Promise<void> {
