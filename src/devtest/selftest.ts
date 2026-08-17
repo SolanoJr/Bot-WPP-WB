@@ -25,6 +25,7 @@ function log(msg: string): void {
 // OBS: deixar vazio = NÃO dispara selftest (evita o bot encher o grupo sozinho).
 // Comandos de moderação ($mute etc) são testados MANUALMENTE no grupo.
 const LISTA: string[] = [
+  'mute',
 ];
 
 export async function runSelfTestOndeEstou(_adapter: SelfTestAdapter, _alvoTeste: string): Promise<void> {
@@ -66,7 +67,14 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
   for (const cmd of LISTA) {
     try {
       log(`[cmd] mandando $${cmd} ...`);
-      await adapter.sendMessage(alvoTeste, '$' + cmd);
+      if (cmd === 'mute') {
+        // Teste de mute: marca o dono (SolanoJr) para validar o ciclo completo.
+        const solanoJr = '202658048684056@lid';
+        const num = '5588998314322';
+        await adapter.sendMessage(alvoTeste, `$mute @${num}`, { mentionedIds: [solanoJr] });
+      } else {
+        await adapter.sendMessage(alvoTeste, '$' + cmd);
+      }
       await new Promise(r => setTimeout(r, 3000));
       log(`[cmd] $${cmd} enviado. Veja resposta no log.`);
     } catch (e: any) {
