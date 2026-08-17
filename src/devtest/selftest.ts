@@ -22,11 +22,9 @@ function log(msg: string): void {
 }
 
 // Lista de comandos a testar (1 por vez, isolado). Edite conforme a sequência.
-// Para comandos com args, inclua os args na string (será prefixado com $).
-// OBS: $mute já validado (marca + registra). O DELETE da msg do mutado é testado
-// MANUALMENTE (precisa da pessoa digitar após o mute). Selftest não repete mute.
-const LISTA = [
-  'stats',
+// OBS: deixar vazio = NÃO dispara selftest (evita o bot encher o grupo sozinho).
+// Comandos de moderação ($mute etc) são testados MANUALMENTE no grupo.
+const LISTA: string[] = [
 ];
 
 export async function runSelfTestOndeEstou(_adapter: SelfTestAdapter, _alvoTeste: string): Promise<void> {
