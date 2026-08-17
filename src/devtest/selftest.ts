@@ -63,13 +63,13 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     log(`[sarc] FALHA: ${e?.message}`);
   }
 
-  // TESTE GTTS: converte texto em audio (voz)
+  // TESTE GRUPOS: lista grupos do bot (restrito MASTER)
   try {
-    await adapter.sendMessage(alvoTeste, '$gtts ola mundo este e um teste de voz');
+    await adapter.sendMessage(alvoTeste, '$grupos');
     await new Promise(r => setTimeout(r, 2000));
-    log(`[gtts-test] mandou $gtts`);
+    log(`[grupos-test] mandou $grupos`);
   } catch (e: any) {
-    log(`[gtts-test] ERRO: ${e?.message}`);
+    log(`[grupos-test] ERRO: ${e?.message}`);
   }
   log('=== SELFTEST concluído. Leia o log das respostas. ===');
 }
