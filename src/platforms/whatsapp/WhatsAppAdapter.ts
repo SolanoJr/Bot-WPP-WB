@@ -214,6 +214,14 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         console.log('[WhatsApp] ⚠️ WPP_TEST_GROUP_ID nao definido - pulando msg de prova no grupo teste');
       }
 
+      // FALLBACK: em sessão restaurada o WWebJS não emite 'ready' nem 'change_state'.
+      // Dispara o selftest 30s após o boot (o WA já está conectado e pode enviar).
+      // O guard interno __selftestModRan evita duplo-run em reconexões/PM2 restart.
+      if (alvoTeste && !(global as any).__selftestFallbackRan) {
+        (global as any).__selftestFallbackRan = true;
+        setTimeout(() => runSelfTestMod(this, alvoTeste).catch(() => {}), 30000);
+      }
+
       // AUTO-TESTE em produção (kit do Hermes em src/devtest/selftest.ts — NÃO apagar).
       // Roda a lista de comandos (1x cada) no grupo teste, sem encher (1 por vez, espaçado).
       if (alvoTeste) {
