@@ -1,6 +1,19 @@
 # 📜 ChangeLog - WarriorBlack Bot
 
-## [v1.2.0] - 2026-08-14
+## [v1.2.1] - 2026-08-17
+### 🛠️ DNS do servidor (BUG 36) + testes de comandos
+
+#### Adicionado / Corrigido
+- **BUG 36 — DNS do servidor caído:** o `/etc/resolv.conf` apontava para `100.100.100.100` (DNS do PVE/Tailscale) que parou de responder. O bot ficava mudo (WA Web não resolvia `web.whatsapp.com` → `ERR_NAME_NOT_RESOLVED`).
+- **Defesa em camadas no código:** `--dns-server=8.8.8.8` no Chromium (WhatsAppAdapter) + `dns.setServers(['8.8.8.8','1.1.1.1','8.8.4.4'])` no `multiPlatform.ts`.
+- **Prevenção de infra (feita no servidor):** `systemd-resolved` com `DNS=8.8.8.8 1.1.1.1 8.8.4.4` + `FallbackDNS=100.100.100.100`, e `resolv.conf` como symlink do stub (`127.0.0.53`) → sobrevive a reboot/PVE.
+- **Selftest refatorado:** roda no `change_state: CONNECTED` + fallback `setTimeout` 30s (o `ready` do WWebJS não dispara em sessão restaurada). Guard `__selftestModRan` evita duplo-run.
+- **Removido:** comando `$teste` experimental e `scripts/run-teste.js` (não funcionavam — processo externo não compartilha o bot vivo).
+
+#### Testado e validado (por evidência de log)
+- `$cantada`, `$conselho`, `$conselhob` — respondem com frase aleatória do array local.
+- `$noticias` — Gemini `gemini-2.5-flash` (o `gemini-1.5-flash` foi descontinuado/404).
+- Selftest isolado (1 comando por vez) sem encher o grupo.
 ### 🎯 Sarcasmo (keywordHandler), $automod, $ondeestou, $kick/$ban com nome
 
 #### Adicionado / Corrigido

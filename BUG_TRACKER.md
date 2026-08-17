@@ -125,6 +125,22 @@ Falha de transporte ao enviar mensagem (202658048684056@c.us): No LID for user
 
 **Causa:** o `PlatformManager.setupAdapterHandlers()` (que registra o `onMessage` de despacho) só era chamado **após** `await adapter.initialize()` retornar. Como o `TelegramAdapter.initialize()` aguardava o `launch()` (que não resolve), o handler nunca era registrado.
 
+### 36. DNS do servidor caído (BUG 36) — 2026-08-17
+**Data:** 2026-08-17
+**Sessão:** 60+
+**Status:** ✅ Resolvido (conserto de infra + defesa em código)
+
+**Erro:** bot não conectava no WhatsApp Web. Log: `net::ERR_NAME_NOT_RESOLVED at https://web.whatsapp.com/` e `EAI_AGAIN discord.com`. O Chromium do WWebJS não resolvia nenhum nome.
+
+**Causa:** o `/etc/resolv.conf` apontava para `100.100.100.100` (DNS do PVE/Tailscale) que parou de responder. Ping em IP funcionava (rede ok), mas resolução de nomes não. O Chromium ignora `--dns-server` e `dns.setServers()` do Node — usa o resolv.conf do SO.
+
+**Correção:**
+1. **Infra (no servidor, via sudo):** `systemd-resolved` com `DNS=8.8.8.8 1.1.1.1 8.8.4.4` + `FallbackDNS=100.100.100.100`, e `resolv.conf` como symlink do stub (`/run/systemd/resolve/stub-resolv.conf` → `127.0.0.53`). Sobrevive a reboot/PVE.
+2. **Código (defesa em camadas):** `--dns-server=8.8.8.8` no Chromium (WhatsAppAdapter) + `dns.setServers(['8.8.8.8','1.1.1.1','8.8.4.4'])` no `multiPlatform.ts`.
+3. **Selftest:** movido do `ready` (não dispara em sessão restaurada) para `change_state: CONNECTED` + fallback `setTimeout` 30s, com guard `__selftestModRan`.
+
+**Prevenção:** o `systemd-resolved` com FallbackDNS garante que, se o DNS primário do PVE cair de novo, o bot usa 8.8.8.8 automaticamente.
+
 **Correção:** `TelegramAdapter.initialize()` agora dispara `launch()` em background (`.catch`) e retorna imediatamente, permitindo que o `setupAdapterHandlers` registre o despacho.
 
 **Arquivos:** `src/platforms/telegram/TelegramAdapter.ts` (`initialize`)
