@@ -49,7 +49,8 @@ export const gttsCommand: ICommand = {
             if (!wppClient || typeof wppClient.sendMessage !== 'function') {
                 throw new Error('cliente WWebJS indisponível para enviar voz');
             }
-            await wppClient.sendMessage(msg.chatId, media, { sendAudioAsVoice: true });
+            const cleanChat = String(msg.chatId).replace(/^wpp:/, '');
+            await wppClient.sendMessage(cleanChat, media, { sendAudioAsVoice: true });
 
             // Limpar arquivo temporário após envio
             setTimeout(() => {
