@@ -23,10 +23,7 @@ function log(msg: string): void {
 
 // Lista de comandos a testar (1 por vez, isolado). Edite conforme a sequência.
 const LISTA = [
-  'cantada', 'conselho', 'conselhob', 'aleatoria', 'alarme',
-  'lembrete', 'votar', 'mute', 'promover', 'stats', 'jogos',
-  'sorteio', 'gtts', 'nick', 'grupos', 'sendmsg', 'info', 'feedback',
-  'setwelcome',
+  'conselhob',
 ];
 
 export async function runSelfTestOndeEstou(_adapter: SelfTestAdapter, _alvoTeste: string): Promise<void> {
