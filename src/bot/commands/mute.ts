@@ -13,13 +13,13 @@ export const muteCommand: ICommand = {
             return;
         }
         
-        const mentioned = msg.mentionedIds;
+        const mentioned = (msg.mentions && msg.mentions.length) ? msg.mentions : (msg.mentionedIds || []);
         if (!mentioned || mentioned.length === 0) {
             await msg.reply('❌ Marque o usuário a ser silenciado.');
             return;
         }
         
-        const userToMute = mentioned[0];
+        const userToMute = mentioned[0].id ? mentioned[0].id.replace('wpp:', '') : mentioned[0];
         await client.mute(userToMute, 8 * 60 * 60); // 8 horas
         await msg.reply(`✅ Usuário silenciado por 8 horas.${groupTag(msg)}`);
     }

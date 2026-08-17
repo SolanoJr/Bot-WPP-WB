@@ -13,13 +13,13 @@ export const promoteCommand: ICommand = {
             return;
         }
         
-        const mentioned = msg.mentionedIds;
+        const mentioned = (msg.mentions && msg.mentions.length) ? msg.mentions : (msg.mentionedIds || []);
         if (!mentioned || mentioned.length === 0) {
             await msg.reply('❌ Marque o usuário a ser promovido.');
             return;
         }
         
-        const userToPromote = mentioned[0];
+        const userToPromote = mentioned[0].id ? mentioned[0].id.replace('wpp:', '') : mentioned[0];
         await client.promote(userToPromote);
         await msg.reply(`✅ Usuário promovido a administrador.${groupTag(msg)}`);
     }
