@@ -63,13 +63,13 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     log(`[sarc] FALHA: ${e?.message}`);
   }
 
-  // TESTE GRUPOS: lista grupos do bot (restrito MASTER)
+  // TESTE FEEDBACK: envia feedback (nao restrito, qualquer um manda)
   try {
-    await adapter.sendMessage(alvoTeste, '$grupos');
+    await adapter.sendMessage(alvoTeste, '$feedback teste de feedback automatico');
     await new Promise(r => setTimeout(r, 2000));
-    log(`[grupos-test] mandou $grupos`);
+    log(`[feedback-test] mandou $feedback`);
   } catch (e: any) {
-    log(`[grupos-test] ERRO: ${e?.message}`);
+    log(`[feedback-test] ERRO: ${e?.message}`);
   }
   log('=== SELFTEST concluído. Leia o log das respostas. ===');
 }

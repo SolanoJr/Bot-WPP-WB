@@ -974,5 +974,29 @@ ssh solanojr@100.101.218.16 "cd ~/bot-wpp && pm2 restart bot-wpp"
 
 ---
 
-**Última Atualização:** 2026-08-14
+### 38. isMaster não reconhece o dono (ID @lid vs número) — 2026-08-17
+**Data:** 2026-08-17
+**Sessão:** 60+ (testes de comandos)
+**Status:** ⏳ Aberto (não bloqueia, mas afeta comandos MASTER)
+
+**Erro:** Comandos restritos a MASTER (`$grupos`, `$sendmsg`, etc.) negam mesmo quando o DONO manda.
+Log: `User=202658048684056@c.us` mandando `$grupos` → `❌ Comando restrito ao MASTER do bot.`
+
+**Causa:** O WA moderno entrega o autor como `@lid` (`202658048684056`), e o adapter resolve para
+`@c.us` mantendo o número do @lid (`202658048684056@c.us`). Mas o MASTER configurado é o NÚMERO
+real do dono (`5588998314322@c.us` no `.env` MASTER_USER / MASTER_NUMBER). Como `202658048684056 ≠ 5588998314322`,
+o `isMaster()` retorna false para o próprio dono.
+
+**Impacto:** `$grupos`, `$sendmsg` (e quaisquer comandos MASTER) não funcionam para o dono enquanto ele
+chegar como @lid. Comandos não-MASTER (mute, jogos, gtts, feedback, etc.) não são afetados.
+
+**Correção sugerida:** no `normalizeMessage`, mapear o @lid do dono para seu número real (já existe
+lógica de `getContactById` que resolve @lid→@c.us; estender para usar o número canônico do dono),
+OU aceitar tanto `5588998314322` quanto `202658048684056` como MASTER no `isMaster()`.
+
+**Status:** Aberto. Não mexer hoje (dono pediu parar de debugar). Testar em outra sessão.
+
+---
+
+**Última Atualização:** 2026-08-17
 **Responsável:** WarriorBlack / Hermes
