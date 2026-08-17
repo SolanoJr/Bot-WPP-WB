@@ -20,6 +20,7 @@ import {
 import { rateLimiter } from '../services/rateLimiter';
 import metricsService from '../services/metricsService';
 import { isMaster } from '../services/permissions';
+import { splitArgs } from '../services/argParser';
 
 type AdapterFactory = () => Promise<PlatformAdapter>;
 
@@ -122,7 +123,7 @@ export class PlatformManager {
       const trimmedText = message.text.trim();
       message.isCommand = trimmedText.startsWith(prefix);
       if (message.isCommand) {
-        const parts = trimmedText.slice(prefix.length).trim().split(/ +/);
+        const parts = splitArgs(trimmedText.slice(prefix.length).trim());
         message.commandName = (parts.shift() || '').toLowerCase();
         message.args = parts;
       }
@@ -222,7 +223,7 @@ export class PlatformManager {
     if (!message.text.startsWith(PREFIX)) return;
     
     // Parsear comando e argumentos
-    const parts = message.text.slice(PREFIX.length).trim().split(/\s+/);
+    const parts = splitArgs(message.text.slice(PREFIX.length).trim());
     const commandName = parts[0].toLowerCase();
     const args = parts.slice(1);
     

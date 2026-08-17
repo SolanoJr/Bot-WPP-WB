@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { handleKeywords } from './keywordHandler';
 import { processAutoMod } from './autoModService';
+import { splitArgs } from './argParser';
 
 /**
  * Handler centralizado para todas as mensagens recebidas
@@ -41,7 +42,7 @@ async function processMessage(msg: any, client: any, commands: Map<string, any>)
     // 5. Processamento de Comandos
     if (!isCommand) return;
 
-    const args = body.slice(prefix.length).trim().split(/ +/);
+    const args = splitArgs(body.slice(prefix.length).trim());
     const commandName = (args.shift() || '').toLowerCase();
     if (!commandName) return;
     const command = commands.get(commandName);
