@@ -21,6 +21,7 @@ import { rateLimiter } from '../services/rateLimiter';
 import metricsService from '../services/metricsService';
 import { isMaster } from '../services/permissions';
 import { splitArgs } from '../services/argParser';
+import { handleMutedMessage } from '../bot/commands/mute';
 
 type AdapterFactory = () => Promise<PlatformAdapter>;
 
@@ -114,6 +115,14 @@ export class PlatformManager {
     client.onMessage(async (rawMessage: PlatformMessage) => {
       // Normalizar e enriquecer mensagem
       const message = this.enrichMessage(rawMessage, adapter.platform);
+
+      // 1. Silenciados: apaga mensagens de quem está mutado (implementação do $mute)
+      try {
+        const deleted = await handleMutedMessage(message);
+        if (deleted) return;
+      } catch (e: any) {
+        console.error('[PlatformManager] Erro ao checar mute:', e?.message);
+      }
 
       // Rastrear último chat visto nesta plataforma (para ponte $send)
       this.lastChatByPlatform.set(adapter.platform, message.chatId);
