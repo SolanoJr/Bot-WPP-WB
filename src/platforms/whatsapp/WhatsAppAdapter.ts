@@ -660,7 +660,13 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         console.log(`[WhatsApp] extractMentions - fallback por texto: ids=${JSON.stringify(ids)}`);
       }
     }
-    return ids.map((id: string) => {
+    // Normalizar cada fonte (pode vir string '@c.us'/'\@lid' ou objeto {_serialized})
+    const cleanIds = ids.map((x: any) => {
+      if (typeof x === 'string') return x;
+      if (x && typeof x === 'object') return (x._serialized || x.id || x.user || '');
+      return String(x);
+    }).filter(Boolean);
+    return cleanIds.map((id: string) => {
       // Normalizar @lid -> @c.us (WWebJS removeParticipants espera @c.us)
       const clean = id.replace('@lid', '@c.us');
       return {
