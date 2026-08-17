@@ -63,14 +63,16 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     log(`[sarc] FALHA: ${e?.message}`);
   }
 
-  // TESTE MUTE GRUPO: liga (so admins) e desliga, validando o setMessagesAdminsOnly.
-  try {
-    await adapter.sendMessage(alvoTeste, '$mute grupo');
-    await new Promise(r => setTimeout(r, 2000));
-    await adapter.sendMessage(alvoTeste, '$mute grupo off');
-    log(`[mute-grupo-test] ligou e desligou modo so-admins. Veja logs.`);
-  } catch (e: any) {
-    log(`[mute-grupo-test] ERRO: ${e?.message}`);
+  // TESTE JOGOS: menu + forca (inicia/chuta) + velha (inicia/joga)
+  const jogos = ['jogos', 'forca', 'forca A', 'velha', 'velha 5'];
+  for (const j of jogos) {
+    try {
+      await adapter.sendMessage(alvoTeste, '$' + j);
+      await new Promise(r => setTimeout(r, 1500));
+      log(`[jogos-test] mandou $${j}`);
+    } catch (e: any) {
+      log(`[jogos-test] ERRO $${j}: ${e?.message}`);
+    }
   }
   log('=== SELFTEST concluído. Leia o log das respostas. ===');
 }
