@@ -84,7 +84,7 @@ const SPAM_PATTERNS = [
  */
 export function extractTextFromInteractiveMessage(msg: Message): string {
   let text = msg.body || '';
-  const msgData = (msg as any)._data || msg || {};
+  const msgData = (msg as any)._data || {};
 
   // Captura caption de mídia e textos comuns
   if (msgData.caption) text += ' ' + msgData.caption;
