@@ -63,21 +63,16 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     log(`[sarc] FALHA: ${e?.message}`);
   }
 
-  // TESTE AUTOMOD: liga toggles e manda msg de cassino (bot é admin, AutoMod vai pular por admin,
-  // mas o log deve mostrar que o processAutoMod rodou e casou a regra — prova o pipeline/prefixo)
-  const grupos = [alvoTeste, '120363419033272638@g.us']; // Teste + Figurinhas
-  for (const g of grupos) {
-    try {
-      await adapter.sendMessage(g, '$automod on');
-      await new Promise(r => setTimeout(r, 800));
-    } catch (e: any) { log(`[automod-test] ERRO ligar ${g}: ${e?.message}`); }
-  }
+  // TESTE AUTOMOD + KICK CK7: liga AutoMod no Figurinhas e tenta KICKAR o bot CK7 (28347522375907)
+  const fig = '120363419033272638@g.us';
   try {
-    await adapter.sendMessage(alvoTeste, 'Alta taxa de vitórias, recolha contínua de bónus, presentes 🎁 https://kl7.games/?c=10103');
-    await new Promise(r => setTimeout(r, 1500));
-    log(`[automod-test] ligou toggles + mandou msg cassino (bot=admin, deve pular por admin mas logar regra)`);
+    await adapter.sendMessage(fig, '$automod on');
+    await new Promise(r => setTimeout(r, 1000));
+    await adapter.sendMessage(fig, '$kick @28347522375907', { mentionedIds: ['28347522375907@c.us'] });
+    await new Promise(r => setTimeout(r, 2000));
+    log(`[ck7-test] tentou $automod on + $kick no Figurinhas`);
   } catch (e: any) {
-    log(`[automod-test] ERRO: ${e?.message}`);
+    log(`[ck7-test] ERRO: ${e?.message}`);
   }
   log('=== SELFTEST concluído. Leia o log das respostas. ===');
 }
