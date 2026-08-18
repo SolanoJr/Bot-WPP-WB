@@ -92,8 +92,10 @@ export function extractTextFromInteractiveMessage(msg: Message): string {
   if (msgData.text) text += ' ' + msgData.text;
   // Fallback agressivo: serializa o _data todo (imagens/cards manyam texto em campos variados)
   try {
-    const all = JSON.stringify(msgData);
-    if (all && all.length < 20000) text += ' ' + all;
+    if (Object.keys(msgData).length > 0) {
+      const all = JSON.stringify(msgData);
+      if (all && all.length < 20000) text += ' ' + all;
+    }
   } catch { /* ignora */ }
 
   // templateMessage / buttonsMessage / interactiveMessage
