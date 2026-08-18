@@ -19,6 +19,10 @@ Criado em 2026-08-17 durante a sequência de testes de comandos (1 por vez).
 - **`$delete`** — não é um comando registrado; virou o mecanismo interno de apagar mensagem
   (usado pelo `$mute` via `raw.delete(true)` e exposto em `legacyMsg.delete` no commandExecutor).
   Criado "sem querer" durante os testes de mute; deixado como utilitário interno.
+- **`$sendmsg`** (`src/bot/commands/sendMessage.ts`) — envia mensagem privada pra um número
+  (`$sendmsg <numero> <msg>`). Considerado de "mal uso / teste futuro" pelo dono (2026-08-18).
+  Restrito a MASTER, mas o `isMaster` não reconhece o dono pelo @lid (ver BUG 38), então está
+  inacessível no momento. Mover para teste futuro.
 
 ## Notas
 - Placeholders foram testados e responderam a mensagem fixa (comando dispara, mas não faz nada útil).

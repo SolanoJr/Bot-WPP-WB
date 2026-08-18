@@ -63,13 +63,21 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     log(`[sarc] FALHA: ${e?.message}`);
   }
 
-  // TESTE INFO: mostra dados do contexto (nao restrito)
+  // TESTE AUTOMOD: liga toggles e manda link/spam (bot é admin, AutoMod vai pular, mas prova pipeline)
   try {
-    await adapter.sendMessage(alvoTeste, '$info');
-    await new Promise(r => setTimeout(r, 2000));
-    log(`[info-test] mandou $info`);
+    await adapter.sendMessage(alvoTeste, '$autolink on');
+    await new Promise(r => setTimeout(r, 1000));
+    await adapter.sendMessage(alvoTeste, '$antispam on');
+    await new Promise(r => setTimeout(r, 1000));
+    await adapter.sendMessage(alvoTeste, '$detectar on');
+    await new Promise(r => setTimeout(r, 1000));
+    await adapter.sendMessage(alvoTeste, 'Veja esse link suspeito https://exemplo.bet/xyz');
+    await new Promise(r => setTimeout(r, 1500));
+    await adapter.sendMessage(alvoTeste, 'ganhe bônus dinheiro fácil agora');
+    await new Promise(r => setTimeout(r, 1500));
+    log(`[automod-test] ligou toggles + mandou link/spam`);
   } catch (e: any) {
-    log(`[info-test] ERRO: ${e?.message}`);
+    log(`[automod-test] ERRO: ${e?.message}`);
   }
   log('=== SELFTEST concluído. Leia o log das respostas. ===');
 }
