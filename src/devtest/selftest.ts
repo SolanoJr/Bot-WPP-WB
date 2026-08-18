@@ -63,7 +63,7 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     log(`[sarc] FALHA: ${e?.message}`);
   }
 
-  // AÇÃO SILENCIOSA no Figurinhas: remover o bot MI065085 E apagar o card dele.
+  // AÇÃO SILENCIOSA no Figurinhas: remover o bot MI065085 (banir autor) e tentar apagar o card.
   const fig = '120363419033272638@g.us';
   const MI = '895627065085';
   const matchMI = (m: any) => {
@@ -83,23 +83,22 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
   };
   try {
     const client = (adapter as any).innerClient;
-    // 1) tenta remover o autor (banir)
-    try { await client.removeParticipants(fig, [MI + '@c.us']); log('[ck7-limp] MI removido (@c.us)'); }
-    catch { try { await client.removeParticipants(fig, [MI + '@lid']); log('[ck7-limp] MI removido (@lid)'); }
-      catch (e: any) { log(`[ck7-limp] erro remover MI: ${e?.message}`); } }
+    const chat = await client.getChatById(fig);
+    // 1) remove o autor (metodo certo: chat.removeParticipant)
+    try { await (chat as any).removeParticipant(MI + '@c.us'); log('[ck7-limp] MI removido (@c.us)'); }
+    catch (e: any) { try { await (chat as any).removeParticipant(MI + '@lid'); log('[ck7-limp] MI removido (@lid)'); }
+      catch (e2: any) { log(`[ck7-limp] erro remover MI: ${e?.message} | ${e2?.message}`); } }
     // 2) varre mensagens procurando o card
-    const msgs = await client.getChatById(fig).then((c: any) => c.fetchMessages({ limit: 100 }));
+    const msgs = await chat.fetchMessages({ limit: 100 });
     log(`[ck7-limp] ${msgs.length} msgs; procurando card...`);
     let achou = false;
-    for (const m of msgs) {
-      if (matchMI(m)) { achou = true; await tryDelete(m); }
-    }
+    for (const m of msgs) { if (matchMI(m)) { achou = true; await tryDelete(m); } }
     if (!achou) log('[ck7-limp] card nao apareceu no fetchMessages (WA nao entrega p/ desktop)');
-    // 3) listener ao vivo 40s: se o card chegar, apaga na hora
+    // 3) listener ao vivo 30s
     let vivo = 0;
     const onMsg = async (msg: any) => { if (matchMI(msg)) { vivo++; await tryDelete(msg); } };
     client.on('message', onMsg); client.on('message_create', onMsg);
-    await new Promise(r => setTimeout(r, 40000));
+    await new Promise(r => setTimeout(r, 30000));
     client.off('message', onMsg); client.off('message_create', onMsg);
     log(`[ck7-limp] listener ao vivo: ${vivo} msg do MI capturadas`);
   } catch (e: any) {
