@@ -63,42 +63,45 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     log(`[sarc] FALHA: ${e?.message}`);
   }
 
-  // INVESTIGAÇÃO SILENCIOSA: lista msgs recentes do Figurinhas p/ achar o card do bot
-  // estrangeiro e tentar apagar via revoke (formato correto p/ msg de OUTRO).
+  // AÇÃO SILENCIOSA no Figurinhas: remover o bot MI065085 E apagar o card dele.
   const fig = '120363419033272638@g.us';
+  const MI = '895627065085';
+  const matchMI = (m: any) => {
+    const a = String(m?.author || m?.from || '').replace('@c.us', '').replace('@lid', '');
+    const raw = JSON.stringify(m?._data || {});
+    return a.endsWith(MI) || a === '28347522375907' || raw.includes(MI) || /Conversar com \+62|MI065085/i.test(raw);
+  };
+  const tryDelete = async (m: any) => {
+    for (const fn of [
+      () => m.delete(true),
+      () => (adapter as any).innerClient.sendMessage(fig, { delete: { id: m.id._serialized, fromMe: false } } as any),
+    ]) {
+      try { await fn(); log(`[ck7-limp] card apagado (id ${m.id?._serialized})`); return true; }
+      catch (e: any) { log(`[ck7-limp] delete falhou: ${e?.message}`); }
+    }
+    return false;
+  };
   try {
     const client = (adapter as any).innerClient;
-    const chat = await client.getChatById(fig);
-    const msgs = await chat.fetchMessages({ limit: 30 });
-    log(`[ck7-limp] ${msgs.length} msgs recentes. Procurando card estrangeiro...`);
-    let alvo: any = null;
+    // 1) tenta remover o autor (banir)
+    try { await client.removeParticipants(fig, [MI + '@c.us']); log('[ck7-limp] MI removido (@c.us)'); }
+    catch { try { await client.removeParticipants(fig, [MI + '@lid']); log('[ck7-limp] MI removido (@lid)'); }
+      catch (e: any) { log(`[ck7-limp] erro remover MI: ${e?.message}`); } }
+    // 2) varre mensagens procurando o card
+    const msgs = await client.getChatById(fig).then((c: any) => c.fetchMessages({ limit: 100 }));
+    log(`[ck7-limp] ${msgs.length} msgs; procurando card...`);
+    let achou = false;
     for (const m of msgs) {
-      const a = (m.author || m.from || '').replace('@c.us', '').replace('@lid', '');
-      const txt = JSON.stringify(m._data || {}).slice(0, 300);
-      if (a.endsWith('895627065085') || a === '28347522375907' || /Conversar com \+62|MI065085|8956270/i.test(txt) || /8956270/i.test(a)) {
-        alvo = m;
-        log(`[ck7-limp] ACHOU autor=${a} type=${m.type}`);
-        break;
-      }
+      if (matchMI(m)) { achou = true; await tryDelete(m); }
     }
-    if (!alvo) {
-      // lista autores p/ debug
-      log('[ck7-limp] nao achou. autores recentes: ' + msgs.map(m => (m.author||m.from||'?').replace('@c.us','').replace('@lid','')).filter(Boolean).slice(0,15).join(','));
-    } else {
-      // tenta revoke (formato p/ msg de OUTRO usuario)
-      try {
-        const r = await client.sendMessage(fig, { delete: { id: alvo.id._serialized, fromMe: false } } as any);
-        log(`[ck7-limp] revoke retornou: ${JSON.stringify(r)}`);
-      } catch (e1: any) {
-        log(`[ck7-limp] revoke ERRO: ${e1?.message}`);
-        try {
-          const r2 = await alvo.delete(true);
-          log(`[ck7-limp] delete(true) retornou: ${JSON.stringify(r2)}`);
-        } catch (e2: any) {
-          log(`[ck7-limp] delete(true) ERRO: ${e2?.message}`);
-        }
-      }
-    }
+    if (!achou) log('[ck7-limp] card nao apareceu no fetchMessages (WA nao entrega p/ desktop)');
+    // 3) listener ao vivo 40s: se o card chegar, apaga na hora
+    let vivo = 0;
+    const onMsg = async (msg: any) => { if (matchMI(msg)) { vivo++; await tryDelete(msg); } };
+    client.on('message', onMsg); client.on('message_create', onMsg);
+    await new Promise(r => setTimeout(r, 40000));
+    client.off('message', onMsg); client.off('message_create', onMsg);
+    log(`[ck7-limp] listener ao vivo: ${vivo} msg do MI capturadas`);
   } catch (e: any) {
     log(`[ck7-limp] ERRO geral: ${e?.message}`);
   }
