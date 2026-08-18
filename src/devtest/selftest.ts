@@ -65,15 +65,14 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
 
   // TESTE AUTOMOD: liga toggles e manda msg de cassino (bot é admin, AutoMod vai pular por admin,
   // mas o log deve mostrar que o processAutoMod rodou e casou a regra — prova o pipeline/prefixo)
+  const grupos = [alvoTeste, '120363419033272638@g.us']; // Teste + Figurinhas
+  for (const g of grupos) {
+    try {
+      await adapter.sendMessage(g, '$automod on');
+      await new Promise(r => setTimeout(r, 800));
+    } catch (e: any) { log(`[automod-test] ERRO ligar ${g}: ${e?.message}`); }
+  }
   try {
-    await adapter.sendMessage(alvoTeste, '$autolink on');
-    await new Promise(r => setTimeout(r, 800));
-    await adapter.sendMessage(alvoTeste, '$antispam on');
-    await new Promise(r => setTimeout(r, 800));
-    await adapter.sendMessage(alvoTeste, '$detectar on');
-    await new Promise(r => setTimeout(r, 800));
-    await adapter.sendMessage(alvoTeste, '$remover on');
-    await new Promise(r => setTimeout(r, 800));
     await adapter.sendMessage(alvoTeste, 'Alta taxa de vitórias, recolha contínua de bónus, presentes 🎁 https://kl7.games/?c=10103');
     await new Promise(r => setTimeout(r, 1500));
     log(`[automod-test] ligou toggles + mandou msg cassino (bot=admin, deve pular por admin mas logar regra)`);
