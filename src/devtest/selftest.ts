@@ -63,24 +63,39 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     log(`[sarc] FALHA: ${e?.message}`);
   }
 
-  // LIMPEZA SILENCIOSA: apaga a mensagem do bot CK7 (28347522375907) no grupo Figurinhas.
-  // Não manda nenhum comando visível — só localiza e deleta a msg fantasma.
+  // LIMPEZA + INVESTIGAÇÃO SILENCIOSA: acha a msg do bot estrangeiro no Figurinhas,
+  // loga o _data (pra entender o card) e tenta apagar de varias formas.
   const fig = '120363419033272638@g.us';
   try {
     const client = (adapter as any).innerClient;
     const chat = await client.getChatById(fig);
-    const msgs = await chat.fetchMessages({ limit: 60 });
+    const msgs = await chat.fetchMessages({ limit: 80 });
     const alvo = msgs.find((m: any) =>
+      (m.author || m.from || '').replace('@c.us', '').replace('@lid', '').endsWith('895627065085') ||
       (m.author || m.from || '').replace('@c.us', '').replace('@lid', '') === '28347522375907'
     );
-    if (alvo) {
-      await alvo.delete(true);
-      log(`[ck7-limp] mensagem do CK7 apagada (id ${alvo.id?._serialized || alvo.id?.id})`);
+    if (!alvo) {
+      log('[ck7-limp] nenhuma msg do bot estrangeiro encontrada');
     } else {
-      log('[ck7-limp] nenhuma mensagem do CK7 encontrada nas ultimas 60');
+      log(`[ck7-limp] achou msg tipo=${alvo.type} author=${alvo.author} id=${alvo.id?._serialized}`);
+      log(`[ck7-limp] _data.keys=${Object.keys(alvo._data || {}).join(',')}`);
+      // tenta delete(true)
+      try {
+        const r1 = await alvo.delete(true);
+        log(`[ck7-limp] delete(true) retornou: ${JSON.stringify(r1)}`);
+      } catch (e1: any) {
+        log(`[ck7-limp] delete(true) ERRO: ${e1?.message}`);
+        // tenta variante: delete() sem arg
+        try {
+          const r2 = await (alvo as any).delete();
+          log(`[ck7-limp] delete() retornou: ${JSON.stringify(r2)}`);
+        } catch (e2: any) {
+          log(`[ck7-limp] delete() ERRO: ${e2?.message}`);
+        }
+      }
     }
   } catch (e: any) {
-    log(`[ck7-limp] ERRO: ${e?.message}`);
+    log(`[ck7-limp] ERRO geral: ${e?.message}`);
   }
   log('=== SELFTEST concluído. Leia o log das respostas. ===');
 }
