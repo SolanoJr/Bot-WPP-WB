@@ -63,13 +63,13 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     log(`[sarc] FALHA: ${e?.message}`);
   }
 
-  // TESTE FEEDBACK: envia feedback (nao restrito, qualquer um manda)
+  // TESTE INFO: mostra dados do contexto (nao restrito)
   try {
-    await adapter.sendMessage(alvoTeste, '$feedback teste de feedback automatico');
+    await adapter.sendMessage(alvoTeste, '$info');
     await new Promise(r => setTimeout(r, 2000));
-    log(`[feedback-test] mandou $feedback`);
+    log(`[info-test] mandou $info`);
   } catch (e: any) {
-    log(`[feedback-test] ERRO: ${e?.message}`);
+    log(`[info-test] ERRO: ${e?.message}`);
   }
   log('=== SELFTEST concluído. Leia o log das respostas. ===');
 }
