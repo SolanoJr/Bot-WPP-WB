@@ -64,12 +64,19 @@ const SPAM_PATTERNS = [
   /b[oôó]nus/i,
   /recolhidos\s+à\s+vontade/i,
   /pp7\.wtf/i,
-  /\.bet($|[\s/\?])/i,
+  /\.bet($|[\s/?])/i,
   /\.wtf\?c=/i,
   /ganhar\s+dinheiro/i,
   /lucro\s+f[aá]cil/i,
   /🎰|🎲|\bbet\b/i,
-  /https?:\/\/[^\s]+\.(wtf|bet|game|win|xyz|top|click)/i
+  // Domínios de cassino/apostas comuns (inclui kl7.games, ck7, etc)
+  /https?:\/\/[^\\s]+(\.(wtf|bet|game|win|xyz|top|click|casino|fun|pk|sh|games?|play))/i,
+  /https?:\/\/[^\\s]*(bet|casino|win|game|777|jackpot|slot)/i,
+  // Marcas de bot de cassino (ex: CK7 BET, kl7)
+  /\b(ck|kl|kc|kw)\d+\s*bet\b/i,
+  /\bbet\b\s*(?:777|99|club)?/i,
+  // Número de contato + convite (padrão MI065085 / +62 etc)
+  /entrou usando o link|usou o link do grupo/i
 ];
 
 /**
@@ -153,6 +160,8 @@ export async function processAutoMod(msg: any, client: any): Promise<boolean> {
     ]).catch(() => null);
     groupIdForCheck = chat?.id?._serialized || msg.from;
   } catch { /* ignora */ }
+  // Normaliza prefixos de plataforma (wpp:/tg:/dc:) para bater com o SQLite
+  groupIdForCheck = String(groupIdForCheck || '').replace(/^(wpp:|tg:|dc:)/, '');
   try {
     const { getGroupMod } = await import('./databaseService');
     const mod = await getGroupMod(groupIdForCheck);
@@ -179,7 +188,7 @@ export async function processAutoMod(msg: any, client: any): Promise<boolean> {
     } catch (gcErr: any) {
       console.warn(`[AutoMod] getChat falhou (${gcErr?.message}); assumindo bot admin.`);
     }
-    const groupId = chat?.id?._serialized || msg.from;
+    const groupId = String(chat?.id?._serialized || msg.from || '').replace(/^(wpp:|tg:|dc:)/, '');
     const authorId = msg.author || msg.from;
     console.log('[AutoMod] authorId:', authorId, 'groupId:', groupId);
 

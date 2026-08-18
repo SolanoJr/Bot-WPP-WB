@@ -236,15 +236,21 @@ export interface GroupModConfig {
 
 const MOD_FIELDS: (keyof GroupModConfig)[] = ['antispam', 'antiestrangeiro', 'bemvindo', 'autolink', 'detectar', 'remover'];
 
+/** Remove prefixos de plataforma (wpp:/tg:/dc:) do groupId para lookup consistente no SQLite. */
+function normGroup(groupId: string): string {
+  return String(groupId || '').replace(/^(wpp:|tg:|dc:)/, '');
+}
+
 /** Retorna a config de moderação do grupo (default: tudo desligado). */
 export async function getGroupMod(groupId: string): Promise<GroupModConfig> {
+  const id = normGroup(groupId);
   const empty: GroupModConfig = {
     antispam: false, antiestrangeiro: false, bemvindo: false,
     autolink: false, detectar: false, remover: false,
   };
   try {
     const db = await getDb();
-    const row = await db.get(`SELECT * FROM group_mod WHERE group_id = ?`, groupId);
+    const row = await db.get(`SELECT * FROM group_mod WHERE group_id = ?`, id);
     if (!row) return empty;
     const cfg: any = { ...empty };
     for (const f of MOD_FIELDS) cfg[f] = !!row[f];
@@ -257,18 +263,19 @@ export async function getGroupMod(groupId: string): Promise<GroupModConfig> {
 
 /** Define um campo específico da moderação do grupo. */
 export async function setGroupModField(groupId: string, field: keyof GroupModConfig, value: boolean): Promise<void> {
+  const id = normGroup(groupId);
   try {
     const db = await getDb();
-    const row = await db.get(`SELECT group_id FROM group_mod WHERE group_id = ?`, groupId);
+    const row = await db.get(`SELECT group_id FROM group_mod WHERE group_id = ?`, id);
     if (!row) {
       const cfg = { antispam: 0, antiestrangeiro: 0, bemvindo: 0, autolink: 0, detectar: 0, remover: 0 } as any;
       cfg[field] = value ? 1 : 0;
       await db.run(
         `INSERT INTO group_mod (group_id, antispam, antiestrangeiro, bemvindo, autolink, detectar, remover) VALUES (?,?,?,?,?,?,?)`,
-        groupId, cfg.antispam, cfg.antiestrangeiro, cfg.bemvindo, cfg.autolink, cfg.detectar, cfg.remover
+        id, cfg.antispam, cfg.antiestrangeiro, cfg.bemvindo, cfg.autolink, cfg.detectar, cfg.remover
       );
     } else {
-      await db.run(`UPDATE group_mod SET ${field} = ? WHERE group_id = ?`, value ? 1 : 0, groupId);
+      await db.run(`UPDATE group_mod SET ${field} = ? WHERE group_id = ?`, value ? 1 : 0, id);
     }
   } catch (e: any) {
     console.error('[DB] Falha ao salvar group_mod:', e?.message);
@@ -277,6 +284,7 @@ export async function setGroupModField(groupId: string, field: keyof GroupModCon
 
 /** Liga/desliga TODOS os campos de um grupo (toggle mestre). */
 export async function setGroupModAll(groupId: string, value: boolean): Promise<void> {
+  const id = normGroup(groupId);
   try {
     const db = await getDb();
     await db.run(
@@ -286,7 +294,7 @@ export async function setGroupModAll(groupId: string, value: boolean): Promise<v
          antispam=excluded.antispam, antiestrangeiro=excluded.antiestrangeiro,
          bemvindo=excluded.bemvindo, autolink=excluded.autolink,
          detectar=excluded.detectar, remover=excluded.remover`,
-      groupId, value?1:0, value?1:0, value?1:0, value?1:0, value?1:0, value?1:0
+      id, value?1:0, value?1:0, value?1:0, value?1:0, value?1:0, value?1:0
     );
   } catch (e: any) {
     console.error('[DB] Falha ao salvar group_mod (all):', e?.message);

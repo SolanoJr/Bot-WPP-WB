@@ -63,19 +63,20 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     log(`[sarc] FALHA: ${e?.message}`);
   }
 
-  // TESTE AUTOMOD: liga toggles e manda link/spam (bot é admin, AutoMod vai pular, mas prova pipeline)
+  // TESTE AUTOMOD: liga toggles e manda msg de cassino (bot é admin, AutoMod vai pular por admin,
+  // mas o log deve mostrar que o processAutoMod rodou e casou a regra — prova o pipeline/prefixo)
   try {
     await adapter.sendMessage(alvoTeste, '$autolink on');
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 800));
     await adapter.sendMessage(alvoTeste, '$antispam on');
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 800));
     await adapter.sendMessage(alvoTeste, '$detectar on');
-    await new Promise(r => setTimeout(r, 1000));
-    await adapter.sendMessage(alvoTeste, 'Veja esse link suspeito https://exemplo.bet/xyz');
+    await new Promise(r => setTimeout(r, 800));
+    await adapter.sendMessage(alvoTeste, '$remover on');
+    await new Promise(r => setTimeout(r, 800));
+    await adapter.sendMessage(alvoTeste, 'Alta taxa de vitórias, recolha contínua de bónus, presentes 🎁 https://kl7.games/?c=10103');
     await new Promise(r => setTimeout(r, 1500));
-    await adapter.sendMessage(alvoTeste, 'ganhe bônus dinheiro fácil agora');
-    await new Promise(r => setTimeout(r, 1500));
-    log(`[automod-test] ligou toggles + mandou link/spam`);
+    log(`[automod-test] ligou toggles + mandou msg cassino (bot=admin, deve pular por admin mas logar regra)`);
   } catch (e: any) {
     log(`[automod-test] ERRO: ${e?.message}`);
   }
