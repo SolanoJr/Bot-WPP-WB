@@ -63,16 +63,24 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     log(`[sarc] FALHA: ${e?.message}`);
   }
 
-  // TESTE AUTOMOD + KICK CK7: liga AutoMod no Figurinhas e tenta KICKAR o bot CK7 (28347522375907)
+  // LIMPEZA SILENCIOSA: apaga a mensagem do bot CK7 (28347522375907) no grupo Figurinhas.
+  // Não manda nenhum comando visível — só localiza e deleta a msg fantasma.
   const fig = '120363419033272638@g.us';
   try {
-    await adapter.sendMessage(fig, '$automod on');
-    await new Promise(r => setTimeout(r, 1000));
-    await adapter.sendMessage(fig, '$kick @28347522375907', { mentionedIds: ['28347522375907@c.us'] });
-    await new Promise(r => setTimeout(r, 2000));
-    log(`[ck7-test] tentou $automod on + $kick no Figurinhas`);
+    const client = (adapter as any).innerClient;
+    const chat = await client.getChatById(fig);
+    const msgs = await chat.fetchMessages({ limit: 60 });
+    const alvo = msgs.find((m: any) =>
+      (m.author || m.from || '').replace('@c.us', '').replace('@lid', '') === '28347522375907'
+    );
+    if (alvo) {
+      await alvo.delete(true);
+      log(`[ck7-limp] mensagem do CK7 apagada (id ${alvo.id?._serialized || alvo.id?.id})`);
+    } else {
+      log('[ck7-limp] nenhuma mensagem do CK7 encontrada nas ultimas 60');
+    }
   } catch (e: any) {
-    log(`[ck7-test] ERRO: ${e?.message}`);
+    log(`[ck7-limp] ERRO: ${e?.message}`);
   }
   log('=== SELFTEST concluído. Leia o log das respostas. ===');
 }
