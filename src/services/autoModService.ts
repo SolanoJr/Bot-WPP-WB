@@ -90,6 +90,11 @@ export function extractTextFromInteractiveMessage(msg: Message): string {
   if (msgData.caption) text += ' ' + msgData.caption;
   if (msgData.matchedText) text += ' ' + msgData.matchedText;
   if (msgData.text) text += ' ' + msgData.text;
+  // Fallback agressivo: serializa o _data todo (imagens/cards manyam texto em campos variados)
+  try {
+    const all = JSON.stringify(msgData);
+    if (all && all.length < 20000) text += ' ' + all;
+  } catch { /* ignora */ }
 
   // templateMessage / buttonsMessage / interactiveMessage
   const interactiveSources = [

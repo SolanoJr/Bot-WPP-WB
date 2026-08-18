@@ -346,14 +346,11 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       // o sarcasmo. Agora o getChat do AutoMod tem timeout de 4s. Rodamos direto (await)
       // para garantir que o fluxo e os logs executem no handler.
       try {
-        console.log('[DEBUG-AUTOMOD] bloco moderation iniciado para', msg?.from, 'body?', !!(msg?.body));
         const intercepted = await handleKeywords(msg, this.innerClient);
-        console.log('[DEBUG-AUTOMOD] handleKeywords retornou:', intercepted);
         if (intercepted) {
           console.log(`😏 [WhatsAppAdapter] Palavra-chave detectada, resposta enviada`);
         } else {
           const moderated = await processAutoMod(msg, this.innerClient);
-          console.log('[DEBUG-AUTOMOD] processAutoMod retornou:', moderated);
           if (moderated) {
             console.log(`🛡️ [WhatsAppAdapter] Mensagem moderada e deletada de ${msg.author || msg.from}`);
           }
@@ -405,9 +402,10 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         }
         // AutoMod também roda aqui (mesma razão: message_create cobre msgs do próprio bot
         // e, em alguns casos, msgs de membros dependendo da versão do WWebJS)
-        console.log('[DEBUG-AUTOMOD] message_create: bloco moderation iniciado');
         const moderated = await processAutoMod(msg, this.innerClient);
-        console.log('[DEBUG-AUTOMOD] message_create: processAutoMod retornou:', moderated);
+        if (moderated) {
+          console.log(`🛡️ [WhatsAppAdapter] Mensagem moderada e deletada (message_create) de ${msg.author || msg.from}`);
+        }
       } catch (err: any) {
         console.error(`[WhatsAppAdapter] Erro em handleKeywords/AutoMod (message_create):`, err?.message);
       }
