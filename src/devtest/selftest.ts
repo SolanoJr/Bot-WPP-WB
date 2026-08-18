@@ -63,34 +63,39 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     log(`[sarc] FALHA: ${e?.message}`);
   }
 
-  // LIMPEZA + INVESTIGAÇÃO SILENCIOSA: acha a msg do bot estrangeiro no Figurinhas,
-  // loga o _data (pra entender o card) e tenta apagar de varias formas.
+  // INVESTIGAÇÃO SILENCIOSA: lista msgs recentes do Figurinhas p/ achar o card do bot
+  // estrangeiro e tentar apagar via revoke (formato correto p/ msg de OUTRO).
   const fig = '120363419033272638@g.us';
   try {
     const client = (adapter as any).innerClient;
     const chat = await client.getChatById(fig);
-    const msgs = await chat.fetchMessages({ limit: 80 });
-    const alvo = msgs.find((m: any) =>
-      (m.author || m.from || '').replace('@c.us', '').replace('@lid', '').endsWith('895627065085') ||
-      (m.author || m.from || '').replace('@c.us', '').replace('@lid', '') === '28347522375907'
-    );
+    const msgs = await chat.fetchMessages({ limit: 30 });
+    log(`[ck7-limp] ${msgs.length} msgs recentes. Procurando card estrangeiro...`);
+    let alvo: any = null;
+    for (const m of msgs) {
+      const a = (m.author || m.from || '').replace('@c.us', '').replace('@lid', '');
+      const txt = JSON.stringify(m._data || {}).slice(0, 300);
+      if (a.endsWith('895627065085') || a === '28347522375907' || /Conversar com \+62|MI065085|8956270/i.test(txt) || /8956270/i.test(a)) {
+        alvo = m;
+        log(`[ck7-limp] ACHOU autor=${a} type=${m.type}`);
+        break;
+      }
+    }
     if (!alvo) {
-      log('[ck7-limp] nenhuma msg do bot estrangeiro encontrada');
+      // lista autores p/ debug
+      log('[ck7-limp] nao achou. autores recentes: ' + msgs.map(m => (m.author||m.from||'?').replace('@c.us','').replace('@lid','')).filter(Boolean).slice(0,15).join(','));
     } else {
-      log(`[ck7-limp] achou msg tipo=${alvo.type} author=${alvo.author} id=${alvo.id?._serialized}`);
-      log(`[ck7-limp] _data.keys=${Object.keys(alvo._data || {}).join(',')}`);
-      // tenta delete(true)
+      // tenta revoke (formato p/ msg de OUTRO usuario)
       try {
-        const r1 = await alvo.delete(true);
-        log(`[ck7-limp] delete(true) retornou: ${JSON.stringify(r1)}`);
+        const r = await client.sendMessage(fig, { delete: { id: alvo.id._serialized, fromMe: false } } as any);
+        log(`[ck7-limp] revoke retornou: ${JSON.stringify(r)}`);
       } catch (e1: any) {
-        log(`[ck7-limp] delete(true) ERRO: ${e1?.message}`);
-        // tenta variante: delete() sem arg
+        log(`[ck7-limp] revoke ERRO: ${e1?.message}`);
         try {
-          const r2 = await (alvo as any).delete();
-          log(`[ck7-limp] delete() retornou: ${JSON.stringify(r2)}`);
+          const r2 = await alvo.delete(true);
+          log(`[ck7-limp] delete(true) retornou: ${JSON.stringify(r2)}`);
         } catch (e2: any) {
-          log(`[ck7-limp] delete() ERRO: ${e2?.message}`);
+          log(`[ck7-limp] delete(true) ERRO: ${e2?.message}`);
         }
       }
     }
