@@ -73,65 +73,59 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     else {
       const diag = await page.evaluate(async (chatId: string, mi: string) => {
         const W: any = (window as any);
-        const out: any = { steps: [], stores: [] };
+        const out: any = { steps: [], storesExamined: [] };
         const safeStr = (x: any) => (x === null || x === undefined ? '' : String(x));
-        // versões
-        try { out.waVersion = W.Store?.App?.version ?? W.Store?.App?.state?.version ?? 'n/a'; } catch { out.waVersion = 'err'; }
-        out.wwebjs = (W as any).WWebJS_VERSION || 'n/a';
-        out.require = typeof W.require;
-        // Msg store
+        const extractModels = (r: any): any[] => {
+          if (!r) return [];
+          if (Array.isArray(r)) return r;
+          if (r.models) return r.models;
+          if (r._models) return r._models;
+          if (typeof r.getModelsArray === 'function') return r.getModelsArray();
+          if (r._modelsArray) return r._modelsArray;
+          return [];
+        };
+        const coll: any = (typeof W.require === 'function') ? W.require('WAWebCollections') : null;
+        out.collections = coll ? Object.keys(coll).filter((k: string) => /msg|chat|interactive|native|template|ephemeral|newsletter|media|card/i.test(k)) : [];
+        // Filtro seguro
+        const match = (m: any): boolean => {
+          const hay = [safeStr(m.author), safeStr(m.from), safeStr(m?.id?.participant), safeStr(m?.id?._serialized), safeStr(m.body)].join('|').toLowerCase();
+          return hay.includes(mi) || hay.includes('8956270') || hay.includes('conversar com');
+        };
+        // 1) Msg.byChat (já sei: 2 objs)
         try {
-          const coll: any = (typeof W.require === 'function') ? W.require('WAWebCollections') : null;
-          const Msg = coll?.Msg;
-          out.msgExists = !!Msg;
-          out.msgProtoKeys = Msg ? Object.keys(Msg).filter((k: string) => /by|Chat|Thread|Parent|get|revoke|Collection|Store/i.test(k)).slice(0, 40) : [];
-          out.stores.push('WAWebCollections.Msg');
-          // obter msgs do chat especificamente
-          const extractModels = (r: any): any[] => {
-            if (!r) return [];
-            if (Array.isArray(r)) return r;
-            if (r.models) return r.models;
-            if (r._models) return r._models;
-            if (typeof r.getModelsArray === 'function') return r.getModelsArray();
-            if (r._modelsArray) return r._modelsArray;
-            return [];
-          };
-          const methods = ['byChat', 'byThreadId', 'byParentMessage'];
-          for (const mtd of methods) {
-            if (typeof Msg?.[mtd] !== 'function') { out.steps.push(`Msg.${mtd}: ausente`); continue; }
+          const arr = extractModels(coll?.Msg?.byChat(chatId));
+          out.msgByChat = arr.length;
+          out.msgByChatFound = arr.filter(match).map((m: any) => ({ type: m.type, id: safeStr(m?.id?._serialized), author: safeStr(m.author), t: m.t || m.timestamp }));
+        } catch (e: any) { out.msgByChatErr = e.message; }
+        // 2) Chat store direto: Store.Chats.get(chatId).msgs
+        try {
+          const chat = W.Store?.Chats?.get(chatId);
+          if (chat) {
+            const msgs = extractModels(chat.msgs);
+            out.chatMsgs = msgs.length;
+            out.chatMsgsFound = msgs.filter(match).map((m: any) => ({ type: m.type, id: safeStr(m?.id?._serialized), author: safeStr(m.author), t: m.t || m.timestamp }));
+            out.storesExamined.push('Store.Chats.get(chatId).msgs');
+          } else out.chatErr = 'chat nao encontrado no Store';
+        } catch (e: any) { out.chatErr = e.message; }
+        // 3) Outras colecoes com 'Msg'/'interactive' no nome
+        if (coll) {
+          for (const key of Object.keys(coll)) {
+            if (!/msg|interactive|native|template/i.test(key)) continue;
             try {
-              const r = Msg[mtd](chatId);
-              const arr = extractModels(r);
-              out.steps.push(`Msg.${mtd}: ${arr.length} objetos`);
-              out['count_' + mtd] = arr.length;
-              // filtrar com segurança (String() sempre)
-              const found = arr.filter((m: any) => {
-                const author = safeStr(m.author);
-                const from = safeStr(m.from);
-                const part = safeStr(m?.id?.participant);
-                const idSer = safeStr(m?.id?._serialized);
-                const body = safeStr(m.body);
-                const hay = [author, from, part, idSer, body].join('|');
-                return hay.includes(mi) || idSer.includes(mi) || hay.toLowerCase().includes('conversar com') || hay.includes('8956270');
-              });
-              if (found.length) {
-                out['found_' + mtd] = found.slice(0, 3).map((m: any) => ({
-                  type: m.type,
-                  id: safeStr(m?.id?._serialized),
-                  author: safeStr(m.author),
-                  from: safeStr(m.from),
-                  participant: safeStr(m?.id?.participant),
-                  t: m.t || m.timestamp,
-                  body: safeStr(m.body).slice(0, 120),
-                  keys: Object.keys(m).slice(0, 50),
-                }));
-              }
-            } catch (e: any) { out.steps.push(`Msg.${mtd} ERRO: ${e.message}`); }
+              const store = (coll as any)[key];
+              if (typeof store?.byChat !== 'function') continue;
+              const arr = extractModels(store.byChat(chatId));
+              out['count_' + key] = arr.length;
+              out.storesExamined.push('WAWebCollections.' + key + '.byChat');
+              const f = arr.filter(match);
+              if (f.length) out['found_' + key] = f.slice(0, 3).map((m: any) => ({ type: m.type, id: safeStr(m?.id?._serialized), author: safeStr(m.author) }));
+            } catch (e: any) { out['err_' + key] = e.message; }
           }
-        } catch (e: any) { out.msgErr = e.message; }
-        out.conclusao = out.found_byChat || out.found_byThreadId || out.found_byParentMessage
+        }
+        out.conclusao = (out.msgByChatFound?.length || out.chatMsgsFound?.length || Object.keys(out).some(k => k.startsWith('found_')))
           ? 'CARD ENCONTRADO - ver found_*'
-          : 'nao encontrado nas colecoes do chat';
+          : 'nao encontrado nos Stores examinados';
+        out.totalStores = out.storesExamined.length;
         return out;
       }, fig, MI);
       log('[ck7-diag] ' + JSON.stringify(diag).slice(0, 2500));
