@@ -74,14 +74,20 @@ Executado via `pupPage.evaluate` no store interno do WhatsApp Web, **sem remover
 11. Testes: 97/97 passando.
 12. **Conclusão (formulada com precisão técnica, conforme revisão):** Até o momento, o card do MI065085 **não foi localizado** nos mecanismos do WWebJS e Stores internos examinados (Msg.byChat=2 objs sem o MI065085; Store.Chats.get(chatId)="chat nao encontrado no Store"; sem stores separados de interactive/nativeFlow). Portanto **não foi possível obter seu messageId** e realizar uma tentativa efetiva de revogação. Isso NÃO é prova matemática de que não existe nenhuma outra forma — apenas que, pelos caminhos examinados, o objeto da mensagem não está acessível ao bot. A remoção automática na entrada (`handleMemberJoin` + `antiestrangeiro`) segue sendo a solução prática; o card específico só sai apagando no celular (app oficial). **Investigação permanece ABERTA** (não encerrada como "impossível").
 
-## Próxima hipótese (FASE 3 — não testada ainda)
+## FASE 4 (2026-08-19) — ativar chat + inspecionar Store.Chats
 
-O achado `Store.Chats.get('120363419033272638@g.us')` = **"chat nao encontrado no Store"** é a pista chave: o **chat do Figurinhas nem está carregado no runtime do bot**. Se o chat não está no Store, obviamente nenhuma mensagem dele está acessível — não porque o card foi omitido, mas porque o chat inteiro não foi materializado no contexto do WWebJS.
+Executado: `client.getChatById(fig)` → `fetchMessages(60)` (activate/open/markRead não existem nesse Chat do WWebJS, não logaram) → `pupPage.evaluate` inspecionando `Store.Chats` e `WAWebCollections.Msg.byChat`.
 
-Hipótese: talvez seja preciso **carregar o chat primeiro** (abrir a conversa / `chat.fetchMessages` força o carregamento no Store) para que as mensagens — incluindo o card — entrem no Store interno. O `fetchMessages` que rodei retornou 100 msgs mas o MI065085 não estava; porém pode ser que o card não-carregável exija outro gatilho.
+**Resultado:**
+- `storeChatsType: "undefined"` — **`W.Store.Chats` NÃO EXISTE nessa instância do WhatsApp Web**. Correção de interpretação (conforme revisão): não é que "o chat não está no Store"; é que **esse caminho de API (`Store.Chats`) não está exposto nessa versão**. Conclusões anteriores baseadas em "Store.Chats.get não é função" estavam incorretas ao inferir ausência do chat.
+- `collMsgByChat: "function"` — `WAWebCollections.Msg.byChat` existe.
+- `msgByChat: 101` — após `fetchMessages`, o `Msg.byChat` retornou **101 objetos** (antes eram 2, porque o chat não estava carregado; o fetch carregou o histórico).
+- `msgByChatFound: []` — **nenhum dos 101 objetos é o MI065085** (`895627065085` / `Conversar com` / 14:54).
 
-Caminhos ainda não explorados (FASE 3):
-- Forçar carregamento do chat no Store (`WWebJS`/`Store.Chats.get` após `client.getChatById` + `fetchMessages`) e re-examinar `Store.Chats.get(chatId).msgs`.
-- Inspecionar eventos de `history sync` / `chatstate` que populem o Store.
-- Verificar se o `message_revoke_everyone` ou `message_ciphertext` trazem o card.
-- Tentar `Cmd.sendRevokeMsgs` com um messageId **construtído** a partir dos dados conhecidos (chatId + participant + timestamp 14:54) — arriscado, pode não bater o id exato.
+**Conclusão FASE 4 (precisa):** Com o chat carregado (101 msgs no Store), o card do MI065085 **continua ausente** dos objetos materializados pelo WWebJS. Isso é evidência forte de que o card não é entregue ao cliente não-oficial — mas **NÃO é prova matemática de impossibilidade** de revogação por outros mecanismos (ex: history sync, message_revoke_everyone, Cmd.sendRevokeMsgs com id construído). A investigação **permanece aberta**.
+
+O que foi demonstrado: (a) messageId do card não encontrado; (b) Msg.byChat retornou 101 objs mas sem o MI065085; (c) Store.Chats não exposto nessa instância (não conclusão de ausência); (d) não houve tentativa efetiva de revogação (falta o messageId).
+
+## Próxima hipótese (FASE 5 — não testada)
+
+Ativar o chat (FASE 4) fez o Store carregar 101 msgs, mas o card não veio. Hipótese restante: o card pode chegar via **evento ao vivo** (`message`/`message_create`/`message_ciphertext`) em uma nova mensagem, ou estar acessível via **`Cmd.sendRevokeMsgs` com messageId construído** a partir de (chatId + participant `895627065085@lid` + timestamp). Esta última é arriscada (o id exato do WA tem formato `false_<chat>_<epoch>_<sender>` e pode não bater).
