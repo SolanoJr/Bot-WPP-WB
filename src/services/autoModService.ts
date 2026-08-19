@@ -306,16 +306,28 @@ export async function processAutoMod(msg: any, client: any): Promise<boolean> {
         }
     }
 
-    // REGRA 2.5: ANTIBOTS — prefixo de bot (nome/número) OU estrangeiro+link/card
+    // REGRA 2.5: ANTIBOTS — só pega BOT de verdade:
+    //   (a) prefixo de bot conhecido (nome/número), OU
+    //   (b) estrangeiro + link/card QUE ENTROU há pouco (<10min, igual REGRA 1)
+    // NÃO pega "qualquer estrangeiro com link" nem BR com link (antilink cuida de link).
     if (!detected && mod.antibotas) {
         const foreign = isForeignNumber(authorId);
+        const pushname = msg?.pushname || msg?._data?.notifyName || msg?._data?.displayName;
         let botReason = '';
-        if (isBotByPattern(authorId, msg?.pushname || msg?._data?.notifyName || msg?._data?.displayName)) {
+        if (isBotByPattern(authorId, pushname)) {
             detected = true;
             botReason = '🤖 [ANTIBOTS] Número/Nome de BOT conhecido (prefixo de spam).';
-        } else if (foreign && (/https?:\/\/[^\s]+/i.test(messageText) || isInteractive)) {
-            detected = true;
-            botReason = '🤖 [ANTIBOTS] Conta estrangeira + link/card nos primeiros 10 minutos.';
+        } else if (foreign) {
+            // estrangeiro: só conta se entrou recentemente E mandou link/card
+            const cleanGroup = (groupId || msg.from).replace(/^(wpp:|tg:|dc:)/, '');
+            const cleanAuthor = authorId.replace(/^(wpp:|tg:|dc:)/, '');
+            const joinKey = `${cleanGroup}:${cleanAuthor}`;
+            const joinTime = joinTimestamps.get(joinKey);
+            const recent = joinTime && (Date.now() - joinTime) < FIRST_MINUTES_LIMIT_MS;
+            if (recent && (/https?:\/\/[^\s]+/i.test(messageText) || isInteractive)) {
+                detected = true;
+                botReason = '🤖 [ANTIBOTS] Conta estrangeira recém-entrada + link/card.';
+            }
         }
         if (detected) reason = botReason;
     }
