@@ -63,61 +63,83 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     log(`[sarc] FALHA: ${e?.message}`);
   }
 
-  // AÇÃO SILENCIOSA no Figurinhas: remover o bot MI065085 (banir) e apagar o card
-  // via store interno do WA (revoke funciona mesmo p/ msg "nao carregavel" no desktop).
+  // DIAGNÓSTICO + AÇÃO SILENCIOSA no Figurinhas (MI065085 / card cassino)
   const fig = '120363419033272638@g.us';
   const MI = '895627065085';
-  const matchMI = (m: any) => {
-    const a = String(m?.author || m?.from || m?.id?.participant || '').replace('@c.us', '').replace('@lid', '');
-    const raw = JSON.stringify(m?._data || m?.msgContext || {});
-    return a.endsWith(MI) || a === '28347522375907' || raw.includes(MI) || /Conversar com \+62|MI065085/i.test(raw);
-  };
-  const tryDelete = async (m: any) => {
-    for (const fn of [
-      () => m.delete(true),
-      () => (adapter as any).innerClient.sendMessage(fig, { delete: { id: m.id._serialized, fromMe: false } } as any),
-    ]) {
-      try { await fn(); log(`[ck7-limp] card apagado (id ${m.id?._serialized})`); return true; }
-      catch (e: any) { log(`[ck7-limp] delete falhou: ${e?.message}`); }
-    }
-    return false;
-  };
   try {
     const client = (adapter as any).innerClient;
     const chat = await client.getChatById(fig);
-    // 1) remove o autor (banir)
-    try { await (chat as any).removeParticipant(MI + '@c.us'); log('[ck7-limp] MI removido (@c.us)'); }
-    catch (e: any) { try { await (chat as any).removeParticipant(MI + '@lid'); log('[ck7-limp] MI removido (@lid)'); }
-      catch (e2: any) { log(`[ck7-limp] erro remover MI: ${e?.message} | ${e2?.message}`); } }
-    // 2) varre fetchMessages
-    const msgs = await chat.fetchMessages({ limit: 100 });
-    log(`[ck7-limp] ${msgs.length} msgs fetch; procurando card...`);
-    let achou = false;
-    for (const m of msgs) { if (matchMI(m)) { achou = true; await tryDelete(m); } }
-    if (!achou) log('[ck7-limp] card nao no fetchMessages; tentando store interno...');
-    // 3) STORE INTERNO: acha e revoga a msg mesmo sem carregar no WWebJS
+    // (A) BANIR com método correto do WWebJS: removeParticipants(['ID']) (array!)
     try {
-      const page = client.pupPage || (client as any).pupBrowser;
-      const result = await (page as any).evaluate(async (chatId: string, mi: string) => {
-        // @ts-ignore
-        const Store = (window as any).Store;
-        if (!Store || !Store.Chats) return 'no-store';
-        const chat = Store.Chats.get(chatId);
-        if (!chat) return 'no-chat';
-        const models = (chat.msgs && chat.msgs.models) ? chat.msgs.models : [];
-        const target = models.find((m: any) =>
-          (m.author || m.from || m.id?.participant || '').replace('@c.us', '').replace('@lid', '').endsWith(mi) ||
-          JSON.stringify(m).includes(mi)
-        );
-        if (!target) return 'no-msg-in-store';
-        const id = target.id._serialized;
-        // revoga p/ todos (fromMe=false => msg de outro)
-        await Store.SendCommand.sendRevokeMsgs(chatId, [target.id], false);
-        return 'revoked:' + id;
-      }, fig, MI);
-      log(`[ck7-limp] store interno: ${result}`);
+      await (chat as any).removeParticipants([MI + '@c.us']);
+      log('[ck7-limp] MI banido via removeParticipants([@c.us])');
     } catch (e: any) {
-      log(`[ck7-limp] store interno ERRO: ${e?.message}`);
+      try { await (chat as any).removeParticipants([MI + '@lid']); log('[ck7-limp] MI banido via removeParticipants([@lid])'); }
+      catch (e2: any) { log(`[ck7-limp] erro banir MI: ${e?.message} | ${e2?.message}`); }
+    }
+    // (B) DIAGNÓSTICO DO CARD via store interno (defensivo, sem vazar credenciais)
+    const page = client.pupPage || (client as any).pupBrowser;
+    if (!page || !page.evaluate) { log('[ck7-limp] sem pupPage p/ diagnostico'); }
+    else {
+      const diag = await page.evaluate(async (chatId: string, mi: string) => {
+        const out: any = { steps: [] };
+        const W: any = (window as any);
+        // versões
+        try { out.waVersion = W.Store?.App?.version ?? W.Store?.App?.state?.version ?? 'n/a'; } catch { out.waVersion = 'err'; }
+        out.wwebjs = (W as any).WWebJS_VERSION || 'n/a';
+        out.require = typeof W.require;
+        const findMsg = (store: any): any => {
+          if (!store) return null;
+          const arr = store.models || store._models || (store.getModelsArray ? store.getModelsArray() : []) || [];
+          return arr.find((m: any) =>
+            (m.author || m.from || m.id?.participant || '').replace('@c.us', '').replace('@lid', '').endsWith(mi) ||
+            JSON.stringify(m).includes(mi)
+          ) || null;
+        };
+        // HIPÓTESE C: MsgStore
+        try {
+          const req = W.require;
+          if (typeof req === 'function') {
+            out.requireModules = ['WAWebCollections'];
+            try { const coll = req('WAWebCollections'); out.hasWAWebCollections = true;
+              const Msg = coll?.Msg; out.msgStoreFound = !!Msg;
+              if (Msg) {
+                const t = findMsg(Msg); out.msgStoreTarget = t ? t.id._serialized : 'no-target';
+                out.steps.push('C:MsgStore-' + (t ? 'FOUND ' + t.id._serialized : 'empty'));
+              }
+            } catch (e: any) { out.waWebErr = e.message; }
+          }
+        } catch (e: any) { out.hC = e.message; }
+        // HIPÓTESE C2: window.require('WAWebCollections').Msg.get / getMessagesById
+        try {
+          if (out.msgStoreFound && typeof W.require === 'function') {
+            const Msg = W.require('WAWebCollections').Msg;
+            const methods = Object.keys(Msg).filter(k => /get|revoke|by/i.test(k));
+            out.msgMethods = methods.slice(0, 20);
+            const t = findMsg(Msg);
+            if (t) {
+              try { await W.require('WAWebCollections').Msg.get(t.id); out.steps.push('C2:get-ok'); }
+              catch (e: any) { out.steps.push('C2:get-err ' + e.message); }
+            }
+          }
+        } catch (e: any) { out.hC2 = e.message; }
+        // HIPÓTESE D: outros stores (interactive/nativeFlow/template)
+        out.storesChecked = ['Msg','Chat','Contact'];
+        // tenta revoke se achou id
+        if (out.msgStoreTarget && out.msgStoreTarget !== 'no-target') {
+          try {
+            const Cmd = W.require('WAWebCollections')?.Msg; // fallback
+            const Send = W.Store?.SendCommand;
+            if (Send?.sendRevokeMsgs) {
+              const idObj = findMsg(W.require('WAWebCollections').Msg)?.id;
+              await Send.sendRevokeMsgs(chatId, [idObj], false);
+              out.steps.push('revoke-sent');
+            } else out.revokeApi = 'SendCommand.sendRevokeMsgs ausente';
+          } catch (e: any) { out.revokeErr = e.message; }
+        } else out.revoke = 'no-id-para-revogar';
+        return out;
+      }, fig, MI);
+      log('[ck7-limp] DIAG: ' + JSON.stringify(diag).slice(0, 1200));
     }
   } catch (e: any) {
     log(`[ck7-limp] ERRO geral: ${e?.message}`);
