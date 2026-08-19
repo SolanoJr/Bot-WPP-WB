@@ -175,7 +175,16 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     // Diagnostico WPP mudo: logar QUALQUER evento que o WhatsApp empurre
     this.innerClient.on('message_ack', (m: any, a: any) => console.log(`[DIAG] message_ack disparou - from: ${m?.from} ack: ${a}`));
     this.innerClient.on('incoming_call', (c: any) => console.log(`[DIAG] incoming_call disparou - ${c?.from}`));
-    this.innerClient.on('message_revoke_everyone', () => console.log(`[DIAG] message_revoke_everyone disparou`));
+    this.innerClient.on('message_revoke_everyone', (msg: any, revokedMsg: any) => {
+      try {
+        const author = revokedMsg?.author || revokedMsg?.from || msg?.author || msg?.from || 'desconhecido';
+        const body = revokedMsg?.body || revokedMsg?._data?.body || revokedMsg?._data?.conversation || '(sem texto)';
+        const chat = revokedMsg?.from || msg?.from || '';
+        console.log(`[DIAG] message_revoke_everyone - quem apagou=${author} chat=${chat} conteudo="${String(body).slice(0,100)}"`);
+      } catch (e: any) {
+        console.log(`[DIAG] message_revoke_everyone disparou (sem detalhe: ${e?.message})`);
+      }
+    });
     this.innerClient.on('group_update', () => console.log(`[DIAG] group_update disparou`));
 
     this.innerClient.on('ready', () => {
@@ -294,11 +303,29 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       }
     });
 
+    // Evento de SAÍDA de membros (loga quem saiu/foi removido — antes não era registrado)
+    this.innerClient.on('group_leave', async (notification: any) => {
+      try {
+        const groupId = notification.chatId || notification.id?.remote;
+        const left = notification.recipientIds || notification.recipients || notification.participants || [];
+        console.log(`[handleMemberLeave] saída no grupo ${groupId} - membros: ${JSON.stringify(left)}`);
+        for (const m of left) {
+          console.log(`[handleMemberLeave] ${m.replace('@lid','').replace('@c.us','')} saiu/foi removido do grupo ${groupId}`);
+        }
+      } catch (error) {
+        console.error('[WhatsApp] Erro ao processar saída de membro:', error);
+      }
+    });
+
     // Fallback: monitorar mudanças de participantes
     this.innerClient.on('group_update', async (notification: any) => {
       try {
         if (notification.type === 'add') {
           await this.handleMemberJoin(notification);
+        } else if (notification.type === 'remove' || notification.type === 'leave') {
+          const groupId = notification.chatId || notification.id?.remote;
+          const removed = notification.recipientIds || notification.recipients || notification.participants || [];
+          console.log(`[handleMemberLeave] group_update type=${notification.type} grupo=${groupId} membros=${JSON.stringify(removed)}`);
         }
       } catch (error) {
         console.error('[WhatsApp] Erro ao processar atualização de grupo:', error);

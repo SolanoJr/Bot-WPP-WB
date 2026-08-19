@@ -371,7 +371,7 @@ export async function processAutoMod(msg: any, client: any): Promise<boolean> {
 
           if (isBot) {
             // BOT: sempre BANIR (lista negra + bloqueio + remoção)
-            console.log(`🤖 [AutoMod] BOT detectado — BANINDO ${authorId}`);
+            console.log(`🤖 [AutoMod] BOT detectado — BANINDO ${authorId} (motivo: ${reason})`);
             try { await banUser({ groupId, userId: authorId, bannedBy: 'AutoMod', reason }); } catch {}
             try { await (client as any).blockContact?.(authorId); } catch {}
             await removeFromGroup(client, chat, groupId, authorId);
@@ -379,12 +379,12 @@ export async function processAutoMod(msg: any, client: any): Promise<boolean> {
             // PESSOA: contador de infrações. Só remove após 3ª. Nunca banir.
             const count = await recordInfraction(groupId, authorId);
             if (count >= MAX_INFRACTIONS) {
-              console.log(`🛡️ [AutoMod] ${count}ª infração de ${authorId} — REMOVENDO (kick, sem ban)`);
+              console.log(`🛡️ [AutoMod] ${count}ª infração de ${authorId} — REMOVENDO (kick, sem ban). Motivo: ${reason}`);
               await removeFromGroup(client, chat, groupId, authorId);
               // zera após remover
               try { const { resetInfractions } = await import('./infractions'); await resetInfractions(groupId, authorId); } catch {}
             } else {
-              console.log(`🛡️ [AutoMod] Infração ${count}/${MAX_INFRACTIONS} de ${authorId} — apenas aviso (falta ${MAX_INFRACTIONS - count} p/ remoção)`);
+              console.log(`🛡️ [AutoMod] Infração ${count}/${MAX_INFRACTIONS} de ${authorId} — apenas aviso (falta ${MAX_INFRACTIONS - count} p/ remoção). Motivo: ${reason}`);
             }
           }
         } catch (err: any) {

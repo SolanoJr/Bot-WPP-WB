@@ -1000,3 +1000,43 @@ OU aceitar tanto `5588998314322` quanto `202658048684056` como MASTER no `isMast
 
 **Última Atualização:** 2026-08-17
 **Responsável:** WarriorBlack / Hermes
+
+---
+
+## BUG 39 (2026-08-19): Log do PM2 não bate com a realidade do grupo (card/entrada/saída)
+
+**Sintoma:** O dono relatou que o log do PM2 (`bot-wpp-stable.out.log`) "não reconhece card, não reconhece quem entra, não reconhece quem sai, não reconhece mensagem apagada". Ao comparar com o log do celular do dono, o PM2 omitia eventos reais (ex: remoção do Alberto via AutoMod apareceu no celular mas NÃO no PM2).
+
+**Causas encontradas:**
+1. **Saída de membro (`group_leave`) NÃO tinha handler** — só havia `group_join`. Quem saía/era removido não era logado (só desconfiado via DIAG `isAdmin:false`).
+2. **`message_revoke_everyone` logava só "disparou"** — não dizia quem apagou nem o conteúdo.
+3. **Remoção do AutoMod não logava o alvo** — só o aviso de detecção.
+4. **Card interativo (`@lid`) não é exposto pelo Store do WWebJS** — o MI065085 (card de cassino) nunca aparece em `fetchMessages`/`Msg.byChat` (já documentado no AI_HANDOFF.md como "não localizado, não provado impossível"). Isso é LIMITAÇÃO do WA Web, não bug de código.
+
+**Correções aplicadas (commit 29240b9 + posterior):**
+- Adicionado handler `group_leave` + `group_update` type `remove`/`leave` → loga `[handleMemberLeave] quem saiu`.
+- `message_revoke_everyone` agora loga autor + conteúdo + chat.
+- `processAutoMod` loga alvo e motivo na remoção/ban/kick (BOT vs PESSOA).
+- `processAutoMod` com DEBUG rico no ENTRY (from/author/pushname/fromMe/isProtected/bodyPreview).
+
+**Status:** Corrigido (log agora reflete entrada/saída/revoke/remoção). Card interativo segue como limitação WA (ver AI_HANDOFF.md).
+
+---
+
+## BUG 40 (2026-08-19): REGRA 2.5 (antibotas) removia BR com link por "motivo errado"
+
+**Sintoma:** Alberto (BR `558899855554`, já no grupo) mandou link normal → bot apagou e REMOVEU com motivo `🤖 [ANTIBOTS] Conta estrangeira + link/card nos primeiros 10 minutos`. Motivo ERRADO (ele não é estrangeiro nem bot).
+
+**Causa:** A REGRA 2.5 tinha `else if (foreign && link)` que pegava QUALQUER "estrangeiro" com link, sem checar se entrou há pouco. Combinado com `authorId` vindo do `msg.author` (que em msgs com @mention o WWebJS pode popular errado), marcava pessoa errada com motivo errado.
+
+**Correção (commit 29240b9):** REGRA 2.5 agora só dispara se:
+(a) `isBotByPattern` (prefixo nome/número conhecido de bot), OU
+(b) estrangeiro + link/card QUE ENTROU há <10min (via `joinTimestamps`, igual REGRA 1).
+BR com link normal → não pega (antilink cuida do link se ligado, só avisa/3-strikes).
+
+**Status:** Corrigido. Teste simulado confirmou: Alberto BR + link → `[ANTILINK]` (certo), não "estrangeira".
+
+---
+
+**Última Atualização:** 2026-08-19
+**Responsável:** WarriorBlack / Hermes
