@@ -1,5 +1,6 @@
 import { ICommand } from './types';
 import { groupTag } from './format';
+import { isProtectedTarget } from '../../services/permissions';
 
 // Usuários silenciados por grupo (user@c.us -> expiry timestamp em ms).
 // O WhatsApp Web (WWebJS 1.34.7) NÃO suporta mute de usuário por admin via API
@@ -76,6 +77,13 @@ export const muteCommand: ICommand = {
 
         const userToMute = normId(mentioned[0].id ?? mentioned[0]);
         const chatId = normId((chat as any).id?._serialized || (chat as any).id || payload.chatId);
+
+        // PROTEÇÃO: nunca silenciar o MASTER ou o próprio bot
+        if (isProtectedTarget(userToMute)) {
+            await msg.reply('🛡️ Você não pode silenciar o dono (MASTER) ou o próprio bot.');
+            return;
+        }
+
         const key = `${chatId}:${userToMute}`;
         const durationMs = 8 * 60 * 60 * 1000; // 8 horas
         mutedUsers.set(key, Date.now() + durationMs);

@@ -1,6 +1,6 @@
 import { ICommand } from './types';
 import { CommandContext } from '../../platforms/base/PlatformTypes';
-import { cleanId, isMaster } from '../../services/permissions';
+import { cleanId, isMaster, isProtectedTarget } from '../../services/permissions';
 import { groupTag, getTargetDisplayName } from './format';
 
 export const banCommand: ICommand = {
@@ -57,6 +57,12 @@ export const banCommand: ICommand = {
 
       const userToBan = mentioned[0].id;
       const userToBanClean = cleanId(userToBan);
+
+      // PROTEÇÃO: nunca aplicar ação negativa no MASTER ou no próprio bot
+      if (isProtectedTarget(userToBan)) {
+        await ctx.reply('🛡️ Você não pode banir o dono (MASTER) ou o próprio bot.');
+        return;
+      }
 
       const userPart = participants.find(p => cleanId(p.id) === userToBanClean);
       if (userPart?.isAdmin || userPart?.isSuperAdmin) {

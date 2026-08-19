@@ -1,6 +1,6 @@
 import { ICommand } from './types';
 import { CommandContext } from '../../platforms/base/PlatformTypes';
-import { cleanId, isMaster } from '../../services/permissions';
+import { cleanId, isMaster, isProtectedTarget } from '../../services/permissions';
 import { groupTag, getTargetDisplayName } from './format';
 
 export const kickCommand: ICommand = {
@@ -64,6 +64,12 @@ export const kickCommand: ICommand = {
 
       if (!targetId) {
         await ctx.reply('❌ Mencione alguém ou responda a uma mensagem para remover.');
+        return;
+      }
+
+      // PROTEÇÃO: nunca aplicar ação negativa no MASTER ou no próprio bot
+      if (isProtectedTarget(targetId)) {
+        await ctx.reply('🛡️ Você não pode remover o dono (MASTER) ou o próprio bot.');
         return;
       }
 

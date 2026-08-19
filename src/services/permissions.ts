@@ -137,12 +137,32 @@ function requirePermission(requiredLevel: PermissionLevel) {
     };
 }
 
+/**
+ * Alvos que NUNCA podem ser alvo de ação negativa (kick/ban/mute/remover),
+ * independente de quem manda o comando.
+ * - MASTER (dono SolanoJr: 88998314322 / @lid 202658048684056)
+ * - O próprio bot (558581344211)
+ */
+const PROTECTED_NUMBERS = ['88998314322', '5588998314322', '558581344211', '2592935567439'];
+const PROTECTED_LIDS = ['202658048684056'];
+
+function isProtectedTarget(userId: string): boolean {
+  if (!userId || typeof userId !== 'string') return false;
+  const clean = cleanId(userId);
+  if (PROTECTED_NUMBERS.some(n => clean.endsWith(n) || clean === n)) return true;
+  if (PROTECTED_LIDS.some(l => userId.includes(l))) return true;
+  if (userId.includes('88998314322') || userId.includes('8898314322')) return true;
+  if (userId.includes('558581344211') || userId.includes('2592935567439')) return true;
+  return false;
+}
+
 export {
     PERMISSIONS,
     getUserPermission,
     hasPermission,
     isMaster,
     isAdmin,
+    isProtectedTarget,
     requirePermission,
     MASTER_USER,
     MASTER_NUMBER,
