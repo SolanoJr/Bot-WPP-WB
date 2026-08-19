@@ -39,38 +39,37 @@ Como ligar: `$antiestrangeiro on` no grupo (ou `$automod on`, que liga tudo). O 
 
 | # | Data | Objetivo | Método | Resultado |
 |---|------|----------|--------|-----------|
-| 1 | 2026-08-18 | Apagar msg | `msg.delete(true)` (fetchMessages achou a do CK7) | CK7 apagado/banido; MI065085 NÃO aparece no fetchMessages |
+| 1 | 2026-08-18 | Apagar msg | `msg.delete(true)` (fetch achou CK7) | CK7 apagado/banido; MI065085 NÃO no fetchMessages |
 | 2 | 2026-08-18 | Apagar msg MI065085 | `client.removeParticipants` | ❌ "is not a function" (sintaxe errada) |
 | 3 | 2026-08-18 | Apagar msg MI065085 | `chat.removeParticipant(id)` | ❌ "is not a function" |
-| 4 | 2026-08-18 | Apagar msg MI065085 | `client.sendMessage(fig,{delete:{id,fromMe:false}})` | sem id (fetch não retorna a msg) |
-| 5 | 2026-08-19 | Apagar msg MI065085 | `pupPage.evaluate` → `Store.SendCommand.sendRevokeMsgs` | store interno: `no-store` (minha busca quebrou em `.replace`); não achou id |
-| 6 | 2026-08-19 | Banir MI065085 | `chat.removeParticipants(['895627065085@c.us'])` | ❌ "expected at least 1 children" = ele JÁ NÃO ESTAVA no grupo (já removido) → método em ARRAY funciona |
+| 4 | 2026-08-18 | Apagar msg MI065085 | `client.sendMessage(fig,{delete:{id,fromMe:false}})` | sem id (fetch não retorna) |
+| 5 | 2026-08-19 | Apagar msg MI065085 | `pupPage.evaluate` → `Store.SendCommand.sendRevokeMsgs` | busca quebrou em `.replace` (NÃO é prova de inacessibilidade) |
+| 6 | 2026-08-19 | Banir MI065085 | `chat.removeParticipants(['895627065085@c.us'])` | ❌ "expected at least 1 children" = ele JÁ NÃO ESTAVA no grupo → método em ARRAY funciona |
+| 7 | 2026-08-19 | **Localizar card EXISTENTE** (FASE 1) | `Msg.byChat/byThreadId/byParentMessage` com safeStr | `byChat`=2 objs, `byThreadId`=0, `byParentMessage`=0; nenhum é MI065085 |
+| 8 | 2026-08-19 | **Localizar card EXISTENTE** (FASE 2) | `Store.Chats.get(chatId).msgs` + listar todas as coleções Msg/interactive/template | Stores: Chat,Msg,MsgInfo,StarredMsg,PinInChat,Newsletter. `Msg.byChat`=2 objs (sem MI065085). `Store.Chats.get(chatId)`=**"chat nao encontrado no Store"**. Sem stores separados de interactive/nativeFlow. |
 
-## Diagnóstico do card (HIPÓTESES do ChatGPT testadas)
+## Investigação controlada do card EXISTENTE (FASE 1+2 — evidência real)
 
-- **Evento `message`/`message_create` NÃO dispara** para o card (confirmado: listener ao vivo 40s = 0 capturas).
-- **`fetchMessages` NÃO retorna** o card (WA omite payload de card interativo de cassino nos clientes Web).
-- **Store interno:** `window.require('WAWebCollections').Msg` existe; métodos atuais são `byChat`, `byThreadId`, `byParentMessage` etc (NÃO `get`/`getMessagesById` antigos). Minha busca `findMsg` quebrou em itens sem `author`/`from` string (`.replace is not a function`), logo **não confirmei se o card existe no MsgStore** — mas como `fetchMessages` e os eventos não o entregam, a conclusão prática é: **o card é inacessível ao WWebJS**.
-- **Conclusão:** apagar o card específico via bot é **inviável** (Meta omite o payload). Só o app oficial do celular carrega/apaga (conforme print do dono mostrando "Não foi possível carregar a mensagem" + menu "Apagar").
+Executado via `pupPage.evaluate` no store interno do WhatsApp Web, **sem remover ninguém, sem criar msg, sem revogar**:
+
+- **WAWebCollections** existe. Coleções de mensagem: `Chat`, `ChatAssignment`, `WAWebChatPreferenceCollection`, `Msg`, `MsgInfo`, `StarredMsg`, `PinInChat`, `WAWebNewsletterCollection`, `WAWebNewsletterMetadataCollection`.
+- **NÃO há store separado** de `interactive`/`nativeFlow`/`template` — fariam parte do `Msg`.
+- `Msg.byChat('120363419033272638@g.us')` → **2 objetos** (filtro seguro com `String()` não achou MI065085/`895627065085`/`Conversar com`/14:54).
+- `Msg.byThreadId` → 0. `Msg.byParentMessage` → 0.
+- `Store.Chats.get('120363419033272638@g.us')` → **"chat nao encontrado no Store"** (o chat do Figurinhas não está carregado no runtime do bot).
+- Métodos reais do `Msg`: `byChat`, `byThreadId`, `byParentMessage`, `_editKeyByParentKey`, `_parentKeyByEditKey` — **sem `get`/`getMessagesById`** (nomes antigos não existem mais na versão atual).
 
 ## Conclusão (respostas do roteiro do ChatGPT)
 
-1. O card é detectável? **NÃO via WWebJS** (evento não dispara, fetch não retorna).
+1. O card é detectável? **NÃO via WWebJS** (evento não dispara; fetch não retorna; Msg store só tem 2 msgs; Chat store não tem o chat).
 2. O remetente é identificável? **SIM** (pela entrada `group_join` / notification.author).
-3. O messageId é recuperável? **NÃO** (não está no runtime acessível).
-4. O card existe em algum Store? **Não confirmado** (busca quebrou); praticamente inacessível.
+3. O messageId é recuperável? **NÃO** (não está em nenhum Store acessível).
+4. O card existe em algum Store? **NÃO nos examinados** (Msg=2 objs sem MI065085; Chat=ausente; sem stores de interactive).
 5. É possível apagar o card? **NÃO via bot.**
 6. Qual API funciona? `chat.removeParticipants([id])` (remover autor).
 7. Qual API não funciona? `msg.delete(true)` no card; `Store.SendCommand.sendRevokeMsgs` (sem id).
-8. Por quê? WhatsApp Web omite payload de cards interativos de cassino em clientes não-oficiais.
+8. Por quê? WhatsApp Web omite payload de cards interativos de cassino em clientes não-oficiais; o card não é materializado em nenhum Store acessível ao WWebJS (confirmado por inspeção controlada, não por busca quebrada).
 9. Alteração mínima: **remover estrangeiro na entrada** (`handleMemberJoin` + `antiestrangeiro`). Feito.
-10. Arquivos alterados: `WhatsAppAdapter.ts` (handleMemberJoin), `autoModService.ts` (extractText _data), `databaseService.ts` (normGroup), `selftest.ts`.
+10. Arquivos alterados: `WhatsAppAdapter.ts` (handleMemberJoin + processAutoMod em message_create), `autoModService.ts` (extractText _data), `databaseService.ts` (normGroup), `selftest.ts`, `docs/AI_HANDOFF.md`.
 11. Testes: 97/97 passando.
-12. Próximo passo: validar remoção automática de estrangeiro na entrada (pedir à Janny ou dono entrar com conta não-BR, ou conta de teste com DDI estrangeiro).
-
-## O que a próxima IDE precisa saber
-
-- **NÃO tente `msg.delete(true)` no card** — já testado 6x, o card não existe no runtime.
-- Para combater esse spam: mantenha `antiestrangeiro` ligado nos grupos. O bot remove o autor na ENTRADA, antes do card.
-- O card do MI065085 específico só sai apagando no celular do dono (app oficial).
-- Para domínios de cassino novos: adicionar em `SPAM_PATTERNS` (autoModService.ts).
+12. **Conclusão final: B)** o card realmente não está disponível em nenhum Store/runtime acessível ao WWebJS; a remoção automática na entrada é a única solução prática. O card do MI065085 específico só sai apagando no celular (app oficial).
