@@ -42,10 +42,10 @@ export const menuCommand: ICommand = {
       `▸ $pergunta (Gemini) · $fakechat · $cantada`,
       ``,
       `🎮 *JOGOS & DIVERSÃO*`,
-      `▸ $jogos · $forca · $velha · $sorteio · $piada · $conselho · $aleatoria`,
+      `▸ $jogos · $forca · $velha · $piada · $conselho · $aleatoria`,
       ``,
       `🔧 *UTILITÁRIOS*`,
-      `▸ $clima · $gtts · $addcmd`,
+      `▸ $clima · $gtts`,
       ``,
       `_Use $help para a lista completa e descrições._`,
     ].join('\n');

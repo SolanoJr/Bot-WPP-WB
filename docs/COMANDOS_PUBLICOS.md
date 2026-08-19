@@ -4,6 +4,7 @@
 > Atualizado em 2026-08-19. Testar um por vez, na ordem do dono.
 > Legenda: ⬜ PENDENTE | ✅ OK | ❌ FALHOU | 🔶 PLACEHOLDER | ⏭️ PULADO
 > Data do teste: DD/MM. Sintaxe = como digitar completo.
+> 📋 Placeholders e pendências "depois vemos": ver `docs/PLACEHOLDERS.md`
 
 ## ADMIN & MODERAÇÃO
 | Comando | Sintaxe | O que faz | Status | Data | Obs |
