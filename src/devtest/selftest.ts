@@ -60,6 +60,9 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     } as any, (adapter as any).innerClient);
     log(`[sarc] 3) reply em msg do bot -> ${intercepted}`);
   } catch (e: any) {
+    log(`[sarc] FALHA: ${e?.message}`);
+  }
+
   // DIAGNÓSTICO CONTROLADO do card EXISTENTE do MI065085 (sem remover ninguém, sem criar msg)
   const fig = '120363419033272638@g.us';
   const MI = '895627065085';
