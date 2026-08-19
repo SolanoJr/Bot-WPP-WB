@@ -9,8 +9,9 @@
 | Comando | Sintaxe | O que faz | Status | Data | Obs |
 |---------|---------|-----------|--------|------|-----|
 | $automod | `$automod on/off` | Liga/desliga AutoMod (cassino/spam) | ✅ OK | 18/08 | Validado: baniu cassino no Teste + dono testou estado |
-| $antispam | `$antispam on/off` | Liga/desliga o bloqueio de SPAM/CASSINO. **Ligado = bot age contra spam** (remove/avisa); **desligado = permite spam** | ✅ OK | 19/08 | Dono testou on/off; comportamento confere com código |
-| $antiestrangeiro | `$antiestrangeiro on/off` | Remove estrangeiro (DDI não-BR) na entrada | ⬜ | | Código no ar, não testado |
+| $antispam | `$antispam on/off` | Liga/desliga o bloqueio de SPAM/CASSINO. **Ligado = bot age contra spam**; **desligado = permite spam** | ✅ OK | 19/08 | Dono testou on/off; comportamento confere |
+| Proteção MASTER/bot | (automática) | Nenhum comando/kick/ban/mute/AutoMod/troll age no dono (88998314322/@lid) nem no bot | ✅ OK | 19/08 | Implementado em permissions + AutoMod + keywordHandler |
+| $antiestrangeiro | `$antiestrangeiro on/off` | Remove estrangeiro (DDI não-BR) na entrada | ⬜ | | Código OK + grupo teste está ON (log 13:54); falta evento real de entrada estrangeira p/ validar ao vivo |
 | $autolink | `$autolink on/off` | Bloqueia links | ⬜ | | |
 | $bemvindo | `$bemvindo <texto>` | Define mensagem de boas-vindas | ⬜ | | |
 | $detectar | `$detectar` (ou on/off) | Detecta padrões (toggle) | ⬜ | | |
