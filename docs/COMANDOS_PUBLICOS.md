@@ -11,8 +11,8 @@
 | $automod | `$automod on/off` | Liga/desliga AutoMod (cassino/spam) | ✅ OK | 18/08 | Validado: baniu cassino no Teste + dono testou estado |
 | $antispam | `$antispam on/off` | Liga/desliga o bloqueio de SPAM/CASSINO. **Ligado = bot age contra spam**; **desligado = permite spam** | ✅ OK | 19/08 | Dono testou on/off; comportamento confere |
 | Proteção MASTER/bot | (automática) | Nenhum comando/kick/ban/mute/AutoMod/troll age no dono (88998314322/@lid) nem no bot | ✅ OK | 19/08 | Implementado em permissions + AutoMod + keywordHandler |
-| $antiestrangeiro | `$antiestrangeiro on/off` | Remove estrangeiro (DDI não-BR) na entrada | ⬜ | | Código OK + grupo teste está ON (log 13:54); falta evento real de entrada estrangeira p/ validar ao vivo |
-| $autolink | `$autolink on/off` | Bloqueia links | ⬜ | | |
+| $antiestrangeiro | `$antiestrangeiro on/off` | Remove QUALQUER estrangeiro (DDI não-BR) na entrada | ✅ OK | 19/08 | Desligado em todos os grupos por padrão (nem todo estrangeiro é bot) |
+| $antibotas | `$antibotas on/off` | Remove/BANI bots: prefixo de nome/número conhecido OU estrangeiro+link/card | ✅ OK | 19/08 | LIGADO em todos os grupos; prefixos em autoModService (BOT_NUMBER_PREFIXES/BOT_NAME_PATTERNS) |
 | $bemvindo | `$bemvindo <texto>` | Define mensagem de boas-vindas | ⬜ | | |
 | $detectar | `$detectar` (ou on/off) | Detecta padrões (toggle) | ⬜ | | |
 | $remover | `$remover` (ou on/off) | Remove/bane via AutoMod (toggle) | ⬜ | | |
