@@ -9,7 +9,7 @@
 | Comando | Sintaxe | O que faz | Status | Data | Obs |
 |---------|---------|-----------|--------|------|-----|
 | $automod | `$automod on/off` | Liga/desliga AutoMod (cassino/spam) | ✅ OK | 18/08 | Validado: baniu cassino no Teste |
-| $antispam | `$antispam on/off` | Anti-spam de taxa de mensagens | ⬜ | | |
+| $antispam | `$antispam on/off` | Liga/desliga o bloqueio de SPAM/CASSINO. **Ligado = bot age contra spam** (remove/avisa); **desligado = permite spam** | ⬜ | | Toggle persistido em SQLite |
 | $antiestrangeiro | `$antiestrangeiro on/off` | Remove estrangeiro (DDI não-BR) na entrada | ⬜ | | Código no ar, não testado |
 | $autolink | `$autolink on/off` | Bloqueia links | ⬜ | | |
 | $bemvindo | `$bemvindo <texto>` | Define mensagem de boas-vindas | ⬜ | | |
