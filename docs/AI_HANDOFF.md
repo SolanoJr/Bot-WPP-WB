@@ -88,6 +88,7 @@ Executado: `client.getChatById(fig)` → `fetchMessages(60)` (activate/open/mark
 
 O que foi demonstrado: (a) messageId do card não encontrado; (b) Msg.byChat retornou 101 objs mas sem o MI065085; (c) Store.Chats não exposto nessa instância (não conclusão de ausência); (d) não houve tentativa efetiva de revogação (falta o messageId).
 
-## Próxima hipótese (FASE 5 — não testada)
+## ARQUIVO DE RETOMADA
 
-Ativar o chat (FASE 4) fez o Store carregar 101 msgs, mas o card não veio. Hipótese restante: o card pode chegar via **evento ao vivo** (`message`/`message_create`/`message_ciphertext`) em uma nova mensagem, ou estar acessível via **`Cmd.sendRevokeMsgs` com messageId construído** a partir de (chatId + participant `895627065085@lid` + timestamp). Esta última é arriscada (o id exato do WA tem formato `false_<chat>_<epoch>_<sender>` e pode não bater).
+Pendências e próximos passos do card MI065085 (FASE 5+): ver `docs/CARD_PENDING.md`.
+Investigação permanece ABERTA — não declarada "impossível".
