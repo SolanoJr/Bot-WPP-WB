@@ -102,6 +102,17 @@ export async function initDatabase() {
     );
   `);
 
+  // Tabela de INFRAÇÕES por (grupo, usuário) — 3 strikes = remoção (nunca ban, exceto bot)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS infractions (
+      group_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      count INTEGER DEFAULT 0,
+      last_infraction INTEGER DEFAULT 0,
+      PRIMARY KEY (group_id, user_id)
+    );
+  `);
+
   // SEED: grupos onde o bot JÁ moderava (AutoMod era global=true) ficam com tudo
   // ligado. Só roda 1x (quando a tabela está vazia). O grupo teste é sempre incluído.
   try {

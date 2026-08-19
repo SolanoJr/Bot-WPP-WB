@@ -175,12 +175,23 @@ export async function processAutoMod(msg: any, client: any): Promise<boolean> {
   console.log('[AutoMod] ENTRY - msg:', !!msg, 'client:', !!client);
   // Não moderar a PRÓPRIA mensagem do bot (evita o bot se auto-apagar/apagar seu aviso)
   if (msg?.fromMe) return false;
-  // Não moderar o MASTER (dono) nem o próprio bot como alvo: nunca apaga msg do mestre
+  // MASTER (dono) e o próprio bot são IMUNES à AÇÃO negativa (não exclui, não kicka, não bane),
+  // mas AINDA RECEBEM AVISO de detecção (para o dono saber o que foi pego).
   const authorIdForProtect = msg?.author || msg?.from || '';
-  if (isProtectedTarget(authorIdForProtect)) {
-    console.log('[AutoMod] autor protegido (MASTER/bot) — não removo nem banco:', authorIdForProtect);
-    return false;
+  const isProtected = isProtectedTarget(authorIdForProtect);
+  if (isProtected) {
+    console.log('[AutoMod] autor protegido (MASTER/bot) — não removo/kicko/bano, mas AVISO é enviado:', authorIdForProtect);
   }
+  // LOG RICO (rastreabilidade total — não precisamos perguntar nada ao dono)
+  console.log('[AutoMod] DEBUG entrada:', JSON.stringify({
+    from: msg?.from,
+    author: msg?.author,
+    pushname: msg?.pushname || msg?._data?.notifyName || msg?._data?.displayName,
+    fromMe: !!msg?.fromMe,
+    isProtected,
+    groupId: msg?.from,
+    bodyPreview: String(msg?.body || '').slice(0, 80),
+  }));
   // AutoMod por grupo (persistido): lê a config. Se nada relevante estiver ligado, pula.
   let groupIdForCheck = msg.from;
   try {
@@ -318,7 +329,7 @@ export async function processAutoMod(msg: any, client: any): Promise<boolean> {
     }
 
     if (detected) {
-      console.log(`🛡️ [AutoMod] Detectado para ${authorId}. Motivo: ${reason} | detectar=${mod.detectar} remover=${mod.remover}`);
+      console.log(`🛡️ [AutoMod] Detectado para ${authorId}. Motivo: ${reason} | detectar=${mod.detectar} remover=${mod.remover} | pushname=${msg?.pushname || msg?._data?.notifyName || msg?._data?.displayName}`);
 
       const grpName = chat?.name ? ` 🏢 ${chat.name}` : '';
 
@@ -336,31 +347,33 @@ export async function processAutoMod(msg: any, client: any): Promise<boolean> {
         }
       }
 
-      // 2. Remover = banir (remover do grupo + lista negra + bloquear)
-      if (mod.remover) {
+      // 2. AÇÃO (só se não for MASTER — imunidade já tratada acima)
+      if (mod.remover && !isProtected) {
         try {
-          // Apagar mensagem
+          const { recordInfraction, getInfractionCount, MAX_INFRACTIONS } = await import('./infractions');
+          // Apagar a mensagem detectada (sempre, ao punir)
           try { await msg.delete(true); } catch { /* ignora */ }
-          // Salvar na lista negra
-          try {
-            await banUser({ groupId, userId: authorId, bannedBy: 'AutoMod', reason });
-          } catch { /* ignora */ }
-          // Bloquear contato
-          try { await (client as any).blockContact?.(authorId); } catch { /* ignora */ }
-          // Remover do grupo
-          try {
-            if (typeof (client as any).removeParticipant === 'function') {
-              await (client as any).removeParticipant(groupId, authorId);
-            } else if (typeof (client as any).removeParticipants === 'function') {
-              const cleanGroup = groupId.replace(/^(wpp:|tg:|dc:)/, '');
-              let cleanAuthor = authorId.replace(/^(wpp:|tg:|dc:)/, '');
-              if (cleanAuthor.endsWith('@lid')) cleanAuthor = cleanAuthor.replace('@lid', '@c.us');
-              await (client as any).removeParticipants(cleanGroup, [cleanAuthor]);
-            } else if (chat) {
-              await chat.removeParticipants([authorId.replace(/^(wpp:|tg:|dc:)/, '')]);
+
+          const isBot = isBotByPattern(authorId, msg?.pushname || msg?._data?.notifyName || msg?._data?.displayName)
+            || reason.includes('[ANTIBOTS]');
+
+          if (isBot) {
+            // BOT: sempre BANIR (lista negra + bloqueio + remoção)
+            console.log(`🤖 [AutoMod] BOT detectado — BANINDO ${authorId}`);
+            try { await banUser({ groupId, userId: authorId, bannedBy: 'AutoMod', reason }); } catch {}
+            try { await (client as any).blockContact?.(authorId); } catch {}
+            await removeFromGroup(client, chat, groupId, authorId);
+          } else {
+            // PESSOA: contador de infrações. Só remove após 3ª. Nunca banir.
+            const count = await recordInfraction(groupId, authorId);
+            if (count >= MAX_INFRACTIONS) {
+              console.log(`🛡️ [AutoMod] ${count}ª infração de ${authorId} — REMOVENDO (kick, sem ban)`);
+              await removeFromGroup(client, chat, groupId, authorId);
+              // zera após remover
+              try { const { resetInfractions } = await import('./infractions'); await resetInfractions(groupId, authorId); } catch {}
+            } else {
+              console.log(`🛡️ [AutoMod] Infração ${count}/${MAX_INFRACTIONS} de ${authorId} — apenas aviso (falta ${MAX_INFRACTIONS - count} p/ remoção)`);
             }
-          } catch (err: any) {
-            console.error(`❌ [AutoMod] Erro ao remover participante: ${err.message}`);
           }
         } catch (err: any) {
           console.error(`❌ [AutoMod] Erro ao punir: ${err.message}`);
@@ -387,3 +400,21 @@ export const updateAutoModConfig = (updates: Partial<ModConfig>) => {
   Object.assign(defaultConfig, updates);
   return { ...defaultConfig };
 };
+
+/** Remove um participante do grupo (kick). Trata WWebJS e adapters. */
+export async function removeFromGroup(client: any, chat: any, groupId: string, userId: string): Promise<void> {
+  const cleanGroup = groupId.replace(/^(wpp:|tg:|dc:)/, '');
+  let cleanUser = userId.replace(/^(wpp:|tg:|dc:)/, '');
+  if (cleanUser.endsWith('@lid')) cleanUser = cleanUser.replace('@lid', '@c.us');
+  try {
+    if (typeof client?.removeParticipant === 'function') {
+      await client.removeParticipant(cleanGroup, cleanUser);
+    } else if (typeof client?.removeParticipants === 'function') {
+      await client.removeParticipants(cleanGroup, [cleanUser]);
+    } else if (chat?.removeParticipants) {
+      await chat.removeParticipants([cleanUser]);
+    }
+  } catch (err: any) {
+    console.error(`❌ [AutoMod] Erro ao remover participante: ${err.message}`);
+  }
+}
