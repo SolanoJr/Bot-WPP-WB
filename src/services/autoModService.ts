@@ -158,6 +158,8 @@ export function isForeignNumber(userId: string): boolean {
  */
 export async function processAutoMod(msg: any, client: any): Promise<boolean> {
   console.log('[AutoMod] ENTRY - msg:', !!msg, 'client:', !!client);
+  // Não moderar a PRÓPRIA mensagem do bot (evita o bot se auto-apagar/apagar seu aviso)
+  if (msg?.fromMe) return false;
   // AutoMod por grupo (persistido): lê a config. Se nada relevante estiver ligado, pula.
   let groupIdForCheck = msg.from;
   try {

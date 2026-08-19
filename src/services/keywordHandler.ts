@@ -12,6 +12,9 @@ const respondedDup = new Map<string, number>();
 export async function handleKeywords(msg: any, client: any): Promise<boolean> {
   const body = (msg?.body || '').toLowerCase();
 
+  // Não processar a PRÓPRIA mensagem do bot (sarcasmo/troll não devem pegar no bot mesmo)
+  if (msg?.fromMe) return false;
+
   // Dedup por CONTEÚDO: o WWebJS às vezes emite a mesma mensagem 2x (mids diferentes).
   // Ignora se (chat+autor+texto) repetiu nos últimos 5s.
   const chatId = msg?.from || msg?.to || '';
