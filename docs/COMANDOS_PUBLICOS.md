@@ -11,11 +11,11 @@
 | $automod | `$automod on/off` | Liga/desliga AutoMod (cassino/spam) | ✅ OK | 18/08 | Validado: baniu cassino no Teste + dono testou estado |
 | $antispam | `$antispam on/off` | Liga/desliga o bloqueio de SPAM/CASSINO. **Ligado = bot age contra spam**; **desligado = permite spam** | ✅ OK | 19/08 | Dono testou on/off; comportamento confere |
 | Proteção MASTER/bot | (automática) | Nenhum comando/kick/ban/mute/AutoMod/troll age no dono (88998314322/@lid) nem no bot | ✅ OK | 19/08 | Implementado em permissions + AutoMod + keywordHandler |
-| $antiestrangeiro | `$antiestrangeiro on/off` | Remove QUALQUER estrangeiro (DDI não-BR) na entrada | ✅ OK | 19/08 | Desligado em todos os grupos por padrão (nem todo estrangeiro é bot) |
-| $antibotas | `$antibotas on/off` | Remove/BANI bots: prefixo de nome/número conhecido OU estrangeiro+link/card | ✅ OK | 19/08 | LIGADO em todos os grupos; prefixos em autoModService (BOT_NUMBER_PREFIXES/BOT_NAME_PATTERNS) |
-| $bemvindo | `$bemvindo <texto>` | Define mensagem de boas-vindas | ⬜ | | |
-| $detectar | `$detectar` (ou on/off) | Detecta padrões (toggle) | ⬜ | | |
-| $remover | `$remover` (ou on/off) | Remove/bane via AutoMod (toggle) | ⬜ | | |
+| $antiestrangeiro | `$antiestrangeiro on/off` | Remove QUALQUER estrangeiro (DDI não-BR) na entrada | ⬜ | | Código OK + DESLIGADO em todos os grupos (não testado ao vivo) |
+| $antibotas | `$antibotas on/off` | Remove/BANI bots: prefixo de nome/número conhecido OU estrangeiro+link/card | ⬜ | | Código OK + LIGADO em todos; falta evento real de bot entrar p/ validar |
+| $bemvindo | `$bemvindo <texto>` | Define mensagem de boas-vindas | ⬜ | | Código OK; falta entrada real de membro p/ validar envio |
+| $detectar | `$detectar` (ou on/off) | Só AVISA quando detecta (não remove) | ⬜ | | Código OK (usa mod.detectar); falta evento real |
+| $remover | `$remover` (ou on/off) | Remove + lista negra + bloqueia | ⬜ | | Código OK (usa mod.remover); falta evento real |
 | $kick | `$kick @usuario` (ou responda à msg) | Remove participante | ⬜ | | Proteção MASTER/BOT |
 | $ban | `$ban @usuario` (ou responda à msg) | Banir + blacklist + apaga msg | ⬜ | | Proteção MASTER/BOT |
 | $mute | `$mute @usuario` (ou `$mute grupo on/off`) | Silencia 8h (ou modo só-admins) | ⬜ | | Proteção MASTER/BOT |
