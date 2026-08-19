@@ -72,4 +72,16 @@ Executado via `pupPage.evaluate` no store interno do WhatsApp Web, **sem remover
 9. Alteração mínima: **remover estrangeiro na entrada** (`handleMemberJoin` + `antiestrangeiro`). Feito.
 10. Arquivos alterados: `WhatsAppAdapter.ts` (handleMemberJoin + processAutoMod em message_create), `autoModService.ts` (extractText _data), `databaseService.ts` (normGroup), `selftest.ts`, `docs/AI_HANDOFF.md`.
 11. Testes: 97/97 passando.
-12. **Conclusão final: B)** o card realmente não está disponível em nenhum Store/runtime acessível ao WWebJS; a remoção automática na entrada é a única solução prática. O card do MI065085 específico só sai apagando no celular (app oficial).
+12. **Conclusão (formulada com precisão técnica, conforme revisão):** Até o momento, o card do MI065085 **não foi localizado** nos mecanismos do WWebJS e Stores internos examinados (Msg.byChat=2 objs sem o MI065085; Store.Chats.get(chatId)="chat nao encontrado no Store"; sem stores separados de interactive/nativeFlow). Portanto **não foi possível obter seu messageId** e realizar uma tentativa efetiva de revogação. Isso NÃO é prova matemática de que não existe nenhuma outra forma — apenas que, pelos caminhos examinados, o objeto da mensagem não está acessível ao bot. A remoção automática na entrada (`handleMemberJoin` + `antiestrangeiro`) segue sendo a solução prática; o card específico só sai apagando no celular (app oficial). **Investigação permanece ABERTA** (não encerrada como "impossível").
+
+## Próxima hipótese (FASE 3 — não testada ainda)
+
+O achado `Store.Chats.get('120363419033272638@g.us')` = **"chat nao encontrado no Store"** é a pista chave: o **chat do Figurinhas nem está carregado no runtime do bot**. Se o chat não está no Store, obviamente nenhuma mensagem dele está acessível — não porque o card foi omitido, mas porque o chat inteiro não foi materializado no contexto do WWebJS.
+
+Hipótese: talvez seja preciso **carregar o chat primeiro** (abrir a conversa / `chat.fetchMessages` força o carregamento no Store) para que as mensagens — incluindo o card — entrem no Store interno. O `fetchMessages` que rodei retornou 100 msgs mas o MI065085 não estava; porém pode ser que o card não-carregável exija outro gatilho.
+
+Caminhos ainda não explorados (FASE 3):
+- Forçar carregamento do chat no Store (`WWebJS`/`Store.Chats.get` após `client.getChatById` + `fetchMessages`) e re-examinar `Store.Chats.get(chatId).msgs`.
+- Inspecionar eventos de `history sync` / `chatstate` que populem o Store.
+- Verificar se o `message_revoke_everyone` ou `message_ciphertext` trazem o card.
+- Tentar `Cmd.sendRevokeMsgs` com um messageId **construtído** a partir dos dados conhecidos (chatId + participant + timestamp 14:54) — arriscado, pode não bater o id exato.

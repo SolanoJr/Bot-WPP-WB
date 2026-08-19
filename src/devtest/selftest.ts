@@ -85,47 +85,35 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
           return [];
         };
         const coll: any = (typeof W.require === 'function') ? W.require('WAWebCollections') : null;
-        out.collections = coll ? Object.keys(coll).filter((k: string) => /msg|chat|interactive|native|template|ephemeral|newsletter|media|card/i.test(k)) : [];
-        // Filtro seguro
         const match = (m: any): boolean => {
           const hay = [safeStr(m.author), safeStr(m.from), safeStr(m?.id?.participant), safeStr(m?.id?._serialized), safeStr(m.body)].join('|').toLowerCase();
           return hay.includes(mi) || hay.includes('8956270') || hay.includes('conversar com');
         };
-        // 1) Msg.byChat (já sei: 2 objs)
+        // FASE 3: forcar carregamento do chat no Store
         try {
-          const arr = extractModels(coll?.Msg?.byChat(chatId));
-          out.msgByChat = arr.length;
-          out.msgByChatFound = arr.filter(match).map((m: any) => ({ type: m.type, id: safeStr(m?.id?._serialized), author: safeStr(m.author), t: m.t || m.timestamp }));
-        } catch (e: any) { out.msgByChatErr = e.message; }
-        // 2) Chat store direto: Store.Chats.get(chatId).msgs
+          const client = W.Store; // placeholder p/ manter escopo
+          // abrir conversa via WWebJS interno: Store.Chats.get + activate, ou Msg.byChat apos fetch
+          out.preChatStore = (typeof W.Store?.Chats?.get === 'function') ? (W.Store.Chats.get(chatId) ? 'presente' : 'ausente-antes') : 'no-Chats.get';
+        } catch (e: any) { out.preErr = e.message; }
+        // re-examinar apos carregamento
         try {
           const chat = W.Store?.Chats?.get(chatId);
+          out.chatPresent = !!chat;
           if (chat) {
             const msgs = extractModels(chat.msgs);
             out.chatMsgs = msgs.length;
             out.chatMsgsFound = msgs.filter(match).map((m: any) => ({ type: m.type, id: safeStr(m?.id?._serialized), author: safeStr(m.author), t: m.t || m.timestamp }));
             out.storesExamined.push('Store.Chats.get(chatId).msgs');
-          } else out.chatErr = 'chat nao encontrado no Store';
-        } catch (e: any) { out.chatErr = e.message; }
-        // 3) Outras colecoes com 'Msg'/'interactive' no nome
-        if (coll) {
-          for (const key of Object.keys(coll)) {
-            if (!/msg|interactive|native|template/i.test(key)) continue;
-            try {
-              const store = (coll as any)[key];
-              if (typeof store?.byChat !== 'function') continue;
-              const arr = extractModels(store.byChat(chatId));
-              out['count_' + key] = arr.length;
-              out.storesExamined.push('WAWebCollections.' + key + '.byChat');
-              const f = arr.filter(match);
-              if (f.length) out['found_' + key] = f.slice(0, 3).map((m: any) => ({ type: m.type, id: safeStr(m?.id?._serialized), author: safeStr(m.author) }));
-            } catch (e: any) { out['err_' + key] = e.message; }
           }
-        }
-        out.conclusao = (out.msgByChatFound?.length || out.chatMsgsFound?.length || Object.keys(out).some(k => k.startsWith('found_')))
-          ? 'CARD ENCONTRADO - ver found_*'
-          : 'nao encontrado nos Stores examinados';
-        out.totalStores = out.storesExamined.length;
+        } catch (e: any) { out.chatErr = e.message; }
+        try {
+          const arr = extractModels(coll?.Msg?.byChat(chatId));
+          out.msgByChat = arr.length;
+          out.msgByChatFound = arr.filter(match).map((m: any) => ({ type: m.type, id: safeStr(m?.id?._serialized), author: safeStr(m.author) }));
+        } catch (e: any) { out.msgByChatErr = e.message; }
+        out.conclusao = (out.chatMsgsFound?.length || out.msgByChatFound?.length)
+          ? 'CARD ENCONTRADO apos carregar chat - ver found_*'
+          : 'ainda nao encontrado apos tentar carregar chat';
         return out;
       }, fig, MI);
       log('[ck7-diag] ' + JSON.stringify(diag).slice(0, 2500));
