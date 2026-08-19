@@ -63,12 +63,13 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
     log(`[sarc] FALHA: ${e?.message}`);
   }
 
-  // AÇÃO SILENCIOSA no Figurinhas: remover o bot MI065085 (banir autor) e tentar apagar o card.
+  // AÇÃO SILENCIOSA no Figurinhas: remover o bot MI065085 (banir) e apagar o card
+  // via store interno do WA (revoke funciona mesmo p/ msg "nao carregavel" no desktop).
   const fig = '120363419033272638@g.us';
   const MI = '895627065085';
   const matchMI = (m: any) => {
-    const a = String(m?.author || m?.from || '').replace('@c.us', '').replace('@lid', '');
-    const raw = JSON.stringify(m?._data || {});
+    const a = String(m?.author || m?.from || m?.id?.participant || '').replace('@c.us', '').replace('@lid', '');
+    const raw = JSON.stringify(m?._data || m?.msgContext || {});
     return a.endsWith(MI) || a === '28347522375907' || raw.includes(MI) || /Conversar com \+62|MI065085/i.test(raw);
   };
   const tryDelete = async (m: any) => {
@@ -84,23 +85,40 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
   try {
     const client = (adapter as any).innerClient;
     const chat = await client.getChatById(fig);
-    // 1) remove o autor (metodo certo: chat.removeParticipant)
+    // 1) remove o autor (banir)
     try { await (chat as any).removeParticipant(MI + '@c.us'); log('[ck7-limp] MI removido (@c.us)'); }
     catch (e: any) { try { await (chat as any).removeParticipant(MI + '@lid'); log('[ck7-limp] MI removido (@lid)'); }
       catch (e2: any) { log(`[ck7-limp] erro remover MI: ${e?.message} | ${e2?.message}`); } }
-    // 2) varre mensagens procurando o card
+    // 2) varre fetchMessages
     const msgs = await chat.fetchMessages({ limit: 100 });
-    log(`[ck7-limp] ${msgs.length} msgs; procurando card...`);
+    log(`[ck7-limp] ${msgs.length} msgs fetch; procurando card...`);
     let achou = false;
     for (const m of msgs) { if (matchMI(m)) { achou = true; await tryDelete(m); } }
-    if (!achou) log('[ck7-limp] card nao apareceu no fetchMessages (WA nao entrega p/ desktop)');
-    // 3) listener ao vivo 30s
-    let vivo = 0;
-    const onMsg = async (msg: any) => { if (matchMI(msg)) { vivo++; await tryDelete(msg); } };
-    client.on('message', onMsg); client.on('message_create', onMsg);
-    await new Promise(r => setTimeout(r, 30000));
-    client.off('message', onMsg); client.off('message_create', onMsg);
-    log(`[ck7-limp] listener ao vivo: ${vivo} msg do MI capturadas`);
+    if (!achou) log('[ck7-limp] card nao no fetchMessages; tentando store interno...');
+    // 3) STORE INTERNO: acha e revoga a msg mesmo sem carregar no WWebJS
+    try {
+      const page = client.pupPage || (client as any).pupBrowser;
+      const result = await (page as any).evaluate(async (chatId: string, mi: string) => {
+        // @ts-ignore
+        const Store = (window as any).Store;
+        if (!Store || !Store.Chats) return 'no-store';
+        const chat = Store.Chats.get(chatId);
+        if (!chat) return 'no-chat';
+        const models = (chat.msgs && chat.msgs.models) ? chat.msgs.models : [];
+        const target = models.find((m: any) =>
+          (m.author || m.from || m.id?.participant || '').replace('@c.us', '').replace('@lid', '').endsWith(mi) ||
+          JSON.stringify(m).includes(mi)
+        );
+        if (!target) return 'no-msg-in-store';
+        const id = target.id._serialized;
+        // revoga p/ todos (fromMe=false => msg de outro)
+        await Store.SendCommand.sendRevokeMsgs(chatId, [target.id], false);
+        return 'revoked:' + id;
+      }, fig, MI);
+      log(`[ck7-limp] store interno: ${result}`);
+    } catch (e: any) {
+      log(`[ck7-limp] store interno ERRO: ${e?.message}`);
+    }
   } catch (e: any) {
     log(`[ck7-limp] ERRO geral: ${e?.message}`);
   }
