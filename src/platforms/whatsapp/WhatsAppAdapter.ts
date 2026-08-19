@@ -464,6 +464,32 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         console.error('[WhatsApp] Erro ao verificar banidos na entrada:', err.message);
       }
 
+      // Verificar se algum membro é ESTRANGEIRO (DDI não-BR) e o antiestrangeiro está ligado:
+      // remove na HORA, antes do bot de cassino postar o card invisível (que o WWebJS não lê).
+      try {
+        const { getGroupMod } = await import('../../services/databaseService');
+        const { isForeignNumber } = await import('../../services/autoModService');
+        const mod = await getGroupMod(groupId);
+        if (mod.antiestrangeiro) {
+          for (const memberId of newMembers) {
+            const cleanMember = memberId.replace('@lid', '').replace('@c.us', '');
+            if (isForeignNumber(memberId)) {
+              console.log(`[handleMemberJoin] Estrangeiro ${cleanMember} entrou e antiestrangeiro está ON - removendo`);
+              try {
+                await this.removeParticipant(groupId, memberId);
+                await this.innerClient.sendMessage(groupId, `🚫 @${cleanMember} removido automaticamente: número estrangeiro não permitido neste grupo.`, {
+                  mentions: [memberId.replace('@lid', '@c.us')]
+                }).catch(() => {});
+              } catch (rmErr: any) {
+                console.error('[handleMemberJoin] Falha ao remover estrangeiro na entrada:', rmErr?.message);
+              }
+            }
+          }
+        }
+      } catch (err: any) {
+        console.error('[WhatsApp] Erro ao verificar estrangeiros na entrada:', err.message);
+      }
+
       // Importar função para obter mensagem personalizada
       const { getWelcomeMessage } = await import('../../bot/commands/welcome');
       const customMessage = getWelcomeMessage(groupId);
