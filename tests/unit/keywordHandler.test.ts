@@ -1,14 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
 import { handleKeywords } from '../../src/services/keywordHandler';
 
+// Autor comum (não-bot, não-MASTER) usado nos testes de troll/sarcasmo.
+const USER = '559999999999@c.us';
+
 describe('keywordHandler', () => {
   it('detecta e remove mensagens de trollagem', async () => {
     const msg = {
       body: 'removeu você do grupo',
       delete: vi.fn(),
       reply: vi.fn(),
-      author: '558581344211@c.us',
-      from: '558581344211@c.us'
+      author: USER,
+      from: USER
     };
 
     const result = await handleKeywords(msg, {});
@@ -23,8 +26,8 @@ describe('keywordHandler', () => {
       body: 'bot me ajuda',
       delete: vi.fn(),
       reply: vi.fn(),
-      author: '558581344211@c.us',
-      from: '558581344211@c.us'
+      author: USER,
+      from: USER
     };
 
     const result = await handleKeywords(msg, {});
@@ -38,8 +41,8 @@ describe('keywordHandler', () => {
       body: '$bot comando',
       delete: vi.fn(),
       reply: vi.fn(),
-      author: '558581344211@c.us',
-      from: '558581344211@c.us'
+      author: USER,
+      from: USER
     };
 
     const result = await handleKeywords(msg, {});
@@ -53,8 +56,8 @@ describe('keywordHandler', () => {
       body: 'mensagem normal',
       delete: vi.fn(),
       reply: vi.fn(),
-      author: '558581344211@c.us',
-      from: '558581344211@c.us'
+      author: USER,
+      from: USER
     };
 
     const result = await handleKeywords(msg, {});

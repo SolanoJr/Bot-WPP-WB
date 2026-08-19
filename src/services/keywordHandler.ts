@@ -1,4 +1,5 @@
 import { getSarcasticResponse } from './aiService';
+import { isProtectedTarget } from './permissions';
 
 // Dedup por conteúdo: chat|autor|texto -> timestamp (janela 5s).
 const respondedDup = new Map<string, number>();
@@ -14,6 +15,8 @@ export async function handleKeywords(msg: any, client: any): Promise<boolean> {
 
   // Não processar a PRÓPRIA mensagem do bot (sarcasmo/troll não devem pegar no bot mesmo)
   if (msg?.fromMe) return false;
+  // Não apagar/agir na mensagem do MASTER (dono) nem do próprio bot como alvo
+  if (isProtectedTarget(msg?.author || msg?.from || '')) return false;
 
   // Dedup por CONTEÚDO: o WWebJS às vezes emite a mesma mensagem 2x (mids diferentes).
   // Ignora se (chat+autor+texto) repetiu nos últimos 5s.
