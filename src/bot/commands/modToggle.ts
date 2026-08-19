@@ -30,6 +30,7 @@ const ALIASES: Record<string, { field: Field; label: string }> = {
   bemvindo: { field: 'bemvindo', label: 'Boas-Vindas' },
   detectar: { field: 'detectar', label: 'Detectar (avisar)' },
   remover: { field: 'remover', label: 'Remover (banir)' },
+  antibotas: { field: 'antibotas', label: 'Anti-Bots' },
 };
 
 function statusLine(cfg: GroupModConfig): string {
@@ -39,6 +40,7 @@ function statusLine(cfg: GroupModConfig): string {
     `🔘 Anti-Spam: ${cfg.antispam ? '✅' : '❌'}`,
     `🔘 Anti-Estrangeiro: ${cfg.antiestrangeiro ? '✅' : '❌'}`,
     `🔘 Anti-Link: ${cfg.autolink ? '✅' : '❌'}`,
+    `🔘 Anti-Bots: ${cfg.antibotas ? '✅' : '❌'}`,
     `🔘 Boas-Vindas: ${cfg.bemvindo ? '✅' : '❌'}`,
     `🔘 Detectar (avisar): ${cfg.detectar ? '✅' : '❌'}`,
     `🔘 Remover (banir): ${cfg.remover ? '✅' : '❌'}`,
@@ -97,3 +99,4 @@ export const autolinkModCommand = buildModToggle('autolink');
 export const bemvindoModCommand = buildModToggle('bemvindo');
 export const detectarModCommand = buildModToggle('detectar');
 export const removerModCommand = buildModToggle('remover');
+export const antibotasModCommand = buildModToggle('antibotas');

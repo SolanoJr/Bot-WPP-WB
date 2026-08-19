@@ -468,21 +468,32 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       // remove na HORA, antes do bot de cassino postar o card invisível (que o WWebJS não lê).
       try {
         const { getGroupMod } = await import('../../services/databaseService');
-        const { isForeignNumber } = await import('../../services/autoModService');
+        const { isForeignNumber, isBotByPattern } = await import('../../services/autoModService');
         const mod = await getGroupMod(groupId);
-        if (mod.antiestrangeiro) {
-          for (const memberId of newMembers) {
-            const cleanMember = memberId.replace('@lid', '').replace('@c.us', '');
-            if (isForeignNumber(memberId)) {
-              console.log(`[handleMemberJoin] Estrangeiro ${cleanMember} entrou e antiestrangeiro está ON - removendo`);
-              try {
-                await this.removeParticipant(groupId, memberId);
-                await this.innerClient.sendMessage(groupId, `🚫 @${cleanMember} removido automaticamente: número estrangeiro não permitido neste grupo.`, {
-                  mentions: [memberId.replace('@lid', '@c.us')]
-                }).catch(() => {});
-              } catch (rmErr: any) {
-                console.error('[handleMemberJoin] Falha ao remover estrangeiro na entrada:', rmErr?.message);
-              }
+        for (const memberId of newMembers) {
+          const cleanMember = memberId.replace('@lid', '').replace('@c.us', '');
+          const pushname = notification?.pushname || notification?.recipientIds?._contact?.pushname || '';
+          let shouldRemove = false;
+          let motive = '';
+          // ANTIBOTS (ligado em todos): remove BOT por prefixo de número/nome
+          if (mod.antibotas && isBotByPattern(memberId, pushname)) {
+            shouldRemove = true;
+            motive = '🤖 BOT detectado por prefixo (número/nome) — removido automaticamente.';
+          }
+          // ANTIESTRANGEIRO (desligado por padrão): remove QUALQUER não-BR (uso manual)
+          else if (mod.antiestrangeiro && isForeignNumber(memberId)) {
+            shouldRemove = true;
+            motive = '🚫 Número estrangeiro não permitido neste grupo.';
+          }
+          if (shouldRemove) {
+            console.log(`[handleMemberJoin] ${cleanMember} entrou - ${motive}`);
+            try {
+              await this.removeParticipant(groupId, memberId);
+              await this.innerClient.sendMessage(groupId, `🚫 @${cleanMember} removido automaticamente: ${motive}`, {
+                mentions: [memberId.replace('@lid', '@c.us')]
+              }).catch(() => {});
+            } catch (rmErr: any) {
+              console.error('[handleMemberJoin] Falha ao remover na entrada:', rmErr?.message);
             }
           }
         }

@@ -36,6 +36,21 @@ export const joinTimestamps = new Map<string, number>();
 
 export const FIRST_MINUTES_LIMIT_MS = 10 * 60 * 1000; // 10 minutos
 
+// Prefixos conhecidos de BOTS de cassino/spam (editável conforme surgirem novos).
+// Número: DDI/prefixos estrangeiros típicos de bots (ex: +62/895 = Indonésia).
+// Nome: padrões como "MI" + dígitos (ex: MI065085).
+export const BOT_NUMBER_PREFIXES = ['62', '895', '628', '1', '44', '91', '234'];
+export const BOT_NAME_PATTERNS = [/^mi\d+/i, /^bot\d+/i, /casino/i, /aposta/i, /cassino/i];
+
+/** Detecta se um membro é um BOT conhecido por prefixo de número ou nome. */
+export function isBotByPattern(memberId: string, displayName?: string): boolean {
+  const num = String(memberId || '').replace(/[^0-9]/g, '');
+  if (BOT_NUMBER_PREFIXES.some((p) => num.startsWith(p) && num.length >= 6)) return true;
+  const name = String(displayName || '');
+  if (BOT_NAME_PATTERNS.some((re) => re.test(name))) return true;
+  return false;
+}
+
 export function recordMemberJoin(groupId: string, memberId: string): void {
   console.log('[recordMemberJoin] ENTRY - groupId:', groupId, 'memberId:', memberId);
   const cleanGroup = groupId.replace(/^(wpp:|tg:|dc:)/, '');
@@ -280,9 +295,22 @@ export async function processAutoMod(msg: any, client: any): Promise<boolean> {
         }
     }
 
+    // REGRA 2.5: ANTIBOTS — prefixo de bot (nome/número) OU estrangeiro+link/card
+    if (!detected && mod.antibotas) {
+        const foreign = isForeignNumber(authorId);
+        let botReason = '';
+        if (isBotByPattern(authorId, msg?.pushname || msg?._data?.notifyName || msg?._data?.displayName)) {
+            detected = true;
+            botReason = '🤖 [ANTIBOTS] Número/Nome de BOT conhecido (prefixo de spam).';
+        } else if (foreign && (/https?:\/\/[^\s]+/i.test(messageText) || isInteractive)) {
+            detected = true;
+            botReason = '🤖 [ANTIBOTS] Conta estrangeira + link/card nos primeiros 10 minutos.';
+        }
+        if (detected) reason = botReason;
+    }
     // REGRA 3: Links (antilink) — apaga a mensagem se ligado
     if (!detected && mod.autolink) {
-        const hasLink = /https?:\/\/[^\\s]+/i.test(messageText);
+        const hasLink = /https?:\/\/[^\s]+/i.test(messageText);
         if (hasLink) {
             detected = true;
             reason = '🚫 [ANTILINK] Links não são permitidos neste grupo.';

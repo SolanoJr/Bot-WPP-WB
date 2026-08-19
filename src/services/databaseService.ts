@@ -97,7 +97,8 @@ export async function initDatabase() {
       bemvindo INTEGER DEFAULT 0,
       autolink INTEGER DEFAULT 0,
       detectar INTEGER DEFAULT 0,
-      remover INTEGER DEFAULT 0
+      remover INTEGER DEFAULT 0,
+      antibotas INTEGER DEFAULT 0
     );
   `);
 
@@ -123,7 +124,7 @@ export async function initDatabase() {
       } catch { /* ignora se ainda não disponível */ }
       for (const g of [...new Set(groupsToSeed)]) {
         await db.run(
-          `INSERT OR IGNORE INTO group_mod (group_id, antispam, antiestrangeiro, bemvindo, autolink, detectar, remover) VALUES (?,1,1,1,1,1,1)`,
+          `INSERT OR IGNORE INTO group_mod (group_id, antispam, antiestrangeiro, bemvindo, autolink, detectar, remover, antibotas) VALUES (?,1,0,1,1,1,1,1)`,
           g
         );
       }
@@ -232,9 +233,10 @@ export interface GroupModConfig {
   autolink: boolean;
   detectar: boolean;
   remover: boolean;
+  antibotas: boolean;
 }
 
-const MOD_FIELDS: (keyof GroupModConfig)[] = ['antispam', 'antiestrangeiro', 'bemvindo', 'autolink', 'detectar', 'remover'];
+const MOD_FIELDS: (keyof GroupModConfig)[] = ['antispam', 'antiestrangeiro', 'bemvindo', 'autolink', 'detectar', 'remover', 'antibotas'];
 
 /** Remove prefixos de plataforma (wpp:/tg:/dc:) do groupId para lookup consistente no SQLite. */
 function normGroup(groupId: string): string {
@@ -246,7 +248,7 @@ export async function getGroupMod(groupId: string): Promise<GroupModConfig> {
   const id = normGroup(groupId);
   const empty: GroupModConfig = {
     antispam: false, antiestrangeiro: false, bemvindo: false,
-    autolink: false, detectar: false, remover: false,
+    autolink: false, detectar: false, remover: false, antibotas: false,
   };
   try {
     const db = await getDb();
@@ -268,11 +270,11 @@ export async function setGroupModField(groupId: string, field: keyof GroupModCon
     const db = await getDb();
     const row = await db.get(`SELECT group_id FROM group_mod WHERE group_id = ?`, id);
     if (!row) {
-      const cfg = { antispam: 0, antiestrangeiro: 0, bemvindo: 0, autolink: 0, detectar: 0, remover: 0 } as any;
+      const cfg = { antispam: 0, antiestrangeiro: 0, bemvindo: 0, autolink: 0, detectar: 0, remover: 0, antibotas: 0 } as any;
       cfg[field] = value ? 1 : 0;
       await db.run(
-        `INSERT INTO group_mod (group_id, antispam, antiestrangeiro, bemvindo, autolink, detectar, remover) VALUES (?,?,?,?,?,?,?)`,
-        id, cfg.antispam, cfg.antiestrangeiro, cfg.bemvindo, cfg.autolink, cfg.detectar, cfg.remover
+        `INSERT INTO group_mod (group_id, antispam, antiestrangeiro, bemvindo, autolink, detectar, remover, antibotas) VALUES (?,?,?,?,?,?,?,?)`,
+        id, cfg.antispam, cfg.antiestrangeiro, cfg.bemvindo, cfg.autolink, cfg.detectar, cfg.remover, cfg.antibotas
       );
     } else {
       await db.run(`UPDATE group_mod SET ${field} = ? WHERE group_id = ?`, value ? 1 : 0, id);
@@ -288,13 +290,13 @@ export async function setGroupModAll(groupId: string, value: boolean): Promise<v
   try {
     const db = await getDb();
     await db.run(
-      `INSERT INTO group_mod (group_id, antispam, antiestrangeiro, bemvindo, autolink, detectar, remover)
-       VALUES (?,?,?,?,?,?,?)
+      `INSERT INTO group_mod (group_id, antispam, antiestrangeiro, bemvindo, autolink, detectar, remover, antibotas)
+       VALUES (?,?,?,?,?,?,?,?)
        ON CONFLICT(group_id) DO UPDATE SET
          antispam=excluded.antispam, antiestrangeiro=excluded.antiestrangeiro,
          bemvindo=excluded.bemvindo, autolink=excluded.autolink,
-         detectar=excluded.detectar, remover=excluded.remover`,
-      id, value?1:0, value?1:0, value?1:0, value?1:0, value?1:0, value?1:0
+         detectar=excluded.detectar, remover=excluded.remover, antibotas=excluded.antibotas`,
+      id, value?1:0, value?1:0, value?1:0, value?1:0, value?1:0, value?1:0, value?1:0
     );
   } catch (e: any) {
     console.error('[DB] Falha ao salvar group_mod (all):', e?.message);
