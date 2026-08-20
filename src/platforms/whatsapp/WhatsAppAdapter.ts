@@ -110,6 +110,9 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     this.innerClient = new Client({
       authStrategy: new LocalAuth({ dataPath: authPath }),
       puppeteer: puppeteerConfig,
+      // Reconnecta sozinho em falha de autenticação (sessão expirada / rede mudou)
+      // em vez de pedir QR novo e ficar offline. Corrige "bot cai quando chego em casa".
+      restartOnAuthFail: true,
       // User-Agent de Chrome real — o WA Web moderno detecta headless e trava
       // a tela de QR sem um UA convincente (BUG 33).
       userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.109 Safari/537.36'
@@ -346,6 +349,10 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
 
     this.innerClient.on('message', async (msg: Message) => {
       console.log('[WhatsAppAdapter] Mensagem recebida - msg:', !!msg, 'msg.from:', msg?.from, 'msg.author:', msg?.author);
+      // Auditoria: confirma se o bot está lendo msgs de TERCEIROS (não só as próprias)
+      if (msg?.from && !msg?.fromMe && msg?.author && !String(msg.author).includes('558581344211')) {
+        console.log(`[AUDIT] msg de TERCEIRO recebida: de=${msg.author} chat=${msg.from} body="${(msg.body||'').slice(0,60)}"`);
+      }
       
       // Diagnostico: se o body vier vazio, logar o _data cru para achar o texto real
       if (!msg?.body && (msg as any)?._data) {
