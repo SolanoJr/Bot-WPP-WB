@@ -8,7 +8,8 @@
  *   $automod                   -> mostra o estado (on | off | personalizado)
  *   $antispam on|off           -> spam/cassino
  *   $antiestrangeiro on|off    -> DDI estrangeiro + 10 min
- *   $autolink on|off           -> antilink (apaga links)
+ *   $antilink on|off           -> antilink (apaga links)
+ *   $antibotas on|off          -> bots conhecidos / estrangeiro+link
  *   $bemvindo on|off           -> boas-vindas automáticas
  *   $detectar on|off           -> só avisa quando detecta (não remove)
  *   $remover on|off            -> remove + lista negra + bloqueia
@@ -26,7 +27,8 @@ const ALIASES: Record<string, { field: Field; label: string }> = {
   automod: { field: 'antispam', label: 'AutoMod (mestre)' },
   antispam: { field: 'antispam', label: 'Anti-Spam' },
   antiestrangeiro: { field: 'antiestrangeiro', label: 'Anti-Estrangeiro' },
-  autolink: { field: 'autolink', label: 'Anti-Link' },
+  antilink: { field: 'autolink', label: 'Anti-Link' },
+  autolink: { field: 'autolink', label: 'Anti-Link' }, // alias retrocompatível
   bemvindo: { field: 'bemvindo', label: 'Boas-Vindas' },
   detectar: { field: 'detectar', label: 'Detectar (avisar)' },
   remover: { field: 'remover', label: 'Remover (banir)' },
@@ -96,6 +98,7 @@ export const automodCommand = buildModToggle('automod');
 export const antispamModCommand = buildModToggle('antispam');
 export const antiestrangeiroModCommand = buildModToggle('antiestrangeiro');
 export const autolinkModCommand = buildModToggle('autolink');
+export const antilinkModCommand = buildModToggle('antilink');
 export const bemvindoModCommand = buildModToggle('bemvindo');
 export const detectarModCommand = buildModToggle('detectar');
 export const removerModCommand = buildModToggle('remover');

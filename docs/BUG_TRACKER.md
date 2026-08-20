@@ -26,4 +26,31 @@ Este documento registra bugs críticos encontrados e suas respectivas soluções
 - **Solução**: Unificada a fonte de dados para `autoModService.ts` e atualizado o comando `$menu`.
 
 ---
-*Mantido por Manus AI - Última atualização: Julho 2026*
+---
+
+## 41 (2026-08-20): WPP cai sozinho (Chromium travado) e não reconecta
+- **Sintoma:** Bot "morre" quando dono chega em casa / muda de rede. Chromium do WWebJS trava no splash (swiftshader) ou sessão cai silenciosamente; `pm2` (autorestart) não mata pq node segue vivo.
+- **Causa:** Sem watchdog. `disconnected` só reconecta se emitido; Chromium travado não emite. `restartOnAuthFail` só cobre auth fail.
+- **Correção:** `setupWatchdog()` no `WhatsAppAdapter` (reconecta se >5min sem qr/ready, ou >30min inativo, ou WPP mudo). Logs `[CONEXÃO]` ricos (qr/auth/loading/initialize). `lastActivityTs` atualizado no `message` e `ready`.
+- **Status:** Corrigido. Watchdog respeita QR pendente (não destrói antes do scan).
+
+## 42 (2026-08-20): Confusão de logs — pong NÃO era reply de terceiro
+- **Sintoma:** Selftest mandava `$ping` como o PRÓPRIO bot; dono mandou ping e não teve resposta (WPP caído, BUG 41).
+- **Causa:** `ctx.reply` usa `client.sendMessage` (= wrapper do adapter, pois `adapter.client = this`). Funciona. "Não reply" era na verdade WPP caído.
+- **Status:** Esclarecido. Reply OK; queda era BUG 41.
+
+## 43 (2026-08-20): Pendências abertas (consolidado de TODO.md/BUGS.md da raiz)
+- [ ] **SEGURANÇA:** Rotacionar tokens/chaves expostos fora do `.env` (Telegram, Discord, Gemini, Tailscale, SSH).
+- [ ] Atualizar `TELEGRAM_BOT_TOKEN` no `.env` do Linux (401 Unauthorized — long polling bloqueado).
+- [ ] `npm audit fix` em branch separada (8 vulns, 1 crítica) + build/test.
+- [ ] Healthcheck que diferencie "PM2 online" de "WPP realmente conectado" — **PARCIAL:** logs `[CONEXÃO]` já mostram fase; falta endpoint/alert.
+- **Status:** Aberto. Itens de 2026-07/08 ainda pendentes.
+
+## 44 (2026-08-20): Histórico — desacoplamento AutoMod / startAll (2026-08-07)
+- **Problema 5:** `$menu` travava — `processAutoMod` com `await` bloqueava despacho de comandos em `on('message')`. Corrigido: messageHandler chamado imediatamente, AutoMod fire-and-forget.
+- **Problema 6:** Comandos não respondiam — `multiPlatform.ts` nunca chamava `platformManager.startAll()` (handler nunca registrado). Corrigido: `await platformManager.startAll()`.
+- **Status:** Resolvido (histórico, mantido p/ não reincidir).
+
+---
+
+*Mantido por Hermes/Manus AI - Última atualização: 2026-08-20*

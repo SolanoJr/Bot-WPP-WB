@@ -45,7 +45,7 @@ import { fakechatCommand } from './interacao';
 import { sendCommand } from './send';
 import { cmdToggleCommand } from './cmdToggle';
 import { deleteMsgCommand } from './deleteMsg';
-import { automodCommand, antispamModCommand, antiestrangeiroModCommand, autolinkModCommand, bemvindoModCommand, detectarModCommand, removerModCommand, antibotasModCommand } from './modToggle';
+import { automodCommand, antispamModCommand, antiestrangeiroModCommand, autolinkModCommand, antilinkModCommand, bemvindoModCommand, detectarModCommand, removerModCommand, antibotasModCommand } from './modToggle';
 
 // Comandos registrados
 const commands: Record<string, ICommand> = {
@@ -98,7 +98,8 @@ const commands: Record<string, ICommand> = {
   automod: automodCommand,
   antispam: antispamModCommand,
   antiestrangeiro: antiestrangeiroModCommand,
-  autolink: autolinkModCommand,
+  autilink: autolinkModCommand, // alias retrocompatível
+  antilink: antilinkModCommand, // oficial (padronizado com anti*)
   detectar: detectarModCommand,
   remover: removerModCommand,
   antibotas: antibotasModCommand,

@@ -23,9 +23,8 @@ function log(msg: string): void {
 
 // Lista de comandos a testar (1 por vez, isolado). Edite conforme a sequência.
 // OBS: deixar vazio = NÃO dispara selftest (evita o bot encher o grupo sozinho).
-// Comandos de moderação ($mute etc) são testados MANUALMENTE no grupo.
+// NUNCA deixar comando aqui no boot — o dono manda testar sob demanda.
 const LISTA: string[] = [
-  'ping',
 ];
 
 export async function runSelfTestOndeEstou(_adapter: SelfTestAdapter, _alvoTeste: string): Promise<void> {
@@ -36,14 +35,8 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
   if ((global as any).__selftestModRan) return;
   (global as any).__selftestModRan = true;
 
-  // SELFTEST: o BOT digita $ping de verdade no grupo teste (mensagem real no chat).
-  try {
-    log(`[SELFTEST] bot digitando $ping no grupo teste`);
-    await adapter.sendMessage(alvoTeste, '$ping');
-    await new Promise((r) => setTimeout(r, 3000));
-  } catch (e: any) {
-    log(`[SELFTEST] erro ao mandar $ping: ${e?.message}`);
-  }
+  // NÃO manda comando no grupo no boot (evita encher o grupo sozinho).
+  // O dono manda testar sob demanda. Validações em memória seguem abaixo.
 
   // Sarcasmo: valida EM MEMÓRIA (fakeReply local, não manda no grupo).
   const kw = (adapter as any).selfTestHandleKeywords;
