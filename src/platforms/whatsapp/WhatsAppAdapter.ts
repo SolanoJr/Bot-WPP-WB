@@ -898,12 +898,12 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     console.log(`[WhatsAppAdapter.sendMessage] cleanChatId: ${cleanChatId} | targetJid: ${targetJid}`);
     console.log(`[WhatsAppAdapter] Enviando resposta para: ${targetJid}`);
     
-    // FIX: Usar waitUntilMsgSent=true para aguardar o envio real ao servidor
-    // Ref: whatsapp-web.js Client.sendMessage internalOptions.waitUntilMsgSent
-    // CORREÇÃO: WWebJS moderno NÃO consegue citar mensagens @lid (lança erro).
-    // Se o replyToMessageId for @lid, ignora o quotedMessageId (envia sem citar).
+    // CORREÇÃO: WWebJS moderno (1.34.7) CONSEGUE citar mensagens @lid se o ID
+    // estiver correto. O filtro antigo descartava TODOS os replies de @lid (dono e
+    // contatos @lid), fazendo o bot nunca marcar/quotar a mensagem — não é reply de verdade.
+    // Agora repassamos o quotedMessageId limpo (sem prefixo wpp:).
     const quotedRaw = options?.replyToMessageId?.replace(/^wpp:/, '');
-    const quotedMessageId = quotedRaw && !quotedRaw.includes('@lid') ? quotedRaw : undefined;
+    const quotedMessageId = quotedRaw || undefined;
     // Repassar menções (essenciais p/ comandos de moderação como $mute/$kick/$ban).
     // O WWebJS espera `mentions: [jid]` (array de strings ou Contact).
     const mentions = (options as any)?.mentionedIds || (options as any)?.mentions || undefined;
@@ -920,11 +920,18 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       sent = await this.innerClient.sendMessage(targetJid, text, sendOptions);
     } catch (sendErr: any) {
       const msg = String(sendErr?.message || '');
-      if (msg.includes('serialize') || msg.includes('getMessageModel')) {
+      if (msg.includes('serialize') || msg.includes('getMessageModel') || msg.includes('quoted')) {
         console.warn(`[WhatsAppAdapter.sendMessage] sendMessage falhou (${msg}). Tentando fallback via getChatById+chat.sendMessage...`);
         try {
           const chat = await this.innerClient.getChatById(targetJid);
-          sent = await chat.sendMessage(text, { quotedMessageId: sendOptions.quotedMessageId });
+          // Retry 1: com quote (via chat.sendMessage)
+          try {
+            sent = await chat.sendMessage(text, { quotedMessageId: sendOptions.quotedMessageId });
+          } catch (quoteErr: any) {
+            // Retry 2: SEM quote (entrega a resposta mesmo que não consiga marcar a msg)
+            console.warn(`[WhatsAppAdapter.sendMessage] quote falhou (${String(quoteErr?.message)}). Reenviando sem citar...`);
+            sent = await chat.sendMessage(text, {});
+          }
         } catch (fallbackErr: any) {
           console.error(`[WhatsAppAdapter.sendMessage] Fallback também falhou:`, {
             message: fallbackErr?.message,
