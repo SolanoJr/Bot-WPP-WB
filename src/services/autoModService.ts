@@ -348,11 +348,15 @@ export async function processAutoMod(msg: any, client: any): Promise<boolean> {
       // 1. Detectar = avisar o grupo (mesmo se não remover)
       if (mod.detectar) {
         try {
-          const notify = `🛡️ *AutoMod WarriorBlack*${grpName}\n\n⚠️ Detectado!\n👤 @${authorId.split('@')[0]}\n📝 Motivo: ${reason}${mod.remover ? '' : '\nℹ️ (Remoção desativada — apenas aviso)'}`;
+          const notify = `🛡️ *AutoMod WarriorBlack*${grpName}\\n\\n⚠️ Detectado!\\n👤 @${authorId.split('@')[0]}\\n📝 Motivo: ${reason}${mod.remover ? '' : '\\nℹ️ (Remoção desativada — apenas aviso)'}`;
+          // Cita a mensagem detectada (reply de verdade, marca a msg original)
+          const quotedId = msg?.id?._serialized;
+          const sendOpts: any = { mentions: [authorId] };
+          if (quotedId) sendOpts.quotedMessageId = quotedId;
           if (typeof (client as any).sendMessage === 'function') {
-            await (client as any).sendMessage(groupId, notify, { mentions: [authorId] });
+            await (client as any).sendMessage(groupId, notify, sendOpts);
           } else if (chat) {
-            await chat.sendMessage(notify, { mentions: [authorId] });
+            await chat.sendMessage(notify, sendOpts);
           }
         } catch (err: any) {
           console.error(`❌ [AutoMod] Erro ao notificar detecção: ${err.message}`);
