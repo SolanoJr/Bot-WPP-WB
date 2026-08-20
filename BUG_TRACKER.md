@@ -1040,3 +1040,38 @@ BR com link normal → não pega (antilink cuida do link se ligado, só avisa/3-
 
 **Última Atualização:** 2026-08-19
 **Responsável:** WarriorBlack / Hermes
+
+---
+
+## BUG 41 (2026-08-20): WPP cai sozinho (Chromium travado) e não reconecta — bot "morre"
+
+**Sintoma:** Dono relata "sempre que volto pra casa o bot não funciona". Na prática: o Chromium do WWebJS trava no splash (swiftshader) ou a sessão cai silenciosamente, o WPP fica `isReady=false`, e o bot para de responder. `pm2` (autorestart:true) não mata porque o processo node segue vivo (só o Chrome interno morre). Exigia `pm2 delete + start` manual.
+
+**Causa:** Não havia watchdog. O `disconnected` handler reconecta, mas Chromium travado no splash NÃO emite `disconnected` — ele só para de responder. E `restartOnAuthFail` só cobre auth fail, não travamento.
+
+**Correção (2026-08-20):** Adicionado `setupWatchdog()` no `WhatsAppAdapter`:
+- Checa a cada 1min: se `!isReady` e >5min sem qr/ready → Chromium travado → `forceReconnect('chromium-travado')`.
+- Se `!isReady` e >30min sem atividade → `forceReconnect('desconectado')`.
+- Se `isReady` mas >30min sem mensagens → WPP mudo → `forceReconnect('inatividade')`.
+- `forceReconnect` destroi o client e recria via `connect()` (handlers frescos).
+- Logs de conexão ricos: `[CONEXÃO]` com timestamps para qr/authenticated/auth_failure/loading_screen/initialize.
+- `lastActivityTs` atualizado no `message` handler e no `ready`.
+
+**Status:** Corrigido (watchdog ativo). Validar: deixar o bot rodar e ver se reconecta sozinho após queda.
+
+---
+
+## BUG 42 (2026-08-20): Confusão de logs — pong NÃO era reply de terceiro
+
+**Sintoma:** Selftest mandou `$ping` como o próprio bot → `ctx.reply` enviou o pong (via wrapper `sendMessage` do adapter, pois `adapter.client = this`). Log mostrou o pong saindo. Mas dono mandou `$ping` depois e não teve resposta → bot já tinha caído (BUG 41).
+
+**Causa:** O `ctx.reply` usa `client.sendMessage` onde `client = adapter.client = this` (o adapter), então chama o wrapper. Funciona. O "não reply" que o dono viu foi na verdade o WPP caído (BUG 41), não bug de reply.
+
+**Correção:** Esclarecido + BUG 41 corrigido (watchdog evita queda). O reply em si está OK (pong provou).
+
+**Status:** Esclarecido. Reply funciona; queda era o BUG 41.
+
+---
+
+**Última Atualização:** 2026-08-20
+**Responsável:** WarriorBlack / Hermes

@@ -39,6 +39,9 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
   public userId = '';
   public userName = '';
   public isReady = false;
+  private lastActivityTs = Date.now();
+  private lastConnectAttemptTs = Date.now();
+  private watchdogTimer: ReturnType<typeof setInterval> | null = null;
   /** Diretório de sessão isolado (multi-número). Se omitido, usa WWEBJS_AUTH_DIR ou .wwebjs_auth. */
   private authDir: string;
 
@@ -70,6 +73,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
    * reconexoes internas do WhatsApp Web que matavam os handlers do client velho.
    */
   private connect(): void {
+    this.lastConnectAttemptTs = Date.now();
     const authPath = path.join(process.cwd(), this.authDir);
     if (!fs.existsSync(authPath)) {
       fs.mkdirSync(authPath, { recursive: true });
@@ -120,7 +124,28 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
 
     this.setupEventHandlers();
     this.registerMessageHandlers();
+
+    // ===== LOGS DE CONEXÃO RICOS (distinguir onde o WPP trava) =====
+    this.innerClient.on('qr', (qr: string) => {
+      console.log(`[CONEXÃO][${new Date().toISOString()}] 📱 QR Code recebido — escaneie para autenticar.`);
+      try { qrcode.generate(qr, { small: true }); } catch {}
+    });
+    this.innerClient.on('authenticated', () => {
+      console.log(`[CONEXÃO][${new Date().toISOString()}] ✅ Autenticado (sessão LocalAuth restaurada ou novo login).`);
+    });
+    this.innerClient.on('auth_failure', (reason: string) => {
+      console.error(`[CONEXÃO][${new Date().toISOString()}] ❌ AUTH FAILURE: ${reason} — sessão pode estar corrompida.`);
+    });
+    this.innerClient.on('loading_screen', (pct: number, msg: string) => {
+      console.log(`[CONEXÃO][${new Date().toISOString()}] ⏳ Loading ${pct}% — ${msg}`);
+    });
+
+    console.log(`[CONEXÃO][${new Date().toISOString()}] 🚀 Chamando client.initialize() (Chromium deve subir)...`);
     this.innerClient.initialize();
+
+    // ===== WATCHDOG: reconecta o WPP sozinho se ele "morrer" =====
+    // Se o WPP não estiver pronto E não houver atividade há >WATCHDOG_MS, força reconnect.
+    this.setupWatchdog();
 
     // ⏱️ TIMEOUT DE DIAGNÓSTICO: se o WA Web não emitir 'ready' em 240s,
     // algo está errado (Chromium travado, sessão corrompida). Com swiftshader
@@ -137,6 +162,56 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         console.error('────────────────────────────────────────────────────────');
       }
     }, 240000);
+  }
+
+  /**
+   * WATCHDOG: detecta o WPP "morto" e força reconexão sozinho (sem pm2 restart manual).
+   * Casos:
+   *  - Chromium travado no splash (não emite qr nem ready após 300s do initialize)
+   *  - WPP desconecta silenciosamente (isReady=false e sem atividade há >WATCHDOG_DEAD_MS)
+   *  - Loop infinito de reconexão (evita ficar restartando sem parar)
+   */
+  private setupWatchdog(): void {
+    if (this.watchdogTimer) return;
+    const WATCHDOG_DEAD_MS = 30 * 60 * 1000; // 30min sem atividade => considera morto
+    const WATCHDOG_INIT_MS = 300 * 1000;      // 5min sem qr/ready após initialize => Chromium travado
+
+    this.watchdogTimer = setInterval(() => {
+      try {
+        const now = Date.now();
+        const sinceActivity = now - this.lastActivityTs;
+        const sinceConnect = now - this.lastConnectAttemptTs;
+
+        if (this.isReady) {
+          // Pronto: só alerta se ficou MUITO tempo sem nenhuma mensagem (WPP mudo)
+          if (sinceActivity > WATCHDOG_DEAD_MS) {
+            console.error(`[WATCHDOG] WPP está 'ready' mas sem atividade há ${(sinceActivity/60000)|0}min. Reconectando...`);
+            this.forceReconnect('inatividade');
+          }
+          return;
+        }
+
+        // Não está ready:
+        if (sinceConnect > WATCHDOG_INIT_MS) {
+          console.error(`[WATCHDOG] WPP não deu ready nem QR em ${(sinceConnect/1000)|0}s desde o initialize — Chromium provavelmente travado. Reconectando...`);
+          this.forceReconnect('chromium-travado');
+        } else if (sinceActivity > WATCHDOG_DEAD_MS) {
+          console.error(`[WATCHDOG] WPP caiu (sem atividade há ${(sinceActivity/60000)|0}min). Reconectando...`);
+          this.forceReconnect('desconectado');
+        }
+      } catch (e: any) {
+        console.error(`[WATCHDOG] erro no loop: ${e?.message}`);
+      }
+    }, 60 * 1000); // checa a cada 1min
+  }
+
+  private forceReconnect(reason: string): void {
+    console.error(`[WATCHDOG] forceReconnect(${reason}) — destruindo client e recriando...`);
+    try { this.innerClient?.destroy?.(); } catch {}
+    this.isReady = false;
+    this.lastConnectAttemptTs = Date.now();
+    // reconecta limpo (recria Client com handlers frescos)
+    setTimeout(() => this.connect(), 2000);
   }
 
 
@@ -194,6 +269,8 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       // Cancela o timeout de diagnóstico (conexão realmente estabelecida)
       if (this.readyTimeout) { clearTimeout(this.readyTimeout); this.readyTimeout = null; }
       this.isReady = true;
+      this.lastActivityTs = Date.now();
+      this.lastConnectAttemptTs = Date.now();
       this.userId = this.innerClient.info?.wid._serialized || '';
       this.userName = this.innerClient.info?.pushname || 'Bot-WPP';
       console.log(`[WhatsApp] ✅ Pronto como ${this.userName} (${this.userId})`);
@@ -348,6 +425,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     this.innerClient.removeAllListeners?.('message_create');
 
     this.innerClient.on('message', async (msg: Message) => {
+      this.lastActivityTs = Date.now();
       console.log('[WhatsAppAdapter] Mensagem recebida - msg:', !!msg, 'msg.from:', msg?.from, 'msg.author:', msg?.author);
       // Auditoria: confirma se o bot está lendo msgs de TERCEIROS (não só as próprias)
       if (msg?.from && !msg?.fromMe && msg?.author && !String(msg.author).includes('558581344211')) {
