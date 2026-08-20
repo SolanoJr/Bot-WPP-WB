@@ -41,6 +41,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
   public isReady = false;
   private lastActivityTs = Date.now();
   private lastConnectAttemptTs = Date.now();
+  private qrPending = false;
   private watchdogTimer: ReturnType<typeof setInterval> | null = null;
   /** Diretório de sessão isolado (multi-número). Se omitido, usa WWEBJS_AUTH_DIR ou .wwebjs_auth. */
   private authDir: string;
@@ -127,10 +128,12 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
 
     // ===== LOGS DE CONEXÃO RICOS (distinguir onde o WPP trava) =====
     this.innerClient.on('qr', (qr: string) => {
+      this.qrPending = true;
       console.log(`[CONEXÃO][${new Date().toISOString()}] 📱 QR Code recebido — escaneie para autenticar.`);
       try { qrcode.generate(qr, { small: true }); } catch {}
     });
     this.innerClient.on('authenticated', () => {
+      this.qrPending = false;
       console.log(`[CONEXÃO][${new Date().toISOString()}] ✅ Autenticado (sessão LocalAuth restaurada ou novo login).`);
     });
     this.innerClient.on('auth_failure', (reason: string) => {
@@ -143,8 +146,8 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     console.log(`[CONEXÃO][${new Date().toISOString()}] 🚀 Chamando client.initialize() (Chromium deve subir)...`);
     this.innerClient.initialize();
 
-    // ===== WATCHDOG: desligado temporariamente (BUG: destruía sessão antes do scan do QR) =====
-    // this.setupWatchdog();
+    // ===== WATCHDOG: reconecta o WPP sozinho se ele "morrer" (respeita QR pendente) =====
+    this.setupWatchdog();
 
     // ⏱️ TIMEOUT DE DIAGNÓSTICO: se o WA Web não emitir 'ready' em 240s,
     // algo está errado (Chromium travado, sessão corrompida). Com swiftshader
@@ -191,6 +194,11 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         }
 
         // Não está ready:
+        if (this.qrPending) {
+          // Há QR pendente: NÃO destruir — deixa o dono escanear. Só avisa.
+          console.log(`[WATCHDOG] QR pendente aguardando scan do dono (não reconecto para não invalidar o QR).`);
+          return;
+        }
         if (sinceConnect > WATCHDOG_INIT_MS) {
           console.error(`[WATCHDOG] WPP não deu ready nem QR em ${(sinceConnect/1000)|0}s desde o initialize — Chromium provavelmente travado. Reconectando...`);
           this.forceReconnect('chromium-travado');
@@ -295,6 +303,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       this.isReady = true;
       this.lastActivityTs = Date.now();
       this.lastConnectAttemptTs = Date.now();
+      this.qrPending = false;
       this.userId = this.innerClient.info?.wid._serialized || '';
       this.userName = this.innerClient.info?.pushname || 'Bot-WPP';
       console.log(`[WhatsApp] ✅ Pronto como ${this.userName} (${this.userId})`);
