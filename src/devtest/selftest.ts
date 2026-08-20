@@ -25,13 +25,7 @@ function log(msg: string): void {
 // OBS: deixar vazio = NÃO dispara selftest (evita o bot encher o grupo sozinho).
 // Comandos de moderação ($mute etc) são testados MANUALMENTE no grupo.
 const LISTA: string[] = [
-  'menu',
-  'forca',
-  'ban',
-  'pergunta',
-  'cantada',
-  'fakechat',
-  'aleatoria',
+  'ping',
 ];
 
 export async function runSelfTestOndeEstou(_adapter: SelfTestAdapter, _alvoTeste: string): Promise<void> {
