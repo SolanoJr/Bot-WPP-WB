@@ -143,9 +143,8 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     console.log(`[CONEXÃO][${new Date().toISOString()}] 🚀 Chamando client.initialize() (Chromium deve subir)...`);
     this.innerClient.initialize();
 
-    // ===== WATCHDOG: reconecta o WPP sozinho se ele "morrer" =====
-    // Se o WPP não estiver pronto E não houver atividade há >WATCHDOG_MS, força reconnect.
-    this.setupWatchdog();
+    // ===== WATCHDOG: desligado temporariamente (BUG: destruía sessão antes do scan do QR) =====
+    // this.setupWatchdog();
 
     // ⏱️ TIMEOUT DE DIAGNÓSTICO: se o WA Web não emitir 'ready' em 240s,
     // algo está errado (Chromium travado, sessão corrompida). Com swiftshader
