@@ -258,8 +258,9 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     try {
       const ownerId = process.env.MASTER_USER || '5588998314322@c.us';
       await this.innerClient.sendMessage(ownerId, text);
+      console.log(`[notifyOwner] ✅ alerta enviado ao dono (${ownerId}): ${text.slice(0, 40)}`);
     } catch (e: any) {
-      console.error(`[notifyOwner] falha ao avisar dono: ${e?.message}`);
+      console.error(`[notifyOwner] ❌ falha ao avisar dono: ${e?.message}`);
     }
   }
 
@@ -414,6 +415,10 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         (global as any).__selftestFallbackRan = true;
         setTimeout(() => runSelfTestMod(this, alvoTeste).catch(() => {}), 30000);
       }
+
+      // Alerta o dono que o WPP reconectou (garante mesmo em sessão restaurada
+      // onde o 'ready' não dispara — BUG 43/45 healthcheck pró-ativo)
+      this.notifyOwner(`✅ *WPP reconectado* como ${this.userName}. Bot operante.`).catch(() => {});
 
       // AUTO-TESTE em produção (kit do Hermes em src/devtest/selftest.ts — NÃO apagar).
       // Roda a lista de comandos (1x cada) no grupo teste, sem encher (1 por vez, espaçado).
