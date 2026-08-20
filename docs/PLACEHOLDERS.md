@@ -1,71 +1,106 @@
 # PLACEHOLDERS — comandos/utilitários/automações incompletos ou pendentes
 
-> Criado em 2026-08-19. Lista tudo que está em estado de PLACEHOLDER (não funcional ou parcial)
-> e as pendências que o dono costuma adiar ("depois vemos", "deixa por último").
-> Mantido em sincronia com `COMANDOS_PUBLICOS.md` / `COMANDOS_OCULTOS.md`.
+> Última atualização: 2026-08-20. Mantido em sincronia com COMANDOS_PUBLICOS.md / COMANDOS_OCULTOS.md.
+> Tudo que existe de incompleto OU que o dono anotou como "depois vemos" está aqui.
 > Itens removidos do menu estão marcados com ❌ MENU.
 
-Legenda: 🔶 PLACEHOLDER (não funcional) · 🔧 PARCIAL (funciona parcialmente) · ⏳ PENDENTE (a fazer)
+Legenda: 🔶 PLACEHOLDER (não funcional) · 🔧 PARCIAL · ⏳ PENDENTE (criar) · ✅ TESTAR (existe, falta validar)
 
 ---
 
-## 1. AUTOMAÇÕES ANTI-X (por tipo de mídia/conteúdo)
-
-> Objetivo: cada um é um toggle em `group_mod` (igual `antibotas`/`antilink`) que, quando ligado,
-> apaga a mensagem do tipo e conta infração (3 strikes → kick, nunca ban, exceto bot).
-> Hoje NENHUMA dessas existe no código — são esqueletos a criar.
-
-| Toggle | O que deveria fazer | Como usaria | Status |
-|--------|---------------------|-------------|--------|
-| `$anti-audio` | Apaga áudios (PTT/áudio) do grupo | `$anti-audio on/off` | 🔶 PLACEHOLDER |
-| `$anti-imagem` | Apaga imagens enviadas | `$anti-imagem on/off` | 🔶 PLACEHOLDER |
-| `$anti-figurinha` | Apaga stickers (figurinhas) | `$anti-figurinha on/off` | 🔶 PLACEHOLDER |
-| `$anti-card` | Apaga cards interativos (botões/poll invisível) | `$anti-card on/off` | 🔶 PLACEHOLDER (WA limita leitura de card — ver AI_HANDOFF.md) |
-| `$anti-enquete` | Apaga enquetes (polls) | `$anti-enquete on/off` | 🔶 PLACEHOLDER |
-| `$anti-video` | Apaga vídeos | `$anti-video on/off` | 🔶 PLACEHOLDER |
-| `$anti-localização` | Apaga compartilhamento de localização | `$anti-localização on/off` | 🔶 PLACEHOLDER |
-| `$antibutton` | Apaga mensagens com botões (interativas) | `$antibutton on/off` | 🔶 PLACEHOLDER |
-| `$anti-gif` | Apaga GIFs animados | `$anti-gif on/off` | 🔶 PLACEHOLDER |
-
-**Notas técnicas:**
-- O WWebJS entrega o tipo em `msg.type` (`chat`, `audio`, `image`, `sticker`, `video`, `poll`, `location`, `ptt`, `buttons`, `list`, `document`, etc).
-- O `processAutoMod` já tem o esqueleto de REGRAS; basta adicionar uma REGRA por tipo que checa `msg.type` e o toggle correspondente.
-- `anti-card`/`antibutton` esbarram na limitação do Store do WA Web com contas `@lid` (cards não materializam no `Msg.byChat`) — investigado no card MI065085 (AI_HANDOFF.md). Pode precisar de abordagem via `message_create` + `_data`.
+## 1. CORRIGIR + TESTAR (já existe no código, falta validar 1 por vez)
+| Comando | Arquivo | Status |
+|---------|---------|--------|
+| `$forca` | forca.ts | ✅ TESTAR |
+| `$ban` | ban.ts | ✅ TESTAR |
+| `$pergunta` (Gemini) | pergunta.ts | ✅ TESTAR |
+| sarcasmo | keywordHandler.ts | ✅ TESTAR (já corrigido p/ não pegar o bot) |
+| `$cantada` | cantada.ts | ✅ TESTAR |
+| `$fakechat` | fakechat.ts | ✅ TESTAR |
+| `$aleatoria` | aleatoria.ts | ✅ TESTAR |
+| pergunta/responder glr com IA | pergunta.ts (gemini) | ✅ TESTAR / estender p/ responder grupo |
 
 ---
 
-## 2. COMANDOS PLACEHOLDER (no código, mas não funcionais)
+## 2. ANTI-X (por tipo de mídia) — NENHUM existe hoje
+Toggle em `group_mod` que, ligado, apaga a mídia e conta infração (3 strikes → kick, nunca ban, exceto bot).
+| Toggle | O que faz | Sintaxe | Status |
+|--------|-----------|---------|--------|
+| `$anti-audio` | apaga áudios/PTT | `$anti-audio on/off` | 🔶 |
+| `$anti-imagem` | apaga imagens | `$anti-imagem on/off` | 🔶 |
+| `$anti-figurinha` | apaga stickers | `$anti-figurinha on/off` | 🔶 |
+| `$anti-card` | apaga cards interativos | `$anti-card on/off` | 🔶 (WA limita leitura de card — ver AI_HANDOFF) |
+| `$anti-enquete` | apaga polls | `$anti-enquete on/off` | 🔶 |
+| `$anti-video` | apaga vídeos | `$anti-video on/off` | 🔶 |
+| `$anti-localização` | apaga localização | `$anti-localização on/off` | 🔶 |
+| `$antibutton` | apaga msgs com botões | `$antibutton on/off` | 🔶 |
+| `$anti-gif` | apaga GIFs | `$anti-gif on/off` | 🔶 |
 
-| Comando | Sintaxe hoje | O que deveria fazer | Status |
-|---------|--------------|---------------------|--------|
-| `$alarme` | `$alarme` | Definir alarme recorrente/pontual que o bot avisa | 🔶 PLACEHOLDER ❌ MENU (`msg.reply('ainda não implementado')`) |
-| `$lembrete` | `$lembrete` | Criar lembrete com tempo que o bot avisa depois | 🔶 PLACEHOLDER ❌ MENU |
-| `$nick` | `$nick` | Alterar apelido de alguém no grupo | 🔶 PLACEHOLDER ❌ MENU |
-| `$sorteio` | `$sorteio` | Sortear participantes do grupo | 🔶 PLACEHOLDER ❌ MENU (aparece em JOGOS) |
-| `$addcmd` | `$addcmd <groupId> <texto>` | Adicionar comando customizado com resposta | 🔧 PARCIAL ❌ MENU (só salva texto, não tem resposta associada) |
-
----
-
-## 3. PENDÊNCIAS "DEPOIS VEMOS" (que o dono adia)
-
-| Pendência | Por que está pendente | Status |
-|-----------|----------------------|--------|
-| **Boas-vindas de reentrada** | `handleMemberJoin` tem `// TODO: implementar storage de histórico de membros` (adapter linha 546/549). Hoje sempre manda "Bem-vindo" mesmo quem já estava. | ⏳ PENDENTE (bem-vindo fica por último, conforme dono) |
-| **Card MI065085 (Figurinhas)** | Investigação de apagar card de cassino. FASE 4 concluída: não localizado nos mecanismos, Store.Chats inexistente. Não provado impossível. | ⏳ ABERTO (ver AI_HANDOFF.md / CARD_PENDING.md) |
-| **Histórico de membros** | Necessário p/ bem-vindo de volta e p/ antibots detectar reentrada. Não implementado. | ⏳ PENDENTE |
-| **Multi-plataforma (Telegram/Discord) espelhamento** | Adapters existem mas com stubs (Discord só sendMessage). Não validado ao vivo. | ⏳ PENDENTE (não testado) |
-| **Comando `$votar`/`$voto`/`$delvoto`** | No menu? Pendente de revisão (vários comandos de voto). | ⏳ PENDENTE |
-| **Comandos de boas-vindas (vários)** | Dono quer rever/listar comandos de welcome (bemvindo/setwelcome/reentrada). | ⏳ PENDENTE (por último) |
+**Nota:** melhorar palavras/frases de aposta (cassino/aposta) p/ apagar msg — MAS não apagar quem só fala "cassino" sem link de aposta (complexo, anotado p/ ver depois).
 
 ---
 
-## Como implementar um placeholder (guia p/ próxima sessão)
+## 3. COMANDOS PLACEHOLDER (no código, não funcionais) ❌ MENU
+| Comando | Hoje | O que deveria | Status |
+|---------|------|---------------|--------|
+| `$alarme` | stub "ainda não implementado" | definir alarme recorrente | 🔶 |
+| `$lembrete` | stub | criar lembrete com tempo | 🔶 |
+| `$nick` | stub | alterar apelido | 🔶 |
+| `$sorteio` | stub | sortear participantes | 🔶 |
+| `$addcmd` | parcial (só salva texto) | comando customizado c/ resposta | 🔧 |
 
-1. Adicionar campo em `GroupModConfig` (`databaseService.ts`) + `MOD_FIELDS` + `statusLine` + `ALIASES` em `modToggle.ts`.
-2. Adicionar REGRA no `processAutoMod` (checar `msg.type` + toggle) OU comando em `src/bot/commands/`.
-3. Registrar em `index.ts`.
-4. Se for toggle de mídia: contar infração em DB (3 strikes) usando `recordInfraction`/`infractions.ts`.
-5. Atualizar `COMANDOS_PUBLICOS.md` (✅ quando测试ado) e remover daqui.
+---
 
-**Última Atualização:** 2026-08-19
-**Responsável:** WarriorBlack / Hermes
+## 4. CRIAR — ZOEIRA / ENGAJAMENTO (pra gente que nunca falou no grupo)
+> Todos são "zoeira" pra gerar engajamento. Vamos devagar, sem IA em tudo.
+| Comando | Definição do dono | Como funcionaria | Status |
+|---------|-------------------|------------------|--------|
+| `$ppt` | pedra-papel-tesoura contra o bot | `$ppt pedra` → resultado | ⏳ |
+| roleta-russa | "tiro" = ser removido do grupo | `$roleta` → 1/6 chance de kick (zoeira) | ⏳ |
+| reações | reagir emoji em msgs | `$reagir` ou auto-react | ⏳ |
+| reações em palavras | auto-react quando falam X | palavra-gatilho → emoji | ⏳ |
+| marcar resposta (reply) | sempre que citam bot/falam "bot"/comando/aviso | já parcial (bot replya comandos) | 🔧 |
+| `$quiz` | perguntas | `$quiz` | ⏳ |
+| criação de sticker | imagem→sticker | `$sticker` (baixa img, converte) | ⏳ |
+| "qm é o mais (adjetivo)" | frases aleatórias c/ membros | `$mais "gostoso"` → "@X é mais gostoso que @Y" | ⏳ |
+| aleatório + % | "porcentagem de inteligência" | `$porcentagem @fulano` ou `$aleatorio adjetivo` | ⏳ |
+| avaliação do @ | "analise meu nariz" | `$avaliar @fulano` / `$analise <coisa>` (zoeira) | ⏳ |
+| ranquear aleatórios | top 10 aleatórios | `$rank "mais nonito"` | ⏳ |
+| `$takefoto` | pede foto, bot manda meme "ficou lindo" | `$foto` → img aleatória da net | ⏳ |
+| `$bomdia` | resumo das 09h | **resumo por grupo**: ex. grupo geek → principais notícias geek daquele tipo p/ aquele grupo | ⏳ |
+| `$resumo` | resumo da conversa | resumo das msgs recentes do grupo | ⏳ |
+
+---
+
+## 5. MODERAÇÃO EXTRA (warning/unban/admins)
+| Comando | O que faz | Status |
+|---------|-----------|--------|
+| `$warning` | dar aviso (infração leve) | ⏳ |
+| `$unban` | desbanir | ⏳ |
+| `$admins` | listar admins do grupo e do bot | ⏳ |
+
+---
+
+## 6. GERENCIAR SESSÕES
+| Comando | O que faz | Status |
+|---------|-----------|--------|
+| `$addsession <numero>` | adicionar sessão/número do bot | ⏳ (suspeita: multi-número via WPP_SESSIONS) |
+| `$sessions` | listar sessões ativas | ⏳ |
+
+---
+
+## 7. PENDÊNCIAS "DEPOIS VEMOS" (anotadas, não fazer hoje)
+- bem-vindo de reentrada (histórico de membros — TODO no adapter)
+- card MI065085 (AI_HANDOFF / CARD_PENDING)
+- multi-plataforma espelhada (TG/Discord stubs)
+- melhorar detecção de aposta sem falsos positivos (só falar "cassino" não apaga)
+- comandos de boas-vindas (bemvindo/setwelcome/reentrada) — por último
+
+---
+
+## Guia p/ implementar (próxima sessão)
+1. Toggle de mídia: campo em `GroupModConfig` + `MOD_FIELDS` + `statusLine` + `ALIASES` (modToggle.ts).
+2. REGRA no `processAutoMod` checando `msg.type` + toggle; contar infração em DB (3 strikes).
+3. Comando zoeira: arquivo em `src/bot/commands/`, registrar em `index.ts`, sintaxe no COMANDOS_PUBLICOS.md.
+4. `$bomdia`/`$resumo`: criar job cron ou comando que lê histórico do grupo (fetchMessages) e monta resumo (IA opcional).
+5. Ao implementar, remover daqui e marcar ✅ no COMANDOS_PUBLICOS.md.
