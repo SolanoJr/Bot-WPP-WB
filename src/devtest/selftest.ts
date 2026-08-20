@@ -36,16 +36,13 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
   if ((global as any).__selftestModRan) return;
   (global as any).__selftestModRan = true;
 
-  // SELFTEST de comando: manda APENAS 1 comando como terceiro (não enche o grupo).
-  const COMANDO_TERCEIRO = 'ping';
-  if (COMANDO_TERCEIRO) {
-    try {
-      log(`[SIM] simulando $${COMANDO_TERCEIRO} como TERCEIRO no grupo teste`);
-      await (adapter as any).simulateThirdPartyCommand('558899855554@c.us', COMANDO_TERCEIRO);
-      await new Promise((r) => setTimeout(r, 2000));
-    } catch (e: any) {
-      log(`[SIM] erro ao simular $${COMANDO_TERCEIRO}: ${e?.message}`);
-    }
+  // SELFTEST: o BOT digita $ping de verdade no grupo teste (mensagem real no chat).
+  try {
+    log(`[SELFTEST] bot digitando $ping no grupo teste`);
+    await adapter.sendMessage(alvoTeste, '$ping');
+    await new Promise((r) => setTimeout(r, 3000));
+  } catch (e: any) {
+    log(`[SELFTEST] erro ao mandar $ping: ${e?.message}`);
   }
 
   // Sarcasmo: valida EM MEMÓRIA (fakeReply local, não manda no grupo).
