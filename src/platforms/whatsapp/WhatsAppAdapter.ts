@@ -255,13 +255,18 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
 
   /** Envia uma mensagem de alerta para o dono (MASTER) via WPP. */
   async notifyOwner(text: string): Promise<void> {
-    const ownerId = process.env.MASTER_USER || '5588998314322@c.us';
+    // Prefere MASTER_LID (formato que o WPP moderno aceita, igual à msg de prova).
+    // CAI no MASTER_USER se não definido. Timeout de 5s evita promise pendurada.
+    const ownerId = process.env.MASTER_LID || process.env.MASTER_USER || '5588998314322@c.us';
     console.log(`[notifyOwner] 📤 chamado para ${ownerId}: ${text.slice(0, 30)}`);
     try {
-      await this.innerClient.sendMessage(ownerId, text);
+      await Promise.race([
+        this.innerClient.sendMessage(ownerId, text),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 5s')), 5000)),
+      ]);
       console.log(`[notifyOwner] ✅ alerta enviado ao dono (${ownerId}): ${text.slice(0, 40)}`);
     } catch (e: any) {
-      console.error(`[notifyOwner] ❌ falha ao avisar dono: ${e?.message}`);
+      console.error(`[notifyOwner] ❌ falha ao avisar dono (${ownerId}): ${e?.message}`);
     }
   }
 
