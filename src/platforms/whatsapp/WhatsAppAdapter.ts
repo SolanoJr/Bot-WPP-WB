@@ -227,9 +227,16 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
    */
   async simulateThirdPartyCommand(authorId: string, cmd: string): Promise<void> {
     const chatId = process.env.WPP_TEST_GROUP_ID || '120363410094452673@g.us';
-    const id = `sim_${Date.now()}`;
+    // Busca uma mensagem REAL do grupo para usá-la como citada (prova o quote/reply de verdade)
+    let quotedId: string | undefined;
+    try {
+      const chat = await this.innerClient.getChatById(chatId);
+      const msgs = await chat.fetchMessages({ count: 1 });
+      if (msgs && msgs[0]?.id?._serialized) quotedId = msgs[0].id._serialized;
+    } catch { /* ignora */ }
+    const id = quotedId || `sim_${Date.now()}`;
     const fakeMsg: any = {
-      id,
+      id: `wpp:${id}`,
       platform: 'whatsapp',
       chatId: `wpp:${chatId}`,
       userId: `wpp:${authorId}`,
@@ -242,7 +249,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       raw: { react: async () => {}, id: { _serialized: id } },
       timestamp: Date.now(),
     };
-    console.log(`[SELFTEST-SIM] mandando $${cmd} como TERCEIRO ${authorId}`);
+    console.log(`[SELFTEST-SIM] mandando $${cmd} como TERCEIRO ${authorId} (citando msg real ${id})`);
     if (this.messageHandler) await this.messageHandler(fakeMsg);
   }
 

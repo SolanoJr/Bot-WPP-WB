@@ -36,9 +36,8 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
   if ((global as any).__selftestModRan) return;
   (global as any).__selftestModRan = true;
 
-  // SELFTEST de comando: DESLIGADO por padrão (não enche o grupo teste).
-  // Para testar 1 comando como terceiro, defina COMANDO_TERCEIRO (ou use simulateThirdPartyCommand manualmente).
-  const COMANDO_TERCEIRO = '';
+  // SELFTEST de comando: manda APENAS 1 comando como terceiro (não enche o grupo).
+  const COMANDO_TERCEIRO = 'ping';
   if (COMANDO_TERCEIRO) {
     try {
       log(`[SIM] simulando $${COMANDO_TERCEIRO} como TERCEIRO no grupo teste`);
