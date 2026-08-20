@@ -98,6 +98,31 @@ Toggle em `group_mod` que, ligado, apaga a mídia e conta infração (3 strikes 
 
 ---
 
+## 8. SEGURANÇA & PENDÊNCIAS TÉCNICAS (A FAZER DEPOIS)
+> Itens críticos de segurança/infra que NÃO podem ficar esquecidos.
+
+### 🔴 Rotação de tokens/chaves (URGENTE — segurança)
+- **Motivo:** tokens/chaves foram expostos fora do `.env` em algum momento (histórico). Risco de uso indevido.
+- [ ] **Telegram:** rotacionar `TELEGRAM_BOT_TOKEN` no BotFather → atualizar `.env` do Linux (`/home/solanojr/bot-wpp/.env`) → `pm2 restart`.
+- [ ] **Discord:** regenerar token do bot no Discord Dev Portal → atualizar `.env`.
+- [ ] **Gemini:** nova `GEMINI_API_KEY` no Google AI Studio → atualizar `.env`.
+- [ ] **Tailscale:** `tailscale logout` + `login` ou regenerar auth key.
+- [ ] **SSH:** trocar chaves do servidor Linux (se expostas).
+- [ ] **GitHub:** rotacionar token/PAT se usado em scripts.
+- ⚠️ Fazer 1 por vez, testando o bot após cada um.
+
+### 🟡 Infra / saúde
+- [ ] `npm audit fix` em branch separada (8 vulns, 1 crítica) + build/test antes de merge.
+- [ ] **Healthcheck WPP:** endpoint/alert que diferencie "PM2 online" de "WPP realmente conectado" (logs `[CONEXÃO]` já mostram fase; falta alerta pró-ativo).
+- [ ] Investigar o que mandou `SIGINT` repetidamente no histórico (10h-13h) — confirmar se foi só deploy do Hermes ou há script externo.
+- [ ] `bot-wpp-sync.service` (systemd) — confirmar se está ativo e se é ele quem faz restart automático (pode conflitar com o watchdog).
+
+### 🟢 Validações pendentes (comandos)
+- `$antiestrangeiro` (⬜), `$antibots on/off` ao vivo (⬜), `$forca` (⬜), `$ban` (⬜), `$pergunta` (⬜), sarcasmo (⬜), `$cantada` (⬜), `$fakechat` (⬜), `$aleatoria` (⬜).
+- Testar 1 por vez, isolado, no grupo teste (não encher o grupo).
+
+---
+
 ## Guia p/ implementar (próxima sessão)
 1. Toggle de mídia: campo em `GroupModConfig` + `MOD_FIELDS` + `statusLine` + `ALIASES` (modToggle.ts).
 2. REGRA no `processAutoMod` checando `msg.type` + toggle; contar infração em DB (3 strikes).

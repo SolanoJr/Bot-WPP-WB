@@ -1085,6 +1085,12 @@ BR com link normal → não pega (antilink cuida do link se ligado, só avisa/3-
 - **Problema 6:** Comandos não respondiam — `multiPlatform.ts` nunca chamava `platformManager.startAll()` (handler nunca registrado). Corrigido: `await platformManager.startAll()`.
 - **Status:** Resolvido (histórico, mantido p/ não reincidir).
 
+## BUG 45 (2026-08-20): Queda silenciosa no almoço — watchdog passivo falhava
+- **Sintoma:** Bot ficou PRONTO às 15:14 (log prova envio ok). Dono foi almoçar (grupo quieto). Ao voltar (~16h) o bot estava morto; reconectou só às 15:45. Log NÃO mostrou `[WATCHDOG]` nem `SIGINT` nem erro — Chromium travou silenciosamente.
+- **Causa:** watchdog antigo era PASSIVO: checava só `lastActivityTs` (atualizado só em mensagens). Com grupo quieto, `isReady=true` + `lastActivityTs` não mudava → watchdog entrava no `if(isReady)` e só agia após 30min de inatividade, MAS o Chromium já tinha travado (sem evento `disconnected`). Resultado: 30min mudo até talvez agir, e na prática não logou (prova que o node foi relogado por OUTRA causa ou o interval não detectou a travada).
+- **Correção (commit 54d105a):** watchdog agora faz **SONDA ATIVA** a cada 1min quando `isReady`: chama `innerClient.getWWebVersion()` (com timeout 4s) + checa `pupPage.isClosed()`. Se a sonda falha → `forceReconnect('sonda-falhou')`. Reduzido `WATCHDOG_DEAD_MS` 30→10min e `WATCHDOG_INIT_MS` 5→3min. Adicionado log de ciclo a cada 5min (`[WATCHDOG] ciclo N — isReady=...`) para saber se o loop roda. `setInterval` com `unref()` para não prender o exit.
+- **Status:** Corrigido. Validar: deixar o bot quieto 10min e ver se reconecta sózinho (log `[WATCHDOG]` deve aparecer).
+
 ---
 
 **Última Atualização:** 2026-08-20
