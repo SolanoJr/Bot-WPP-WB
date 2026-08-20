@@ -190,6 +190,8 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       try {
         cycle++;
         if (cycle % 5 === 0) console.log(`[WATCHDOG] ciclo ${cycle} — isReady=${this.isReady} sinceAct=${((Date.now()-this.lastActivityTs)/1000)|0}s qrPending=${this.qrPending}`);
+        // Mantém o healthStore fresco para o /health do metricsService
+        this.getHealth();
         const now = Date.now();
         const sinceActivity = now - this.lastActivityTs;
         const sinceConnect = now - this.lastConnectAttemptTs;
@@ -370,6 +372,8 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
 
       // Alerta o dono que o WPP reconectou (healthcheck pró-ativo — BUG 43/45)
       this.notifyOwner(`✅ *WPP reconectado* como ${this.userName}. Bot operante.`).catch(() => {});
+      // Atualiza o healthStore (usado pelo /health do metricsService)
+      this.getHealth();
       
       // O AutoMod agora é processado via messageHandler.ts para maior controle
       console.log('[WhatsApp] 🛡️ Sistema de AutoMod (via Handler) pronto');
