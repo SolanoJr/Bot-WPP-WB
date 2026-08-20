@@ -13,7 +13,7 @@
 | $antispam | `$antispam on/off` | Liga/desliga o bloqueio de SPAM/CASSINO. **Ligado = bot age contra spam**; **desligado = permite spam** | ✅ OK | 19/08 | Dono testou on/off; comportamento confere |
 | Proteção MASTER/bot | (automática) | Nenhum comando/kick/ban/mute/AutoMod/troll age no dono (88998314322/@lid) nem no bot | ✅ OK | 19/08 | Implementado em permissions + AutoMod + keywordHandler |
 | $antiestrangeiro | `$antiestrangeiro on/off` | Remove QUALQUER estrangeiro (DDI não-BR) na entrada | ⬜ | | Código OK + DESLIGADO em todos os grupos (não testado ao vivo) |
-| $antibotas | `$antibotas on/off` | Remove/BANI bots: prefixo de nome/número conhecido OU estrangeiro+link/card | ⬜ | | Código OK + LIGADO em todos; falta evento real de bot entrar p/ validar |
+| $antibots | `$antibots on/off` (alias: `$antibotas`) | Remove/BANI bots: prefixo de nome/número conhecido OU estrangeiro+link/card | ⬜ | | Código OK + LIGADO em todos; falta evento real de bot entrar p/ validar |
 | $antilink | `$antilink on/off` | Anti-link: apaga links (REGRA 3) | ⬜ | | Antigo `$autolink` (renomeado p/ padronizar com anti*); aviso marca a msg |
 | $bemvindo | `$bemvindo <texto>` | Define mensagem de boas-vindas | ⬜ | | Código OK; falta entrada real de membro p/ validar envio |
 | $detectar | `$detectar` (ou on/off) | Só AVISA quando detecta (não remove) | ⬜ | | Código OK (usa mod.detectar); falta evento real |

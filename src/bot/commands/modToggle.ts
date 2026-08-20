@@ -9,7 +9,8 @@
  *   $antispam on|off           -> spam/cassino
  *   $antiestrangeiro on|off    -> DDI estrangeiro + 10 min
  *   $antilink on|off           -> antilink (apaga links)
- *   $antibotas on|off          -> bots conhecidos / estrangeiro+link
+ *   $antibots on|off           -> bots conhecidos / estrangeiro+link
+ *   $antibotas on|off          -> (alias de $antibots, retrocompatível)
  *   $bemvindo on|off           -> boas-vindas automáticas
  *   $detectar on|off           -> só avisa quando detecta (não remove)
  *   $remover on|off            -> remove + lista negra + bloqueia
@@ -33,6 +34,7 @@ const ALIASES: Record<string, { field: Field; label: string }> = {
   detectar: { field: 'detectar', label: 'Detectar (avisar)' },
   remover: { field: 'remover', label: 'Remover (banir)' },
   antibotas: { field: 'antibotas', label: 'Anti-Bots' },
+  antibots: { field: 'antibotas', label: 'Anti-Bots' }, // nome padronizado (igual antispam/antilink)
 };
 
 function statusLine(cfg: GroupModConfig): string {
@@ -103,3 +105,4 @@ export const bemvindoModCommand = buildModToggle('bemvindo');
 export const detectarModCommand = buildModToggle('detectar');
 export const removerModCommand = buildModToggle('remover');
 export const antibotasModCommand = buildModToggle('antibotas');
+export const antibotsModCommand = buildModToggle('antibots'); // nome padronizado

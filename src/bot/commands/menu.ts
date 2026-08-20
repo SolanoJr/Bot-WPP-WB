@@ -28,7 +28,7 @@ export const menuCommand: ICommand = {
       `🕒 ${now}  •  ⏱️ ${uptimeStr}  •  📦 ${hash}`,
       ``,
       `🛡️ *ADMIN & MODERAÇÃO*`,
-      `▸ $automod · $antispam · $antiestrangeiro · $antibotas · $antilink · $bemvindo · $detectar · $remover`,
+      `▸ $automod · $antispam · $antiestrangeiro · $antibots · $antilink · $bemvindo · $detectar · $remover`,
       `▸ $kick · $ban · $mute · $banidos · $grupos`,
       ``,
       `👤 *USUÁRIO*`,
