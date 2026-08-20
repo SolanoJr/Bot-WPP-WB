@@ -375,15 +375,18 @@ export class PlatformManager {
           ...options,
           replyToMessageId: options?.replyToMessageId ?? message.id,
         };
-        await client.sendMessage(message.chatId, text, opts);
+        // O message.chatId pode vir com prefixo 'wpp:' — o WWebJS nativo exige sem prefixo.
+        const cleanChat = String(message.chatId).replace(/^(wpp:|tg:|dc:)/, '');
+        await client.sendMessage(cleanChat, text, opts);
       },
       replyPrivate: async (text: string) => {
         // Para WhatsApp, envia no privado do usuário
         // Para Telegram/Discord, envia DM
-        await client.sendMessage(message.userId, text);
+        const cleanUser = String(message.userId).replace(/^(wpp:|tg:|dc:)/, '');
+        await client.sendMessage(cleanUser, text);
       },
-      getChat: () => client.getChat(message.chatId),
-      getUser: () => client.getUser(message.userId),
+      getChat: () => client.getChat(String(message.chatId).replace(/^(wpp:|tg:|dc:)/, '')),
+      getUser: () => client.getUser(String(message.userId).replace(/^(wpp:|tg:|dc:)/, '')),
     };
   }
 
