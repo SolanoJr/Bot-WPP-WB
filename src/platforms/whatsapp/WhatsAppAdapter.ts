@@ -214,6 +214,31 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     setTimeout(() => this.connect(), 2000);
   }
 
+  /**
+   * TESTE: simula uma mensagem de TERCEIRO (author != bot) chegando no dispatcher.
+   * Usado pelo selftest para provar que o ctx.reply responde a terceiros (não só ao próprio bot).
+   */
+  async simulateThirdPartyCommand(authorId: string, cmd: string): Promise<void> {
+    const chatId = process.env.WPP_TEST_GROUP_ID || '120363410094452673@g.us';
+    const id = `sim_${Date.now()}`;
+    const fakeMsg: any = {
+      id,
+      platform: 'whatsapp',
+      chatId: `wpp:${chatId}`,
+      userId: `wpp:${authorId}`,
+      userName: 'TesteTerceiro',
+      text: `$${cmd}`,
+      isGroup: true,
+      fromMe: false,
+      author: authorId,
+      from: chatId,
+      raw: { react: async () => {}, id: { _serialized: id } },
+      timestamp: Date.now(),
+    };
+    console.log(`[SELFTEST-SIM] mandando $${cmd} como TERCEIRO ${authorId}`);
+    if (this.messageHandler) await this.messageHandler(fakeMsg);
+  }
+
 
   private setupEventHandlers(): void {
     this.innerClient.on('qr', (qr: string) => {

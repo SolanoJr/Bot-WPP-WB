@@ -36,16 +36,15 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
   if ((global as any).__selftestModRan) return;
   (global as any).__selftestModRan = true;
 
-  // LISTA: manda cada comando no grupo teste (como se humano tivesse digitado)
-  // para validar que o ctx.reply responde (corrigido prefixo wpp:).
-  for (const cmd of LISTA) {
-    try {
-      log(`[LISTA] mandando $${cmd} no grupo teste`);
-      await adapter.sendMessage(alvoTeste, `$${cmd}`);
-      await new Promise((r) => setTimeout(r, 1500));
-    } catch (e: any) {
-      log(`[LISTA] erro ao mandar $${cmd}: ${e?.message}`);
-    }
+  // LISTA: simula cada comando COMO TERCEIRO (author != bot) para validar ctx.reply.
+  // Testar APENAS 1 comando por vez (dono pediu). Edite a constante abaixo.
+  const COMANDO_TERCEIRO = 'ping';
+  try {
+    log(`[SIM] simulando $${COMANDO_TERCEIRO} como TERCEIRO no grupo teste`);
+    await (adapter as any).simulateThirdPartyCommand('558899855554@c.us', COMANDO_TERCEIRO);
+    await new Promise((r) => setTimeout(r, 2000));
+  } catch (e: any) {
+    log(`[SIM] erro ao simular $${COMANDO_TERCEIRO}: ${e?.message}`);
   }
 
   // Sarcasmo: valida EM MEMÓRIA (fakeReply local, não manda no grupo).
