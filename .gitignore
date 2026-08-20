@@ -48,3 +48,10 @@ build/
 backups/
 config/local.json
 config/production.json
+# 📱 Sessões WPP (variações)
+.wwebjs_auth_v2/
+.wwebjs_auth*/
+
+# 💥 Core dumps
+core
+core.*
