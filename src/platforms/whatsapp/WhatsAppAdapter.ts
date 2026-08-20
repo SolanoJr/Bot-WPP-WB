@@ -175,19 +175,39 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
    */
   private setupWatchdog(): void {
     if (this.watchdogTimer) return;
-    const WATCHDOG_DEAD_MS = 30 * 60 * 1000; // 30min sem atividade => considera morto
-    const WATCHDOG_INIT_MS = 300 * 1000;      // 5min sem qr/ready após initialize => Chromium travado
+    const WATCHDOG_DEAD_MS = 10 * 60 * 1000; // 10min sem atividade => suspeita de morto
+    const WATCHDOG_INIT_MS = 180 * 1000;      // 3min sem qr/ready após initialize => Chromium travado
+    let cycle = 0;
 
-    this.watchdogTimer = setInterval(() => {
+    this.watchdogTimer = setInterval(async () => {
       try {
+        cycle++;
+        if (cycle % 5 === 0) console.log(`[WATCHDOG] ciclo ${cycle} — isReady=${this.isReady} sinceAct=${((Date.now()-this.lastActivityTs)/1000)|0}s qrPending=${this.qrPending}`);
         const now = Date.now();
         const sinceActivity = now - this.lastActivityTs;
         const sinceConnect = now - this.lastConnectAttemptTs;
 
         if (this.isReady) {
-          // Pronto: só alerta se ficou MUITO tempo sem nenhuma mensagem (WPP mudo)
+          // PRONTO: sonda ativa para provar que o WPP realmente responde.
+          // Se o Chromium travou silenciosamente (isReady ainda true), a sonda lança.
+          let alive = true;
+          try {
+            const page = (this.innerClient as any)?.pupPage;
+            if (page?.isClosed?.()) alive = false;
+            else await Promise.race([
+              Promise.resolve(this.innerClient.getWWebVersion?.()),
+              new Promise((_, rej) => setTimeout(() => rej(new Error('sonda timeout')), 4000)),
+            ]);
+          } catch {
+            alive = false;
+          }
+          if (!alive) {
+            console.error(`[WATCHDOG] WPP marcado 'ready' mas sonda falhou (Chromium travado silenciosamente). Reconectando...`);
+            this.forceReconnect('sonda-falhou');
+            return;
+          }
           if (sinceActivity > WATCHDOG_DEAD_MS) {
-            console.error(`[WATCHDOG] WPP está 'ready' mas sem atividade há ${(sinceActivity/60000)|0}min. Reconectando...`);
+            console.error(`[WATCHDOG] WPP 'ready' mas sem atividade há ${(sinceActivity/60000)|0}min. Reconectando...`);
             this.forceReconnect('inatividade');
           }
           return;
@@ -195,21 +215,19 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
 
         // Não está ready:
         if (this.qrPending) {
-          // Há QR pendente: NÃO destruir — deixa o dono escanear. Só avisa.
           console.log(`[WATCHDOG] QR pendente aguardando scan do dono (não reconecto para não invalidar o QR).`);
           return;
         }
         if (sinceConnect > WATCHDOG_INIT_MS) {
           console.error(`[WATCHDOG] WPP não deu ready nem QR em ${(sinceConnect/1000)|0}s desde o initialize — Chromium provavelmente travado. Reconectando...`);
           this.forceReconnect('chromium-travado');
-        } else if (sinceActivity > WATCHDOG_DEAD_MS) {
-          console.error(`[WATCHDOG] WPP caiu (sem atividade há ${(sinceActivity/60000)|0}min). Reconectando...`);
-          this.forceReconnect('desconectado');
         }
       } catch (e: any) {
         console.error(`[WATCHDOG] erro no loop: ${e?.message}`);
       }
     }, 60 * 1000); // checa a cada 1min
+    // Não prende o event loop se o bot sair:
+    (this.watchdogTimer as any).unref?.();
   }
 
   private forceReconnect(reason: string): void {
