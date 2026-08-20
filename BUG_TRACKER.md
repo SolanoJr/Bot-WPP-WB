@@ -1077,8 +1077,8 @@ BR com link normal → não pega (antilink cuida do link se ligado, só avisa/3-
 - [ ] **SEGURANÇA:** Rotacionar tokens/chaves expostos fora do `.env` (Telegram, Discord, Gemini, Tailscale, SSH).
 - [ ] Atualizar `TELEGRAM_BOT_TOKEN` no `.env` do Linux (401 Unauthorized — long polling bloqueado).
 - [ ] `npm audit fix` em branch separada (8 vulns, 1 crítica) + build/test.
-- [ ] Healthcheck que diferencie "PM2 online" de "WPP realmente conectado" — **PARCIAL:** logs `[CONEXÃO]` já mostram fase; falta endpoint/alert.
-- **Status:** Aberto. Itens de 2026-07/08 ainda pendentes.
+- [ ] Healthcheck que diferencie "PM2 online" de "WPP realmente conectado" — **FEITO (commit 0c5b051/5512d13):** `/health` (porta 3001) retorna `wpp:connected|disconnected|awaiting-qr` + `pm2:online`; alerta no WPP pro dono (MASTER_LID) quando cai/reconecta (logrado `[notifyOwner] ✅`).
+- **Status:** Aberto (itens de segurança pendentes). Healthcheck concluído.
 
 ## BUG 44 (2026-08-20): Histórico — desacoplamento AutoMod / startAll (2026-08-07)
 - **Problema 5:** `$menu` travava — `processAutoMod` com `await` bloqueava despacho de comandos em `on('message')`. Corrigido: messageHandler chamado imediatamente, AutoMod fire-and-forget.
