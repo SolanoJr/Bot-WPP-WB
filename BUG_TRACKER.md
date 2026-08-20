@@ -1073,5 +1073,19 @@ BR com link normal → não pega (antilink cuida do link se ligado, só avisa/3-
 
 ---
 
+## BUG 43 (2026-08-20): Pendências abertas (consolidado de TODO.md/BUGS.md da raiz, removidos)
+- [ ] **SEGURANÇA:** Rotacionar tokens/chaves expostos fora do `.env` (Telegram, Discord, Gemini, Tailscale, SSH).
+- [ ] Atualizar `TELEGRAM_BOT_TOKEN` no `.env` do Linux (401 Unauthorized — long polling bloqueado).
+- [ ] `npm audit fix` em branch separada (8 vulns, 1 crítica) + build/test.
+- [ ] Healthcheck que diferencie "PM2 online" de "WPP realmente conectado" — **PARCIAL:** logs `[CONEXÃO]` já mostram fase; falta endpoint/alert.
+- **Status:** Aberto. Itens de 2026-07/08 ainda pendentes.
+
+## BUG 44 (2026-08-20): Histórico — desacoplamento AutoMod / startAll (2026-08-07)
+- **Problema 5:** `$menu` travava — `processAutoMod` com `await` bloqueava despacho de comandos em `on('message')`. Corrigido: messageHandler chamado imediatamente, AutoMod fire-and-forget.
+- **Problema 6:** Comandos não respondiam — `multiPlatform.ts` nunca chamava `platformManager.startAll()` (handler nunca registrado). Corrigido: `await platformManager.startAll()`.
+- **Status:** Resolvido (histórico, mantido p/ não reincidir).
+
+---
+
 **Última Atualização:** 2026-08-20
 **Responsável:** WarriorBlack / Hermes

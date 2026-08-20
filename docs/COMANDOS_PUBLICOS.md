@@ -14,7 +14,7 @@
 | Proteção MASTER/bot | (automática) | Nenhum comando/kick/ban/mute/AutoMod/troll age no dono (88998314322/@lid) nem no bot | ✅ OK | 19/08 | Implementado em permissions + AutoMod + keywordHandler |
 | $antiestrangeiro | `$antiestrangeiro on/off` | Remove QUALQUER estrangeiro (DDI não-BR) na entrada | ⬜ | | Código OK + DESLIGADO em todos os grupos (não testado ao vivo) |
 | $antibots | `$antibots on/off` (alias: `$antibotas`) | Remove/BANI bots: prefixo de nome/número conhecido OU estrangeiro+link/card | ⬜ | | Código OK + LIGADO em todos; falta evento real de bot entrar p/ validar |
-| $antilink | `$antilink on/off` | Anti-link: apaga links (REGRA 3) | ⬜ | | Antigo `$autolink` (renomeado p/ padronizar com anti*); aviso marca a msg |
+| $antilink | `$antilink on/off` | Anti-link: apaga links (REGRA 3) | ✅ OK | 20/08 | Aviso marca a msg detectada (reply); alias $autolink |
 | $bemvindo | `$bemvindo <texto>` | Define mensagem de boas-vindas | ⬜ | | Código OK; falta entrada real de membro p/ validar envio |
 | $detectar | `$detectar` (ou on/off) | Só AVISA quando detecta (não remove) | ⬜ | | Código OK (usa mod.detectar); falta evento real |
 | $remover | `$remover` (ou on/off) | Remove + lista negra + bloqueia | ⬜ | | Código OK (usa mod.remover); falta evento real |
@@ -57,5 +57,5 @@
 | $addcmd | `$addcmd <nome> <resposta>` | Adiciona comando custom | ⬜ | | |
 
 ## AUTOMAÇÕES (toggles, não digitadas direto — usam on/off acima)
-- AutoMod: ✅ validado | antiestrangeiro: ⬜ | antilink: ⬜ | antibotas: ⬜ | bemvindo: ⬜ | detectar/remover: ⬜
-- Nomenclatura padronizada: todos os detectores usam prefixo `anti*` ($antispam, $antiestrangeiro, $antilink, $antibotas). `$autolink` continua como alias retrocompatível.
+- AutoMod: ✅ validado | antiestrangeiro: ⬜ | antilink: ✅ | antibots: ✅ (alias $antibotas) | bemvindo: ⬜ | detectar/remover: ⬜
+- Nomenclatura padronizada: todos os detectores usam prefixo `anti*` ($antispam, $antiestrangeiro, $antilink, $antibots). `$autolink`/`$antibotas` continuam como aliases retrocompatíveis.

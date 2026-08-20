@@ -137,7 +137,7 @@ graph TD
 -   **Entry Point**: `src/whatsapp.ts` → `startBot()`
 -   **Comandos**: Assinatura legada `(msg, client, args)`
 
-### 2. PlatformManager (Sistema Novo)
+### 2. PlatformManager (Sistema Novo — ATIVO)
 
 -   **Tecnologia**: Node.js, TypeScript
 -   **Funções**:
@@ -146,26 +146,19 @@ graph TD
     -   Executar comandos de forma agnóstica
     -   Suportar broadcast entre plataformas
     -   Registry de comandos global
--   **Entry Point**: `src/core/multiPlatform.ts`
+-   **Entry Point**: `src/core/multiPlatform.ts` (É o ativo — configurado no PM2 via `ecosystem.config.js`)
 -   **Comandos**: Assinatura nova `(ctx: CommandContext)`
--   **Status**: Implementado mas não está sendo usado
+-   **Status**: ATIVO e funcionando (ver `docs/ARCHITECTURE_FIXES.md` para regras de anti-regressão)
 
-### 3. Problemas de Integração
+### 3. Integração (HISTÓRICO — resolvido)
 
-**Entry Point Conflitante:**
-- `ecosystem.config.js` aponta para `dist/core/multiPlatform.js`
-- `src/core/index.ts` chama `startBot()` do sistema legado
-- Isso causa inconsistência no sistema ativo
+> As questões abaixo foram corrigidas em 2026-08-07 (ver `docs/ARCHITECTURE_FIXES.md` seção 2 e CHANGELOG v1.1.4-1.1.7). Mantido como histórico.
 
-**Comandos com Problemas:**
-- `$ban`: Tem `platforms: ['whatsapp']` mas verificação falha
-- `lista1edit`: Usa formato legado sem `CommandContext`
-- Outros comandos podem ter problemas similares
+**Entry Point (RESOLVIDO):** `ecosystem.config.js` aponta para `dist/core/multiPlatform.js` (ativo). O `src/whatsapp.ts` legado só é importado por `bootServices.ts` (código compartilhado), não é o entry ativo.
 
-**Solução Necessária:**
-1. Unificar entry point para usar `multiPlatform.ts`
-2. Migrar todos os comandos para `CommandContext`
-3. Remover código legado desnecessário
+**Comandos (RESOLVIDO):** Todos migrados para `CommandContext`; `$ban`/`lista1edit` usam interface agnóstica. Não há comandos problemáticos conhecidos.
+
+~~**Solução Necessária (obsoleta):** 1. Unificar entry point 2. Migrar comandos 3. Remover legado — TUDO FEITO.~~
 
 ### 2. Relay (Render.com)
 

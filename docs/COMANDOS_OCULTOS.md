@@ -1,7 +1,7 @@
 # COMANDOS OCULTOS (só dono e bot — NÃO aparecem no menu)
 
 > Comandos de controle interno/debug. Não exibidos no $menu.
-> Atualizado em 2026-08-19. Testar um por vez, na ordem do dono.
+> Atualizado em 2026-08-20. Testar um por vez, na ordem do dono.
 > Legenda: ⬜ PENDENTE | ✅ OK | ❌ FALHOU | 🔶 PLACEHOLDER | ⏭️ PULADO
 > Sintaxe = como digitar completo.
 
@@ -13,7 +13,7 @@
 | $delete | `$delete` (responda à msg) | Apaga a mensagem marcada | ⬜ | | NOVO 19/08 |
 | $promover | `$promover @usuario` | Promove a admin | ⬜ | | Oculto por decisão |
 | $admin | `$admin` | Info/admin do grupo | ⬜ | | Oculto por decisão |
-| $ping | `$ping` | Latência do bot | ⬜ | | Oculto por decisão |
+| $ping | `$ping` | Latência do bot | ✅ OK | 20/08 | Pong provado (reply marca msg) |
 | $alive | `$alive` | Bot vivo? | ⬜ | | Oculto por decisão |
 | $nick | `$nick <apelido>` | Muda apelido | ⬜ | | Oculto por decisão |
 | $votar / $voto | `$votar <opção1> <opção2> ...` | Sistema de votação | ⬜ | | Oculto por decisão |

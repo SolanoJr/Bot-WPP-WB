@@ -1,6 +1,6 @@
 # docs/AI_CONTEXT.md — Memória Técnica do Projeto Bot-WPP-WB
 
-> Arquivo de continuidade para IDEs/agentes. Atualizado em 2026-08-07.
+> Arquivo de continuidade para IDEs/agentes. Atualizado em 2026-08-20.
 > Princípio: NÃO recomece a investigação do zero. Leia isto antes de agir.
 
 ## 1. Estado Atual
@@ -97,9 +97,8 @@ executeCommand → commandRegistry.get(name) → command.execute(ctx) → ctx.re
 | `src/platforms/whatsapp/WhatsAppAdapter.ts` | $menu travava em processAutoMod | Desacoplamento: messageHandler chamado imediatamente; AutoMod/keywords em paralelo (fire-and-forget) | 2026-08-07 | Build OK; teste unitário passa |
 | `src/platforms/PlatformManager.ts` | Remover logs temporários | Removidos marcadores `FLOW_PM` | 2026-08-07 | Build OK |
 | `tests/unit/whatsappAutoModDecoupling.test.ts` | Regressão do desacoplamento | Novo teste (2 casos: getChat pendente / lança) | 2026-08-07 | 2 passed |
-| `BUGS.md` | Documentar | Problema 5 adicionado | 2026-08-07 | — |
-| `PROJECT_MEMORY.md` | Documentar | Lição Arquitetural Crítica 2 | 2026-08-07 | — |
 | `CHANGELOG.md` | Documentar | v1.1.4 | 2026-08-07 | — |
+| `BUG_TRACKER.md` (raiz) | Documentar | BUG histórico (31+) | 2026-08-07 | — |
 
 > **NENHUMA alteração foi commitada/pushada** (conforme regra). O Linux recebeu os arquivos via `scp` + `npm run build` + `pm2 restart` (registrado).
 

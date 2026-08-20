@@ -19,10 +19,10 @@ O projeto segue uma estrutura modular, com os principais componentes:
 
 -   `src/`: Código fonte principal do bot.
     -   `src/bot/`: Contém a lógica de carregamento e registro de comandos.
-        -   `src/bot/commands/`: Módulos individuais para cada comando do bot.
-    -   `src/services/`: Serviços auxiliares como manipulação de mensagens, moderação, permissões, e integração com IA.
-    -   `src/relay/`: Código para o serviço de relay (API externa).
-    -   `src/whatsapp.ts`: Ponto de entrada principal do bot, responsável pela inicialização e gerenciamento de eventos do WhatsApp.
+         -   `src/bot/commands/`: Módulos individuais para cada comando do bot.
+        -   `src/services/`: Serviços auxiliares como manipulação de mensagens, moderação (autoModService), permissões, e integração com IA.
+        -   `src/platforms/`: Adapters multiplataforma (whatsapp/telegram/discord) + PlatformManager.
+        -   `src/core/multiPlatform.ts`: Ponto de entrada principal (PM2, via `ecosystem.config.js`).
 
 ## 📌 Documentação de Correções de Arquitetura
 
@@ -41,7 +41,7 @@ O sistema utiliza a chave **WARRIOR_AUTH_KEY** (16 caracteres) para autenticar t
 
 ### Pré-requisitos
 
--   Node.js (versão 24.x recomendada para Windows, 20.x+ para Linux)
+-   Node.js (versão 20.x LTS para Linux; 20.x+ para Windows)
 -   npm (gerenciador de pacotes do Node.js)
 -   PM2 (para gerenciamento de processos em produção no Linux)
 -   Conta no Google Cloud com acesso à Gemini API (Modelo: `gemini-2.0-flash`)
@@ -110,23 +110,13 @@ pm2 restart bot-wpp
 
 ## Fluxo de Mensagens e Processamento de Comandos
 
-Quando uma mensagem é recebida pelo bot (`src/whatsapp.ts`), ela passa pelo `src/services/messageHandler.ts`:
+Quando uma mensagem é recebida (adapter `on('message')` → `PlatformManager.setupAdapterHandlers`), ela passa por:
 
-1.  **Verificação de Comando:** A mensagem é primeiramente verificada para determinar se é um comando (começa com `$`).
-2.  **Moderação e Palavras-Chave (para não-comandos):** Se a mensagem *não* for um comando, ela passa pelos serviços de moderação (`src/services/moderationService.ts`) e manipulação de palavras-chave (`src/services/keywordHandler.ts`). Estes serviços podem interceptar, apagar ou responder a mensagens baseadas em conteúdo suspeito ou palavras-chave específicas.
-3.  **Execução de Comando:** Se a mensagem for um comando e não for interceptada, o `messageHandler` tenta encontrar e executar o comando correspondente no mapa de comandos carregados (`src/bot/commands/index.ts`).
-4.  **Comandos Customizados (Fallback):** Se o comando não for encontrado localmente, o bot tenta buscar e executar comandos customizados configurados no serviço de relay.
+1.  **Despacho de Comando:** se começa com `$`, o `messageHandler` (registrado via `platformManager.startAll()`) detecta e executa o comando correspondente do `commandRegistry` (`src/bot/commands/index.ts`).
+2.  **Moderação e Palavras-Chave (não-comandos):** `processAutoMod` (`src/services/autoModService.ts`) e `handleKeywords` (`src/services/keywordHandler.ts`) rodam em paralelo (fire-and-forget) — apagam/respondem por spam, links, cassino, palavra "bot", etc.
+3.  **Resposta:** o comando usa `ctx.reply()` (CommandContext agnóstico) → `adapter.sendMessage`.
 
-## Solução de Problemas Comuns
-
-### Comandos não respondem ou mensagens são apagadas
-
-**Causa:** As lógicas de moderação (`src/services/moderationService.ts`) e manipulação de palavras-chave (`src/services/keywordHandler.ts`) podem estar interceptando mensagens antes que elas cheguem ao processador de comandos.
-
--   `moderationService.ts`: Pode apagar mensagens com links ou palavras como "aposta", "bet", etc., especialmente na primeira mensagem de um usuário.
--   `keywordHandler.ts`: Pode responder sarcasticamente ou apagar mensagens que contenham "bot" ou frases de "trollagem".
-
-**Solução:** As correções implementadas ajustam a ordem de processamento para que comandos legítimos (iniciados com `$`) ignorem essas verificações de moderação e palavras-chave, garantindo que sejam processados corretamente. Verifique se as alterações em `src/services/messageHandler.ts` e `src/services/keywordHandler.ts` estão aplicadas.
+Detalhes de anti-regressão em `docs/ARCHITECTURE_FIXES.md`.
 
 ## Contribuição
 
