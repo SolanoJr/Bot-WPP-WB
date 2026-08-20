@@ -255,8 +255,9 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
 
   /** Envia uma mensagem de alerta para o dono (MASTER) via WPP. */
   async notifyOwner(text: string): Promise<void> {
+    const ownerId = process.env.MASTER_USER || '5588998314322@c.us';
+    console.log(`[notifyOwner] 📤 chamado para ${ownerId}: ${text.slice(0, 30)}`);
     try {
-      const ownerId = process.env.MASTER_USER || '5588998314322@c.us';
       await this.innerClient.sendMessage(ownerId, text);
       console.log(`[notifyOwner] ✅ alerta enviado ao dono (${ownerId}): ${text.slice(0, 40)}`);
     } catch (e: any) {
