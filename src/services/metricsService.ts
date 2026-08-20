@@ -12,6 +12,7 @@ import {
   Registry,
   collectDefaultMetrics
 } from 'prom-client';
+import { getWppHealth } from './healthStore';
 
 interface MetricsConfig {
   port?: number;
@@ -215,10 +216,15 @@ class MetricsService {
     });
 
     this.app.get('/health', (req: Request, res: Response) => {
-      res.json({
-        status: 'healthy',
+      const wpp = getWppHealth();
+      const wppHealthy = wpp.wpp === 'connected';
+      res.status(wppHealthy ? 200 : 503).json({
+        status: wppHealthy ? 'healthy' : 'degraded',
         timestamp: new Date().toISOString(),
-        uptime: process.uptime()
+        uptime: process.uptime(),
+        pm2: 'online',
+        wpp: wpp.wpp,
+        wpp_detail: wpp,
       });
     });
   }

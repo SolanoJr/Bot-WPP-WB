@@ -20,6 +20,7 @@ import {
   MediaPayload,
   MessageHandler
 } from './base/PlatformTypes';
+import { setWppHealth } from '../../services/healthStore';
 import { platformManager } from '../PlatformManager';
 import { processAutoMod } from '../../services/autoModService';
 import { handleKeywords } from '../../services/keywordHandler';
@@ -93,13 +94,19 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
         '--disable-dev-shm-usage',
         '--no-first-run',
         '--disable-extensions',
+        '--disable-gpu-sandbox',
         // Renderização por SOFTWARE (swiftshader) — o WA Web moderno exige WebGL
         // para desenhar a tela de QR; sem isso o Chromium headless trava no
         // splashscreen e nunca gera o QR (BUG 32/33).
         '--use-gl=swiftshader',
         '--enable-webgl',
         '--ignore-gpu-blocklist',
-        '--disable-gpu-sandbox',
+        // Estabilidade extra (reduz crash silencioso do Chromium headless):
+        '--disable-features=VizDisplayCompositor',
+        '--disable-software-rasterizer',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
         // DNS explicito: contorna o /etc/resolv.conf do servidor quando o DNS
         // do PVE/Tailscale (100.100.100.100) cai. Sem isso o WA Web nao resolve
         // web.whatsapp.com e o bot fica mudo. (BUG 36)
@@ -232,11 +239,39 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
 
   private forceReconnect(reason: string): void {
     console.error(`[WATCHDOG] forceReconnect(${reason}) — destruindo client e recriando...`);
+    const ownerId = process.env.MASTER_USER || '5588998314322@c.us';
+    // Alerta o dono que o WPP caiu e está reconectando (só se já estava conectado antes)
+    if (this.isReady) {
+      this.notifyOwner(`⚠️ *WPP caiu* (${reason}). Reconectando automaticamente...`).catch(() => {});
+    }
     try { this.innerClient?.destroy?.(); } catch {}
     this.isReady = false;
     this.lastConnectAttemptTs = Date.now();
     // reconecta limpo (recria Client com handlers frescos)
     setTimeout(() => this.connect(), 2000);
+  }
+
+  /** Envia uma mensagem de alerta para o dono (MASTER) via WPP. */
+  async notifyOwner(text: string): Promise<void> {
+    try {
+      const ownerId = process.env.MASTER_USER || '5588998314322@c.us';
+      await this.innerClient.sendMessage(ownerId, text);
+    } catch (e: any) {
+      console.error(`[notifyOwner] falha ao avisar dono: ${e?.message}`);
+    }
+  }
+
+  /** Status de saúde para healthcheck (diferencia PM2 online de WPP conectado). */
+  getHealth(): Record<string, any> {
+    const h = {
+      pm2: 'online' as const,
+      wpp: this.isReady ? 'connected' as const : (this.qrPending ? 'awaiting-qr' as const : 'disconnected' as const),
+      sinceActivitySec: Math.round((Date.now() - this.lastActivityTs) / 1000),
+      sinceConnectSec: Math.round((Date.now() - this.lastConnectAttemptTs) / 1000),
+      qrPending: this.qrPending,
+    };
+    setWppHealth(h);
+    return h;
   }
 
   /**
@@ -332,6 +367,9 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       this.userId = this.innerClient.info?.wid._serialized || '';
       this.userName = this.innerClient.info?.pushname || 'Bot-WPP';
       console.log(`[WhatsApp] ✅ Pronto como ${this.userName} (${this.userId})`);
+
+      // Alerta o dono que o WPP reconectou (healthcheck pró-ativo — BUG 43/45)
+      this.notifyOwner(`✅ *WPP reconectado* como ${this.userName}. Bot operante.`).catch(() => {});
       
       // O AutoMod agora é processado via messageHandler.ts para maior controle
       console.log('[WhatsApp] 🛡️ Sistema de AutoMod (via Handler) pronto');
