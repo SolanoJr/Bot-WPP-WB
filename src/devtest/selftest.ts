@@ -25,7 +25,13 @@ function log(msg: string): void {
 // OBS: deixar vazio = NÃO dispara selftest (evita o bot encher o grupo sozinho).
 // Comandos de moderação ($mute etc) são testados MANUALMENTE no grupo.
 const LISTA: string[] = [
-  'mute',
+  'menu',
+  'forca',
+  'ban',
+  'pergunta',
+  'cantada',
+  'fakechat',
+  'aleatoria',
 ];
 
 export async function runSelfTestOndeEstou(_adapter: SelfTestAdapter, _alvoTeste: string): Promise<void> {
@@ -35,6 +41,18 @@ export async function runSelfTestOndeEstou(_adapter: SelfTestAdapter, _alvoTeste
 export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string): Promise<void> {
   if ((global as any).__selftestModRan) return;
   (global as any).__selftestModRan = true;
+
+  // LISTA: manda cada comando no grupo teste (como se humano tivesse digitado)
+  // para validar que o ctx.reply responde (corrigido prefixo wpp:).
+  for (const cmd of LISTA) {
+    try {
+      log(`[LISTA] mandando $${cmd} no grupo teste`);
+      await adapter.sendMessage(alvoTeste, `$${cmd}`);
+      await new Promise((r) => setTimeout(r, 1500));
+    } catch (e: any) {
+      log(`[LISTA] erro ao mandar $${cmd}: ${e?.message}`);
+    }
+  }
 
   // Sarcasmo: valida EM MEMÓRIA (fakeReply local, não manda no grupo).
   const kw = (adapter as any).selfTestHandleKeywords;
