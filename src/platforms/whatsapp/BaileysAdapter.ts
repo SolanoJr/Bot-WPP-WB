@@ -1,13 +1,14 @@
 /**
  * 🔒 WarriorBlack - Baileys Adapter (SEM Chromium)
  *
- * Implementa a interface PlatformClient usando @whiskeysockets/baileys
- * (WebSocket puro com o WhatsApp Multi-Device). Elimina o Chromium do
- * whatsapp-web.js — fim das quedas por travamento de browser (BUG 41/45).
- *
- * Mantém a MESMA interface do WhatsAppAdapter para que comandos, AutoMod,
- * messageHandler e PlatformManager NÃO precisem mudar.
+ * Força DNS confiável (8.8.8.8/1.1.1.1) no processo Node para contornar
+ * /etc/resolv.conf quebrado do sistema (BUG 36 / infra do host).
  */
+
+import dns from 'dns';
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
+} catch { /* ignore */ }
 
 import makeWASocket, {
   DisconnectReason,
@@ -46,20 +47,18 @@ function normId(id: string): string {
 }
 
 function toJid(id: string): string {
-  // PlatformMessage usa @c.us / @g.us / @lid; Baileys quer @s.whatsapp.net / @g.us
+  // PlatformMessage usa @c.us / @g.us / @lid; Baileys quer @s.whatsapp.net / @g.us / @lid
   if (id.includes('@g.us')) return id;
-  if (id.includes('@lid')) {
-    // @lid não é JID direto do Baileys; tentamos o número cru
-    return id.replace('@lid', '@s.whatsapp.net');
-  }
+  if (id.includes('@lid')) return id; // Baileys v7 entende @lid diretamente
   return id.replace('@c.us', '@s.whatsapp.net');
 }
 
-export class BaileysAdapter implements PlatformClient {
+export class BaileysAdapter implements PlatformAdapter, PlatformClient {
   platform: PlatformType = 'whatsapp';
   userId = '';
   userName = 'Bot-WPP';
   isReady = false;
+  readonly client: PlatformClient = this;
 
   private sock: any = null;
   private authDir: string;
@@ -77,8 +76,10 @@ export class BaileysAdapter implements PlatformClient {
       : path.join(process.cwd(), process.env.WWEBJS_AUTH_DIR || '.wwebjs_auth');
     if (opts.platform) this.platform = opts.platform as PlatformType;
     if (!fs.existsSync(this.authDir)) fs.mkdirSync(this.authDir, { recursive: true });
-    // Conecta de forma assíncrona (não bloqueia o construtor)
-    this.connect();
+  }
+
+  async initialize(): Promise<void> {
+    return this.connect();
   }
 
   // ============================================================
@@ -98,11 +99,10 @@ export class BaileysAdapter implements PlatformClient {
           keys: makeCacheableSignalKeyStore(state.keys, console as any),
         },
         printQRInTerminal: false,
-        logger: undefined as any,
         connectTimeoutMs: 120000,
         keepAliveIntervalMs: 30000,
         emitOwnEvents: true,
-        // Swiftshader/NÃO precisa — Baileys é WebSocket puro, sem browser.
+        browser: ['Ubuntu', 'Chrome', '20.0.0'],
       });
 
       // ---- handlers de evento ----
@@ -128,14 +128,10 @@ export class BaileysAdapter implements PlatformClient {
           this.isReady = false;
           const reason = lastDisconnect?.error?.message || 'unknown';
           console.log(`[Baileys] 🔌 Conexão fechada: ${reason}`);
-          const shouldReconnect =
-            (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
           this.disconnectedHandler?.(reason);
-          if (shouldReconnect) {
-            console.log(`[Baileys] ♻️ Reconectando automaticamente (Baileys gerencia)...`);
-            // Baileys reconecta sozinho se não deslogou; se travou, recria sock
-            setTimeout(() => this.recreateSock(state, saveCreds), 3000);
-          } else {
+          // Baileys reconecta automaticamente se não deslogou
+          const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
+          if (statusCode === DisconnectReason.loggedOut) {
             console.log(`[Baileys] 🚪 Deslogado — precisa escanear QR novamente.`);
           }
         }
@@ -150,42 +146,12 @@ export class BaileysAdapter implements PlatformClient {
           }
         }
       });
-
-      // Salvar credenciais periodicamente
-      this.sock.ev.on('creds.update', saveCreds);
     } catch (e: any) {
       console.error(`[Baileys] ❌ Erro ao conectar: ${e?.message}`);
     }
   }
 
-  private async recreateSock(state: any, saveCreds: any): Promise<void> {
-    try {
-      if (this.sock) this.sock.end?.(new Error('recreate'));
-    } catch {}
-    this.sock = makeWASocket({
-      version: (await fetchLatestBaileysVersion()).version,
-      auth: {
-        creds: state.creds,
-        keys: makeCacheableSignalKeyStore(state.keys, console as any),
-      },
-      printQRInTerminal: false,
-      connectTimeoutMs: 120000,
-    });
-    // Reanexa handlers mínimos (reutiliza lógica do connect seria ideal; simplificado)
-    this.sock.ev.on('connection.update', async (update: any) => {
-      if (update.connection === 'open') {
-        this.isReady = true;
-        this.userId = this.sock.user?.id || '';
-        this.userName = this.sock.user?.name || 'Bot-WPP';
-        this.notifyOwner(`✅ *WPP reconectado* (Baileys) como ${this.userName}.`).catch(() => {});
-        this.readyHandler?.();
-      }
-    });
-    this.sock.ev.on('messages.upsert', (m: any) => {
-      this.lastActivityTs = Date.now();
-      for (const msg of m.messages) this.dispatchMessage(msg);
-    });
-  }
+
 
   // ============================================================
   // NORMALIZAÇÃO DE MENSAGEM
@@ -372,24 +338,24 @@ export class BaileysAdapter implements PlatformClient {
   }
 
   private sendQrToOwner(qr: string): void {
-    // Gera o QR como IMAGEM PNG e manda pro dono (escaneável direto no WPP)
     const qrPath = path.join(this.authDir, 'qr.png');
     import('qrcode').then(async (QR) => {
       try {
         await QR.toFile(qrPath, qr, { width: 512, margin: 2 });
-        console.log(`[Baileys] 📱 QR salvo em ${qrPath} — enviando imagem ao dono...`);
-        await Promise.race([
-          this.sock.sendMessage(toJid(MASTER_LID || MASTER_USER), {
+        console.log(`\n\n[Baileys] 📱 QR SALVO EM: ${qrPath}`);
+        console.log(`[Baileys] 📱 ESCANEIE COM OUTRO CELULAR: https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}\n\n`);
+        // Tenta enviar ao dono (pode falhar se WPP ainda não abriu)
+        try {
+          await this.sock.sendMessage(toJid(MASTER_LID || MASTER_USER), {
             image: fs.readFileSync(qrPath),
-            caption: '📱 Escaneie este QR para conectar o WPP (Baileys, sem Chromium). Expira em ~60s.',
-          }),
-          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 8s')), 8000)),
-        ]);
-        console.log(`[Baileys][notifyOwner] ✅ QR enviado ao dono como imagem`);
+            caption: '📱 Escaneie para conectar o WPP (Baileys, sem Chromium)',
+          });
+          console.log(`[Baileys] ✅ QR enviado ao dono`);
+        } catch {
+          console.log(`[Baileys] ⚠️ QR salvo localmente — escanie do arquivo: ${qrPath}`);
+        }
       } catch (e: any) {
-        // Fallback: manda o texto do QR
-        console.error(`[Baileys] ❌ falha ao enviar QR imagem: ${e?.message} — enviando texto`);
-        this.notifyOwner(`📱 *QR WPP (Baileys):*\n\`\`\`\n${qr}\n\`\`\``).catch(() => {});
+        console.log(`[Baileys] 📱 QR (texto para escanear):\n${qr}`);
       }
     });
   }
