@@ -21,7 +21,19 @@
 
 import { platformManager } from '../platforms/PlatformManager';
 import { WhatsAppAdapter } from '../platforms/whatsapp/WhatsAppAdapter';
+import { BaileysAdapter } from '../platforms/whatsapp/BaileysAdapter';
 import { wppSessionKey } from '../platforms/base/PlatformTypes';
+
+const WPP_ENGINE = (process.env.WPP_ENGINE || 'wwebjs').toLowerCase();
+
+function createAdapter(authDir?: string): any {
+  if (WPP_ENGINE === 'baileys') {
+    console.log('[SessionManager] Engine: BAILEYS (sem Chromium)');
+    return authDir ? new BaileysAdapter({ authDir }) : new BaileysAdapter();
+  }
+  console.log('[SessionManager] Engine: WWebJS (Chromium)');
+  return authDir ? new WhatsAppAdapter({ authDir }) : new WhatsAppAdapter();
+}
 
 export interface SessionConfig {
   phone: string;
@@ -56,15 +68,15 @@ export function registerWhatsAppSessions(): void {
 
   if (configs.length === 0) {
     // Modo legado: 1 sessão (mantém comportamento atual)
-    const legacyAdapter = new WhatsAppAdapter();
+    const legacyAdapter = createAdapter();
     platformManager.registerAdapter(legacyAdapter);
-    console.log('[SessionManager] Modo legado: 1 sessão WhatsApp (WWEBJS_AUTH_DIR).');
+    console.log('[SessionManager] Modo legado: 1 sessão WhatsApp.');
     return;
   }
 
   for (const cfg of configs) {
     try {
-      const adapter = new WhatsAppAdapter({ authDir: cfg.authDir });
+      const adapter = createAdapter(cfg.authDir);
       // Sobrescreve a chave padrão 'whatsapp' pela chave por número
       (adapter as any).platform = wppSessionKey(cfg.phone);
       platformManager.registerAdapter(adapter);
