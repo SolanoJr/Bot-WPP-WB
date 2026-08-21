@@ -150,10 +150,14 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
       this.sock.ev.on('creds.update', saveCreds);
       this.sock.ev.on('messages.upsert', (m: any) => {
         this.lastActivityTs = Date.now();
-        for (const msg of m.messages) {
-          if (m.type === 'notify' || m.type === 'append') {
-            this.dispatchMessage(msg);
+        try {
+          for (const msg of m.messages || []) {
+            if (m.type === 'notify' || m.type === 'append') {
+              this.dispatchMessage(msg);
+            }
           }
+        } catch (e: any) {
+          console.error(`[Baileys] Erro no messages.upsert: ${e?.message}`);
         }
       });
     } catch (e: any) {
@@ -168,6 +172,11 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
   // ============================================================
   private dispatchMessage(msg: any): void {
     try {
+      // Ignora mensagens de histórico/ Protocolo que não têm conteúdo útil.
+      // ATENÇÃO: messageStubParameters vem como [] (array vazio) no Baileys —
+      // [] é truthy em JS, então checar .length em vez de apenas existência.
+      const hasStub = msg.messageStubType || (Array.isArray(msg.messageStubParameters) && msg.messageStubParameters.length > 0);
+      if (hasStub) return;
       const m = msg.message || {};
       const key: WAMessageKey = msg.key;
       const from = key.remoteJid || '';
@@ -178,14 +187,17 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
 
       // Extrai texto (suporta text, extendedText, conversation, caption)
       let body = '';
-      if (m.conversation) body = m.conversation;
-      else if (m.extendedTextMessage?.text) body = m.extendedTextMessage.text;
-      else if (m.imageMessage?.caption) body = m.imageMessage.caption;
-      else if (m.videoMessage?.caption) body = m.videoMessage.caption;
-      else if (m.buttonsMessage?.contentText) body = m.buttonsMessage.contentText;
-      else if (m.listResponseMessage?.title) body = m.listResponseMessage.title;
-      else if (m.templateButtonReplyMessage?.selectedDisplayText)
+      if (typeof m.conversation === 'string') body = m.conversation;
+      else if (typeof m.extendedTextMessage?.text === 'string') body = m.extendedTextMessage.text;
+      else if (typeof m.imageMessage?.caption === 'string') body = m.imageMessage.caption;
+      else if (typeof m.videoMessage?.caption === 'string') body = m.videoMessage.caption;
+      else if (typeof m.buttonsMessage?.contentText === 'string') body = m.buttonsMessage.contentText;
+      else if (typeof m.listResponseMessage?.title === 'string') body = m.listResponseMessage.title;
+      else if (typeof m.templateButtonReplyMessage?.selectedDisplayText === 'string')
         body = m.templateButtonReplyMessage.selectedDisplayText;
+
+      // Mensagem sem texto extraível (ex: histórico criptografado, áudio, sticker) → ignora
+      if (!body || !body.trim()) return;
 
       const mentioned = m.extendedTextMessage?.contextInfo?.mentionedJidList ||
         m.imageMessage?.contextInfo?.mentionedJidList || [];
@@ -196,7 +208,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
         id: `${this.platform}:${key.id}`,
         chatId: normId(from),
         userId: normId(sender),
-        body,
+        text: body,
         fromMe,
         isGroup,
         timestamp: msg.messageTimestamp ? Number(msg.messageTimestamp) : Date.now(),

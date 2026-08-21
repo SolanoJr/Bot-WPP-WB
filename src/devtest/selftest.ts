@@ -35,8 +35,20 @@ export async function runSelfTestMod(adapter: SelfTestAdapter, alvoTeste: string
   if ((global as any).__selftestModRan) return;
   (global as any).__selftestModRan = true;
 
-  // NÃO manda comando no grupo no boot (evita encher o grupo sozinho).
-  // O dono manda testar sob demanda. Validações em memória seguem abaixo.
+  // Manda a LISTA de comandos (1x cada, espaçado) no grupo teste.
+  // O bot processa cada comando normalmente — exatamente como se um humano tivesse digitado.
+  if (LISTA.length && typeof adapter.sendMessage === 'function') {
+    for (const cmd of LISTA) {
+      try {
+        log(`[cmd] mandando "${cmd}" no grupo teste...`);
+        await adapter.sendMessage(alvoTeste, cmd);
+        await new Promise((r) => setTimeout(r, 3000));
+      } catch (e: any) {
+        log(`[cmd] FALHA ao mandar "${cmd}": ${e?.message}`);
+      }
+    }
+    log('=== LISTA enviada. Leia o log das respostas. ===');
+  }
 
   // Sarcasmo: valida EM MEMÓRIA (fakeReply local, não manda no grupo).
   const kw = (adapter as any).selfTestHandleKeywords;

@@ -221,40 +221,6 @@ export class PlatformManager {
   }
 
   /**
-   * Processa mensagem recebida de qualquer plataforma
-   */
-  private async handleIncomingMessage(message: PlatformMessage): Promise<void> {
-    // Ignorar mensagens do próprio bot
-    if (message.isFromMe) return;
-    
-    // Verificar se é comando (começa com $)
-    const PREFIX = '$';
-    if (!message.text.startsWith(PREFIX)) return;
-    
-    // Parsear comando e argumentos
-    const parts = splitArgs(message.text.slice(PREFIX.length).trim());
-    const commandName = parts[0].toLowerCase();
-    const args = parts.slice(1);
-    
-    // Atualizar mensagem com info do comando
-    message.isCommand = true;
-    message.commandName = commandName;
-    message.args = args;
-    
-    console.log(`[PlatformManager] Comando recebido: ${commandName} de ${message.userName} (${message.platform})`);
-    
-    // Buscar adapter da plataforma
-    const adapter = this.adapters.get(message.platform);
-    if (!adapter) {
-      console.error(`[PlatformManager] Adapter não encontrado para ${message.platform}`);
-      return;
-    }
-    
-    // Executar comando
-    await this.executeCommand(message, adapter);
-  }
-
-  /**
    * Executa comando se encontrado
    */
   private async executeCommand(message: PlatformMessage, adapter: PlatformAdapter): Promise<void> {
