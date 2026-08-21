@@ -1093,5 +1093,21 @@ BR com link normal → não pega (antilink cuida do link se ligado, só avisa/3-
 
 ---
 
-**Última Atualização:** 2026-08-20
+**Última Atualização:** 2026-08-21
+**Responsável:** WarriorBlack / Hermes
+
+---
+
+## BUG 46 (2026-08-21): Baileys não despachava NENHUM comando (body vs text)
+- **Sintoma:** Bot conectava (Baileys, sem Chromium) e recebia mensagens, mas nenhum comando era executado. O selftest mandava `$menu`/`$ping` e o bot não respondia. Logs mostravam `messages.upsert` chegando mas `dispatchMessage` nunca processava o comando.
+- **Causa raiz (2 bugs somados):**
+  1. `BaileysAdapter.dispatchMessage` criava `platformMsg` com campo **`body`**, mas a interface `PlatformMessage` (PlatformTypes.ts:42) e o `PlatformManager` leem **`text`**. Resultado: `message.text` era `undefined` → `isCommand=false` → `executeCommand` nunca chamado.
+  2. `messageStubParameters` do Baileys vem como **`[]` (array vazio)**. O filtro `if (msg.messageStubType || msg.messageStubParameters) return;` retornava em TODAS as mensagens porque `[]` é **truthy** em JS. Corrigido para checar `.length > 0`.
+- **Correção (commit 3f15584):** `text: body` no `platformMsg`; filtro de stub usa `Array.isArray(...) && .length > 0`; removido `handleIncomingMessage()` morto (duplicado do `setupAdapterHandlers`); limpos logs de debug (v3/v4/DBG).
+- **Prova:** `Executando menu em whatsapp` + resposta `🤖 *BOT WARRIORBLACK*...` confirmados no log após o bot mandar `$menu` no grupo teste.
+- **Status:** Resolvido. Comandos Baileys funcionam 100%.
+
+---
+
+**Última Atualização:** 2026-08-21
 **Responsável:** WarriorBlack / Hermes
