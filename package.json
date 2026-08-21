@@ -26,7 +26,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@whiskeysockets/baileys": "^7.0.0-rc14",
+    "@whiskeysockets/baileys": "^6.17.16",
     "axios": "^1.15.2",
     "cors": "^2.8.6",
     "discord.js": "^14.16.3",

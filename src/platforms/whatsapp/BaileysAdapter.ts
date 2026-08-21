@@ -129,10 +129,20 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
           const reason = lastDisconnect?.error?.message || 'unknown';
           console.log(`[Baileys] 🔌 Conexão fechada: ${reason}`);
           this.disconnectedHandler?.(reason);
-          // Baileys reconecta automaticamente se não deslogou
           const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
           if (statusCode === DisconnectReason.loggedOut) {
             console.log(`[Baileys] 🚪 Deslogado — precisa escanear QR novamente.`);
+          } else if (reason.includes('Stream Errored') || reason.includes('conflict')) {
+            // Sessão inválida no servidor — força re-init completo do socket
+            console.log(`[Baileys] 🔄 Stream Errored — forçando re-init completo...`);
+            try {
+              this.sock?.end?.(new Error('force-reinit'));
+            } catch {}
+            // Reconecta após breve delay
+            setTimeout(() => {
+              console.log(`[Baileys] 🔄 Reconectando...`);
+              this.connect();
+            }, 2000);
           }
         }
       });
