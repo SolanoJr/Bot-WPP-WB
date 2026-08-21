@@ -1,5 +1,4 @@
 import { ICommand } from './types';
-// Correct relative path to services (src/services)
 import { askAI } from '../../services/aiService';
 import { getDb } from '../../services/databaseService';
 import logger from '../../services/loggerService';
@@ -7,25 +6,17 @@ import logger from '../../services/loggerService';
 export const perguntaCommand: ICommand = {
   name: 'pergunta',
   description: 'Faz uma pergunta inteligente para a IA do bot.',
-  async execute(ctxOrMsg: any, maybeClient?: any, maybeArgs?: any) {
-    // Suporte a CommandContext (novo) e parâmetros legados (antigo)
-    const isContext = ctxOrMsg && typeof ctxOrMsg === 'object' && 'msg' in ctxOrMsg;
-    const msg = isContext ? ctxOrMsg.msg : ctxOrMsg;
-    const args = isContext ? ctxOrMsg.args : maybeArgs;
-    
+  async execute(ctx: any, _client?: any, _args?: any) {
+    const args = ctx.args || [];
     const prompt = args.join(' ');
 
     if (!prompt) {
-      const replyText = '⚠️ Por favor, digite sua pergunta após o comando.\nExemplo: $pergunta Qual a capital da França?';
-      if (isContext) await ctxOrMsg.reply(replyText);
-      else await msg.reply(replyText);
+      await ctx.reply('⚠️ Por favor, digite sua pergunta após o comando.\nExemplo: $pergunta Qual a capital da França?');
       return;
     }
 
-    // BUG 2: Em grupos, msg.from é o ID do grupo, não do usuário. Usar msg.author para userId
-    const isGroup = msg.from?.endsWith('@g.us');
-    const userId = msg.userId || msg.author || (isGroup ? null : msg.from) || 'unknown';
-    const groupId = msg.chatId || msg.from;
+    const userId = ctx.userId || 'unknown';
+    const groupId = ctx.chatId || 'unknown';
 
     try {
       const db = await getDb();
@@ -36,13 +27,13 @@ export const perguntaCommand: ICommand = {
 
       logger.info(`IA Question: [${userId}] ${prompt}`);
 
-      await msg.reply('⏳ Processando sua pergunta na IA...');
+      await ctx.reply('⏳ Processando sua pergunta na IA...');
       const response = await askAI(prompt, userId);
-      await msg.reply(response);
+      await ctx.reply(response);
 
     } catch (e) {
       logger.error(`Erro no comando $pergunta: ${e}`);
-      await msg.reply('⚠️ Desculpe, tive um problema ao processar sua pergunta.');
+      await ctx.reply('⚠️ Desculpe, tive um problema ao processar sua pergunta.');
     }
   },
 };

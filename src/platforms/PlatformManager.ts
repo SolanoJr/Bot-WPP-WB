@@ -129,7 +129,7 @@ export class PlatformManager {
 
       // Verificar se é comando
       const prefix = this.getCommandPrefix(adapter.platform);
-      const trimmedText = message.text.trim();
+      const trimmedText = (message.text || '').trim();
       message.isCommand = trimmedText.startsWith(prefix);
       if (message.isCommand) {
         const parts = splitArgs(trimmedText.slice(prefix.length).trim());
@@ -309,20 +309,19 @@ export class PlatformManager {
    * Cria CommandContext unificado
    */
   private async createCommandContext(message: PlatformMessage, client: PlatformClient): Promise<CommandContext> {
-    let groupName: string | undefined;
-    let contextIsAdmin = false;
-    try {
-      const chat = await client.getChat(message.chatId);
-      groupName = (chat as any)?.name;
-      // Admin do grupo: verifica se o userId está em participants com isAdmin/isSuperAdmin
-      const cleanUser = String(message.userId).split('@')[0].replace(/^wpp:/, '');
-      const parts = (chat as any)?.participants || [];
-      const isGroupAdmin = parts.some((p: any) => {
-        const pid = String(p.id?._serialized || p.id || '').split('@')[0].replace(/^wpp:/, '');
-        return pid === cleanUser && (p.isAdmin || p.isSuperAdmin);
-      });
-      contextIsAdmin = isGroupAdmin;
-    } catch { /* ignora */ }
+    const cleanUser = String(message.userId).split('@')[0].replace(/^wpp:/, '');
+    // LAZY: não busca metadados do grupo na criação (groupMetadata vai no servidor WA e pode demorar).
+    // Só busca quando o comando acessar ctx.groupName ou ctx.isAdmin (via getter com cache).
+    let chatCache: any = null;
+    const loadChat = async (): Promise<any> => {
+      if (chatCache !== null) return chatCache;
+      try {
+        chatCache = await client.getChat(message.chatId);
+      } catch {
+        chatCache = { name: '', participants: [] };
+      }
+      return chatCache;
+    };
     return {
       msg: message,
       client,
@@ -331,10 +330,22 @@ export class PlatformManager {
       chatId: message.chatId,
       userId: message.userId,
       userName: message.userName,
-      groupName,
+      timestamp: message.timestamp,
+      get groupName(): string | undefined {
+        // acessado sob demanda, de forma síncrona-after-load; se não carregado, retorna ''
+        return (chatCache as any)?.name || '';
+      },
       isGroup: message.raw?.isGroup || false,
+      get isAdmin(): boolean {
+        const chat = chatCache as any;
+        const parts = chat?.participants || [];
+        return parts.some((p: any) => {
+          const pid = String(p.id?._serialized || p.id || '').split('@')[0].replace(/^wpp:/, '');
+          return pid === cleanUser && (p.isAdmin || p.isSuperAdmin);
+        });
+      },
+      loadChat,
       isMaster: isMaster(message.userId),
-      isAdmin: contextIsAdmin,
       reply: async (text: string, options?: SendOptions) => {
         // Cita a mensagem de comando por padrão (quoted/reply), a menos que o caller já passe replyToMessageId
         const opts: SendOptions = {

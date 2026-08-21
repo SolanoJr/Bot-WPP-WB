@@ -4,14 +4,15 @@ import axios from 'axios';
 export const climaCommand: ICommand = {
     name: 'clima',
     description: 'Consulta o clima de uma cidade.',
-    async execute(msg, client, args) {
+    async execute(ctx: any, _client?: any, _args?: any) {
+        const args = ctx.args || [];
         if (args.length === 0) {
-            await msg.reply('❌ Por favor, informe o nome da cidade. Exemplo: $clima São Paulo');
+            await ctx.reply('❌ Por favor, informe o nome da cidade. Exemplo: $clima São Paulo');
             return;
         }
 
         const city = args.join(' ');
-        
+
         try {
             // Usando API Open-Meteo (gratuita, não requer API key)
             const geoResponse = await axios.get(
@@ -19,7 +20,7 @@ export const climaCommand: ICommand = {
             );
 
             if (!geoResponse.data.results || geoResponse.data.results.length === 0) {
-                await msg.reply('❌ Cidade não encontrada. Verifique o nome e tente novamente.');
+                await ctx.reply('❌ Cidade não encontrada. Verifique o nome e tente novamente.');
                 return;
             }
 
@@ -65,10 +66,10 @@ export const climaCommand: ICommand = {
                 `_Dados fornecidos por Open-Meteo_`
             ].join('\n');
 
-            await msg.reply(response);
+            await ctx.reply(response);
         } catch (error) {
             console.error('Erro ao buscar clima:', error);
-            await msg.reply('⚠️ Erro ao consultar o clima. Tente novamente mais tarde.');
+            await ctx.reply('⚠️ Erro ao consultar o clima. Tente novamente mais tarde.');
         }
-    }
+    },
 };

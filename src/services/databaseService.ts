@@ -13,7 +13,11 @@ if (!fs.existsSync(DB_DIR)) {
 
 const dbPath = path.join(DB_DIR, DB_FILE);
 
+// Singleton: reusa a MESMA conexão (abrir toda vez causa lock/competição e ~1min de demora).
+let dbInstance: any = null;
+
 export async function initDatabase() {
+  if (dbInstance) return dbInstance;
   const db = await open({
     filename: dbPath,
     driver: sqlite3.Database
@@ -145,7 +149,8 @@ export async function initDatabase() {
     console.error('[DB] Falha no seed de group_mod:', e?.message);
   }
 
-  return db;
+  dbInstance = db;
+  return dbInstance;
 }
 
 export async function getDb() {

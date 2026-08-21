@@ -5,17 +5,22 @@ usa estes arquivos para se auto-testar em produção, mandando comandos reais no
 grupo teste e lendo o log estável para confirmar.
 
 ## Arquivos
-- `selftest.ts` — módulo `runSelfTests(adapter, alvoTeste)` que manda `$kick`, `$ban`
-  (marcando alvo não-admin válido) e `$clima` no grupo teste. NUNCA apagar.
+- `selftest.ts` — módulo `runSelfTestMod(adapter, alvoTeste)` que manda os comandos
+  da `LISTA` (editar sob demanda) no grupo teste. NUNCA apagar.
 - `selftest.log` — log próprio dos testes (append-only, para não se perder no log do bot).
 - `SELFTEST.md` — este doc.
+- `TESTES_REGISTRADOS.md` — correções feitas nos comandos durante os testes (lab).
 
-## Como ligar
-No `WhatsAppAdapter.ready`, após a msg de prova, chamar:
+## Como ligar (sob demanda)
+O `BaileysAdapter.ready` dispara o selftest SÓ se `WPP_AUTOSELFTEST=1`:
 ```ts
-if (alvoTeste) setTimeout(() => runSelfTests(this, alvoTeste), 6000);
+if (process.env.WPP_AUTOSELFTEST === '1') {
+  const alvo = process.env.WPP_TEST_GROUP_ID;
+  if (alvo) setTimeout(() => runSelfTestMod(this, alvo), 6000);
+}
 ```
-(não precisa de env extra; roda só quando WPP_TEST_GROUP_ID está definido).
+No Linux: `WPP_AUTOSELFTEST=1 pm2 start ecosystem.config.js --update-env`.
+Para testar 1 comando por vez, editar a `LISTA` em `selftest.ts` (ex: `['$ping']`).
 
 ## ERROS QUE REPETIMOS E NÃO PODEM VOLTAR
 1. **Menção falsa no kick/ban.** O `$kick`/`$ban` exige MENÇÃO REAL. Mandar
@@ -38,9 +43,27 @@ if (alvoTeste) setTimeout(() => runSelfTests(this, alvoTeste), 6000);
    (WWebJS moderno lança ao citar @lid). Não remover esse filtro.
 7. **Log estável:** sempre `~/.pm2/logs/bot-wpp-stable.out.log` no Linux. O
    `selftest.log` aqui é complemento, não substitui.
+8. **`platformMsg` usa `text`, NÃO `body`.** O `BaileysAdapter.dispatchMessage`
+   criava `platformMsg.body` → comandos não rodavam (isCommand=false). Corrigido
+   para `text: body`. O `PlatformMessage` (PlatformTypes.ts) espera `text`.
+9. **`messageStubParameters: []` é truthy.** Filtrar stub com
+   `Array.isArray(...) && .length > 0`, NUNCA só `if (msg.messageStubParameters)`.
+10. **`getDb()` abria conexão SQLite NOVA toda vez** → lock/competição e ~1min de
+    demora em comandos que usam DB (ex: `$pergunta`). Corrigido pra SINGLETON
+    (reusa a mesma conexão em `databaseService.ts`).
+11. **`createCommandContext` chamava `getChat` (groupMetadata) em TODOS os comandos**
+    → o `groupMetadata` vai no servidor WA que pode demorar/travar. Corrigido pra
+    LAZY (só busca `groupName`/`isAdmin` quando o comando acessa). Comandos que não
+    usam (ex: `$ping`, `$pergunta`, `$clima`) não esperam mais.
+12. **`$ping` media 0ms sempre.** Causa: media `Date.now() - Date.now()` (loopback).
+    Corrigido pra medir RTT real: `ctx.timestamp` (chegada da msg) → envio.
+    O `ctx.timestamp` vem de `message.timestamp` (Baileys, em SEGUNDOS) → multiplicar
+    por 1000 pra ms. SEM esse *1000, o RTT dava ~1.7 bilhão de ms.
+13. **`msg.reply` inexistente em comandos.** `$pergunta` e `$clima` usavam
+    `msg.reply` (undefined) → `TypeError: msg.reply is not a function`. Corrigido
+    pra `ctx.reply` (o CommandContext tem `reply`).
 
 ## Validação esperada no log estável
-- `$kick` marcando alvo → `✅ @<numero> foi removido do grupo (Teste).`
-  (o @numero + mentions faz o WA renderizar o NOME, igual ao welcome do novato)
-- `$ban` marcando alvo → `✅ @<numero> foi banido do grupo (Teste).`
-- `$clima fortaleza` → `☀️ **CLIMA EM FORTALEZA**` (sem "erro interno")
+- `$ping` → `🏓 *Pong!* (RTT: <ms>ms)` (RTT real, não 0ms)
+- `$pergunta <pergunta>` → resposta da IA (ex: "Paris" para capital da França)
+- `$clima <cidade>` → `☀️ **CLIMA EM <CIDADE>**` (precisa passar a cidade!)

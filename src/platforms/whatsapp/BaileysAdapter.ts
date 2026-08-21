@@ -123,6 +123,15 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
           this.notifyOwner(`✅ *WPP reconectado* (Baileys) como ${this.userName}. Bot operante.`).catch(() => {});
           this.getHealth();
           this.readyHandler?.();
+          // AUTO-TESTE sob demanda: só dispara se WPP_AUTOSELFTEST=1 (evita encher grupo no boot).
+          if (process.env.WPP_AUTOSELFTEST === '1') {
+            const alvoTesteBaileys = process.env.WPP_TEST_GROUP_ID || '';
+            if (alvoTesteBaileys) {
+              import('../../devtest/selftest').then((mod) => {
+                setTimeout(() => mod.runSelfTestMod(this as any, alvoTesteBaileys).catch(() => {}), 6000);
+              }).catch(() => {});
+            }
+          }
         }
         if (connection === 'close') {
           this.isReady = false;
@@ -172,11 +181,8 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
   // ============================================================
   private dispatchMessage(msg: any): void {
     try {
-      // Ignora mensagens de histórico/ Protocolo que não têm conteúdo útil.
-      // ATENÇÃO: messageStubParameters vem como [] (array vazio) no Baileys —
-      // [] é truthy em JS, então checar .length em vez de apenas existência.
       const hasStub = msg.messageStubType || (Array.isArray(msg.messageStubParameters) && msg.messageStubParameters.length > 0);
-      if (hasStub) return;
+      if (hasStub) { return; }
       const m = msg.message || {};
       const key: WAMessageKey = msg.key;
       const from = key.remoteJid || '';
@@ -211,7 +217,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
         text: body,
         fromMe,
         isGroup,
-        timestamp: msg.messageTimestamp ? Number(msg.messageTimestamp) : Date.now(),
+        timestamp: msg.messageTimestamp ? Number(msg.messageTimestamp) * 1000 : Date.now(),
         mentionedIds: mentioned.map((x: string) => normId(x)),
         quotedMessageId: quotedKey ? `${this.platform}:${quotedKey}` : undefined,
         raw: msg,
@@ -238,12 +244,14 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
     if (options?.mentionedIds?.length) {
       msgOpts.mentions = options.mentionedIds.map((x) => toJid(x));
     }
+    const sendTs = Date.now();
     const res = await this.sock.sendMessage(jid, msgOpts);
+    const sentTs = Date.now();
     return {
       id: `${this.platform}:${res.key.id}`,
       chatId: normId(jid),
       userId: this.userId,
-      body: text,
+      text,
       fromMe: true,
       isGroup: jid.endsWith('@g.us'),
       timestamp: Date.now(),
@@ -279,7 +287,14 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
   // ============================================================
   async getChat(chatId: string): Promise<PlatformChat> {
     const jid = toJid(chatId);
-    const metadata = await this.sock.groupMetadata(jid).catch(() => null);
+    // Timeout: o groupMetadata vai no servidor WA que pode estar lento.
+    // Se não responder em 5s, segue sem metadados (não trava o comando).
+    const withTimeout = <T>(p: Promise<T>, ms: number): Promise<T | null> =>
+      Promise.race([
+        p,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+      ]);
+    const metadata = await withTimeout(this.sock.groupMetadata(jid).catch(() => null), 5000);
     return {
       id: normId(jid),
       name: metadata?.subject || '',

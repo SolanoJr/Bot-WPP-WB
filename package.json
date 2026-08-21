@@ -10,7 +10,7 @@
     "build:services": "tsup src/services/*.ts --out-dir dist/services --format cjs",
     "build:bot": "tsup src/bot/index.ts src/bot/config.ts src/bot/customCommands.ts src/bot/relayClient.ts src/bot/commands/*.ts --out-dir dist/bot --format cjs",
     "build:platforms": "tsup src/platforms/**/*.ts --out-dir dist/platforms --format cjs",
-    "build:core": "tsup src/core/index.ts --out-dir dist/core --format cjs && tsup src/core/multiPlatform.ts --out-dir dist/core --format cjs",
+    "build:core": "tsup src/core/index.ts --out-dir dist/core --format cjs && tsup src/core/multiPlatform.ts --out-dir dist/core --format cjs && tsup src/devtest/selftest.ts --out-dir dist/devtest --format cjs",
     "postinstall": "patch-package 2>/dev/null || true; npm run build",
     "start": "node dist/relay/server.js",
     "bot:start": "node dist/core/multiPlatform.js",

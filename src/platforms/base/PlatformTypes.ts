@@ -112,6 +112,7 @@ export interface CommandContext {
   chatId: string;
   userId: string;
   userName: string;
+  timestamp?: number;
   groupName?: string;
   isGroup: boolean;
   isMaster: boolean;
