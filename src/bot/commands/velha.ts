@@ -1,4 +1,5 @@
 import { ICommand } from './types';
+import { CommandContext } from '../../platforms/base/PlatformTypes';
 import { velhaState } from './gameState';
 
 function renderBoard(board: string[]): string {
@@ -29,11 +30,11 @@ function checkWinner(board: string[]): 'X' | 'O' | 'draw' | null {
 export const velhaCommand: ICommand = {
   name: 'velha',
   description: 'Jogo da velha. Use "$velha" para iniciar, "$velha <1-9>" para jogar, "$velha reset" para reiniciar.',
-  async execute(ctx: any, _client?: any, _args?: any) {
+  async execute(ctx: CommandContext) {
     const chatId = ctx.chatId || ctx.userId || 'unknown';
     
     // Inicializa estado se ainda não existir
-    if (!velhaState.has(chatId) || args[0]?.toLowerCase() === 'reset') {
+    if (!velhaState.has(chatId) || ctx.args[0]?.toLowerCase() === 'reset') {
       velhaState.set(chatId, {
         board: Array(9).fill(''),
         currentPlayer: 'X'
@@ -43,7 +44,7 @@ export const velhaCommand: ICommand = {
     }
 
     const state = velhaState.get(chatId)!;
-    const move = args[0];
+    const move = ctx.args[0];
 
     if (!move || !/^[1-9]$/.test(move)) {
       await ctx.reply(`⚠️ Use um número de 1 a 9 ou "reset" para reiniciar.\n${renderBoard(state.board)}\nVez do jogador: ${state.currentPlayer}`);

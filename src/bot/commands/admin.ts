@@ -1,10 +1,11 @@
 import { ICommand } from './types';
+import { CommandContext } from '../../platforms/base/PlatformTypes';
 
 export const adminCommand: ICommand = {
     name: 'admin',
     description: 'Comandos de administração do bot',
-    async execute(ctx: any, _client?: any, _args?: any) {
-        void args;
+    async execute(ctx: CommandContext) {
+        void ctx.args;
         
         const response = [
             '🔧 **Painel Administrativo**',
@@ -15,8 +16,8 @@ export const adminCommand: ICommand = {
             '• ✅ Comandos Funcionando',
             '',
             '📊 **Informações:**',
-            `• Cliente: ${client.info?.wid?.user || 'Desconhecido'}`,
-            `• Plataforma: ${client.info?.platform || 'Desconhecido'}`,
+            `• Cliente: ${ctx.client.info?.wid?.user || 'Desconhecido'}`,
+            `• Plataforma: ${ctx.client.info?.platform || 'Desconhecido'}`,
             '',
             '🔧 **Comandos Disponíveis:**',
             '• $ping - Testar conexão',

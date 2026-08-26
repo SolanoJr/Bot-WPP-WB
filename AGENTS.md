@@ -89,6 +89,55 @@ Os agentes de IA podem assumir diversos papéis dentro do ciclo de vida do Bot-W
 - `qrcode-terminal` DEVE estar instalado (já está em `package.json`); o código usa `qrcode-terminal`, NÃO `qrcode` (não instalar `qrcode` solto).
 - Timeout de diagnóstico de "não autenticou" é **240s** (swiftshader demora ~90s só para gerar o QR; 90s é falso-positivo).
 
+### 5.5. IDENTIDADE: LID do BOT ≠ LID do DONO (armadilha nº1)
+- Prova real no log do Baileys: `myPN=558581344211` / `myLID=2592935567439`.
+- **`2592935567439` é o LID do PRÓPRIO BOT (WarriorBlack)**, NÃO do dono.
+- O `.env` de produção tem `MASTER_LID=2592935567439@lid` — **valor ERRADO**. Por
+  causa disso, todo `notifyOwner()` foi entregue ao próprio bot e o dono nunca
+  recebeu alerta de queda. O código agora **ignora** esse valor
+  (`permissions.ts` descarta o LID do bot do conjunto de MASTER_LIDS), mas o
+  `.env` continua errado: o LID real do dono ainda é **NÃO CONFIRMADO**.
+- Use SEMPRE `getOwnerNotifyTarget()` para falar com o dono. NUNCA hardcode um LID.
+- `MASTER_USER=5588998314322@c.us` (dono) e `MAIN_NUMBER=558581344211` (bot) são
+  confiáveis; os LIDs, não.
+
+### 5.6. NUNCA converta `@lid` para `@c.us`
+- O identificador do WhatsApp moderno é **opaco**: os dígitos de um `@lid` NÃO são
+  telefone. Converter domínio corrompe o ID.
+- Isso causou dois bugs reais: `$mute` gravava a chave com `@c.us` e o
+  `messageHandler` consultava com `@lid` (mute nunca aplicava), e o `removeFromGroup`
+  falhava silenciosamente.
+- Use `normalizeTargetId()` / `resolveTargetId()` de
+  `src/bot/commands/targetResolver.ts`. Eles removem prefixo de plataforma
+  (`wpp:`) e sufixo de device (`:60`) **preservando o domínio**.
+
+### 5.7. Permissões: comparação EXATA, nunca substring
+- `isMaster()` já usou `userId.includes('88998314322')`: qualquer número que
+  **contivesse** os dígitos do dono virava MASTER (escalada de privilégio).
+  `isProtectedTarget()` usava `endsWith` e protegia terceiros por acidente.
+- Regra: compare `cleanId()` contra um `Set` de valores exatos. Variações
+  legítimas (DDI, nono dígito) são geradas por `phoneVariants()`, não por
+  comparação frouxa.
+- Comandos negativos ($kick, $ban, $mute, $delete, $promover) DEVEM chamar
+  `isProtectedTarget()`. Além disso, `removeFromGroup()` e `banUser()` têm guarda
+  defensiva própria — mantenha-as.
+- Testes de regressão: `tests/unit/permissions-security.test.ts`. Não os remova.
+
+### 5.8. Suíte verde NÃO prova funcionamento
+- `$mute` passava nos testes e estava quebrado de duas formas em produção.
+- `npm run build` (tsup) **não valida tipos**. Use sempre
+  `npx tsc --noEmit --ignoreDeprecations 6.0`. Em 26/08 havia 129 erros com build verde.
+- Só declare "funciona" com evidência de log de produção ou teste no grupo "Teste".
+
+### 5.9. Baileys é o engine ATIVO — código só no WWebJS está MORTO
+- `ecosystem.config.js` define `WPP_ENGINE=baileys`. O `WhatsAppAdapter.ts` (WWebJS,
+  1387 linhas) é legado e **não roda em produção**.
+- `handleMemberJoin` viveu só no WWebJS por tempo indeterminado: ban persistente,
+  antibots na entrada e boas-vindas estavam **inativos em produção**. Agora a
+  lógica está em `src/services/memberJoinService.ts` (agnóstica) e é chamada pelo
+  evento `group-participants.update` do Baileys.
+- Antes de "corrigir" um comportamento de grupo, confirme em QUAL adapter ele vive.
+
 ### 5.3. Arquitetura atual (não confundir com a doc legada)
 - **Entry point real do PM2:** `dist/core/multiPlatform.js` (configurado em `ecosystem.config.js`). O sistema multi-plataforma (`PlatformManager` + adapters) É o ativo.
 - **Multi-número:** `src/services/sessionManager.ts` lê `WPP_SESSIONS` (CSV de números) e cria 1 `WhatsAppAdapter` por número (authDir isolado `sessions/<phone>`), registrado no `PlatformManager` como `whatsapp:<phone>`. Se `WPP_SESSIONS` vazio → modo legado (1 sessão `whatsapp`). `PlatformType` é `string` (não union).

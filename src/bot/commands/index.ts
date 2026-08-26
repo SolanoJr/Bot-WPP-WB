@@ -1,5 +1,5 @@
 import { ICommand } from './types';
-import { CommandContext } from '../types';
+import { CommandContext } from '../../platforms/base/PlatformTypes';
 
 // Importar todos os comandos
 import { helpCommand } from './help';

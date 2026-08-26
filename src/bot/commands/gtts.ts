@@ -1,4 +1,5 @@
 import { ICommand } from './types';
+import { CommandContext } from '../../platforms/base/PlatformTypes';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
@@ -7,13 +8,13 @@ import { MessageMedia } from 'whatsapp-web.js';
 export const gttsCommand: ICommand = {
     name: 'gtts',
     description: 'Converte texto em áudio e envia como mensagem de voz.',
-    async execute(ctx: any, _client?: any, _args?: any) {
-        if (args.length === 0) {
+    async execute(ctx: CommandContext) {
+        if (ctx.args.length === 0) {
             await ctx.reply('❌ Por favor, digite o texto para converter. Exemplo: $gtts Olá mundo');
             return;
         }
 
-        const text = args.join(' ');
+        const text = ctx.args.join(' ');
         
         // Limitar texto a 200 caracteres para evitar problemas
         if (text.length > 200) {
@@ -23,7 +24,7 @@ export const gttsCommand: ICommand = {
 
         try {
             // Usando Google Translate TTS API (gratuita)
-            const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=pt-BR&client=tw-ob`;
+            const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=pt-BR&ctx.client=tw-ob`;
             
             // Fazer download do áudio
             const response = await axios.get(ttsUrl, {
@@ -45,7 +46,7 @@ export const gttsCommand: ICommand = {
 
             // Enviar como mensagem de áudio (voz) usando o cliente WWebJS direto
             const media = MessageMedia.fromFilePath(audioPath);
-            const wppClient = (client as any).innerClient;
+            const wppClient = (ctx.client as any).innerClient;
             if (!wppClient || typeof wppClient.sendMessage !== 'function') {
                 throw new Error('cliente WWebJS indisponível para enviar voz');
             }

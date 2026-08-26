@@ -1,11 +1,12 @@
 import { ICommand } from './types';
+import { CommandContext } from '../../platforms/base/PlatformTypes';
 import { addVote, delVote, registrarVoto } from './voteSystem';
 
 export const voteCommand: ICommand = {
   name: 'votar',
   description: 'Inicia uma votação. Uso: $votar <id> <motivo> <valor> <duracaoSeg>',
-  async execute(ctx: any, _client?: any, _args?: any) {
-    const [id, motivo, valor, duracao] = args;
+  async execute(ctx: CommandContext) {
+    const [id, motivo, valor, duracao] = ctx.args;
     if (!id || !motivo || !valor || !duracao) {
       await ctx.reply('Uso: $votar <id> <motivo> <valor> <duracaoSeg>');
       return;
@@ -24,8 +25,8 @@ export const voteCommand: ICommand = {
 export const delVoteCommand: ICommand = {
   name: 'delvoto',
   description: 'Remove uma votação existente. Uso: $delvoto <id>',
-  async execute(ctx: any, _client?: any, _args?: any) {
-    const [id] = args;
+  async execute(ctx: CommandContext) {
+    const [id] = ctx.args;
     if (!id) {
       await ctx.reply('Uso: $delvoto <id>');
       return;
@@ -43,8 +44,8 @@ export const delVoteCommand: ICommand = {
 export const votoCommand: ICommand = {
   name: 'voto',
   description: 'Vota em uma votação ativa. Uso: $voto <id> sim/não',
-  async execute(ctx: any, _client?: any, _args?: any) {
-    const [id, voto] = args;
+  async execute(ctx: CommandContext) {
+    const [id, voto] = ctx.args;
     if (!id || !voto) {
       await ctx.reply('Uso: $voto <id> sim/não');
       return;

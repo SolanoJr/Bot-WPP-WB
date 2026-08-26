@@ -1,4 +1,5 @@
 import { ICommand } from './types';
+import { CommandContext } from '../../platforms/base/PlatformTypes';
 import { getComandoBlock, addComandosId, addComandos } from './customCommandsStore';
 
 /**
@@ -8,8 +9,8 @@ import { getComandoBlock, addComandosId, addComandos } from './customCommandsSto
 export const addCmdCommand: ICommand = {
   name: 'addcmd',
   description: 'Adiciona um comando customizado ao grupo.',
-  async execute(ctx: any, _client?: any, _args?: any) {
-    const [groupId, ...commandParts] = args;
+  async execute(ctx: CommandContext) {
+    const [groupId, ...commandParts] = ctx.args;
     const commandText = commandParts.join(' ');
 
     if (!groupId || !commandText) {

@@ -1,5 +1,91 @@
 # 📜 ChangeLog - WarriorBlack Bot
 
+## [v1.3.0] - 2026-08-26
+### 🔒 Segurança de permissões, correção do $mute e moderação de entrada no Baileys
+
+#### 🚨 CRÍTICO — Escalada de privilégio em `isMaster()`
+- `src/services/permissions.ts`: `isMaster()` usava `userId.includes('88998314322')`.
+  Qualquer número que **contivesse** os dígitos do dono (ex.: `1188998314322@c.us`)
+  era aceito como MASTER, ganhando acesso total ($shutdown, $ban, $promover).
+  Agora a comparação é **exata** sobre conjuntos (`MASTER_LIDS` / `MASTER_PHONES`).
+  Removido o fallback frouxo `'8898314322'`.
+- Variações legítimas do mesmo número (com/sem DDI 55, 8 ou 9 dígitos) passaram a
+  ser geradas por `phoneVariants()` e comparadas como **valores exatos**.
+
+#### 🚨 CRÍTICO — `MASTER_LID` continha o LID do PRÓPRIO BOT
+- Provado pelo log do Baileys em produção:
+  `myPN=558581344211` / `myLID=2592935567439`.
+- O `.env` de produção tinha `MASTER_LID=2592935567439@lid` (= o bot), e
+  `BaileysAdapter.ts` repetia esse valor como fallback hardcoded. Consequência:
+  **todo alerta de `notifyOwner()` era enviado ao próprio bot** — o dono nunca
+  recebeu aviso de queda; o log confirmava `alerta enviado ao dono (2592935567439@lid)`.
+- Correção: novo `getOwnerNotifyTarget()` resolve o destino do dono e **blinda** o
+  caso, descartando o LID do bot do conjunto de LIDs do MASTER (com `console.warn`).
+- `notifyOwner()` e `sendQrToOwner()` passaram a usar esse resolvedor.
+
+#### 🛡️ Imunidade do MASTER e do bot (`isProtectedTarget`)
+- Reescrito com comparação exata; `endsWith` protegia terceiros por acidente
+  (ex.: `99558581344211` "terminava com" o número do bot).
+- Guardas adicionadas em: `$delete` (`deleteMsg.ts`), `$promover` (`promover.ts`).
+- **Guarda defensiva de última linha** em `removeFromGroup()` (`autoModService.ts`)
+  e `banUser()` (`databaseService.ts`): mesmo que um caminho novo esqueça a
+  checagem, o dono e o bot não podem ser removidos nem gravados como banidos.
+
+#### 🐛 `$mute` — estava quebrado de duas formas (suíte verde mentia)
+1. Lia `ctx.mentionedIds`, propriedade que **não existe** no `CommandContext`
+   (menções ficam em `ctx.msg.mentions`): nunca encontrava o alvo.
+2. `normId()` convertia `@lid` → `@c.us` ao montar a chave, enquanto o
+   `messageHandler` consultava com o `@lid` original: **a chave nunca casava**, o
+   mute era gravado e jamais aplicado (parecia funcionar sem fazer nada).
+- Novo `src/bot/commands/targetResolver.ts` centraliza a resolução de alvo
+  (`normalizeTargetId`, `getMentionedIds`, `resolveTargetId`), lê todas as fontes
+  de menção (WWebJS + Baileys + reply) e **preserva o domínio** do ID.
+- `mute.ts` e `desmute.ts` migrados para o resolvedor.
+
+#### ✨ Moderação de ENTRADA agora funciona em produção
+- `handleMemberJoin` existia **somente** no `WhatsAppAdapter` (WWebJS/legado).
+  Como produção roda `WPP_ENGINE=baileys`, nada disso executava: banido que
+  reentrava não era removido, antibots não agia na entrada e boas-vindas não saíam.
+- Extraído para `src/services/memberJoinService.ts` (agnóstico de plataforma) e
+  ligado ao evento `group-participants.update` do `BaileysAdapter`.
+
+#### 🐛 Outras correções de runtime
+- `ReferenceError` em 4 comandos que referenciavam `msg`/`args`/`client`
+  inexistentes após o refactor `execute(ctx)`: `mute`, `desmute`, `info`,
+  `feedback` (+ `promover` reescrito). Eles **lançavam exceção ao serem chamados**.
+- `cleanId()`: o sufixo de device vazava para o ID —
+  `'2592935567439:60@lid'` virava `'259293556743960'` (ID inexistente).
+- `normId()` do `BaileysAdapter`: `.replace(/:/,'@')` transformava
+  `558581344211:60@s.whatsapp.net` em `558581344211@60@s.whatsapp.net` (inválido).
+- `TelegramAdapter`: genérico `Telegraf<TgMessage>` violava a constraint
+  `Context<Update>` e colapsava o tipo do ctx para `never` — **33 erros** em
+  cascata. Corrigido para `Telegraf<TelegrafContext>` (+ guarda de `ctx.message`
+  ausente, que era `TypeError` em runtime; `disable_web_page_preview` →
+  `link_preview_options`).
+
+#### 🧹 Configuração
+- `tsconfig.json`: `NodeNext` → `CommonJS`/`Node10`. O projeto é
+  `"type": "commonjs"` e todo o build sai em CJS (tsup `--format cjs`), mas o
+  `NodeNext` exigia extensão `.js` nos imports e gerava ~30 erros TS2835 falsos.
+- `PlatformUser`: declarados `isAdmin?` / `isSuperAdmin?` (usados por `kick`/`ban`
+  mas ausentes do tipo, causando ~12 erros em cascata).
+
+#### 📊 Resultado medido
+- Erros de tipagem (`tsc --noEmit`): **129 → 58**.
+- Testes: **95 → 136 passando**, 18 arquivos. Novos:
+  `permissions-security.test.ts` (26), `mute-target.test.ts` (16),
+  `memberJoinService.test.ts` (10).
+- 3 bugs reais foram descobertos **pelos próprios testes novos** (`cleanId` com
+  sufixo de device, DDI e nono dígito).
+
+#### ⚠️ NÃO validado em produção nesta entrega
+- Build verde e testes verdes **não** provam funcionamento em produção.
+- Falta teste real no grupo "Teste": `$mute`, `$delete`, `$promover` e a entrada
+  de membro (ban persistente/boas-vindas) via Baileys.
+- `MASTER_LID` do `.env` de produção **continua com o valor errado** (LID do bot).
+  O código agora o ignora com segurança, mas o valor correto do LID do dono ainda
+  precisa ser descoberto e configurado.
+
 ## [v1.2.1] - 2026-08-17
 ### 🛠️ DNS do servidor (BUG 36) + testes de comandos
 

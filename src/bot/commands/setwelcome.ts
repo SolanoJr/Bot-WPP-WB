@@ -1,4 +1,5 @@
 import { ICommand } from './types';
+import { CommandContext } from '../../platforms/base/PlatformTypes';
 import axios from 'axios';
 import { isMaster, cleanId } from '../../services/permissions';
 import { groupTag } from './format';
@@ -6,7 +7,7 @@ import { groupTag } from './format';
 export const setwelcomeCommand: ICommand = {
     name: 'setwelcome',
     description: 'Configura a mensagem de boas-vindas do grupo (Apenas Admins).',
-    async execute(ctx: any, _client?: any, _args?: any) {
+    async execute(ctx: CommandContext) {
         const chat = await ctx.getChat();
 
         if (!chat.isGroup) {
@@ -35,12 +36,12 @@ export const setwelcomeCommand: ICommand = {
             return;
         }
 
-        if (args.length === 0) {
+        if (ctx.args.length === 0) {
             await ctx.reply('❌ Por favor, digite a nova mensagem. Exemplo: `$setwelcome Bem-vindos ao nosso grupo!`');
             return;
         }
 
-        const newWelcome = args.join(' ');
+        const newWelcome = ctx.args.join(' ');
         const groupId = chat.id._serialized;
         const RELAY_URL = process.env.RELAY_URL || 'https://bot-wpp-relay.onrender.com';
 

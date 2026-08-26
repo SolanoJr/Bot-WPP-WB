@@ -23,7 +23,11 @@ import {
 
 class TelegramClient implements PlatformClient {
   readonly platform: PlatformType = 'telegram';
-  private bot: Telegraf<TgMessage>;
+  // ⚠️ O genérico de Telegraf<> é o CONTEXT, não a Message. Estava
+  // `Telegraf<TgMessage>`, o que violava a constraint `Context<Update>` e fazia
+  // o TS colapsar o tipo do ctx para `never` — 33 erros em cascata neste arquivo
+  // (ctx.chat, ctx.from, tg.photo… todos "não existem em never").
+  private bot: Telegraf<TelegrafContext>;
   private token: string;
   public userId: string = '';
   public userName: string = '';
@@ -40,10 +44,10 @@ class TelegramClient implements PlatformClient {
   }
 
   private setupEventHandlers() {
-    this.bot.on('message', async (ctx: TelegrafContext<TgMessage>) => {
+    this.bot.on('message', async (ctx: TelegrafContext) => {
       console.log('[Telegram] Mensagem recebida:', JSON.stringify({
         from: ctx.from?.username,
-        text: ctx.message?.text,
+        text: (ctx.message as any)?.text,
         chatId: ctx.chat?.id
       }));
       if (this.messageHandler) {
@@ -97,23 +101,33 @@ class TelegramClient implements PlatformClient {
     }
   }
 
-  private normalizeMessage(ctx: TelegrafContext<TgMessage>): PlatformMessage {
+  private normalizeMessage(ctx: TelegrafContext): PlatformMessage {
     const msgHash = Math.random().toString(36).substring(7);
     const stack = new Error().stack;
     console.log(`[TelegramAdapter.normalizeMessage] ENTRY - msgHash: ${msgHash}, ctx:`, !!ctx, 'typeof ctx:', typeof ctx);
     console.log(`[TelegramAdapter.normalizeMessage] Stack trace:`, stack);
     
+    // ctx.message é opcional no Telegraf (updates de edição/callback não têm).
+    // Sem esta guarda, um update desses causava TypeError em runtime ao ler
+    // tg.chat.id. Lançamos um erro claro e o chamador ignora o update.
     const tg = ctx.message;
+    if (!tg) {
+      throw new Error('[TelegramAdapter] update sem message — ignorado');
+    }
+    // `Message` é uma UNIÃO discriminada: só a variante de texto tem `.text`, só
+    // a de foto tem `.photo`, etc. Estreitar cada uma daria 8 type-guards; como
+    // aqui apenas detectamos presença de mídia, usamos uma view indexada.
+    const tgAny = tg as Record<string, any>;
     const chatId = `tg:${tg.chat.id}`;
     const userId = `tg:${tg.from?.id ?? 0}`;
-    const hasMedia = !!tg.photo || !!tg.document || !!tg.video || !!tg.sticker || !!tg.audio || !!tg.voice || !!tg.video_note;
+    const hasMedia = !!tgAny.photo || !!tgAny.document || !!tgAny.video || !!tgAny.sticker || !!tgAny.audio || !!tgAny.voice || !!tgAny.video_note;
     const mediaType = (() => {
-      if (tg.photo) return 'image' as const;
-      if (tg.video) return 'video' as const;
-      if (tg.document) return 'document' as const;
-      if (tg.sticker) return 'sticker' as const;
-      if (tg.audio || tg.voice) return 'audio' as const;
-      if (tg.video_note) return 'video' as const;
+      if (tgAny.photo) return 'image' as const;
+      if (tgAny.video) return 'video' as const;
+      if (tgAny.document) return 'document' as const;
+      if (tgAny.sticker) return 'sticker' as const;
+      if (tgAny.audio || tgAny.voice) return 'audio' as const;
+      if (tgAny.video_note) return 'video' as const;
       return undefined;
     })();
 
@@ -122,7 +136,7 @@ class TelegramClient implements PlatformClient {
       chatId,
       userId,
       userName: tg.from?.first_name ?? 'unknown',
-      text: tg.text ?? '',
+      text: tgAny.text ?? '',
       timestamp: new Date(tg.date * 1000),
       isFromMe: tg.from?.is_bot ?? false,
       isCommand: false,
@@ -130,7 +144,7 @@ class TelegramClient implements PlatformClient {
       raw: tg,
       hasMedia,
       mediaType,
-      replyToMessageId: tg.reply_to_message ? `tg:${tg.reply_to_message.message_id}` : undefined,
+      replyToMessageId: tgAny.reply_to_message ? `tg:${tgAny.reply_to_message.message_id}` : undefined,
     } as PlatformMessage;
   }
 
@@ -143,7 +157,7 @@ class TelegramClient implements PlatformClient {
     const cleanChatId = chatId.replace(/^tg:/, '');
     const sent = await this.bot.telegram.sendMessage(Number(cleanChatId), text, {
       parse_mode: options?.parseMode as any,
-      disable_web_page_preview: options?.disablePreview,
+      link_preview_options: options?.disablePreview ? { is_disabled: true } : undefined,
       reply_to_message_id: options?.replyToMessageId ? Number(options.replyToMessageId.replace(/^tg:/, '')) : undefined,
     });
     
@@ -243,7 +257,7 @@ export class TelegramAdapter implements PlatformAdapter {
 
   async initialize(): Promise<void> {
     console.log('[TelegramAdapter] Inicializando...');
-    if (this.isReady) {
+    if (this.client.isReady) {
       console.log('[TelegramAdapter] Já estava pronto');
       return;
     }

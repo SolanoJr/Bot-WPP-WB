@@ -1,11 +1,12 @@
 import { ICommand } from './types';
+import { CommandContext } from '../../platforms/base/PlatformTypes';
 import { getDb } from '../../services/databaseService';
 
 export const feedbackCommand: ICommand = {
   name: 'feedback',
   description: 'Envia um feedback ou sugestão para o desenvolvedor.',
-  async execute(ctx: any, _client?: any, _args?: any) {
-    const feedbackText = args.join(' ');
+  async execute(ctx: CommandContext) {
+    const feedbackText = (ctx.args || []).join(' ');
 
     if (!feedbackText) {
       await ctx.reply('⚠️ Por favor, digite seu feedback após o comando.\nExemplo: $feedback Adicione mais jogos!');
@@ -17,26 +18,26 @@ export const feedbackCommand: ICommand = {
       const db = await getDb();
       console.log('[FEEDBACK] Banco de dados obtido com sucesso');
       
-      const payload = msg.msg || msg;
+      const payload: any = ctx.msg;
       // Obter informações do contato
-      let userName = 'Desconhecido';
-      let userNumber = payload.from || payload.author || 'unknown';
+      let userName = ctx.userName || 'Desconhecido';
+      let userNumber = ctx.userId || 'unknown';
       let groupName = '';
       let groupId = '';
 
       try {
-        const contact = await payload.getContact?.();
+        const contact = await payload?.raw?.getContact?.();
         if (contact) {
-          userName = contact.pushname || contact.name || 'Desconhecido';
-          userNumber = contact.number || payload.from || 'unknown';
+          userName = contact.pushname || contact.name || userName;
+          userNumber = contact.number || userNumber;
         }
       } catch (e) {
         console.log('[FEEDBACK] Erro ao obter contato:', e);
       }
 
       // Verificar se é grupo
-      if ((payload.from || '').endsWith('@g.us')) {
-        groupId = payload.from;
+      if (ctx.isGroup) {
+        groupId = ctx.chatId;
         try {
           const chat = await ctx.getChat();
           groupName = chat?.name || 'Grupo sem nome';
@@ -47,7 +48,7 @@ export const feedbackCommand: ICommand = {
       
       await db.run(
         'INSERT INTO feedbacks (user_id, user_name, user_number, group_id, group_name, message) VALUES (?, ?, ?, ?, ?, ?)',
-        [payload.author || payload.from || 'unknown', userName, userNumber, groupId, groupName, feedbackText]
+        [ctx.userId || 'unknown', userName, userNumber, groupId, groupName, feedbackText]
       );
       console.log('[FEEDBACK] Feedback salvo com sucesso');
       

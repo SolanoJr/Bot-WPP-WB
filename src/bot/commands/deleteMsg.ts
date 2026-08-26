@@ -1,5 +1,6 @@
 import { ICommand } from './types';
 import { CommandContext } from '../../platforms/base/PlatformTypes';
+import { isMaster, isProtectedTarget } from '../../services/permissions';
 
 // Comando OCULTO (só dono/bot). Apaga a mensagem que foi marcada/comentada.
 // Uso: responda (quote) a uma mensagem e envie "$delete".
@@ -19,6 +20,16 @@ export const deleteMsgCommand: ICommand = {
 
       if (!target) {
         await ctx.reply('⚠️ Responda (cite) a mensagem que deseja apagar.');
+        return;
+      }
+
+      // PROTEÇÃO: nunca apagar mensagem do MASTER (dono) nem do próprio bot,
+      // exceto quando é o próprio dono pedindo (ele pode apagar o que quiser).
+      const targetAuthor = String(
+        target.author || target.from || target?.id?.participant || target?.key?.participant || ''
+      );
+      if (targetAuthor && isProtectedTarget(targetAuthor) && !isMaster(ctx.userId)) {
+        await ctx.reply('🛡️ Você não pode apagar mensagens do dono (MASTER) ou do próprio bot.');
         return;
       }
 

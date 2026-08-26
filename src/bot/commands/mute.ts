@@ -1,6 +1,8 @@
 import { ICommand } from './types';
+import { CommandContext } from '../../platforms/base/PlatformTypes';
 import { groupTag } from './format';
 import { isProtectedTarget } from '../../services/permissions';
+import { normalizeTargetId, resolveTargetId } from './targetResolver';
 
 // Usuários silenciados por grupo (user@c.us -> expiry timestamp em ms).
 // O WhatsApp Web (WWebJS 1.34.7) NÃO suporta mute de usuário por admin via API
@@ -9,20 +11,24 @@ import { isProtectedTarget } from '../../services/permissions';
 // lista (raw.delete(true)) enquanto o mute estiver ativo.
 const mutedUsers = new Map<string, number>(); // key: `${chatId}:${userId}` -> expiryEpochMs
 
-// Normaliza qualquer fonte de ID (string '@c.us'/'\@lid' ou objeto {_serialized}) p/ 'clean@c.us'
+// Normaliza qualquer fonte de ID para a chave do mute.
+// ⚠️ CORREÇÃO DE BUG: a versão anterior fazia `.replace('@lid','@c.us')`, o que
+// destruía o identificador. O comando gravava a chave com '@c.us' enquanto o
+// messageHandler consultava com '@lid' original: a chave nunca casava e o mute
+// era registrado mas NUNCA aplicado. Agora o domínio é preservado.
 function normId(id: any): string {
   if (!id) return '';
   const s = typeof id === 'string' ? id : (id._serialized || id.id || '');
-  return String(s).replace('@lid', '@c.us').replace(/^wpp:/, '');
+  return normalizeTargetId(String(s));
 }
 
 export const muteCommand: ICommand = {
     name: 'mute',
     description: 'Silencia um usuário: apaga as mensagens dele no grupo enquanto o mute durar. Uso: $mute @usuario',
 
-    async execute(ctx: any, _client?: any, _args?: any) {
-        // msg aqui é o CommandContext; o payload está em msg.msg
-        const payload = msg.msg || msg;
+    async execute(ctx: CommandContext) {
+        const payload: any = ctx.msg;
+        const args = ctx.args || [];
         const chat = await ctx.getChat();
         const isGroup = (chat as any).isGroup;
 
@@ -39,8 +45,8 @@ export const muteCommand: ICommand = {
                 const wppChat = (chat as any).raw || chat;
                 await wppChat.setMessagesAdminsOnly(!off);
                 await ctx.reply(off
-                    ? `🔊 Modo "só admins" DESATIVADO. Todos podem digitar.${groupTag(msg)}`
-                    : `🔇 Modo "só admins" ATIVADO. Apenas administradores podem enviar mensagens.${groupTag(msg)}`);
+                    ? `🔊 Modo "só admins" DESATIVADO. Todos podem digitar.${groupTag(ctx)}`
+                    : `🔇 Modo "só admins" ATIVADO. Apenas administradores podem enviar mensagens.${groupTag(ctx)}`);
             } catch (e: any) {
                 await ctx.reply(`⚠️ Não consegui alterar o modo do grupo: ${e?.message || e}`);
             }
@@ -49,34 +55,27 @@ export const muteCommand: ICommand = {
 
         // $mute off @pessoa -> desmuta
         if (sub === 'off') {
-            const mentioned = (payload.mentions && payload.mentions.length)
-              ? payload.mentions
-              : (payload.mentionedIds || ctx.mentionedIds || []);
-            if (!mentioned || mentioned.length === 0) {
+            const userToUnmute = resolveTargetId(ctx);
+            if (!userToUnmute) {
                 await ctx.reply('❌ Marque o usuário a desmutar. Ex: $mute off @usuario');
                 return;
             }
-            const userToUnmute = normId(mentioned[0].id ?? mentioned[0]);
-            const chatId = normId((chat as any).id?._serialized || (chat as any).id || payload.chatId);
+            const chatId = normalizeTargetId(ctx.chatId);
             const key = `${chatId}:${userToUnmute}`;
             if (mutedUsers.delete(key)) {
-                await ctx.reply(`🔊 Usuário desmutado. As mensagens dele não serão mais apagadas.${groupTag(msg)}`);
+                await ctx.reply(`🔊 Usuário desmutado. As mensagens dele não serão mais apagadas.${groupTag(ctx)}`);
             } else {
-                await ctx.reply(`ℹ️ Este usuário não estava mutado.${groupTag(msg)}`);
+                await ctx.reply(`ℹ️ Este usuário não estava mutado.${groupTag(ctx)}`);
             }
             return;
         }
 
-        const mentioned = (payload.mentions && payload.mentions.length)
-          ? payload.mentions
-          : (payload.mentionedIds || ctx.mentionedIds || []);
-        if (!mentioned || mentioned.length === 0) {
+        const userToMute = resolveTargetId(ctx);
+        if (!userToMute) {
             await ctx.reply('❌ Marque o usuário a ser silenciado. Ex: $mute @usuario');
             return;
         }
-
-        const userToMute = normId(mentioned[0].id ?? mentioned[0]);
-        const chatId = normId((chat as any).id?._serialized || (chat as any).id || payload.chatId);
+        const chatId = normalizeTargetId(ctx.chatId);
 
         // PROTEÇÃO: nunca silenciar o MASTER ou o próprio bot
         if (isProtectedTarget(userToMute)) {
@@ -89,7 +88,7 @@ export const muteCommand: ICommand = {
         mutedUsers.set(key, Date.now() + durationMs);
         console.log(`[mute] GRAVOU mute: key=${key} expiraEm=${(durationMs/3600000)}h`);
 
-        await ctx.reply(`✅ Usuário silenciado por 8 horas: todas as mensagens dele serão apagadas.${groupTag(msg)}`);
+        await ctx.reply(`✅ Usuário silenciado por 8 horas: todas as mensagens dele serão apagadas.${groupTag(ctx)}`);
     }
 };
 

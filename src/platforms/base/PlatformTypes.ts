@@ -20,6 +20,12 @@ export interface PlatformUser {
   isBot: boolean;
   platform: PlatformType;
   raw: any;                      // Objeto original da plataforma
+  // Cargo dentro de um grupo. Preenchido apenas quando o usuário vem de
+  // PlatformChat.participants (WhatsApp: isAdmin/isSuperAdmin do WWebJS/Baileys;
+  // Telegram: administrator/creator; Discord: permissão ManageGuild).
+  // Ausente/undefined = cargo não verificado (NÃO assumir "não é admin").
+  isAdmin?: boolean;
+  isSuperAdmin?: boolean;
 }
 
 export interface PlatformChat {

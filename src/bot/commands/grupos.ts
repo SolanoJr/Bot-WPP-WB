@@ -1,10 +1,11 @@
 import { ICommand } from './types';
+import { CommandContext } from '../../platforms/base/PlatformTypes';
 import { isMaster, cleanId } from '../../services/permissions';
 
 export const gruposCommand: ICommand = {
     name: 'grupos',
     description: 'Lista todos os grupos em que o bot está presente (Apenas MASTER).',
-    async execute(ctx: any, _client?: any, _args?: any) {
+    async execute(ctx: CommandContext) {
         const authorId = ctx.userId || ctx.chatId;
 
         if (!isMaster(authorId)) {
@@ -13,7 +14,7 @@ export const gruposCommand: ICommand = {
         }
 
         try {
-            const chats = await client.getChats();
+            const chats = await ctx.client.getChats();
             const groups = chats.filter(chat => chat.isGroup);
 
             if (groups.length === 0) {
@@ -24,7 +25,7 @@ export const gruposCommand: ICommand = {
             let response = `📋 **LISTA DE GRUPOS (${groups.length})**\n\n`;
 
             for (const group of groups) {
-                const botIdClean = cleanId(client.info.wid._serialized);
+                const botIdClean = cleanId(ctx.client.info.wid._serialized);
                 
                 const botMember = group.participants.find(p => cleanId(p.id._serialized) === botIdClean);
                 const isBotAdmin = botMember && (botMember.isAdmin || botMember.isSuperAdmin);

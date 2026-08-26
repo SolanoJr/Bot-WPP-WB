@@ -1,4 +1,5 @@
 import { ICommand } from './types';
+import { CommandContext } from '../../platforms/base/PlatformTypes';
 import logger from '../../services/loggerService';
 import { isMaster } from '../../services/permissions';
 
@@ -10,7 +11,7 @@ import { isMaster } from '../../services/permissions';
 export const sendMessageCommand: ICommand = {
   name: 'sendmsg',
   description: 'Envia uma mensagem para um número especificado.',
-  async execute(ctx: any, _client?: any, _args?: any) {
+  async execute(ctx: CommandContext) {
     const authorId = ctx.userId || ctx.chatId;
     
     // Verificar se é MASTER
@@ -19,7 +20,7 @@ export const sendMessageCommand: ICommand = {
       return;
     }
 
-    const [rawNumber, ...messageParts] = args;
+    const [rawNumber, ...messageParts] = ctx.args;
     if (!rawNumber || messageParts.length === 0) {
       await ctx.reply('Uso: $sendmsg <numero> <mensagem>');
       return;
@@ -42,7 +43,7 @@ export const sendMessageCommand: ICommand = {
     try {
       // Tentar obter o ID correto usando getNumberId
       try {
-        const numberId = await client.getNumberId(number);
+        const numberId = await ctx.client.getNumberId(number);
         if (numberId) {
           chatId = numberId._serialized;
           console.log('[SENDMSG] ID obtido via getNumberId:', chatId);
@@ -53,13 +54,13 @@ export const sendMessageCommand: ICommand = {
 
       // Tentar obter contato para verificar se existe
       try {
-        const contact = await client.getContactById(chatId);
+        const contact = await ctx.client.getContactById(chatId);
         console.log('[SENDMSG] Contato encontrado:', contact.number || contact.id._serialized);
       } catch (e) {
         console.log('[SENDMSG] Contato não encontrado:', e);
       }
 
-      await client.sendMessage(chatId, message);
+      await ctx.client.sendMessage(chatId, message);
       await ctx.reply(`✅ Mensagem enviada para ${rawNumber}`);
       logger.info(`Mensagem enviada para ${rawNumber}: ${message}`);
     } catch (e) {

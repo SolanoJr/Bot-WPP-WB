@@ -1,11 +1,12 @@
 import { ICommand } from './types';
+import { CommandContext } from '../../platforms/base/PlatformTypes';
 import { isMaster } from '../../services/permissions';
 
 export const shutdownCommand: ICommand = {
     name: 'shutdown',
     description: 'Desliga o bot (apenas MASTER).',
-    async execute(ctx: any, _client?: any, _args?: any) {
-        void args;
+    async execute(ctx: CommandContext) {
+        void ctx.args;
         
         // BUG 2: Em grupos, ctx.chatId é o ID do grupo. Usar ctx.userId para identificar quem executou
         const isGroup = ctx.chatId?.endsWith('@g.us');

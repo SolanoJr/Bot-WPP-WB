@@ -1,4 +1,5 @@
 import { ICommand } from './types';
+import { CommandContext } from '../../platforms/base/PlatformTypes';
 import fs from 'fs';
 import path from 'path';
 
@@ -45,7 +46,7 @@ export const welcomeCommand: ICommand = {
   name: 'bemvindo',
   description: 'Define mensagem de boas-vindas personalizada para o grupo',
   
-  async execute(ctx: any, _client?: any, _args?: any) {
+  async execute(ctx: CommandContext) {
     try {
       const chat = await ctx.getChat();
       
@@ -69,7 +70,7 @@ export const welcomeCommand: ICommand = {
       }
 
       // Se não tem argumentos, mostra a mensagem atual
-      if (args.length === 0) {
+      if (ctx.args.length === 0) {
         const currentMsg = welcomeMessages.get(chat.id._serialized) || 'Padrão: Bem-vindo(a) ao grupo!';
         await ctx.reply(
           `📝 Mensagem de boas-vindas atual:\n\n` +
@@ -80,7 +81,7 @@ export const welcomeCommand: ICommand = {
       }
 
       // Define nova mensagem
-      const newMessage = args.join(' ');
+      const newMessage = ctx.args.join(' ');
       welcomeMessages.set(chat.id._serialized, newMessage);
       saveWelcomeMessages();
 

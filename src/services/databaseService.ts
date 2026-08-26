@@ -167,6 +167,14 @@ export async function banUser(opts: {
   bannedBy?: string;
   reason?: string;
 }): Promise<void> {
+  // GUARDA DEFENSIVA: o dono e o próprio bot NUNCA entram na lista de banidos.
+  // Sem isso, um registro acidental faria o handleMemberJoin remover o dono na
+  // próxima vez que ele entrasse no grupo (banimento auto-reforçado).
+  const { isProtectedTarget } = await import('./permissions');
+  if (isProtectedTarget(opts.userId)) {
+    console.warn(`🛡️ [DB] banUser BLOQUEADO: ${opts.userId} é MASTER/bot (alvo protegido).`);
+    return;
+  }
   try {
     const db = await getDb();
     await db.run(

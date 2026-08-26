@@ -1,4 +1,5 @@
 import { ICommand } from './types';
+import { CommandContext } from '../../platforms/base/PlatformTypes';
 import { forcaState } from './gameState';
 
 // Lista simples de palavras para o jogo da forca
@@ -22,10 +23,10 @@ function renderWord(word: string, guessed: Set<string>): string {
 export const forcaCommand: ICommand = {
   name: 'forca',
   description: 'Jogo da forca. Use "$forca" para iniciar, "$forca <letra>" para chutar, "$forca reset" para reiniciar.',
-  async execute(ctx: any, _client?: any, _args?: any) {
+  async execute(ctx: CommandContext) {
     const chatId = ctx.chatId || ctx.userId || 'unknown';
     // Inicializa estado se ainda não existir
-    if (!forcaState.has(chatId) || args[0]?.toLowerCase() === 'reset') {
+    if (!forcaState.has(chatId) || ctx.args[0]?.toLowerCase() === 'reset') {
       const word = pickRandomWord();
       forcaState.set(chatId, {
         word,
@@ -37,7 +38,7 @@ export const forcaCommand: ICommand = {
     }
 
     const state = forcaState.get(chatId)!;
-    const guess = args[0]?.toUpperCase();
+    const guess = ctx.args[0]?.toUpperCase();
 
     if (!guess || guess.length !== 1 || !/[A-Z]/.test(guess)) {
       await ctx.reply('⚠️ Use uma única letra (A‑Z) ou "reset" para reiniciar o jogo.');

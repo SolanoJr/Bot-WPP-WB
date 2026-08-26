@@ -417,11 +417,22 @@ export const updateAutoModConfig = (updates: Partial<ModConfig>) => {
   return { ...defaultConfig };
 };
 
-/** Remove um participante do grupo (kick). Trata WWebJS e adapters. */
+/**
+ * Remove um participante do grupo (kick). Trata WWebJS e adapters.
+ * GUARDA DEFENSIVA: recusa remover o MASTER ou o próprio bot. Esta é a última
+ * linha de defesa — a função é exportada e chamada por vários caminhos
+ * (processAutoMod, handleMemberJoin), então a checagem vive AQUI e não só nos
+ * chamadores, para que nenhum caminho novo possa remover o dono por descuido.
+ */
 export async function removeFromGroup(client: any, chat: any, groupId: string, userId: string): Promise<void> {
+  if (isProtectedTarget(userId)) {
+    console.warn(`🛡️ [AutoMod] removeFromGroup BLOQUEADO: ${userId} é MASTER/bot (alvo protegido).`);
+    return;
+  }
   const cleanGroup = groupId.replace(/^(wpp:|tg:|dc:)/, '');
   let cleanUser = userId.replace(/^(wpp:|tg:|dc:)/, '');
-  if (cleanUser.endsWith('@lid')) cleanUser = cleanUser.replace('@lid', '@c.us');
+  // ⚠️ NÃO converter @lid -> @c.us: o WhatsApp moderno (Baileys/WWebJS) exige o
+  // @lid original para remover. Converter fazia o kick falhar silenciosamente.
   try {
     if (typeof client?.removeParticipant === 'function') {
       await client.removeParticipant(cleanGroup, cleanUser);

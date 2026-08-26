@@ -1,4 +1,4 @@
-import { CommandContext, PlatformType } from '../../../platforms/base/PlatformTypes';
+import { CommandContext, PlatformType } from '../../platforms/base/PlatformTypes';
 
 // Interface para comandos - usa CommandContext unificado
 export interface ICommand {

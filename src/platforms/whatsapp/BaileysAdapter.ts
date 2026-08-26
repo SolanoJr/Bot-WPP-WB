@@ -37,13 +37,25 @@ import {
   MessageHandler,
 } from '../base/PlatformTypes';
 
-const MASTER_USER = process.env.MASTER_USER || '5588998314322@c.us';
-const MASTER_LID = process.env.MASTER_LID || '2592935567439@lid';
+// ⚠️ NÃO defina MASTER_LID aqui com fallback hardcoded: '2592935567439@lid' é o
+// LID do PRÓPRIO BOT (provado no log: myPN=558581344211 / myLID=2592935567439).
+// O destino do dono é resolvido por getOwnerNotifyTarget(), que blinda esse caso
+// e nunca devolve o identificador do bot.
+import { getOwnerNotifyTarget } from '../../services/permissions';
 
-// Converte ID do Baileys (ex: 558581344211:1234@g.us) para formato interno
+// Converte ID do Baileys para formato interno.
+// ⚠️ A versão anterior fazia `.replace(/:/, '@')`, o que transformava
+// '558581344211:60@s.whatsapp.net' em '558581344211@60@s.whatsapp.net' (ID
+// inválido). O correto é DESCARTAR o sufixo de device e preservar o domínio.
 function normId(id: string): string {
-  // Baileys usa : prefixo em alguns lugares; normalizamos para @c.us / @g.us / @lid
-  return id.replace(/:/, '@').replace('@g.us', '@g.us').replace('@s.whatsapp.net', '@c.us');
+  if (!id) return '';
+  const s = String(id);
+  const at = s.indexOf('@');
+  if (at === -1) return s.split(':')[0];
+  const user = s.slice(0, at).split(':')[0];
+  const domain = s.slice(at);
+  // @s.whatsapp.net é o domínio interno do Baileys; o resto do sistema usa @c.us.
+  return `${user}${domain === '@s.whatsapp.net' ? '@c.us' : domain}`;
 }
 
 function toJid(id: string): string {
@@ -157,6 +169,30 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
       });
 
       this.sock.ev.on('creds.update', saveCreds);
+
+      // MODERAÇÃO DE ENTRADA (ban persistente, antibots, boas-vindas).
+      // Antes isso existia SÓ no WhatsAppAdapter (WWebJS/legado), então com
+      // WPP_ENGINE=baileys nada disso rodava em produção.
+      this.sock.ev.on('group-participants.update', async (ev: any) => {
+        try {
+          if (ev?.action !== 'add') return;
+          const { handleMemberJoin } = await import('../../services/memberJoinService');
+          await handleMemberJoin(
+            {
+              removeParticipant: (groupId, userId) => this.removeParticipant(groupId, userId),
+              sendMessage: (groupId, text, mentions) =>
+                this.sendMessage(groupId, text, mentions ? ({ mentionedIds: mentions } as any) : undefined),
+            },
+            {
+              groupId: normId(ev.id),
+              members: (ev.participants || []).map((p: string) => normId(p)),
+            }
+          );
+        } catch (e: any) {
+          console.error('[Baileys] erro em group-participants.update:', e?.message);
+        }
+      });
+
       this.sock.ev.on('messages.upsert', (m: any) => {
         this.lastActivityTs = Date.now();
         try {
@@ -362,7 +398,11 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
   // ALERTA / HEALTH (compatível com o watchdog anterior)
   // ============================================================
   async notifyOwner(text: string): Promise<void> {
-    const ownerId = MASTER_LID || MASTER_USER;
+    const ownerId = getOwnerNotifyTarget();
+    if (!ownerId) {
+      console.error('[Baileys][notifyOwner] ❌ destino do dono não resolvido (configure MASTER_USER/MASTER_LID) — alerta descartado');
+      return;
+    }
     try {
       await Promise.race([
         this.sock.sendMessage(toJid(ownerId), { text }),
@@ -382,8 +422,10 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
         console.log(`\n\n[Baileys] 📱 QR SALVO EM: ${qrPath}`);
         console.log(`[Baileys] 📱 ESCANEIE COM OUTRO CELULAR: https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}\n\n`);
         // Tenta enviar ao dono (pode falhar se WPP ainda não abriu)
+        const ownerTarget = getOwnerNotifyTarget();
         try {
-          await this.sock.sendMessage(toJid(MASTER_LID || MASTER_USER), {
+          if (!ownerTarget) throw new Error('destino do dono não resolvido');
+          await this.sock.sendMessage(toJid(ownerTarget), {
             image: fs.readFileSync(qrPath),
             caption: '📱 Escaneie para conectar o WPP (Baileys, sem Chromium)',
           });
