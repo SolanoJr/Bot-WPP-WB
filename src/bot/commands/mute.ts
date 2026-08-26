@@ -20,14 +20,14 @@ export const muteCommand: ICommand = {
     name: 'mute',
     description: 'Silencia um usuário: apaga as mensagens dele no grupo enquanto o mute durar. Uso: $mute @usuario',
 
-    async execute(msg: any, client: any, args: any[]) {
+    async execute(ctx: any, _client?: any, _args?: any) {
         // msg aqui é o CommandContext; o payload está em msg.msg
         const payload = msg.msg || msg;
-        const chat = await msg.getChat();
+        const chat = await ctx.getChat();
         const isGroup = (chat as any).isGroup;
 
         if (!isGroup) {
-            await msg.reply('❌ Este comando só funciona em grupos.');
+            await ctx.reply('❌ Este comando só funciona em grupos.');
             return;
         }
 
@@ -38,11 +38,11 @@ export const muteCommand: ICommand = {
             try {
                 const wppChat = (chat as any).raw || chat;
                 await wppChat.setMessagesAdminsOnly(!off);
-                await msg.reply(off
+                await ctx.reply(off
                     ? `🔊 Modo "só admins" DESATIVADO. Todos podem digitar.${groupTag(msg)}`
                     : `🔇 Modo "só admins" ATIVADO. Apenas administradores podem enviar mensagens.${groupTag(msg)}`);
             } catch (e: any) {
-                await msg.reply(`⚠️ Não consegui alterar o modo do grupo: ${e?.message || e}`);
+                await ctx.reply(`⚠️ Não consegui alterar o modo do grupo: ${e?.message || e}`);
             }
             return;
         }
@@ -51,27 +51,27 @@ export const muteCommand: ICommand = {
         if (sub === 'off') {
             const mentioned = (payload.mentions && payload.mentions.length)
               ? payload.mentions
-              : (payload.mentionedIds || msg.mentionedIds || []);
+              : (payload.mentionedIds || ctx.mentionedIds || []);
             if (!mentioned || mentioned.length === 0) {
-                await msg.reply('❌ Marque o usuário a desmutar. Ex: $mute off @usuario');
+                await ctx.reply('❌ Marque o usuário a desmutar. Ex: $mute off @usuario');
                 return;
             }
             const userToUnmute = normId(mentioned[0].id ?? mentioned[0]);
             const chatId = normId((chat as any).id?._serialized || (chat as any).id || payload.chatId);
             const key = `${chatId}:${userToUnmute}`;
             if (mutedUsers.delete(key)) {
-                await msg.reply(`🔊 Usuário desmutado. As mensagens dele não serão mais apagadas.${groupTag(msg)}`);
+                await ctx.reply(`🔊 Usuário desmutado. As mensagens dele não serão mais apagadas.${groupTag(msg)}`);
             } else {
-                await msg.reply(`ℹ️ Este usuário não estava mutado.${groupTag(msg)}`);
+                await ctx.reply(`ℹ️ Este usuário não estava mutado.${groupTag(msg)}`);
             }
             return;
         }
 
         const mentioned = (payload.mentions && payload.mentions.length)
           ? payload.mentions
-          : (payload.mentionedIds || msg.mentionedIds || []);
+          : (payload.mentionedIds || ctx.mentionedIds || []);
         if (!mentioned || mentioned.length === 0) {
-            await msg.reply('❌ Marque o usuário a ser silenciado. Ex: $mute @usuario');
+            await ctx.reply('❌ Marque o usuário a ser silenciado. Ex: $mute @usuario');
             return;
         }
 
@@ -80,7 +80,7 @@ export const muteCommand: ICommand = {
 
         // PROTEÇÃO: nunca silenciar o MASTER ou o próprio bot
         if (isProtectedTarget(userToMute)) {
-            await msg.reply('🛡️ Você não pode silenciar o dono (MASTER) ou o próprio bot.');
+            await ctx.reply('🛡️ Você não pode silenciar o dono (MASTER) ou o próprio bot.');
             return;
         }
 
@@ -89,7 +89,7 @@ export const muteCommand: ICommand = {
         mutedUsers.set(key, Date.now() + durationMs);
         console.log(`[mute] GRAVOU mute: key=${key} expiraEm=${(durationMs/3600000)}h`);
 
-        await msg.reply(`✅ Usuário silenciado por 8 horas: todas as mensagens dele serão apagadas.${groupTag(msg)}`);
+        await ctx.reply(`✅ Usuário silenciado por 8 horas: todas as mensagens dele serão apagadas.${groupTag(msg)}`);
     }
 };
 

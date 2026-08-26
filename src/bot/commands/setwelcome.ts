@@ -6,15 +6,15 @@ import { groupTag } from './format';
 export const setwelcomeCommand: ICommand = {
     name: 'setwelcome',
     description: 'Configura a mensagem de boas-vindas do grupo (Apenas Admins).',
-    async execute(msg, client, args) {
-        const chat = await msg.getChat();
+    async execute(ctx: any, _client?: any, _args?: any) {
+        const chat = await ctx.getChat();
 
         if (!chat.isGroup) {
-            await msg.reply('❌ Este comando só pode ser usado em grupos.');
+            await ctx.reply('❌ Este comando só pode ser usado em grupos.');
             return;
         }
 
-        const authorId = msg.author || msg.from;
+        const authorId = ctx.userId || ctx.chatId;
         const isUserMaster = isMaster(authorId);
         
         let isGroupAdmin = false;
@@ -31,12 +31,12 @@ export const setwelcomeCommand: ICommand = {
 
         if (!isUserMaster && !isGroupAdmin) {
             console.log(`🚫 [AUTH-FAIL] $setwelcome negado para ${authorId}`);
-            await msg.reply('❌ Apenas administradores do grupo ou o MASTER do bot podem usar este comando.');
+            await ctx.reply('❌ Apenas administradores do grupo ou o MASTER do bot podem usar este comando.');
             return;
         }
 
         if (args.length === 0) {
-            await msg.reply('❌ Por favor, digite a nova mensagem. Exemplo: `$setwelcome Bem-vindos ao nosso grupo!`');
+            await ctx.reply('❌ Por favor, digite a nova mensagem. Exemplo: `$setwelcome Bem-vindos ao nosso grupo!`');
             return;
         }
 
@@ -53,13 +53,13 @@ export const setwelcomeCommand: ICommand = {
             });
 
             if (response.data.success) {
-                await msg.reply(`✅ Mensagem de boas-vindas atualizada com sucesso!${groupTag(msg)}`);
+                await ctx.reply(`✅ Mensagem de boas-vindas atualizada com sucesso!${groupTag(msg)}`);
             } else {
                 throw new Error('Falha na resposta do Relay');
             }
         } catch (error) {
             console.error('❌ Erro ao definir welcome:', error);
-            await msg.reply('⚠️ Ocorreu um erro ao salvar a configuração. Tente novamente mais tarde.');
+            await ctx.reply('⚠️ Ocorreu um erro ao salvar a configuração. Tente novamente mais tarde.');
         }
     }
 };

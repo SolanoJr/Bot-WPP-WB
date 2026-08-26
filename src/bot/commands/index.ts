@@ -214,14 +214,7 @@ function createLegacyMessage(msg: any, ctx: any): any {
       }
       // Prioridade 2: client.sendMessage via msg.chatId
       if (ctx && ctx.client && typeof ctx.client.sendMessage === 'function') {
-        console.log('[LegacyMessage] Usando ctx.client.sendMessage()');
         return await ctx.client.sendMessage(msg.chatId, text, options);
-      }
-      // Prioridade 3: Envio direto pelo adaptador do WhatsApp se for a plataforma
-      if (msg.platform === 'whatsapp') {
-        console.log('[LegacyMessage] Usando whatsAppClient.sendMessage()');
-        const { whatsAppClient } = await import('../../platforms/whatsapp/WhatsAppAdapter');
-        return await whatsAppClient.sendMessage(msg.chatId, text, options);
       }
       // Fallback extremo via PlatformManager
       console.log('[LegacyMessage] Usando PlatformManager.sendMessage()');

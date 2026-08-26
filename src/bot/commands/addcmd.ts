@@ -8,12 +8,12 @@ import { getComandoBlock, addComandosId, addComandos } from './customCommandsSto
 export const addCmdCommand: ICommand = {
   name: 'addcmd',
   description: 'Adiciona um comando customizado ao grupo.',
-  async execute(msg, client, args) {
+  async execute(ctx: any, _client?: any, _args?: any) {
     const [groupId, ...commandParts] = args;
     const commandText = commandParts.join(' ');
 
     if (!groupId || !commandText) {
-      await msg.reply('Uso: $addcmd <groupId> <textoDoComando>');
+      await ctx.reply('Uso: $addcmd <groupId> <textoDoComando>');
       return;
     }
 
@@ -24,16 +24,16 @@ export const addCmdCommand: ICommand = {
       try {
         addComandosId(groupId);
       } catch (e) {
-        await msg.reply('⚠️ Não foi possível criar bloco de comandos.');
+        await ctx.reply('⚠️ Não foi possível criar bloco de comandos.');
         return;
       }
     }
 
     try {
       addComandos(groupId, commandText);
-      await msg.reply(`✅ Comando adicionado ao grupo ${groupId}.`);
+      await ctx.reply(`✅ Comando adicionado ao grupo ${groupId}.`);
     } catch (e) {
-      await msg.reply('⚠️ Erro ao adicionar comando.');
+      await ctx.reply('⚠️ Erro ao adicionar comando.');
     }
   },
 };

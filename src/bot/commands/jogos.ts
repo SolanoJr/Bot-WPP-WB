@@ -3,7 +3,7 @@ import { ICommand } from './types';
 export const jogosCommand: ICommand = {
   name: 'jogos',
   description: 'Lista os jogos e comandos de diversão disponíveis.',
-  async execute(msg, client, args) {
+  async execute(ctx: any, _client?: any, _args?: any) {
     const response = [
       '🎮 *Jogos e diversão*',
       '',
@@ -19,6 +19,6 @@ export const jogosCommand: ICommand = {
       '$delvoto - remove uma votação'
     ].join('\n');
 
-    await msg.reply(response);
+    await ctx.reply(response);
   }
 };

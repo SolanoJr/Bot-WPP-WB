@@ -10,18 +10,18 @@ import { isMaster } from '../../services/permissions';
 export const sendMessageCommand: ICommand = {
   name: 'sendmsg',
   description: 'Envia uma mensagem para um número especificado.',
-  async execute(msg, client, args) {
-    const authorId = msg.author || msg.from;
+  async execute(ctx: any, _client?: any, _args?: any) {
+    const authorId = ctx.userId || ctx.chatId;
     
     // Verificar se é MASTER
     if (!isMaster(authorId)) {
-      await msg.reply('❌ Apenas o MASTER do bot pode usar este comando.');
+      await ctx.reply('❌ Apenas o MASTER do bot pode usar este comando.');
       return;
     }
 
     const [rawNumber, ...messageParts] = args;
     if (!rawNumber || messageParts.length === 0) {
-      await msg.reply('Uso: $sendmsg <numero> <mensagem>');
+      await ctx.reply('Uso: $sendmsg <numero> <mensagem>');
       return;
     }
 
@@ -60,11 +60,11 @@ export const sendMessageCommand: ICommand = {
       }
 
       await client.sendMessage(chatId, message);
-      await msg.reply(`✅ Mensagem enviada para ${rawNumber}`);
+      await ctx.reply(`✅ Mensagem enviada para ${rawNumber}`);
       logger.info(`Mensagem enviada para ${rawNumber}: ${message}`);
     } catch (e) {
       logger.error(`Erro ao enviar mensagem para ${rawNumber}: ${e}`);
-      await msg.reply('⚠️ Falha ao enviar a mensagem. Verifique se o número está correto e se o bot tem permissão para enviar mensagens para este contato.');
+      await ctx.reply('⚠️ Falha ao enviar a mensagem. Verifique se o número está correto e se o bot tem permissão para enviar mensagens para este contato.');
     }
   },
 };

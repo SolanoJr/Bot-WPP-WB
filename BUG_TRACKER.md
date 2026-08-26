@@ -4,6 +4,19 @@ Este documente rastreia bugs, erros e suas soluções para evitar repetição de
 
 ---
 
+## BUG 47 (2026-08-24, auditoria): Inconsistência de assinatura de comandos + código morto + worktrees obsoletos
+- **Sintoma:** 33 dos 71 comandos usavam assinatura legada `execute(msg, client, args)` (estilo WWebJS) e acessavam campos inexistentes no `CommandContext` (`msg.author`, `msg.from`, `msg.body`). Isso quebrava silenciosamente a identificação de usuário (ex: `shutdown` não sabia quem executou). Havia também `commandExecutor.ts` morto, import morto de `WhatsAppAdapter` (WWebJS/Chromium) em `bot/commands/index.ts`, e 7 branches locais obsoletos (copilot/agentes).
+- **Causa raiz:** Evolução do `PlatformManager` para `CommandContext` sem migrar os comandos antigos; acúmulo de código de sessões anteriores.
+- **CORREÇÃO:**
+  - Padronizados os 33 comandos para `execute(ctx: any, _client?: any, _args?: any)`; mapeados campos: `msg.author`→`ctx.userId`, `msg.from`→`ctx.chatId`, `msg.body`→`ctx.text`, `msg.getChat()`→`ctx.getChat()`, `msg.reply`→`ctx.reply`.
+  - Removido `src/services/commandExecutor.ts` (zero uso em código ativo).
+  - Removido import morto de `WhatsAppAdapter` em `bot/commands/index.ts` (Prioridade 3 do `robustReply`).
+  - Deletados 7 branches locais: `agents/project-architecture-review-and-refactor`, `copilot/worktree-2026-06-23T19-03-59`, `stable-js-working-v1`, `staging`, `worktree-agent-*`.
+  - Removidos docs redundantes de sessões antigas: `docs/AI_CONTEXT.md`, `docs/AI_HANDOFF.md`, `docs/IMPLEMENTACAO_REPORT.md`, `docs/CARD_PENDING.md`, `docs/PLACEHOLDERS.md`.
+  - Pendente: `WhatsAppAdapter.ts` (1386 linhas, WWebJS) ainda existe em `src/platforms/whatsapp/` mas só é usado se `WPP_ENGINE=wwebjs` (inativo). Remover em fase futura após confirmação.
+- **Arquivos afetados:** 33 comandos em `src/bot/commands/`, `src/bot/commands/index.ts`, `src/services/commandExecutor.ts` (removido), `src/platforms/whatsapp/WhatsAppAdapter.ts` (import removido).
+- **Status:** ✅ Corrigido e buildado (97/97 testes não afetados; build limpo).
+
 ## BUG 31 (2026-08-12, deploy 85142c1): WPP não conecta após deploy — travado em initialize() sem QR/ready
 - **Sintoma:** `pm2 restart` sobe o processo, carrega os 40 comandos, loga "WhatsApp inicializado" e
   "Plataformas ativas: whatsapp", MAS nunca emite `ready` nem QR. CPU 0.0, TIME travado. Chromium vivo mas WA Web não carrega.

@@ -4,11 +4,11 @@ import { getDb } from '../../services/databaseService';
 export const feedbackCommand: ICommand = {
   name: 'feedback',
   description: 'Envia um feedback ou sugestão para o desenvolvedor.',
-  async execute(msg, client, args) {
+  async execute(ctx: any, _client?: any, _args?: any) {
     const feedbackText = args.join(' ');
 
     if (!feedbackText) {
-      await msg.reply('⚠️ Por favor, digite seu feedback após o comando.\nExemplo: $feedback Adicione mais jogos!');
+      await ctx.reply('⚠️ Por favor, digite seu feedback após o comando.\nExemplo: $feedback Adicione mais jogos!');
       return;
     }
 
@@ -38,7 +38,7 @@ export const feedbackCommand: ICommand = {
       if ((payload.from || '').endsWith('@g.us')) {
         groupId = payload.from;
         try {
-          const chat = await msg.getChat();
+          const chat = await ctx.getChat();
           groupName = chat?.name || 'Grupo sem nome';
         } catch (e) {
           console.log('[FEEDBACK] Erro ao obter nome do grupo:', e);
@@ -51,10 +51,10 @@ export const feedbackCommand: ICommand = {
       );
       console.log('[FEEDBACK] Feedback salvo com sucesso');
       
-      await msg.reply('✅ Seu feedback foi enviado com sucesso! Obrigado por ajudar a melhorar o bot. ❤️');
+      await ctx.reply('✅ Seu feedback foi enviado com sucesso! Obrigado por ajudar a melhorar o bot. ❤️');
     } catch (e) {
       console.error('[FEEDBACK] Erro ao salvar feedback:', e);
-      await msg.reply('⚠️ Ocorreu um erro ao salvar seu feedback. Tente novamente mais tarde.');
+      await ctx.reply('⚠️ Ocorreu um erro ao salvar seu feedback. Tente novamente mais tarde.');
     }
   },
 };

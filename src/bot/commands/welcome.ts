@@ -45,18 +45,18 @@ export const welcomeCommand: ICommand = {
   name: 'bemvindo',
   description: 'Define mensagem de boas-vindas personalizada para o grupo',
   
-  async execute(msg, client, args) {
+  async execute(ctx: any, _client?: any, _args?: any) {
     try {
-      const chat = await msg.getChat();
+      const chat = await ctx.getChat();
       
       if (!chat.isGroup) {
-        await msg.reply('❌ Este comando só funciona em grupos.');
+        await ctx.reply('❌ Este comando só funciona em grupos.');
         return;
       }
 
       // Verificar se é admin
       const participants = chat.participants || [];
-      const senderId = msg.author || msg.from;
+      const senderId = ctx.userId || ctx.chatId;
       const senderParticipant = participants.find((p: any) => 
         p.id?._serialized === senderId || p.id === senderId
       );
@@ -64,14 +64,14 @@ export const welcomeCommand: ICommand = {
       const isAdmin = senderParticipant?.isAdmin || senderParticipant?.isSuperAdmin;
       
       if (!isAdmin) {
-        await msg.reply('❌ Apenas administradores podem configurar a mensagem de boas-vindas.');
+        await ctx.reply('❌ Apenas administradores podem configurar a mensagem de boas-vindas.');
         return;
       }
 
       // Se não tem argumentos, mostra a mensagem atual
       if (args.length === 0) {
         const currentMsg = welcomeMessages.get(chat.id._serialized) || 'Padrão: Bem-vindo(a) ao grupo!';
-        await msg.reply(
+        await ctx.reply(
           `📝 Mensagem de boas-vindas atual:\n\n` +
           `"${currentMsg}"\n\n` +
           `💡 Para alterar, use: $bemvindo <sua mensagem>`
@@ -84,7 +84,7 @@ export const welcomeCommand: ICommand = {
       welcomeMessages.set(chat.id._serialized, newMessage);
       saveWelcomeMessages();
 
-      await msg.reply(
+      await ctx.reply(
         `✅ Mensagem de boas-vindas configurada!\n\n` +
         `Preview:\n` +
         `"Bem-vindo(a) @novato\n${newMessage}"`
@@ -92,7 +92,7 @@ export const welcomeCommand: ICommand = {
 
     } catch (error: any) {
       console.error('[Welcome] Erro:', error);
-      await msg.reply(`❌ Erro: ${error.message}`);
+      await ctx.reply(`❌ Erro: ${error.message}`);
     }
   }
 };

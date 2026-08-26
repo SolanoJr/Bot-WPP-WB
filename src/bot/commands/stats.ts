@@ -4,7 +4,7 @@ import { getDb, getCommandMetrics } from '../../services/databaseService';
 export const statsCommand: ICommand = {
   name: 'stats',
   description: 'Mostra estatísticas de uso do bot.',
-  async execute(msg, client, args) {
+  async execute(ctx: any, _client?: any, _args?: any) {
     try {
       const db = await getDb();
 
@@ -71,10 +71,10 @@ export const statsCommand: ICommand = {
       response += `\n💌 *Feedbacks recebidos:* ${feedbackCount?.total || 0}\n`;
       response += `\n_Dados persistidos em SQLite (com nome do grupo)_`;
 
-      await msg.reply(response);
+      await ctx.reply(response);
     } catch (e) {
       console.error('Erro no comando $stats:', e);
-      await msg.reply('⚠️ Erro ao recuperar estatísticas.');
+      await ctx.reply('⚠️ Erro ao recuperar estatísticas.');
     }
   },
 };

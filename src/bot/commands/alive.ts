@@ -4,7 +4,7 @@ export const aliveCommand: ICommand = {
     name: 'alive',
     description: 'Verifica se o bot está online.',
     
-    async execute(msg, client, args) {
+    async execute(ctx: any, _client?: any, _args?: any) {
         const response = [
             '✅ *BOT ONLINE*',
             '',
@@ -12,6 +12,6 @@ export const aliveCommand: ICommand = {
             'Qualquer coisa, é só chamar!'
         ].join('\n');
         
-        await msg.reply(response);
+        await ctx.reply(response);
     }
 };

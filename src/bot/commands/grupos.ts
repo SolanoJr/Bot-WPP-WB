@@ -4,11 +4,11 @@ import { isMaster, cleanId } from '../../services/permissions';
 export const gruposCommand: ICommand = {
     name: 'grupos',
     description: 'Lista todos os grupos em que o bot está presente (Apenas MASTER).',
-    async execute(msg, client, args) {
-        const authorId = msg.author || msg.from;
+    async execute(ctx: any, _client?: any, _args?: any) {
+        const authorId = ctx.userId || ctx.chatId;
 
         if (!isMaster(authorId)) {
-            await msg.reply('❌ Comando restrito ao MASTER do bot.');
+            await ctx.reply('❌ Comando restrito ao MASTER do bot.');
             return;
         }
 
@@ -17,7 +17,7 @@ export const gruposCommand: ICommand = {
             const groups = chats.filter(chat => chat.isGroup);
 
             if (groups.length === 0) {
-                await msg.reply('❌ O bot não está em nenhum grupo no momento.');
+                await ctx.reply('❌ O bot não está em nenhum grupo no momento.');
                 return;
             }
 
@@ -38,17 +38,17 @@ export const gruposCommand: ICommand = {
                 response += `--------------------------\n`;
 
                 if (response.length > 3500) {
-                    await msg.reply(response);
+                    await ctx.reply(response);
                     response = '';
                 }
             }
 
             if (response) {
-                await msg.reply(response);
+                await ctx.reply(response);
             }
         } catch (error) {
             console.error('❌ Erro no $grupos:', error);
-            await msg.reply('⚠️ Erro ao listar grupos.');
+            await ctx.reply('⚠️ Erro ao listar grupos.');
         }
     }
 };

@@ -29,8 +29,8 @@ function checkWinner(board: string[]): 'X' | 'O' | 'draw' | null {
 export const velhaCommand: ICommand = {
   name: 'velha',
   description: 'Jogo da velha. Use "$velha" para iniciar, "$velha <1-9>" para jogar, "$velha reset" para reiniciar.',
-  async execute(msg, client, args) {
-    const chatId = msg.from || msg.author || 'unknown';
+  async execute(ctx: any, _client?: any, _args?: any) {
+    const chatId = ctx.chatId || ctx.userId || 'unknown';
     
     // Inicializa estado se ainda não existir
     if (!velhaState.has(chatId) || args[0]?.toLowerCase() === 'reset') {
@@ -38,7 +38,7 @@ export const velhaCommand: ICommand = {
         board: Array(9).fill(''),
         currentPlayer: 'X'
       });
-      await msg.reply(`🕹️ Jogo da Velha iniciado!\n${renderBoard(Array(9).fill(''))}\nVez do jogador: X\nDigite um número de 1 a 9 para jogar.`);
+      await ctx.reply(`🕹️ Jogo da Velha iniciado!\n${renderBoard(Array(9).fill(''))}\nVez do jogador: X\nDigite um número de 1 a 9 para jogar.`);
       return;
     }
 
@@ -46,13 +46,13 @@ export const velhaCommand: ICommand = {
     const move = args[0];
 
     if (!move || !/^[1-9]$/.test(move)) {
-      await msg.reply(`⚠️ Use um número de 1 a 9 ou "reset" para reiniciar.\n${renderBoard(state.board)}\nVez do jogador: ${state.currentPlayer}`);
+      await ctx.reply(`⚠️ Use um número de 1 a 9 ou "reset" para reiniciar.\n${renderBoard(state.board)}\nVez do jogador: ${state.currentPlayer}`);
       return;
     }
 
     const idx = parseInt(move, 10) - 1;
     if (state.board[idx] !== '') {
-      await msg.reply(`⚠️ Posição ${move} já ocupada!\n${renderBoard(state.board)}\nVez do jogador: ${state.currentPlayer}`);
+      await ctx.reply(`⚠️ Posição ${move} já ocupada!\n${renderBoard(state.board)}\nVez do jogador: ${state.currentPlayer}`);
       return;
     }
 
@@ -61,18 +61,18 @@ export const velhaCommand: ICommand = {
 
     if (winner === 'X' || winner === 'O') {
       velhaState.delete(chatId);
-      await msg.reply(`🎉 Jogador ${winner} venceu!\n${renderBoard(state.board)}`);
+      await ctx.reply(`🎉 Jogador ${winner} venceu!\n${renderBoard(state.board)}`);
       return;
     }
 
     if (winner === 'draw') {
       velhaState.delete(chatId);
-      await msg.reply(`🤝 Empate!\n${renderBoard(state.board)}`);
+      await ctx.reply(`🤝 Empate!\n${renderBoard(state.board)}`);
       return;
     }
 
     // Troca jogador
     state.currentPlayer = state.currentPlayer === 'X' ? 'O' : 'X';
-    await msg.reply(`✅ Jogada registrada.\n${renderBoard(state.board)}\nVez do jogador: ${state.currentPlayer}`);
+    await ctx.reply(`✅ Jogada registrada.\n${renderBoard(state.board)}\nVez do jogador: ${state.currentPlayer}`);
   },
 };

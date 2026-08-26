@@ -22,8 +22,8 @@ function renderWord(word: string, guessed: Set<string>): string {
 export const forcaCommand: ICommand = {
   name: 'forca',
   description: 'Jogo da forca. Use "$forca" para iniciar, "$forca <letra>" para chutar, "$forca reset" para reiniciar.',
-  async execute(msg, client, args) {
-    const chatId = msg.from || msg.author || 'unknown';
+  async execute(ctx: any, _client?: any, _args?: any) {
+    const chatId = ctx.chatId || ctx.userId || 'unknown';
     // Inicializa estado se ainda não existir
     if (!forcaState.has(chatId) || args[0]?.toLowerCase() === 'reset') {
       const word = pickRandomWord();
@@ -32,7 +32,7 @@ export const forcaCommand: ICommand = {
         guessed: new Set<string>(),
         attemptsLeft: 6,
       });
-      await msg.reply(`🕹️ Jogo da Forca iniciado!\n${renderWord(word, new Set())}\nTentativas restantes: 6`);
+      await ctx.reply(`🕹️ Jogo da Forca iniciado!\n${renderWord(word, new Set())}\nTentativas restantes: 6`);
       return;
     }
 
@@ -40,12 +40,12 @@ export const forcaCommand: ICommand = {
     const guess = args[0]?.toUpperCase();
 
     if (!guess || guess.length !== 1 || !/[A-Z]/.test(guess)) {
-      await msg.reply('⚠️ Use uma única letra (A‑Z) ou "reset" para reiniciar o jogo.');
+      await ctx.reply('⚠️ Use uma única letra (A‑Z) ou "reset" para reiniciar o jogo.');
       return;
     }
 
     if (state.guessed.has(guess)) {
-      await msg.reply(`🔁 Você já tentou a letra "${guess}".\n${renderWord(state.word, state.guessed)}\nTentativas restantes: ${state.attemptsLeft}`);
+      await ctx.reply(`🔁 Você já tentou a letra "${guess}".\n${renderWord(state.word, state.guessed)}\nTentativas restantes: ${state.attemptsLeft}`);
       return;
     }
 
@@ -58,7 +58,7 @@ export const forcaCommand: ICommand = {
     if (!displayed.includes('_')) {
       // Vitória
       forcaState.delete(chatId);
-      await msg.reply(`🎉 Parabéns! Você acertou a palavra: ${state.word}`);
+      await ctx.reply(`🎉 Parabéns! Você acertou a palavra: ${state.word}`);
       return;
     }
 
@@ -66,10 +66,10 @@ export const forcaCommand: ICommand = {
       // Derrota
       const lostWord = state.word;
       forcaState.delete(chatId);
-      await msg.reply(`❌ Você perdeu! A palavra era: ${lostWord}`);
+      await ctx.reply(`❌ Você perdeu! A palavra era: ${lostWord}`);
       return;
     }
 
-    await msg.reply(`✅ Letra "${guess}" registrada.\n${displayed}\nTentativas restantes: ${state.attemptsLeft}`);
+    await ctx.reply(`✅ Letra "${guess}" registrada.\n${displayed}\nTentativas restantes: ${state.attemptsLeft}`);
   },
 };

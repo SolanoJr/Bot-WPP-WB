@@ -3,7 +3,7 @@ import { ICommand } from './types';
 export const adminCommand: ICommand = {
     name: 'admin',
     description: 'Comandos de administração do bot',
-    async execute(msg, client, args) {
+    async execute(ctx: any, _client?: any, _args?: any) {
         void args;
         
         const response = [
@@ -26,6 +26,6 @@ export const adminCommand: ICommand = {
             '🤖 **Bot v1.0**'
         ].join('\n');
 
-        await msg.reply(response);
+        await ctx.reply(response);
     }
 };

@@ -4,9 +4,9 @@ import { palavrasc } from './conselhos';
 export const conselhoCommand: ICommand = {
   name: 'conselho',
   description: 'Envia um conselho aleatório.',
-  async execute(msg, client, args) {
+  async execute(ctx: any, _client?: any, _args?: any) {
     const random = Math.floor(Math.random() * palavrasc.length);
     const conselho = palavrasc[random];
-    await msg.reply(conselho);
+    await ctx.reply(conselho);
   },
 };

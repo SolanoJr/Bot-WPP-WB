@@ -3,9 +3,9 @@ import { ICommand } from './types';
 export const ondeEstouCommand: ICommand = {
   name: 'ondeestou',
   description: 'Gera um link seguro para envio de localização.',
-  async execute(msg, client, args) {
+  async execute(ctx: any, _client?: any, _args?: any) {
     // Compat: PlatformManager chama execute(ctx, client, args). O ctx tem chatId (não .from).
-    const chatId = msg.chatId || msg.from;
+    const chatId = ctx.chatId || ctx.chatId;
     const interfaceUrl = process.env.LOCATION_INTERFACE_URL || 'https://bot-wpp-wb-sc.pages.dev';
     const relayUrl = (process.env.RELAY_URL && process.env.RELAY_URL.includes('bot-wpp-relay.onrender.com'))
       ? process.env.RELAY_URL
@@ -13,7 +13,7 @@ export const ondeEstouCommand: ICommand = {
     const token = `loc_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 
     if (!chatId) {
-      await msg.reply('⚠️ Não consegui identificar este chat para gerar o link de localização.');
+      await ctx.reply('⚠️ Não consegui identificar este chat para gerar o link de localização.');
       return;
     }
 
@@ -38,6 +38,6 @@ export const ondeEstouCommand: ICommand = {
       'O link expira assim que a localização for recebida.'
     ].join('\n');
 
-    await msg.reply(response);
+    await ctx.reply(response);
   }
 };

@@ -13,22 +13,22 @@ export const desmuteCommand: ICommand = {
   name: 'desmute',
   description: 'Remove o silenciamento de um usuário. Uso: $desmute @usuario',
 
-  async execute(msg: any, _client: any, _args: any[]) {
+  async execute(ctx: any, _client?: any, _args?: any) {
     // msg aqui é o CommandContext; o payload está em msg.msg
     const payload = msg.msg || msg;
-    const chat = await msg.getChat();
+    const chat = await ctx.getChat();
     const isGroup = (chat as any).isGroup;
 
     if (!isGroup) {
-      await msg.reply('❌ Este comando só funciona em grupos.');
+      await ctx.reply('❌ Este comando só funciona em grupos.');
       return;
     }
 
     const mentioned = (payload.mentions && payload.mentions.length)
       ? payload.mentions
-      : (payload.mentionedIds || msg.mentionedIds || []);
+      : (payload.mentionedIds || ctx.mentionedIds || []);
     if (!mentioned || mentioned.length === 0) {
-      await msg.reply('❌ Marque o usuário a desmutar. Ex: $desmute @usuario');
+      await ctx.reply('❌ Marque o usuário a desmutar. Ex: $desmute @usuario');
       return;
     }
 
@@ -37,9 +37,9 @@ export const desmuteCommand: ICommand = {
     const ok = unmuteUser(chatId, userToUnmute);
 
     if (ok) {
-      await msg.reply(`🔊 Usuário desmutado. As mensagens dele não serão mais apagadas.${groupTag(msg)}`);
+      await ctx.reply(`🔊 Usuário desmutado. As mensagens dele não serão mais apagadas.${groupTag(msg)}`);
     } else {
-      await msg.reply(`ℹ️ Este usuário não estava mutado.${groupTag(msg)}`);
+      await ctx.reply(`ℹ️ Este usuário não estava mutado.${groupTag(msg)}`);
     }
   }
 };

@@ -7,9 +7,9 @@ import { MessageMedia } from 'whatsapp-web.js';
 export const gttsCommand: ICommand = {
     name: 'gtts',
     description: 'Converte texto em áudio e envia como mensagem de voz.',
-    async execute(msg, client, args) {
+    async execute(ctx: any, _client?: any, _args?: any) {
         if (args.length === 0) {
-            await msg.reply('❌ Por favor, digite o texto para converter. Exemplo: $gtts Olá mundo');
+            await ctx.reply('❌ Por favor, digite o texto para converter. Exemplo: $gtts Olá mundo');
             return;
         }
 
@@ -17,7 +17,7 @@ export const gttsCommand: ICommand = {
         
         // Limitar texto a 200 caracteres para evitar problemas
         if (text.length > 200) {
-            await msg.reply('❌ Texto muito longo. Limite: 200 caracteres.');
+            await ctx.reply('❌ Texto muito longo. Limite: 200 caracteres.');
             return;
         }
 
@@ -49,7 +49,7 @@ export const gttsCommand: ICommand = {
             if (!wppClient || typeof wppClient.sendMessage !== 'function') {
                 throw new Error('cliente WWebJS indisponível para enviar voz');
             }
-            const cleanChat = String(msg.chatId).replace(/^wpp:/, '');
+            const cleanChat = String(ctx.chatId).replace(/^wpp:/, '');
             await wppClient.sendMessage(cleanChat, media, { sendAudioAsVoice: true });
 
             // Limpar arquivo temporário após envio
@@ -63,7 +63,7 @@ export const gttsCommand: ICommand = {
 
         } catch (error: any) {
             console.error('Erro ao converter texto para voz:', error?.message || error);
-            await msg.reply(`⚠️ Erro ao converter texto para voz: ${error?.message || error}. Tente novamente mais tarde.`);
+            await ctx.reply(`⚠️ Erro ao converter texto para voz: ${error?.message || error}. Tente novamente mais tarde.`);
         }
     }
 };

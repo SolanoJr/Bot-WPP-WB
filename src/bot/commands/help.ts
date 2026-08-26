@@ -4,7 +4,7 @@ export const helpCommand: ICommand = {
     name: 'help',
     description: 'Lista os comandos disponíveis.',
     
-    async execute(msg, client, args) {
+    async execute(ctx: any, _client?: any, _args?: any) {
         const response = [
             '🤖 *Comandos Disponíveis:*',
             '',
@@ -22,6 +22,6 @@ export const helpCommand: ICommand = {
             'Use $menu para ver a lista completa.'
         ].join('\n');
         
-        await msg.reply(response);
+        await ctx.reply(response);
     }
 };
