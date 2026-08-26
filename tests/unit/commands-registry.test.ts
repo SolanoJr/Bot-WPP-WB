@@ -64,7 +64,7 @@ describe('runtime command registry', () => {
     const reply = vi.fn();
 
     process.env.WARRIOR_AUTH_KEY = 'solano_wb_gps_26';
-    await commands.get('ondeestou')?.execute({ from: '558581344211@c.us', reply }, {}, []);
+    await commands.get('ondeestou')?.execute({ chatId: '558581344211@c.us', reply }, {}, []);
 
     const text = reply.mock.calls[0][0] as string;
     expect(text).toContain('token=loc_');
