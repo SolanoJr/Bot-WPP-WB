@@ -137,7 +137,7 @@ class TelegramClient implements PlatformClient {
       userId,
       userName: tg.from?.first_name ?? 'unknown',
       text: tgAny.text ?? '',
-      timestamp: new Date(tg.date * 1000),
+      timestamp: tg.date * 1000,
       isFromMe: tg.from?.is_bot ?? false,
       isCommand: false,
       platform: 'telegram',
@@ -158,7 +158,7 @@ class TelegramClient implements PlatformClient {
     const sent = await this.bot.telegram.sendMessage(Number(cleanChatId), text, {
       parse_mode: options?.parseMode as any,
       link_preview_options: options?.disablePreview ? { is_disabled: true } : undefined,
-      reply_to_message_id: options?.replyToMessageId ? Number(options.replyToMessageId.replace(/^tg:/, '')) : undefined,
+      reply_parameters: options?.replyToMessageId ? { message_id: Number(options.replyToMessageId.replace(/^tg:/, '')) } : undefined,
     });
     
     console.log(`[TelegramAdapter.sendMessage] EXIT - thisHash: ${thisHash}, sent:`, !!sent, 'typeof sent:', typeof sent);

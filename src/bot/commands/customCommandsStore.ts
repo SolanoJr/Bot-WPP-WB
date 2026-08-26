@@ -58,10 +58,10 @@ function loadNodeCommands(): GroupCommands {
   } catch {
     nodeCache = {};
   }
-  return nodeCache;
+  return nodeCache ?? ({} as GroupCommands);
 }
 
-function saveNodeCommands(commands: GroupCommands): void {
+function saveNodeCommands(commands: GroupCommands | null): void {
   ensureDataDir();
   nodeCache = commands;
   fs.writeFileSync(DATA_FILE, JSON.stringify(commands, null, 2), 'utf-8');

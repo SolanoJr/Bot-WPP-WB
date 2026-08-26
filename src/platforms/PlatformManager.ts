@@ -266,7 +266,7 @@ export class PlatformManager {
       metricsService.incrementCommand(message.commandName!, adapter.platform);
       await this.logCommandUsage(message.commandName!, message.userId, message.chatId);
 
-      await command.execute(ctx, adapter.client, message.args ?? []);
+      await command.execute(ctx);
     } catch (error: any) {
       console.error(`[PlatformManager] Erro no comando ${message.commandName}:`, error);
       await ctx.reply('⚠️ Ocorreu um erro interno ao executar este comando.');
@@ -344,7 +344,6 @@ export class PlatformManager {
           return pid === cleanUser && (p.isAdmin || p.isSuperAdmin);
         });
       },
-      loadChat,
       isMaster: isMaster(message.userId),
       reply: async (text: string, options?: SendOptions) => {
         // Cita a mensagem de comando por padrão (quoted/reply), a menos que o caller já passe replyToMessageId
@@ -387,12 +386,12 @@ export class PlatformManager {
   /**
    * Envia mensagem para uma plataforma específica
    */
-  async sendMessage(platform: PlatformType, chatId: string, text: string, options?: SendOptions): Promise<void> {
+  async sendMessage(platform: PlatformType, chatId: string, text: string, options?: SendOptions): Promise<PlatformMessage> {
     const adapter = this.adapters.get(platform);
     if (!adapter) {
       throw new Error(`Plataforma ${platform} não inicializada`);
     }
-    await adapter.client.sendMessage(chatId, text, options);
+    return adapter.client.sendMessage(chatId, text, options) as Promise<PlatformMessage>;
   }
 
   /**

@@ -12,7 +12,7 @@ export const shutdownCommand: ICommand = {
         const isGroup = ctx.chatId?.endsWith('@g.us');
         const executorId = ctx.userId || (isGroup ? null : ctx.chatId);
         
-        if (!isMaster(executorId)) {
+        if (!isMaster(executorId ?? '')) {
             await ctx.reply('🚫 **Acesso negado!**\n\nEste comando só pode ser usado pelo **MASTER** do bot.');
             return;
         }

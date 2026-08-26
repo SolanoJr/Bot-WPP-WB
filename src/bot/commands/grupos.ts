@@ -25,17 +25,17 @@ export const gruposCommand: ICommand = {
             let response = `📋 **LISTA DE GRUPOS (${groups.length})**\n\n`;
 
             for (const group of groups) {
-                const botIdClean = cleanId(ctx.client.info.wid._serialized);
+                const botIdClean = cleanId((ctx.client as any).info.wid);
                 
-                const botMember = group.participants.find(p => cleanId(p.id._serialized) === botIdClean);
+                const botMember = (group.participants || []).find(p => cleanId(p.id) === botIdClean);
                 const isBotAdmin = botMember && (botMember.isAdmin || botMember.isSuperAdmin);
 
                 console.log(`[GRUPOS] Verificando ${group.name} | Eu sou admin? ${isBotAdmin ? 'true' : 'false'}`);
                 
                 response += `👥 **${group.name}**\n`;
-                response += `🆔 \`${group.id._serialized}\`\n`;
+                response += `🆔 \`${group.id}\`\n`;
                 response += `🛡️ Admin: ${isBotAdmin ? '✅ Sim' : '❌ Não'}\n`;
-                response += `👤 Membros: ${group.participants.length}\n`;
+                response += `👤 Membros: ${(group.participants || []).length}\n`;
                 response += `--------------------------\n`;
 
                 if (response.length > 3500) {

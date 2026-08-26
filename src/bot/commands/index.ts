@@ -187,7 +187,7 @@ function createLegacyMessage(msg: any, ctx: any): any {
     // CORREÇÃO: Usar msg.author e msg.userId diretamente, sem substituição
     author: originalAuthor?.replace(/^(wpp:|tg:|dc:)/, '') || originalAuthor,
     body: msg.text,
-    timestamp: msg.timestamp instanceof Date ? Math.floor(msg.timestamp.getTime() / 1000) : Math.floor(Date.now() / 1000),
+    timestamp: typeof msg.timestamp === 'number' ? msg.timestamp : (msg.timestamp instanceof Date ? Math.floor(msg.timestamp.getTime() / 1000) : Math.floor(Date.now() / 1000)),
     fromMe: msg.isFromMe,
     hasMedia: msg.hasMedia,
     type: msg.mediaType,
@@ -218,8 +218,9 @@ function createLegacyMessage(msg: any, ctx: any): any {
       }
       // Fallback extremo via PlatformManager
       console.log('[LegacyMessage] Usando PlatformManager.sendMessage()');
-      const { platformManager: pm } = await import('../../platforms/PlatformManager');
-      return await pm.getInstance().sendMessage(msg.platform, msg.chatId, text, options);
+      const { PlatformManager } = await import('../../platforms/PlatformManager');
+      const pm = PlatformManager.getInstance();
+      return await pm.sendMessage(msg.platform, msg.chatId, text, options);
     } catch (err) {
       console.error('[LegacyMessage] Falha crítica ao responder:', err);
     }
@@ -319,8 +320,12 @@ function createLegacyClient(client: any): any {
     },
     kick: async (userId: string) => {
       // Método legado usado em alguns comandos
-      const { whatsAppClient } = await import('../../platforms/whatsapp/WhatsAppAdapter');
-      const wppClient = whatsAppClient.getClient();
+      // Caminho legado WWebJS removido; usa PlatformManager (Baileys) para kick.
+      const { PlatformManager } = await import('../../platforms/PlatformManager');
+      const pm = PlatformManager.getInstance();
+      const adapter = pm.getAdapter('whatsapp');
+      if (!adapter) throw new Error('Adapter WhatsApp nao disponivel');
+      const wppClient = (adapter as any).client;
       // BUG 1: Eliminar chamada direta de getChatById - usar getChat em vez disso
       const chat = await wppClient.getChat(userId.includes('@g.us') ? userId : (await wppClient.getContactById(userId)).id._serialized);
       if (chat.isGroup) {

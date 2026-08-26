@@ -102,10 +102,10 @@ describe('handleMemberJoin — robustez', () => {
 
   it('envia boas-vindas quando bemvindo=true', async () => {
     const db = await import('../../src/services/databaseService');
-    (db.getGroupMod as any).mockResolvedValue({ antibotas: true, antiestrangeiro: false, bemvindo: true });
+    (db.getGroupMod as any).mockImplementation(async () => ({ antibotas: true, antiestrangeiro: false, bemvindo: true }));
     const deps = makeDeps();
     await handleMemberJoin(deps, { groupId: GROUP, members: ['5511988887777@c.us'] });
     expect(deps.sendMessage).toHaveBeenCalled();
-    (db.getGroupMod as any).mockResolvedValue({ antibotas: true, antiestrangeiro: false, bemvindo: false });
+    (db.getGroupMod as any).mockImplementation(async () => ({ antibotas: true, antiestrangeiro: false, bemvindo: false }));
   });
 });

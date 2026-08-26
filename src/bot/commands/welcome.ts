@@ -59,7 +59,7 @@ export const welcomeCommand: ICommand = {
       const participants = chat.participants || [];
       const senderId = ctx.userId || ctx.chatId;
       const senderParticipant = participants.find((p: any) => 
-        p.id?._serialized === senderId || p.id === senderId
+        String(p.id?._serialized || p.id) === senderId
       );
       
       const isAdmin = senderParticipant?.isAdmin || senderParticipant?.isSuperAdmin;
@@ -71,7 +71,7 @@ export const welcomeCommand: ICommand = {
 
       // Se não tem argumentos, mostra a mensagem atual
       if (ctx.args.length === 0) {
-        const currentMsg = welcomeMessages.get(chat.id._serialized) || 'Padrão: Bem-vindo(a) ao grupo!';
+        const currentMsg = welcomeMessages.get(chat.id) || 'Padrão: Bem-vindo(a) ao grupo!';
         await ctx.reply(
           `📝 Mensagem de boas-vindas atual:\n\n` +
           `"${currentMsg}"\n\n` +
@@ -82,7 +82,7 @@ export const welcomeCommand: ICommand = {
 
       // Define nova mensagem
       const newMessage = ctx.args.join(' ');
-      welcomeMessages.set(chat.id._serialized, newMessage);
+      welcomeMessages.set(chat.id, newMessage);
       saveWelcomeMessages();
 
       await ctx.reply(

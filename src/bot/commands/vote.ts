@@ -56,7 +56,7 @@ export const votoCommand: ICommand = {
       return;
     }
     const votoNormalizado = votoLower === 'nao' ? 'não' : votoLower;
-    await registrarVoto(id, ctx.userId || ctx.chatId || 'unknown', votoNormalizado as 'sim' | 'não', async (replyMsg: string) => {
+    await registrarVoto(id, ctx.userId || ctx.chatId || 'unknown', (votoLower === 'não' ? 'nao' : votoLower) as 'sim' | 'nao', async (replyMsg: string) => {
       await ctx.reply(replyMsg);
     });
   },

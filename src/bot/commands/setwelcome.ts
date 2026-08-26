@@ -24,8 +24,8 @@ export const setwelcomeCommand: ICommand = {
             const freshChat = chat;
             const authorClean = cleanId(authorId);
             
-            const member = freshChat.participants.find((m: any) => cleanId(m.id._serialized) === authorClean);
-            isGroupAdmin = member && (member.isAdmin || member.isSuperAdmin);
+            const member = (freshChat.participants || []).find((m: any) => cleanId(m.id?._serialized ?? m.id) === authorClean);
+            isGroupAdmin = Boolean(member && (member.isAdmin || member.isSuperAdmin));
 
             console.log(`🛡️ [ADMIN-CHECK] Usuário ${authorClean} é Admin? ${isGroupAdmin ? 'SIM' : 'NÃO'}`);
         }
@@ -42,7 +42,7 @@ export const setwelcomeCommand: ICommand = {
         }
 
         const newWelcome = ctx.args.join(' ');
-        const groupId = chat.id._serialized;
+        const groupId = (chat.id as any)?._serialized ?? chat.id;
         const RELAY_URL = process.env.RELAY_URL || 'https://bot-wpp-relay.onrender.com';
 
         try {
@@ -54,7 +54,7 @@ export const setwelcomeCommand: ICommand = {
             });
 
             if (response.data.success) {
-                await ctx.reply(`✅ Mensagem de boas-vindas atualizada com sucesso!${groupTag(msg)}`);
+                await ctx.reply(`✅ Mensagem de boas-vindas atualizada com sucesso!${groupTag(ctx)}`);
             } else {
                 throw new Error('Falha na resposta do Relay');
             }

@@ -17,8 +17,9 @@ export const ondeEstouCommand: ICommand = {
       return;
     }
 
-    if (global.pendingChatIds && typeof global.pendingChatIds.add === 'function') {
-      global.pendingChatIds.add(chatId);
+    const g = global as any;
+    if (g.pendingChatIds && typeof g.pendingChatIds.add === 'function') {
+      g.pendingChatIds.add(chatId);
       console.log(`📝 [ONDEESTOU] ChatId ${chatId} adicionado ao polling`);
     }
 

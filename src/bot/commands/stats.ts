@@ -39,7 +39,7 @@ export const statsCommand: ICommand = {
       response += `🔝 *Comandos mais usados (geral):*\n`;
       if (topCommands.length === 0) response += `Nenhum comando registrado.\n`;
       else {
-        topCommands.forEach((cmd, i) => {
+        topCommands.forEach((cmd: any, i: number) => {
           response += `${i+1}. ${cmd.command_name}: ${cmd.count}x\n`;
         });
       }
@@ -47,7 +47,7 @@ export const statsCommand: ICommand = {
       response += `\n👤 *Usuários mais ativos:*\n`;
       if (topUsers.length === 0) response += `Nenhum usuário registrado.\n`;
       else {
-        topUsers.forEach((user, i) => {
+        topUsers.forEach((user: any, i: number) => {
           response += `${i+1}. ${user.user_id.split('@')[0]}: ${user.count}x\n`;
         });
       }

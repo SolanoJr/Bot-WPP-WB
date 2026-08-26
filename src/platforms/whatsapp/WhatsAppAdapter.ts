@@ -1,5 +1,11 @@
+// @ts-nocheck
 /**
- * 🔒 WarriorBlack - WhatsApp Adapter
+ * 🔒 WarriorBlack - WhatsApp Adapter (WWebJS / legado)
+ *
+ * ATENÇÃO: este adapter é LEGADO. Produção roda WPP_ENGINE=baileys
+ * (src/platforms/whatsapp/BaileysAdapter.ts). O WWebJS exige Chromium e está
+ * desativado desde 26/08/2026. Mantido no repo como referência, mas NÃO é
+ * compilado no build CJS nem validado por tsc (daí o @ts-nocheck).
  *
  * Wrapper do whatsapp-web.js existente para a interface PlatformAdapter
  */

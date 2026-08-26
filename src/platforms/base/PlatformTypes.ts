@@ -46,7 +46,7 @@ export interface PlatformMessage {
   userId: string;                // ID do autor
   userName: string;              // Nome do autor
   text: string;                  // Conteúdo textual
-  timestamp: Date;               // Quando foi enviada
+  timestamp: number;             // Quando foi enviada (epoch ms)
   isFromMe: boolean;             // Se o bot enviou
   isCommand: boolean;            // Se começa com prefixo de comando
   commandName?: string;          // Nome do comando (sem prefixo)
@@ -123,7 +123,7 @@ export interface CommandContext {
   isGroup: boolean;
   isMaster: boolean;
   isAdmin: boolean;
-  reply(text: string, options?: SendOptions): Promise<PlatformMessage>;
+  reply(text: string, options?: SendOptions): Promise<void>;
   replyPrivate(text: string): Promise<void>;
   getChat(): Promise<PlatformChat>;
   getUser(): Promise<PlatformUser>;

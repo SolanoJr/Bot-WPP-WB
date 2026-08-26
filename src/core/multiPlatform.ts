@@ -26,7 +26,7 @@ dotenv.config();
 import dns from 'dns';
 try { dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']); } catch { /* ignore */ }
 
-async function initializePlatforms() {
+export async function initializePlatforms() {
   console.log('🚀 Inicializando Bot-WPP Multi-Platform...');
 
   // Inicializar servidor de métricas Prometheus (porta 3001, /metrics e /health)

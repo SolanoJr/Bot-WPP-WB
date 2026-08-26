@@ -28,6 +28,7 @@ import { setWppHealth } from '../../services/healthStore';
 // Tipos da interface unificada
 import {
   PlatformClient,
+  PlatformAdapter,
   PlatformMessage,
   PlatformChat,
   PlatformUser,
@@ -248,14 +249,17 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
 
       const platformMsg: PlatformMessage = {
         id: `${this.platform}:${key.id}`,
+        platform: this.platform,
         chatId: normId(from),
         userId: normId(sender),
+        userName: '',
         text: body,
-        fromMe,
-        isGroup,
         timestamp: msg.messageTimestamp ? Number(msg.messageTimestamp) * 1000 : Date.now(),
-        mentionedIds: mentioned.map((x: string) => normId(x)),
-        quotedMessageId: quotedKey ? `${this.platform}:${quotedKey}` : undefined,
+        isFromMe: fromMe,
+        isCommand: body.startsWith('$'),
+        mentions: mentioned.map((x: string) => ({ id: normId(x), name: '', isBot: false, platform: this.platform, raw: {} })),
+        replyToMessageId: quotedKey ? `${this.platform}:${quotedKey}` : undefined,
+        hasMedia: false,
         raw: msg,
       };
       this.msgHandler?.(platformMsg);
@@ -285,12 +289,16 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
     const sentTs = Date.now();
     return {
       id: `${this.platform}:${res.key.id}`,
+      platform: this.platform,
       chatId: normId(jid),
       userId: this.userId,
+      userName: '',
       text,
-      fromMe: true,
-      isGroup: jid.endsWith('@g.us'),
+      isFromMe: true,
+      isCommand: false,
+      hasMedia: false,
       timestamp: Date.now(),
+      raw: res,
     };
   }
 
@@ -309,12 +317,16 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
     const res = await this.sock.sendMessage(jid, msgOpts);
     return {
       id: `${this.platform}:${res.key.id}`,
+      platform: this.platform,
       chatId: normId(jid),
       userId: this.userId,
-      body: caption || '',
-      fromMe: true,
-      isGroup: jid.endsWith('@g.us'),
+      userName: '',
+      text: caption || '',
+      isFromMe: true,
+      isCommand: false,
+      hasMedia: true,
       timestamp: Date.now(),
+      raw: res,
     };
   }
 
@@ -330,12 +342,14 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
         p,
         new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
       ]);
-    const metadata = await withTimeout(this.sock.groupMetadata(jid).catch(() => null), 5000);
+    const metadata = await withTimeout<any>(this.sock.groupMetadata(jid).catch(() => null), 5000);
     return {
       id: normId(jid),
+      platform: this.platform,
       name: metadata?.subject || '',
       isGroup: jid.endsWith('@g.us'),
       participants: metadata?.participants?.map((p: any) => normId(p.id)) || [],
+      raw: metadata || {},
     };
   }
 
@@ -344,18 +358,22 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
     const contact = await this.sock.contactFetch?.(jid).catch(() => null);
     return {
       id: normId(jid),
+      platform: this.platform,
       name: contact?.name || contact?.notify || '',
       isBot: false,
+      raw: contact || {},
     };
   }
 
   async getChats(): Promise<PlatformChat[]> {
     const chats = await this.sock.groupFetchAllParticipating?.().catch(() => ({}));
     return Object.values(chats || {}).map((c: any) => ({
-      id: normId(c.id),
-      name: c.subject || '',
+      id: normId(c.id ?? ''),
+      platform: this.platform,
+      name: c.subject || c.name || '',
       isGroup: true,
-      participants: (c.participants || []).map((p: any) => normId(p.id)),
+      participants: (c.participants || []).map((p: any) => normId(p.id ?? p)),
+      raw: c,
     }));
   }
 
