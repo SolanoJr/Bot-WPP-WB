@@ -1,0 +1,150 @@
+# ============================================
+# Prometheus Alert Rules - Bot-WPP
+# ============================================
+
+groups:
+  - name: bot-wpp-alerts
+    interval: 30s
+    rules:
+      # ========== ALERTAS CRÍTICOS ==========
+      
+      - alert: BotDown
+        expr: up{job="bot-wpp"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: bot-wpp
+        annotations:
+          summary: "Bot-WPP está offline"
+          description: "Bot não está respondendo a requisições de health check"
+          dashboard: "http://localhost:3100"
+
+      - alert: HighErrorRate
+        expr: (increase(bot_commands_errored_total[5m]) / (increase(bot_commands_executed_total[5m]) + increase(bot_commands_errored_total[5m]))) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          service: bot-wpp
+        annotations:
+          summary: "Taxa de erro alta (>10%)"
+          description: "Taxa de erro dos comandos está acima de 10% nos últimos 5 minutos"
+
+      - alert: HighMemoryUsage
+        expr: (bot_memory_usage_bytes / 1024 / 1024) > 500
+        for: 5m
+        labels:
+          severity: warning
+          service: bot-wpp
+        annotations:
+          summary: "Uso de memória elevado (>500MB)"
+          description: "Bot está consumindo mais de 500MB de memória"
+
+      # ========== ALERTAS DE CONEXÃO ==========
+
+      - alert: AllPlatformsDisconnected
+        expr: bot_active_platforms == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: bot-wpp
+        annotations:
+          summary: "Todas as plataformas desconectadas"
+          description: "Nenhuma plataforma está conectada no momento"
+
+      - alert: PlatformDisconnected
+        expr: bot_active_connections{platform!=""} == 0
+        for: 2m
+        labels:
+          severity: warning
+          service: bot-wpp
+        annotations:
+          summary: "Plataforma desconectada: {{ $labels.platform }}"
+          description: "{{ $labels.platform }} desconectou por mais de 2 minutos"
+
+      # ========== ALERTAS DE PERFORMANCE ==========
+
+      - alert: SlowMessageProcessing
+        expr: histogram_quantile(0.95, rate(bot_message_processing_duration_ms_bucket[5m])) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          service: bot-wpp
+        annotations:
+          summary: "Processamento de mensagens lento (P95 > 1s)"
+          description: "95º percentil de processamento está acima de 1 segundo"
+
+      - alert: SlowCommandExecution
+        expr: histogram_quantile(0.95, rate(bot_command_execution_duration_ms_bucket[5m])) > 2000
+        for: 5m
+        labels:
+          severity: warning
+          service: bot-wpp
+        annotations:
+          summary: "Execução de comandos lenta (P95 > 2s)"
+          description: "95º percentil de execução está acima de 2 segundos"
+
+      - alert: RelayResponseSlow
+        expr: histogram_quantile(0.95, rate(bot_relay_response_time_ms_bucket[5m])) > 500
+        for: 5m
+        labels:
+          severity: warning
+          service: bot-wpp
+        annotations:
+          summary: "Resposta do Relay lenta (P95 > 500ms)"
+          description: "O Relay está respondendo lentamente"
+
+      # ========== ALERTAS DE FILA ==========
+
+      - alert: LargeQueueBacklog
+        expr: bot_queue_size > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: bot-wpp
+        annotations:
+          summary: "Fila com backlog grande (>100 mensagens)"
+          description: "Há {{ $value }} mensagens aguardando processamento"
+
+      # ========== ALERTAS DE TAXA ==========
+
+      - alert: HighRateLimitHits
+        expr: rate(bot_rate_limit_hits_total[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: bot-wpp
+        annotations:
+          summary: "Taxa alta de rate limit"
+          description: "Bot está atingindo rate limit mais de 1 vez por segundo"
+
+      # ========== ALERTAS DE SAÚDE ==========
+
+      - alert: NoHeartbeat
+        expr: time() - bot_last_heartbeat_timestamp > 300
+        for: 1m
+        labels:
+          severity: critical
+          service: bot-wpp
+        annotations:
+          summary: "Sem heartbeat por mais de 5 minutos"
+          description: "Bot parou de enviar heartbeats"
+
+      - alert: PrometheusDown
+        expr: up{job="prometheus"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: monitoring
+        annotations:
+          summary: "Prometheus offline"
+          description: "O servidor Prometheus não está respondendo"
+
+      - alert: GrafanaDown
+        expr: up{job="grafana"} == 0
+        for: 1m
+        labels:
+          severity: warning
+          service: monitoring
+        annotations:
+          summary: "Grafana offline"
+          description: "O servidor Grafana não está respondendo"

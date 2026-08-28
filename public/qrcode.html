@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>QR Code WhatsApp Bot</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            text-align: center;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #25D366;
+            margin-bottom: 20px;
+        }
+        #qrcode {
+            margin: 20px 0;
+        }
+        .instructions {
+            color: #666;
+            margin-top: 20px;
+            line-height: 1.6;
+        }
+        .refresh {
+            background-color: #25D366;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .refresh:hover {
+            background-color: #128C7E;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 QR Code WhatsApp Bot</h1>
+        <div id="qrcode">
+            <p>Aguardando QR code...</p>
+        </div>
+        <button class="refresh" onclick="location.reload()">🔄 Atualizar QR Code</button>
+        <div class="instructions">
+            <h3>Como escanear:</h3>
+            <p>1. Abra o WhatsApp Business no celular</p>
+            <p>2. Vá em <strong>Aparelhos conectados</strong> > <strong>Conectar aparelho</strong></p>
+            <p>3. Aponte a câmera para este QR code</p>
+            <p><strong>O QR code expira em alguns minutos!</strong></p>
+        </div>
+    </div>
+
+    <script>
+        // Conectar via WebSocket ou polling para obter o QR code
+        async function loadQRCode() {
+            try {
+                const response = await fetch('/api/qrcode');
+                const data = await response.json();
+                
+                if (data.qr) {
+                    document.getElementById('qrcode').innerHTML = `
+                        <img src="data:image/png;base64,${data.qr}" alt="QR Code" style="max-width: 300px; border: 2px solid #25D366; border-radius: 10px;">
+                    `;
+                }
+            } catch (error) {
+                console.log('Aguardando QR code...');
+            }
+        }
+
+        // Tentar carregar o QR code a cada 2 segundos
+        setInterval(loadQRCode, 2000);
+        loadQRCode();
+    </script>
+</body>
+</html>

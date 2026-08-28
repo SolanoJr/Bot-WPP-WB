@@ -1,0 +1,63 @@
+# ============================================
+# Configuração AlertManager
+# ============================================
+global:
+  resolve_timeout: 5m
+  slack_api_url: ''  # Adicionar URL do webhook Slack se desejado
+
+# ============================================
+# Templates de Notificação
+# ============================================
+templates: []
+
+# ============================================
+# Configuração de Rota
+# ============================================
+route:
+  receiver: 'default'
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+
+  routes:
+    # Alertas críticos
+    - match:
+        severity: 'critical'
+      receiver: 'critical'
+      group_wait: 0s
+      repeat_interval: 5m
+
+    # Alertas de warning
+    - match:
+        severity: 'warning'
+      receiver: 'warning'
+      group_wait: 30s
+      repeat_interval: 1h
+
+# ============================================
+# Receptores de Notificação
+# ============================================
+receivers:
+  # Receptor padrão (sem ação por enquanto)
+  - name: 'default'
+
+  # Receptor para alertas críticos
+  - name: 'critical'
+    # Adicionar aqui Slack, PagerDuty, Email, etc.
+    # slack_configs:
+    #   - channel: '#critical'
+    #     title: 'Critical Alert'
+    #     text: '{{ .GroupLabels.alertname }}'
+
+  # Receptor para alertas de warning
+  - name: 'warning'
+    # slack_configs:
+    #   - channel: '#warnings'
+    #     title: 'Warning Alert'
+    #     text: '{{ .GroupLabels.alertname }}'
+
+# ============================================
+# Configuração de Inibição
+# ============================================
+inhibit_rules: []

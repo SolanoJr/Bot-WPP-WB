@@ -1,0 +1,50 @@
+# 🔐 ARQUIVOS SENSÍVEIS - NÃO COMMITAR
+.env
+.env.local
+.env.production
+data/
+logs/
+*.log
+audit.log
+usage.json
+test-report.json
+
+# 🔐 CHAVES E SEGREDO
+*.key
+*.pem
+*.p12
+secrets.json
+credentials.json
+
+# 📱 SESSÕES DO WHATSAPP
+.wwebjs_auth/
+.wwebjs_cache/
+*.session
+*.store
+
+# � ARTEFATOS LOCAIS
+.env.backup
+.whatsapp-instance.lock
+scripts/logs/
+
+# �📊 RELATÓRIOS E TEMP
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# 📦 DEPENDÊNCIAS
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 🚀 BUILD
+dist/
+build/
+.next/
+
+# 🔐 BACKUPS E CONFIGURAÇÕES SENSÍVEIS
+backups/
+config/local.json
+config/production.json

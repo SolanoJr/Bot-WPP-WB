@@ -1,0 +1,251 @@
+import { spawn, ChildProcess } from 'child_process';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
+
+// Get __dirname in a way that works for both ESM and CJS
+const __filename = typeof __filename !== 'undefined' ? __filename : fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+export interface DiscordScreenConfig {
+  port: number;
+  publicOrigin: string;
+  discordClientId: string;
+  discordClientSecret: string;
+  discordBotToken: string;
+  discordAdminIds?: string[];
+  turnUrl?: string;
+  turnUser?: string;
+  turnPass?: string;
+  sessionSecret?: string;
+  nodeEnv: string;
+}
+
+export class DiscordScreenService {
+  private process: ChildProcess | null = null;
+  private config: DiscordScreenConfig;
+  private isRunning = false;
+  private startPromise: Promise<void> | null = null;
+
+  constructor(config: DiscordScreenConfig) {
+    this.config = config;
+  }
+
+  /**
+   * Start the Discord Screen Sharing server
+   */
+  async start(): Promise<void> {
+    if (this.isRunning) {
+      console.log('[DiscordScreenService] Already running');
+      return;
+    }
+
+    if (this.startPromise) {
+      return this.startPromise;
+    }
+
+    this.startPromise = this.doStart();
+    return this.startPromise;
+  }
+
+  private async doStart(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      // Build environment variables for the child process
+      const env = {
+        ...process.env,
+        PORT: String(this.config.port),
+        PUBLIC_ORIGIN: this.config.publicOrigin,
+        DISCORD_CLIENT_ID: this.config.discordClientId,
+        DISCORD_CLIENT_SECRET: this.config.discordClientSecret,
+        DISCORD_BOT_TOKEN: this.config.discordBotToken,
+        DISCORD_ADMIN_ID: this.config.discordAdminIds?.join(',') || '',
+        TURN_URL: this.config.turnUrl || '',
+        TURN_USER: this.config.turnUser || '',
+        TURN_PASS: this.config.turnPass || '',
+        SESSION_SECRET: this.config.sessionSecret || '',
+        NODE_ENV: this.config.nodeEnv,
+      };
+
+      // In production, the files are in the project root at /home/solanojr/bot-wpp/
+      // We need to resolve the absolute path from the project root
+      const projectRoot = process.env.PWD || process.cwd();
+      const serverPath = path.join(projectRoot, 'src', 'services', 'discord-screen', 'index.js');
+      const clientDist = path.join(projectRoot, 'src', 'services', 'discord-screen', 'client', 'dist');
+      const hasClientBuild = fs.existsSync(path.join(clientDist, 'index.html'));
+
+      if (!hasClientBuild && this.config.nodeEnv === 'production') {
+        console.warn('[DiscordScreenService] Client build not found at', clientDist);
+        console.warn('[DiscordScreenService] Run "npm run build:screen" to build the client');
+      }
+
+      console.log('[DiscordScreenService] Starting server on port', this.config.port);
+      console.log('[DiscordScreenService] Public origin:', this.config.publicOrigin);
+      console.log('[DiscordScreenService] Discord Client ID:', this.config.discordClientId);
+      console.log('[DiscordScreenService] Bot token configured:', !!this.config.discordBotToken);
+      console.log('[DiscordScreenService] Admin IDs:', this.config.discordAdminIds?.length || 0);
+
+      // The working directory should be the discord-screen server directory
+      const workingDir = path.join(projectRoot, 'src', 'services', 'discord-screen');
+
+      this.process = spawn('node', [serverPath], {
+        env,
+        cwd: workingDir,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+
+      this.process.stdout?.on('data', (data) => {
+        const output = data.toString().trim();
+        if (output) console.log(`[DiscordScreen] ${output}`);
+      });
+
+      this.process.stderr?.on('data', (data) => {
+        const output = data.toString().trim();
+        if (output) console.error(`[DiscordScreen] ${output}`);
+      });
+
+      this.process.on('error', (err) => {
+        console.error('[DiscordScreenService] Failed to start:', err);
+        this.isRunning = false;
+        this.startPromise = null;
+        reject(err);
+      });
+
+      this.process.on('exit', (code, signal) => {
+        console.log(`[DiscordScreenService] Process exited with code ${code}, signal ${signal}`);
+        this.isRunning = false;
+        this.process = null;
+        this.startPromise = null;
+        if (code !== 0 && code !== null) {
+          reject(new Error(`Process exited with code ${code}`));
+        }
+      });
+
+      // Wait for server to be ready (look for "no ar em" in logs)
+      const readyTimeout = setTimeout(() => {
+        console.log('[DiscordScreenService] Server startup timeout - assuming ready');
+        this.isRunning = true;
+        resolve();
+      }, 10000);
+
+      this.process.stdout?.on('data', (data) => {
+        const output = data.toString();
+        if (output.includes('no ar em') || output.includes('Sala de Tela no ar')) {
+          clearTimeout(readyTimeout);
+          this.isRunning = true;
+          resolve();
+        }
+      });
+    });
+  }
+
+  /**
+   * Stop the Discord Screen Sharing server
+   */
+  async stop(): Promise<void> {
+    if (!this.process || !this.isRunning) {
+      console.log('[DiscordScreenService] Not running');
+      return;
+    }
+
+    console.log('[DiscordScreenService] Stopping...');
+
+    return new Promise((resolve) => {
+      const forceKillTimeout = setTimeout(() => {
+        if (this.process) {
+          console.log('[DiscordScreenService] Force killing...');
+          this.process.kill('SIGKILL');
+        }
+        resolve();
+      }, 5000);
+
+      this.process?.on('exit', () => {
+        clearTimeout(forceKillTimeout);
+        this.isRunning = false;
+        this.process = null;
+        this.startPromise = null;
+        console.log('[DiscordScreenService] Stopped');
+        resolve();
+      });
+
+      // Graceful shutdown
+      this.process?.kill('SIGTERM');
+    });
+  }
+
+  /**
+   * Check if the service is running
+   */
+  getStatus(): { running: boolean; port: number; publicOrigin: string } {
+    return {
+      running: this.isRunning,
+      port: this.config.port,
+      publicOrigin: this.config.publicOrigin,
+    };
+  }
+
+  /**
+   * Get the base URL for the screen sharing service
+   */
+  getBaseUrl(): string {
+    return this.config.publicOrigin;
+  }
+
+  /**
+   * Get the WebSocket URL for the screen sharing service
+   */
+  getWsUrl(): string {
+    const url = new URL(this.config.publicOrigin);
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    url.port = String(this.config.port);
+    return url.toString();
+  }
+}
+
+/**
+ * Create DiscordScreenService from bot-wpp environment configuration
+ */
+export function createDiscordScreenServiceFromEnv(): DiscordScreenService | null {
+  const {
+    DISCORD_CLIENT_ID,
+    DISCORD_CLIENT_SECRET,
+    DISCORD_BOT_TOKEN,
+    DISCORD_ADMIN_ID,
+    DISCORD_SCREEN_PORT = '3001',
+    DISCORD_SCREEN_PUBLIC_ORIGIN,
+    TURN_URL,
+    TURN_USER,
+    TURN_PASS,
+    SESSION_SECRET,
+    NODE_ENV = 'development',
+  } = process.env;
+
+  // Check if we have minimum required config
+  if (!DISCORD_CLIENT_ID || !DISCORD_CLIENT_SECRET || !DISCORD_BOT_TOKEN) {
+    console.log('[DiscordScreenService] Missing required Discord credentials, screen sharing disabled');
+    return null;
+  }
+
+  const adminIds = DISCORD_ADMIN_ID
+    ? String(DISCORD_ADMIN_ID).split(/[,\s;]+/).filter(Boolean)
+    : [];
+
+  const publicOrigin = DISCORD_SCREEN_PUBLIC_ORIGIN || `http://localhost:${DISCORD_SCREEN_PORT}`;
+
+  const config: DiscordScreenConfig = {
+    port: parseInt(DISCORD_SCREEN_PORT, 10),
+    publicOrigin,
+    discordClientId: DISCORD_CLIENT_ID,
+    discordClientSecret: DISCORD_CLIENT_SECRET,
+    discordBotToken: DISCORD_BOT_TOKEN,
+    discordAdminIds: adminIds.length > 0 ? adminIds : undefined,
+    turnUrl: TURN_URL,
+    turnUser: TURN_USER,
+    turnPass: TURN_PASS,
+    sessionSecret: SESSION_SECRET,
+    nodeEnv: NODE_ENV,
+  };
+
+  return new DiscordScreenService(config);
+}
+
+export default DiscordScreenService;

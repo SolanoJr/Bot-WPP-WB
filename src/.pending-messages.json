@@ -1,0 +1,26 @@
+[
+  {
+    "id": "msg_1782143337764_jxowluzc0",
+    "chatId": "558581344211@c.us",
+    "message": "Test message",
+    "metadata": {},
+    "timestamp": "2026-06-22T15:48:57.764Z",
+    "status": "queued",
+    "retryCount": 0,
+    "processedAt": null,
+    "completedAt": null,
+    "error": null
+  },
+  {
+    "id": "msg_1782143337800_m8rog2zbh",
+    "chatId": "558581344212@c.us",
+    "message": "Test message 2",
+    "metadata": {},
+    "timestamp": "2026-06-22T15:48:57.800Z",
+    "status": "queued",
+    "retryCount": 0,
+    "processedAt": null,
+    "completedAt": null,
+    "error": null
+  }
+]

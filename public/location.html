@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Localização - Bot WPP</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s;
+        }
+        .btn:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        .btn:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        .coordinates {
+            font-family: monospace;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .error {
+            background: rgba(255, 0, 0, 0.2);
+            color: #ffcccc;
+        }
+        .success {
+            background: rgba(0, 255, 0, 0.2);
+            color: #ccffcc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📍 Compartilhar Localização</h1>
+        
+        <div id="status" class="status">
+            <div class="loading"></div>
+            <p>Aguarde, obtendo sua localização...</p>
+        </div>
+        
+        <div id="result" style="display: none;">
+            <h3>📍 Sua Localização:</h3>
+            <div class="coordinates" id="coords"></div>
+            <div class="coordinates" id="accuracy"></div>
+            <button class="btn" onclick="sendLocation()">Enviar Localização</button>
+        </div>
+        
+        <div id="error" style="display: none;" class="status error">
+            <p>❌ Erro ao obter localização</p>
+            <p id="errorMsg"></p>
+            <button class="btn" onclick="retryLocation()">Tentar Novamente</button>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        let currentPosition = null;
+
+        if (!token) {
+            showError('Token inválido. Por favor, use o link enviado pelo bot.');
+        } else {
+            getLocation();
+        }
+
+        function getLocation() {
+            if (!navigator.geolocation) {
+                showError('Seu navegador não suporta geolocalização.');
+                return;
+            }
+
+            // Verificar se é HTTPS
+            if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+                showHttpWarning();
+                return;
+            }
+
+            const options = {
+                enableHighAccuracy: true,
+                timeout: 30000,
+                maximumAge: 0
+            };
+
+            navigator.geolocation.getCurrentPosition(
+                position => {
+                    currentPosition = position;
+                    showLocation(position);
+                },
+                error => {
+                    showError(getErrorMessage(error));
+                },
+                options
+            );
+        }
+
+        function showHttpWarning() {
+            document.getElementById('status').innerHTML = `
+                <div class="status error">
+                    <h3>⚠️ Localização Requer HTTPS</h3>
+                    <p>Por segurança, navegadores bloqueiam GPS em HTTP.</p>
+                    <p><strong>Opções:</strong></p>
+                    <p>1️⃣ Use um navegador desktop e permita "localização insegura"</p>
+                    <p>2️⃣ Acesse via HTTPS (se disponível)</p>
+                    <p>3️⃣ Use o navegador Chrome com flags de desenvolvimento</p>
+                    <br>
+                    <button class="btn" onclick="tryInsecureLocation()">Tentar Mesmo Assim</button>
+                    <button class="btn" onclick="showManualLocation()">Inserir Manualmente</button>
+                </div>
+            `;
+        }
+
+        function tryInsecureLocation() {
+            const options = {
+                enableHighAccuracy: true,
+                timeout: 30000,
+                maximumAge: 0
+            };
+
+            navigator.geolocation.getCurrentPosition(
+                position => {
+                    currentPosition = position;
+                    showLocation(position);
+                },
+                error => {
+                    showError(getErrorMessage(error));
+                },
+                options
+            );
+        }
+
+        function showManualLocation() {
+            document.getElementById('status').innerHTML = `
+                <div class="status">
+                    <h3>📍 Inserir Localização Manual</h3>
+                    <p>Se você não conseguir usar GPS, pode inserir manualmente:</p>
+                    <input type="number" id="manualLat" placeholder="Latitude (ex: -23.5505)" step="0.000001" style="width: 100%; margin: 10px 0; padding: 10px; border-radius: 5px; border: none;">
+                    <input type="number" id="manualLng" placeholder="Longitude (ex: -46.6333)" step="0.000001" style="width: 100%; margin: 10px 0; padding: 10px; border-radius: 5px; border: none;">
+                    <button class="btn" onclick="useManualLocation()">Usar Coordenadas</button>
+                </div>
+            `;
+        }
+
+        function useManualLocation() {
+            const lat = parseFloat(document.getElementById('manualLat').value);
+            const lng = parseFloat(document.getElementById('manualLng').value);
+            
+            if (isNaN(lat) || isNaN(lng)) {
+                showError('Coordenadas inválidas.');
+                return;
+            }
+            
+            currentPosition = {
+                coords: {
+                    latitude: lat,
+                    longitude: lng,
+                    accuracy: 100 // Precisão estimada para manual
+                }
+            };
+            
+            showLocation(currentPosition);
+        }
+
+        function showLocation(position) {
+            const { latitude, longitude, accuracy } = position.coords;
+            
+            document.getElementById('status').style.display = 'none';
+            document.getElementById('result').style.display = 'block';
+            document.getElementById('coords').innerHTML = 
+                `📍 Latitude: ${latitude.toFixed(6)}<br>📍 Longitude: ${longitude.toFixed(6)}`;
+            document.getElementById('accuracy').innerHTML = 
+                `🎯 Precisão: ±${Math.round(accuracy)} metros`;
+        }
+
+        function showError(message) {
+            document.getElementById('status').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('errorMsg').textContent = message;
+        }
+
+        function getErrorMessage(error) {
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    return 'Permissão negada. Por favor, permita o acesso à localização.';
+                case error.POSITION_UNAVAILABLE:
+                    return 'Informações de localização indisponíveis.';
+                case error.TIMEOUT:
+                    return 'Tempo esgotado ao obter localização.';
+                default:
+                    return 'Erro desconhecido: ' + error.message;
+            }
+        }
+
+        async function sendLocation() {
+            if (!currentPosition) {
+                showError('Nenhuma localização obtida.');
+                return;
+            }
+
+            const { latitude, longitude, accuracy } = currentPosition.coords;
+            const relayUrl = urlParams.get('relay') || '';
+            
+            console.log('📍 Enviando localização:', {
+                token,
+                relayUrl,
+                location: { latitude, longitude, accuracy }
+            });
+            
+            const apiKey = urlParams.get('apiKey') || '';
+            
+            try {
+                // Usar URL do relay dinamicamente
+                const submitUrl = relayUrl ? 
+                    `${relayUrl}/location` : 
+                    `/location/submit/${token}`;
+                
+                const payload = relayUrl ? {
+                    token,
+                    chatId: urlParams.get('chatId') || '',
+                    location: { latitude, longitude, accuracy },
+                    userAgent: navigator.userAgent,
+                    timestamp: new Date().toISOString()
+                } : {
+                    latitude,
+                    longitude,
+                    accuracy
+                };
+                
+                console.log('📤 POST para:', submitUrl, payload);
+                
+                const response = await fetch(submitUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': apiKey
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                
+                console.log('📊 Resposta do relay:', result);
+
+                if (result.success) {
+                    document.getElementById('result').innerHTML = `
+                        <div class="status success">
+                            <h3>✅ Localização Enviada!</h3>
+                            <p>Sua localização foi enviada com sucesso para o bot.</p>
+                            <p>Método: ${result.method || 'direct'}</p>
+                            <p>Você pode fechar esta página.</p>
+                        </div>
+                    `;
+                } else {
+                    showError(result.message || 'Erro ao enviar localização.');
+                }
+            } catch (error) {
+                console.error('❌ Erro ao enviar localização:', error);
+                showError('Erro de conexão. Tente novamente.');
+            }
+        }
+
+        function retryLocation() {
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('status').style.display = 'block';
+            getLocation();
+        }
+
+        // Verificar status do token periodicamente
+        if (token) {
+            const checkTokenStatus = async () => {
+                try {
+                    const response = await fetch(`/location/status/${token}`);
+                    const result = await response.json();
+                    
+                    if (!result.success) {
+                        showError('Solicitação expirada. Peça um novo link ao bot.');
+                    }
+                } catch (error) {
+                    // Silencioso - não precisa mostrar erro
+                }
+            };
+
+            // Verificar a cada 30 segundos
+            setInterval(checkTokenStatus, 30000);
+        }
+    </script>
+</body>
+</html>

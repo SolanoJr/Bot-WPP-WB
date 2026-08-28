@@ -1,0 +1,11 @@
+[Unit]
+Description=Sincroniza e reinicia o Bot-WPP a partir do repositório Git
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/bot-wpp/sync_and_deploy.sh
+Environment=HOME=%h
+
+[Install]
+WantedBy=default.target
