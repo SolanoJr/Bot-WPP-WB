@@ -24,8 +24,8 @@ const {
   TURN_URL = '',
   TURN_USER = '',
   TURN_PASS = '',
-  PUBLIC_ORIGIN: ORIGEM_CRUA = 'http://localhost:3001',
-  PORT = 3001,
+  PUBLIC_ORIGIN: ORIGEM_CRUA = process.env.DISCORD_SCREEN_PUBLIC_ORIGIN || 'http://localhost:3003',
+  PORT = parseInt(process.env.DISCORD_SCREEN_PORT || '3003', 10),
   NODE_ENV = 'development',
 } = process.env;
 
