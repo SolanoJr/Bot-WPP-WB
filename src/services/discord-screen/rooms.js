@@ -42,7 +42,7 @@ const MAX_ROOM_NAME = 40;
 // desconecta e reconecta, e quem estivesse sozinho perderia a sala a cada F5.
 // 12s cobre um reload com folga e some rápido o bastante para não deixar sala
 // fantasma na lista.
-const EMPTY_GRACE_MS = 12 * 1000;
+const EMPTY_GRACE_MS = 120 * 1000;
 // Quanto tempo a transmissão de alguém sobrevive à saída dessa pessoa da sala.
 // Existe pelo mesmo motivo da carência acima: recarregar a atividade desconecta
 // e reconecta, e sem ela um F5 derrubaria a transmissão de quem não saiu de

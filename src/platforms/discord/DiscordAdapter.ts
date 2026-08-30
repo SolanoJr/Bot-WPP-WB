@@ -1,9 +1,4 @@
 // src/platforms/discord/DiscordAdapter.ts
-/**
- * Discord Adapter (esqueleto) – implementa a mesma interface de PlatformAdapter.
- * Utiliza discord.js; por enquanto implementa apenas sendMessage e stubs para os demais métodos.
- */
-
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import {
   PlatformType,
@@ -59,7 +54,6 @@ class DiscordClient implements PlatformClient {
     } catch (err: any) {
       console.error('[Discord] ❌ Falha no login (possível rate limit):', err?.message || err);
       if (this.disconnectedHandler) this.disconnectedHandler(err.message);
-      // Aguarda 30s e tenta novamente — Discord rate limita logins frequentes
       console.log('[Discord] Tentando novamente após 30s...');
       await new Promise(r => setTimeout(r, 30000));
       try {
@@ -73,7 +67,6 @@ class DiscordClient implements PlatformClient {
   }
 
   private setupEventHandlers() {
-    // discord.js v14+ usa 'clientReady'; 'ready' foi depreciado
     const readyEvent = 'clientReady';
     this.client.once(readyEvent as any, () => {
       this.isReady = true;
@@ -81,7 +74,6 @@ class DiscordClient implements PlatformClient {
       this.userName = this.client.user?.username ?? 'DiscordBot';
       console.log(`[Discord] ✅ Pronto como ${this.userName} (${this.userId})`);
       
-      // Definir status de presença como online
       try {
         this.client.user?.setPresence({
           status: 'online',
@@ -99,7 +91,7 @@ class DiscordClient implements PlatformClient {
       console.log(`[Discord] messageCreate recebido - autor: ${msg.author.username} (bot: ${msg.author.bot}), conteúdo: "${msg.content}", canal: ${msg.channel.id}, tipo: ${msg.channel.type}`);
       
       // Ignorar mensagens do próprio bot
-      if (msg.author.bot) {
+      if (msg.author.id === this.client.user?.id) {
         console.log('[Discord] Mensagem ignorada (do próprio bot)');
         return;
       }
@@ -130,16 +122,9 @@ class DiscordClient implements PlatformClient {
   }
 
   private normalizeMessage(msg: any): PlatformMessage {
-    const msgHash = Math.random().toString(36).substring(7);
-    const stack = new Error().stack;
-    console.log(`[DiscordAdapter.normalizeMessage] ENTRY - msgHash: ${msgHash}, msg:`, !!msg, 'typeof msg:', typeof msg);
-    console.log(`[DiscordAdapter.normalizeMessage] Stack trace:`, stack);
-    
     const chatId = `dc:${msg.channel.id}`;
     const userId = `dc:${msg.author.id}`;
     
-    // Discord.js v14 usa ChannelType enum (números), não strings
-    // 0 = GUILD_TEXT, 2 = GUILD_VOICE, 11 = GUILD_PUBLIC_THREAD, etc.
     const isGroup = msg.channel.type === 0 || msg.channel.type === 2 || 
                     msg.channel.type === 'GUILD_TEXT' || msg.channel.type === 'GUILD_VOICE';
     
@@ -171,24 +156,35 @@ class DiscordClient implements PlatformClient {
   }
 
   async sendMessage(chatId: string, text: string, options?: SendOptions): Promise<PlatformMessage> {
-    const thisHash = Math.random().toString(36).substring(7);
-    const stack = new Error().stack;
-    console.log(`[DiscordAdapter.sendMessage] ENTRY - thisHash: ${thisHash}, this.constructor.name: ${this.constructor.name}, chatId: ${chatId}`);
-    console.log(`[DiscordAdapter.sendMessage] Stack trace:`, stack);
-    
     const cleanChatId = chatId.replace(/^dc:/, '');
-    const channel = await this.client.channels.fetch(cleanChatId);
+    let channel: any;
     
-    const sent = await (channel as any).send(text);
+    try {
+      channel = await this.client.channels.fetch(cleanChatId);
+    } catch {
+      channel = null;
+    }
     
-    console.log(`[DiscordAdapter.sendMessage] EXIT - thisHash: ${thisHash}, sent:`, !!sent, 'typeof sent:', typeof sent);
-    console.log(`[DiscordAdapter.sendMessage] Stack trace:`, stack);
+    if (!channel) {
+      channel = this.client.channels.cache.get(cleanChatId);
+    }
     
+    if (!channel || typeof channel.send !== 'function') {
+      throw new Error(`Discord: Canal não encontrado: ${chatId}`);
+    }
+
+    // Montar mensagem com suporte a reply (citação)
+    const sendData: any = { content: text };
+    if (options?.replyToMessageId) {
+      const replyId = options.replyToMessageId.replace(/^dc:/, '');
+      sendData.reply = { messageReference: replyId };
+    }
+
+    const sent = await channel.send(sendData);
     return this.normalizeMessage(sent);
   }
 
   async sendMedia(chatId: string, media: MediaPayload, caption?: string): Promise<PlatformMessage> {
-    // Implementação mínima – ainda não suportada no esqueleto.
     throw new Error('sendMedia ainda não implementado para DiscordAdapter');
   }
 
@@ -222,15 +218,13 @@ class DiscordClient implements PlatformClient {
   }
 
   async getChats(): Promise<PlatformChat[]> {
-    // Discord não oferece listagem simples de chats do bot; retornamos os canais de texto dos guilds.
     const chats: PlatformChat[] = [];
     this.client.guilds.cache.forEach(guild => {
       guild.channels.cache.forEach(ch => {
-        // Discord.js v14: usar isTextBased() ao invés de isText()
-        if ((ch as any).isTextBased?.()) {
+        if (ch.isTextBased()) {
           chats.push({
             id: `dc:${ch.id}`,
-            name: (ch as any).name,
+            name: (ch as any).name ?? 'Discord Channel',
             isGroup: true,
             platform: 'discord',
             participants: [],
@@ -261,6 +255,17 @@ class DiscordClient implements PlatformClient {
     await guild.members.ban(cleanUserId, { reason: 'Banido por comando do bot' });
   }
 
+  async react(messageId: string, emoji: string): Promise<void> {
+    try {
+      const msgId = messageId.split(':').pop();
+      if (!msgId) return;
+      const msg = await this.client.messages.fetch(msgId);
+      if (msg) await msg.react(emoji);
+    } catch (e: any) {
+      console.error(`[Discord] ❌ erro ao reagir: ${e?.message}`);
+    }
+  }
+
   onMessage(handler: MessageHandler): void {
     this.messageHandler = handler;
   }
@@ -288,50 +293,7 @@ export class DiscordAdapter implements PlatformAdapter {
   }
 
   async initialize(): Promise<void> {
-    console.log('[DiscordAdapter] Inicializando...');
-
-    if (this.client.isReady) {
-      console.log('[DiscordAdapter] Já estava pronto');
-      return;
-    }
-    
-    // Configurar timeout para evitar que o bot fique travado se o Discord não conectar
-    const timeout = 30000; // 30 segundos
-    
-    const readyPromise = new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        reject(new Error(`Timeout de ${timeout}ms aguardando conexão do Discord`));
-      }, timeout);
-
-      // Capturar o handler original se existir (do PlatformManager)
-      const originalReady = (this.client as any).readyHandler;
-      const originalDisconnected = (this.client as any).disconnectedHandler;
-
-      const onReady = () => {
-        clearTimeout(timer);
-        console.log('[DiscordAdapter] Evento Ready recebido na inicialização');
-        if (typeof originalReady === 'function') originalReady();
-        resolve();
-      };
-      
-      const onDisconnect = (reason: string) => {
-        clearTimeout(timer);
-        console.error('[DiscordAdapter] Falha na inicialização:', reason);
-        if (typeof originalDisconnected === 'function') originalDisconnected(reason);
-        reject(new Error(reason));
-      };
-
-      this.client.onReady(onReady);
-      this.client.onDisconnected(onDisconnect);
-    });
-
-    try {
-      await (this.client as any).login();
-      return readyPromise;
-    } catch (error) {
-      console.error('[DiscordAdapter] Erro fatal no login do Discord:', error);
-      throw error;
-    }
+    await (this.client as DiscordClient).login();
   }
 
   async shutdown(): Promise<void> {

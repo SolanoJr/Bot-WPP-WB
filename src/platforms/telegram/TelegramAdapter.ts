@@ -98,12 +98,10 @@ class TelegramClient implements PlatformClient {
   }
 
   private normalizeMessage(ctx: TelegrafContext<TgMessage>): PlatformMessage {
-    const msgHash = Math.random().toString(36).substring(7);
-    const stack = new Error().stack;
-    console.log(`[TelegramAdapter.normalizeMessage] ENTRY - msgHash: ${msgHash}, ctx:`, !!ctx, 'typeof ctx:', typeof ctx);
-    console.log(`[TelegramAdapter.normalizeMessage] Stack trace:`, stack);
-    
-    const tg = ctx.message;
+    const tg = ctx.message || (ctx.update as any)?.message;
+    if (!tg) {
+      throw new Error('Telegram: ctx.message e ctx.update.message são undefined');
+    }
     const chatId = `tg:${tg.chat.id}`;
     const userId = `tg:${tg.from?.id ?? 0}`;
     const hasMedia = !!tg.photo || !!tg.document || !!tg.video || !!tg.sticker || !!tg.audio || !!tg.voice || !!tg.video_note;
@@ -226,6 +224,19 @@ class TelegramClient implements PlatformClient {
   onMessage(handler: MessageHandler): void { this.messageHandler = handler; }
   onReady(handler: () => void): void { this.readyHandler = handler; }
   onDisconnected(handler: (reason: string) => void): void { this.disconnectedHandler = handler; }
+
+  async react(messageId: string, emoji: string): Promise<void> {
+    try {
+      const msgId = messageId.split(':').pop();
+      await this.bot.telegram.callApi('setMessageReaction', {
+        chat_id: Number(this.bot.botInfo?.id),
+        message_id: Number(msgId),
+        reaction: [{ type: 'emoji', emoji }],
+      });
+    } catch (e: any) {
+      console.error(`[Telegram] ❌ erro ao reagir: ${e?.message}`);
+    }
+  }
 
   async shutdown(): Promise<void> {
     await this.bot.stop();

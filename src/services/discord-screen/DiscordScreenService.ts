@@ -1,11 +1,9 @@
+// src/services/discord-screen/DiscordScreenService.ts
+// Gerencia o servidor de Discord Screen Sharing como processo filho
+
 import { spawn, ChildProcess } from 'child_process';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import fs from 'fs';
-
-// Get __dirname in a way that works for both ESM and CJS
-const __filename = typeof __filename !== 'undefined' ? __filename : fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 export interface DiscordScreenConfig {
   port: number;
@@ -31,26 +29,20 @@ export class DiscordScreenService {
     this.config = config;
   }
 
-  /**
-   * Start the Discord Screen Sharing server
-   */
   async start(): Promise<void> {
     if (this.isRunning) {
       console.log('[DiscordScreenService] Already running');
       return;
     }
-
     if (this.startPromise) {
       return this.startPromise;
     }
-
     this.startPromise = this.doStart();
     return this.startPromise;
   }
 
   private async doStart(): Promise<void> {
     return new Promise((resolve, reject) => {
-      // Build environment variables for the child process
       const env = {
         ...process.env,
         PORT: String(this.config.port),
@@ -66,8 +58,6 @@ export class DiscordScreenService {
         NODE_ENV: this.config.nodeEnv,
       };
 
-      // In production, the files are in the project root at /home/solanojr/bot-wpp/
-      // We need to resolve the absolute path from the project root
       const projectRoot = process.env.PWD || process.cwd();
       const serverPath = path.join(projectRoot, 'src', 'services', 'discord-screen', 'index.js');
       const clientDist = path.join(projectRoot, 'src', 'services', 'discord-screen', 'client', 'dist');
@@ -80,11 +70,7 @@ export class DiscordScreenService {
 
       console.log('[DiscordScreenService] Starting server on port', this.config.port);
       console.log('[DiscordScreenService] Public origin:', this.config.publicOrigin);
-      console.log('[DiscordScreenService] Discord Client ID:', this.config.discordClientId);
-      console.log('[DiscordScreenService] Bot token configured:', !!this.config.discordBotToken);
-      console.log('[DiscordScreenService] Admin IDs:', this.config.discordAdminIds?.length || 0);
 
-      // The working directory should be the discord-screen server directory
       const workingDir = path.join(projectRoot, 'src', 'services', 'discord-screen');
 
       this.process = spawn('node', [serverPath], {
@@ -120,7 +106,6 @@ export class DiscordScreenService {
         }
       });
 
-      // Wait for server to be ready (look for "no ar em" in logs)
       const readyTimeout = setTimeout(() => {
         console.log('[DiscordScreenService] Server startup timeout - assuming ready');
         this.isRunning = true;
@@ -138,17 +123,12 @@ export class DiscordScreenService {
     });
   }
 
-  /**
-   * Stop the Discord Screen Sharing server
-   */
   async stop(): Promise<void> {
     if (!this.process || !this.isRunning) {
       console.log('[DiscordScreenService] Not running');
       return;
     }
-
     console.log('[DiscordScreenService] Stopping...');
-
     return new Promise((resolve) => {
       const forceKillTimeout = setTimeout(() => {
         if (this.process) {
@@ -167,14 +147,10 @@ export class DiscordScreenService {
         resolve();
       });
 
-      // Graceful shutdown
       this.process?.kill('SIGTERM');
     });
   }
 
-  /**
-   * Check if the service is running
-   */
   getStatus(): { running: boolean; port: number; publicOrigin: string } {
     return {
       running: this.isRunning,
@@ -183,16 +159,10 @@ export class DiscordScreenService {
     };
   }
 
-  /**
-   * Get the base URL for the screen sharing service
-   */
   getBaseUrl(): string {
     return this.config.publicOrigin;
   }
 
-  /**
-   * Get the WebSocket URL for the screen sharing service
-   */
   getWsUrl(): string {
     const url = new URL(this.config.publicOrigin);
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -201,9 +171,6 @@ export class DiscordScreenService {
   }
 }
 
-/**
- * Create DiscordScreenService from bot-wpp environment configuration
- */
 export function createDiscordScreenServiceFromEnv(): DiscordScreenService | null {
   const {
     DISCORD_CLIENT_ID,
@@ -219,7 +186,6 @@ export function createDiscordScreenServiceFromEnv(): DiscordScreenService | null
     NODE_ENV = 'development',
   } = process.env;
 
-  // Check if we have minimum required config
   if (!DISCORD_CLIENT_ID || !DISCORD_CLIENT_SECRET || !DISCORD_BOT_TOKEN) {
     console.log('[DiscordScreenService] Missing required Discord credentials, screen sharing disabled');
     return null;

@@ -1,142 +1,179 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Transmitir</title>
-    <!-- ?v= existe porque share.js/css têm nome fixo. Quem abriu a página antes
-         dos cabeçalhos no-store guardou a versão antiga por heurística do
-         navegador, e continuaria usando ela para sempre. Trocar a query força
-         uma URL nova. Incremente ao publicar mudanças nesses arquivos. -->
-    <link rel="stylesheet" href="/share.css?v=25" />
-  </head>
-  <body>
-    <main class="card">
-      <header>
-        <h1>Transmitir</h1>
-      </header>
-
-      <!-- Erro que impede a página inteira: token inválido, navegador sem
-           suporte. Os erros de cada fonte ficam no bloco dela. -->
-      <p id="pageStatus" class="status" role="status"></p>
-
-      <div class="fontes">
-        <section class="bloco" id="bloco-tela">
-          <h2>Tela</h2>
-
-          <!-- Fora do setup e do live de propósito: dá para escolher antes de
-               começar e para corrigir com a transmissão no ar, que é quando o
-               problema costuma aparecer. Vale para a câmera também. -->
-          <div class="ajustes">
-            <label>
-              Qualidade
-              <select id="qualidade">
-                <option value="800000">Leve — 0,8 Mbps</option>
-                <option value="1500000">Média — 1,5 Mbps</option>
-                <option value="2500000">Boa — 2,5 Mbps</option>
-                <option value="5000000">Alta — 5 Mbps</option>
-                <option value="8000000">Máxima — 8 Mbps</option>
-              </select>
-            </label>
-            <label>
-              Quadros
-              <select id="quadros">
-                <option value="15">15 fps</option>
-                <option value="30">30 fps</option>
-                <option value="60">60 fps</option>
-              </select>
-            </label>
-          </div>
-
-          <div id="tela-setup">
-            <div class="sem-preview" id="tela-vazio">Sem preview</div>
-            <video id="tela-previa" muted playsinline hidden></video>
-
-            <p class="note" id="tela-nota">
-              Marque "Compartilhar o áudio" na janela do navegador para levar o som.
-            </p>
-
-            <!-- A seta escolhe sem transmitir; o botão transmite o que estiver
-                 escolhido. Separados porque conferir o enquadramento e ir ao
-                 ar são decisões diferentes, e juntas não dá para voltar atrás
-                 diante de quem já está assistindo. -->
-            <div class="acao">
-              <button id="tela-start" class="primary">Escolher tela e transmitir</button>
-              <button
-                id="tela-escolher"
-                class="primary seta"
-                title="Ver outra tela antes de transmitir"
-                aria-label="Ver outra tela antes de transmitir"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6" /></svg>
-              </button>
-            </div>
-          </div>
-
-          <div id="tela-live" hidden>
-            <div class="live-badge"><span class="dot"></span> No ar</div>
-            <video id="tela-preview" muted playsinline></video>
-            <div class="stats">
-              <div><strong id="tela-viewers">0</strong><span>assistindo</span></div>
-              <div><strong id="tela-fps">—</strong><span>quadros</span></div>
-              <div><strong id="tela-bitrate">—</strong><span>enviando</span></div>
-              <div><strong id="tela-elapsed">00:00</strong><span>no ar</span></div>
-            </div>
-            <button id="somAba" class="secondary" hidden>Som de uma aba ou janela</button>
-            <button id="tela-stop" class="danger">Parar de transmitir a tela</button>
-          </div>
-
-          <p id="tela-status" class="status" role="status"></p>
-        </section>
-
-        <section class="bloco" id="bloco-camera">
-          <h2>Câmera</h2>
-
-          <div id="camera-setup">
-            <div class="sem-preview" id="camera-vazio">Sem preview</div>
-            <video id="camera-previa" muted playsinline hidden></video>
-
-            <div class="acao">
-              <button id="camera-start" class="primary">Ligar a câmera</button>
-              <button
-                id="camera-escolher"
-                class="primary seta"
-                title="Escolher a câmera"
-                aria-label="Escolher a câmera"
-                aria-haspopup="menu"
-                aria-expanded="false"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6" /></svg>
-              </button>
-
-              <!-- Preenchido depois da permissão: antes dela o navegador entrega
-                   os dispositivos sem nome, e uma lista de itens em branco não
-                   ajuda ninguém a escolher. -->
-              <ul id="camera-menu" class="menu" role="menu" hidden></ul>
-            </div>
-          </div>
-
-          <div id="camera-live" hidden>
-            <div class="live-badge"><span class="dot"></span> No ar</div>
-            <video id="camera-preview" muted playsinline></video>
-            <div class="stats">
-              <div><strong id="camera-viewers">0</strong><span>assistindo</span></div>
-              <div><strong id="camera-fps">—</strong><span>quadros</span></div>
-              <div><strong id="camera-bitrate">—</strong><span>enviando</span></div>
-              <div><strong id="camera-elapsed">00:00</strong><span>no ar</span></div>
-            </div>
-            <button id="camera-stop" class="danger">Desligar a câmera</button>
-          </div>
-
-          <p id="camera-status" class="status" role="status"></p>
-        </section>
-      </div>
-
-      <footer>
-        <p>Mantenha esta aba aberta enquanto transmite. Você pode voltar para o Discord — a transmissão continua.</p>
-      </footer>
-    </main>
-
-    <script type="module" src="/share.js?v=25"></script>
-  </body>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Transmitir</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui; background: #1a1a2e; color: #eee; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    .card { background: #16213e; border-radius: 12px; padding: 32px; width: 90%; max-width: 600px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+    h1 { margin-bottom: 16px; color: #e94560; }
+    .status { padding: 12px; border-radius: 8px; margin: 16px 0; background: #0f3460; }
+    .btn { background: #e94560; color: white; border: none; padding: 14px 28px; border-radius: 8px; font-size: 16px; cursor: pointer; width: 100%; margin: 8px 0; }
+    .btn:hover { background: #c73652; }
+    .btn:disabled { background: #555; cursor: not-allowed; }
+    video { width: 100%; border-radius: 8px; margin: 16px 0; background: #000; }
+    .error { color: #ff6b6b; }
+    .success { color: #51cf66; }
+    .info { color: #74c0fc; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🖥️ Transmitir Tela</h1>
+    <div id="status" class="status info">Aguardando...</div>
+    <video id="preview" autoplay muted playsinline></video>
+    <button id="startBtn" class="btn">Escolher tela e transmitir</button>
+    <button id="stopBtn" class="btn" style="display:none">Parar</button>
+  </div>
+  <script>
+    var status = document.getElementById('status');
+    var preview = document.getElementById('preview');
+    var startBtn = document.getElementById('startBtn');
+    var stopBtn = document.getElementById('stopBtn');
+    var ws = null;
+    var mediaStream = null;
+    var recorder = null;
+    var isBroadcasting = false;
+    
+    function log() { console.log('[Share]', ...arguments); }
+    function setStatus(text, type) {
+      status.textContent = text;
+      status.className = 'status ' + (type || '');
+    }
+    
+    // Verificar suporte
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+      setStatus('❌ Seu navegador não suporta captura de tela. Use Chrome/Edge.', 'error');
+      startBtn.disabled = true;
+    }
+    
+    startBtn.onclick = async function() {
+      if (isBroadcasting) { stopBroadcast(); return; }
+      try {
+        setStatus('Solicitando captura de tela...', 'info');
+        log('Solicitando captura');
+        
+        // Solicitar captura com timeout
+        var timeout = setTimeout(function() {
+          setStatus('❌ Timeout ao solicitar captura. Permita o acesso à tela.', 'error');
+        }, 10000);
+        
+        mediaStream = await navigator.mediaDevices.getDisplayMedia({
+          video: { cursor: 'always' },
+          audio: false
+        });
+        
+        clearTimeout(timeout);
+        log('Captura iniciada');
+        
+        preview.srcObject = mediaStream;
+        preview.style.display = 'block';
+        
+        // Verificar se usuário fechou a seleção
+        mediaStream.getVideoTracks()[0].onended = function() {
+          log('Captura encerrada pelo usuário');
+          stopBroadcast();
+        };
+        
+        // Conectar WebSocket
+        connectWebSocket();
+        
+        // Aguardar conexão
+        await new Promise(function(resolve) {
+          if (ws && ws.readyState === WebSocket.OPEN) return resolve();
+          ws.addEventListener('open', function() { resolve(); }, { once: true });
+        });
+        
+        // Iniciar gravação e envio
+        var mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') 
+          ? 'video/webm;codecs=vp9' 
+          : 'video/webm';
+        
+        recorder = new MediaRecorder(mediaStream, {
+          mimeType: mimeType,
+          videoBitsPerSecond: 2500000
+        });
+        
+        recorder.ondataavailable = function(e) {
+          if (e.data.size > 0 && ws && ws.readyState === WebSocket.OPEN) {
+            var reader = new FileReader();
+            reader.onloadend = function() {
+              var base64 = reader.result.split(',')[1];
+              ws.send(JSON.stringify({
+                type: 'blob-chunk',
+                data: base64,
+                mimeType: mimeType
+              }));
+            };
+            reader.readAsDataURL(e.data);
+          }
+        };
+        
+        recorder.start(1000);
+        ws.send(JSON.stringify({type: 'start'}));
+        
+        isBroadcasting = true;
+        startBtn.textContent = 'Parar';
+        startBtn.style.display = 'none';
+        stopBtn.style.display = 'block';
+        setStatus('🔴 Transmitindo!', 'success');
+        
+      } catch(e) {
+        log('Erro:', e.name, e.message);
+        setStatus('❌ Erro: ' + e.message, 'error');
+      }
+    };
+    
+    function connectWebSocket() {
+      var query = new URLSearchParams(location.search);
+      var token = query.get('t');
+      var proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      var wsUrl = proto + '://' + location.host + '/ws?t=' + encodeURIComponent(token) + '&fonte=tela';
+      
+      log('Conectando em:', wsUrl);
+      ws = new WebSocket(wsUrl);
+      
+      ws.onopen = function() {
+        log('WebSocket conectado');
+        setStatus('🟢 Conectado ao servidor', 'success');
+      };
+      
+      ws.onmessage = function(e) {
+        try { log('Msg:', JSON.parse(e.data).type); } catch(err) {}
+      };
+      
+      ws.onerror = function() {
+        log('WebSocket erro');
+        setStatus('❌ Erro na conexão', 'error');
+      };
+      
+      ws.onclose = function() {
+        log('WebSocket fechado');
+        isBroadcasting = false;
+        setStatus('⚪ Desconectado', 'info');
+      };
+    }
+    
+    function stopBroadcast() {
+      isBroadcasting = false;
+      try { if(recorder) recorder.stop(); } catch(e) {}
+      recorder = null;
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(function(t) { t.stop(); });
+        mediaStream = null;
+      }
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type: 'stop'}));
+      if (ws) { ws.close(); ws = null; }
+      preview.style.display = 'none';
+      startBtn.textContent = 'Escolher tela e transmitir';
+      startBtn.style.display = 'block';
+      stopBtn.style.display = 'none';
+      setStatus('⏹️ Parado', 'info');
+    }
+    
+    stopBtn.onclick = stopBroadcast;
+  </script>
+</body>
 </html>

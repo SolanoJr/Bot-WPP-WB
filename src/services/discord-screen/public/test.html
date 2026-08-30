@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Diagnóstico Screen Share</title>
+  <style>
+    body { background: #1a1a2e; color: #eee; font-family: monospace; padding: 20px; }
+    .log { background: #16213e; padding: 15px; border-radius: 8px; margin: 10px 0; }
+    .ok { color: #4ecca3; }
+    .error { color: #e74c3c; }
+    .warn { color: #f39c12; }
+    button { background: #0f3460; color: #eee; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+    button:hover { background: #1a5276; }
+    h1 { color: #4ecca3; }
+    h2 { color: #f39c12; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Diagnóstico Screen Share</h1>
+  <button onclick="testAll()">Testar Tudo</button>
+  <button onclick="testWebCodecs()">Testar WebCodecs</button>
+  <button onclick="testWebSocket()">Testar WebSocket</button>
+  <button onclick="testGetDisplayMedia()">Testar getDisplayMedia</button>
+  <button onclick="clearLog()">Limpar</button>
+  <div id="log" class="log"></div>
+
+  <script>
+    const log = document.getElementById('log');
+    
+    function add(msg, type = 'info') {
+      const div = document.createElement('div');
+      div.className = type;
+      div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      log.appendChild(div);
+      console.log(`[${type}] ${msg}`);
+    }
+    
+    function clearLog() { log.innerHTML = ''; }
+    
+    async function testAll() {
+      clearLog();
+      add('=== Iniciando testes ===');
+      await testWebCodecs();
+      await testWebSocket();
+      await testGetDisplayMedia();
+    }
+    
+    async function testWebCodecs() {
+      add('\n--- Teste WebCodecs ---');
+      
+      const apis = [
+        'VideoEncoder', 'VideoFrame', 'EncodedVideoChunk',
+        'AudioEncoder', 'AudioData', 'EncodedAudioChunk',
+        'MediaStreamTrackProcessor'
+      ];
+      
+      for (const api of apis) {
+        const exists = typeof window[api] !== 'undefined';
+        add(`${api}: ${exists ? '✅' : '❌'}`, exists ? 'ok' : 'error');
+      }
+      
+      if (window.VideoEncoder) {
+        add(`VideoEncoder.isConfigSupported: ${typeof VideoEncoder.isConfigSupported}`, 'info');
+        
+        const config = {
+          codec: 'vp8',
+          width: 1920,
+          height: 1080,
+          bitrate: 5000000,
+          framerate: 30
+        };
+        
+        try {
+          const result = await VideoEncoder.isConfigSupported(config);
+          add(`VP8 1080p30 suportado: ${result.supported ? '✅' : '❌'}`, result.supported ? 'ok' : 'error');
+        } catch (err) {
+          add(`Erro ao verificar suporte: ${err.message}`, 'error');
+        }
+      }
+    }
+    
+    async function testWebSocket() {
+      add('\n--- Teste WebSocket ---');
+      
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      const host = location.host;
+      const url = `${proto}://${host}`;
+      
+      add(`Testando conexão com: ${url}`);
+      
+      return new Promise((resolve) => {
+        try {
+          const ws = new WebSocket(url);
+          const timeout = setTimeout(() => {
+            add('Timeout na conexão (10s)', 'error');
+            ws.close();
+            resolve();
+          }, 10000);
+          
+          ws.onopen = () => {
+            add('✅ WebSocket conectou!', 'ok');
+            clearTimeout(timeout);
+            
+            // Testar envio
+            ws.send(JSON.stringify({ type: 'ping' }));
+            add('Ping enviado');
+            
+            setTimeout(() => {
+              ws.close();
+              resolve();
+            }, 1000);
+          };
+          
+          ws.onmessage = (e) => {
+            add(`Mensagem recebida: ${typeof e.data === 'string' ? e.data : 'binary'}`, 'ok');
+          };
+          
+          ws.onerror = (err) => {
+            add(`❌ Erro no WebSocket: ${err.message || 'erro desconhecido'}`, 'error');
+            clearTimeout(timeout);
+            resolve();
+          };
+          
+          ws.onclose = (e) => {
+            add(`WebSocket fechado: code=${e.code} reason=${e.reason}`, e.code === 1000 ? 'ok' : 'warn');
+            clearTimeout(timeout);
+            resolve();
+          };
+        } catch (err) {
+          add(`❌ Exceção: ${err.message}`, 'error');
+          resolve();
+        }
+      });
+    }
+    
+    async function testGetDisplayMedia() {
+      add('\n--- Teste getDisplayMedia ---');
+      
+      if (!navigator.mediaDevices?.getDisplayMedia) {
+        add('❌ getDisplayMedia não disponível neste navegador', 'error');
+        return;
+      }
+      
+      add('✅ getDisplayMedia disponível', 'ok');
+      add('Tentando capturar tela...');
+      
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { frameRate: 30 },
+          audio: false
+        });
+        
+        add('✅ Stream obtido!', 'ok');
+        
+        const videoTrack = stream.getVideoTracks()[0];
+        const settings = videoTrack.getSettings();
+        add(`Vídeo: ${settings.width}x${settings.height} @ ${settings.frameRate}fps`);
+        add(`Display surface: ${settings.displaySurface}`);
+        
+        // Testar WebCodecs com o stream
+        if (window.VideoEncoder && window.MediaStreamTrackProcessor) {
+          add('Testando MediaStreamTrackProcessor...');
+          
+          const track = stream.getVideoTracks()[0];
+          const processor = new MediaStreamTrackProcessor({ track });
+          const reader = processor.readable.getReader();
+          
+          add('✅ MediaStreamTrackProcessor criado!', 'ok');
+          
+          // Ler um frame
+          const result = await reader.read();
+          if (result.value) {
+            add(`✅ Frame obtido: ${result.value.displayWidth}x${result.value.displayHeight}`, 'ok');
+            result.value.close();
+          }
+          
+          reader.cancel();
+        }
+        
+        stream.getTracks().forEach(t => t.stop());
+        add('Stream parado');
+      } catch (err) {
+        add(`❌ Erro: ${err.name} - ${err.message}`, 'error');
+      }
+    }
+    
+    add('Clique em "Testar Tudo" para começar', 'info');
+  </script>
+</body>
+</html>

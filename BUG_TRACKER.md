@@ -4,6 +4,25 @@ Este documente rastreia bugs, erros e suas soluções para evitar repetição de
 
 ---
 
+## BUG 36 (2026-08-30): Screen Sharing ($screen) — restaurado e encurtado
+
+- **Contexto:** O usuário queria o screen sharing funcionando "igual ao projeto original" (Jc007zZ/discord-screen) — WebCodecs, HTTPS via Tailscale Funnel, qualidade/latência boas, E como Discord Activity (abre dentro do Discord).
+- **Infra montada:**
+  - Screen server original em `src/services/discord-screen/` (WebCodecs + WebSocket, Express SPA) servido pelo systemd `bot-wpp-screen.service` na porta **3003**, isolado do PM2 (o PM2 `screen-server` foi removido para evitar conflito de porta).
+  - HTTPS via **Tailscale Funnel**: `https://ubuntu.tail8486e7.ts.net` → `http://127.0.0.1:3003` (systemd `tailscale-funnel.service`, `Restart=always`). WebCodecs exige HTTPS — HTTP não funciona.
+  - Discord Developer Portal: Activity URL = `https://ubuntu.tail8486e7.ts.net`, Redirect URI = `https://ubuntu.tail8486e7.ts.net/auth/callback`.
+- **Bug A — Tokens longos demais (JWT ~200 chars) eram truncados no Discord:** reescrevi `tokens.js` para formato compacto `room.uid.name.role.exp.sig` (dot-base64url, ~60-110 chars). `verifyToken` aceita tanto o compacto quanto o JWT legado.
+- **Bug B — `identityOf` só lia `req.body?.identity`, mas o `$screen` manda `identity` no body (correto) e o `curl` de teste mandava via `Authorization: Bearer`.** Corrigido para ler ambos.
+- **Bug C — `/api/rooms/create` retornava "identidade invalida ou expirada":** o `signToken` novo não batia com o `verifyToken` antigo na leitura de `role`/`scope`. Unificado: `signToken` prioriza `scope||role||'viewer'`; `verifyToken` devolve `scope: role`.
+- **Bug D — `dist` desatualizado:** o `npm run build` só compila `.ts`; o `dist/services/discord-screen/*` precisa ser copiado à mão (`cp src/services/discord-screen/*.js dist/services/discord-screen/`). O `index.js` do screen server também tinha `PORT=3001` hardcoded (conflitava) → agora lê `DISCORD_SCREEN_PORT` (default 3003) e `PUBLIC_ORIGIN` do env.
+- **Bug E (CRÍTICO, escondeu o teste):** o bundler (tsup) duplica o `PlatformManager` em vários escopos de módulo. O `testServer` (porta 3004) chamava `executeCommand(platform, command, fakeCtx)` numa instância DE `PlatformManager` **sem adapters registrados** → "Comando não encontrado: undefined". Corrigido: `multiPlatform.ts` expõe a instância real em `globalThis.__platformManager`, e `testServer.ts` resolve o adapter e chama `pm.executeCommand(testMessage, adapter)` direto.
+- **Arquivos:** `src/services/discord-screen/tokens.js`, `src/services/discord-screen/index.js`, `src/bot/commands/screen.ts`, `src/services/testServer.ts`, `src/core/multiPlatform.ts`, `ecosystem.config.js`, `/etc/systemd/system/bot-wpp-screen.service`.
+- **Verificação end-to-end (2026-08-30):** `$screen` gera `shareUrl` (~110 chars, broadcaster) + `viewerToken` (~100 chars, viewer); ambas HTTP 200 via HTTPS; WebSocket `/ws?t=...` faz handshake 101. Streaming real (WebCodecs vídeo) só confirmável abrindo o link no Chrome/Edge — infraestrutura validada.
+- **Status:** ✅ Resolvido. Fluxo: usuário manda `$screen` (DM pro bot) → bot cria sala via API → manda 2 links (Transmitir + Assistir). Broadcaster abre no Chrome/Edge; viewers abrem o link de Assistir.
+- **⚠️ Regra anti-regressão:** NUNCA mexer na porta 3003 do `bot-wpp-screen` (systemd dono); NUNCA colocar screen-server no PM2 de novo. Sempre copiar `src/services/discord-screen/*.js` → `dist/` após editar o screen server. Tailscale Funnel é o único caminho HTTPS estável (Cloudflare Tunnel bloqueado por firewall QUIC; localtunnel instável).
+
+---
+
 ## BUG 31 (2026-08-12, deploy 85142c1): WPP não conecta após deploy — travado em initialize() sem QR/ready
 - **Sintoma:** `pm2 restart` sobe o processo, carrega os 40 comandos, loga "WhatsApp inicializado" e
   "Plataformas ativas: whatsapp", MAS nunca emite `ready` nem QR. CPU 0.0, TIME travado. Chromium vivo mas WA Web não carrega.

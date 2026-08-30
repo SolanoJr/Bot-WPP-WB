@@ -500,7 +500,8 @@ app.get('/api/avatar/:id/:hash', async (req, res) => {
 
 /** Valida o token de identidade que acompanha toda operação de sala. */
 function identityOf(req, res) {
-  const payload = verifyToken(req.body?.identity);
+  const token = req.body?.identity || req.headers.authorization?.replace(/^Bearer /i, '');
+  const payload = verifyToken(token);
   if (!payload || payload.scope !== 'identity') {
     res.status(401).json({ error: 'identidade invalida ou expirada' });
     return null;

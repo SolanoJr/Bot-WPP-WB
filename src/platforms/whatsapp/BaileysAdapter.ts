@@ -50,7 +50,9 @@ import { getOwnerNotifyTarget } from '../../services/permissions';
 // inválido). O correto é DESCARTAR o sufixo de device e preservar o domínio.
 export function normId(id: string): string {
   if (!id) return '';
-  const s = String(id);
+  // Remove prefixo de plataforma (wpp:, tg:, dc:) antes de processar
+  const clean = String(id).replace(/^(wpp:|tg:|dc:)/, '');
+  const s = clean;
   const at = s.indexOf('@');
   if (at === -1) return s.split(':')[0];
   const user = s.slice(0, at).split(':')[0];
@@ -60,10 +62,12 @@ export function normId(id: string): string {
 }
 
 export function toJid(id: string): string {
+  // Remove prefixo de plataforma (wpp:, tg:, dc:) antes de processar
+  const clean = String(id).replace(/^(wpp:|tg:|dc:)/, '');
   // PlatformMessage usa @c.us / @g.us / @lid; Baileys quer @s.whatsapp.net / @g.us / @lid
-  if (id.includes('@g.us')) return id;
-  if (id.includes('@lid')) return id; // Baileys v7 entende @lid diretamente
-  return id.replace('@c.us', '@s.whatsapp.net');
+  if (clean.includes('@g.us')) return clean;
+  if (clean.includes('@lid')) return clean; // Baileys v7 entende @lid diretamente
+  return clean.replace('@c.us', '@s.whatsapp.net');
 }
 
 export class BaileysAdapter implements PlatformAdapter, PlatformClient {
@@ -344,8 +348,28 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
   }
 
   // ============================================================
-  // ENVIO
+  // REAÇÃO
   // ============================================================
+  async react(messageId: string, emoji: string): Promise<void> {
+    if (!this.sock) return;
+    try {
+      const msgId = messageId.split(':').pop();
+      // Buscar a mensagem no store para obter a key
+      const store = this.sock.store as any;
+      const messages = Object.values(store.messages || {});
+      for (const chat of messages as any[]) {
+        const msg = chat?.get?.(msgId) || chat?.[msgId];
+        if (msg) {
+          await this.sock.sendMessage(msg.key.remoteJid, {
+            react: { text: emoji, key: msg.key },
+          });
+          return;
+        }
+      }
+    } catch (e: any) {
+      console.error(`[Baileys] ❌ erro ao reagir: ${e?.message}`);
+    }
+  }
   async sendMessage(chatId: string, text: string, options?: any): Promise<PlatformMessage> {
     if (!this.sock) throw new Error('Baileys não conectado');
     const jid = toJid(chatId);

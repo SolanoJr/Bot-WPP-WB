@@ -71,6 +71,7 @@ export interface PlatformClient {
   onMessage(handler: MessageHandler): void;
   onReady(handler: () => void): void;
   onDisconnected(handler: (reason: string) => void): void;
+  react?(messageId: string, emoji: string): Promise<void>;
   shutdown(): Promise<void>;
 }
 
@@ -115,7 +116,7 @@ export interface CommandContext {
   isGroup: boolean;
   isMaster: boolean;
   isAdmin: boolean;
-  reply(text: string, options?: SendOptions): Promise<PlatformMessage>;
+  reply(text: string, options?: SendOptions): Promise<void>;
   replyPrivate(text: string): Promise<void>;
   getChat(): Promise<PlatformChat>;
   getUser(): Promise<PlatformUser>;
