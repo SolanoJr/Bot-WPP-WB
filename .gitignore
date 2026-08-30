@@ -16,11 +16,17 @@ test-report.json
 secrets.json
 credentials.json
 
-# 📱 SESSÕES DO WHATSAPP
+# 📱 SESSÕES DO WHATSAPP (auth real — NUNCA commitar)
+sessions/
+sessions.bak*/
 .wwebjs_auth/
 .wwebjs_cache/
 *.session
 *.store
+
+# 🔐 OUTROS .env / CREDENCIAIS LOCAIS
+.env-screen
+home/
 
 # � ARTEFATOS LOCAIS
 .env.backup
