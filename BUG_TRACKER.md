@@ -19,7 +19,28 @@ Este documente rastreia bugs, erros e suas soluções para evitar repetição de
 - **Arquivos:** `src/services/discord-screen/tokens.js`, `src/services/discord-screen/index.js`, `src/bot/commands/screen.ts`, `src/services/testServer.ts`, `src/core/multiPlatform.ts`, `ecosystem.config.js`, `/etc/systemd/system/bot-wpp-screen.service`.
 - **Verificação end-to-end (2026-08-30):** `$screen` gera `shareUrl` (~110 chars, broadcaster) + `viewerToken` (~100 chars, viewer); ambas HTTP 200 via HTTPS; WebSocket `/ws?t=...` faz handshake 101. Streaming real (WebCodecs vídeo) só confirmável abrindo o link no Chrome/Edge — infraestrutura validada.
 - **Status:** ✅ Resolvido. Fluxo: usuário manda `$screen` (DM pro bot) → bot cria sala via API → manda 2 links (Transmitir + Assistir). Broadcaster abre no Chrome/Edge; viewers abrem o link de Assistir.
-- **⚠️ Regra anti-regressão:** NUNCA mexer na porta 3003 do `bot-wpp-screen` (systemd dono); NUNCA colocar screen-server no PM2 de novo. Sempre copiar `src/services/discord-screen/*.js` → `dist/` após editar o screen server. Tailscale Funnel é o único caminho HTTPS estável (Cloudflare Tunnel bloqueado por firewall QUIC; localtunnel instável).
+- **⚠️ Regra anti-regressão:** NUNCA mexer na porta 3003 do `bot-wpp-screen` (systemd dono); NUNCA colocar screen-server no PM2 de novo. Sempre copiar `src/services/discord-screen/*.js` → `dist/` após editar o screen server. Tailscale Funnel é o único caminho HTTPS estável (Cloudflare Tunnel bloqueado por firewall QUIC; localtunnel instante).
+
+---
+
+## BUG 37 (2026-08-30): Dívida de Typecheck (P2 — não bloqueia produção)
+
+- **Contexto:** O charter exige `npx tsc --noEmit` sem erros, mas o projeto acumulou **71 erros TS** pré-existentes. O `tsup` compila ignorando tipos (`moduleResolution: nodenext`), então produção roda mesmo assim.
+- **Principais erros (não introduzidos nesta sessão):**
+  - `ban.ts`/`kick.ts`/`modToggle.ts`: `PlatformUser` não tem `isAdmin`/`isSuperAdmin` (acesso direto a campos do WWebJS). Comandos destrutivos — NÃO corrigidos sem teste de laboratório.
+  - `vote.ts`: acento em `"não"` vs `"nao"` (lógica de voto).
+  - `cantada.ts`/`piada.ts`: `execute` retorna `string` mas `ICommand.execute` assina `void`.
+  - Imports relativos sem `.js` (`databaseService`, `PlatformTypes`) — exigido por `nodenext`.
+  - `customCommandsStore.ts`/`send.ts`: nullabilidade de tipos.
+- **CORREÇÕES SEGURAS feitas (2026-08-30):** `screen.ts` (removeu `aliases` inexistente em `ICommand`), `ondeestou.ts` (declaração `global.pendingChatIds` tipada). `tsconfig.json` ganhou `ignoreDeprecations: "6.0"` para silenciar deprecation do `baseUrl` no TS 6.0.
+- **Status:** 🔄 PENDENTE. Próximo passo recomendado: corrigir os erros de comandos destrutivos (ban/kick/modToggle) apenas após teste no grupo "Teste", adicionando `isAdmin`/`isSuperAdmin` ao `PlatformUser` no `PlatformTypes`. Não priorizar sobre estabilidade.
+
+## BUG 38 (2026-08-30): Rotação de chaves SSH expostas — ADIADA
+
+- **Contexto:** O dono colou no chat duas **SSH private keys ED25519** (Windows + Linux) + tokens de Telegram/Gemini/Discord/Tailscale. Isso é exposição de credencial (P0 de segurança do ponto de vista do segredo).
+- **Decisão:** O dono autorizou **ADIAR a rotação** (registrado em 2026-08-30). Nenhuma ação destrutiva será tomada sem ordem futura.
+- **Plano quando retomar:** no Linux `ssh-keygen -t ed25519` + atualizar `authorized_keys`/GitHub; no Windows regenerar deploy key do GitHub Actions. O `.env` do servidor já é a única fonte de tokens (não versionado).
+- **Status:** ⏸️ ADIADO por decisão do dono. Reavaliar se o servidor algum dia for compartilhado ou houver sinal de acesso não autorizado.
 
 ---
 

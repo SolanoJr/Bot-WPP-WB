@@ -22,7 +22,6 @@ function postJson(hostname: string, port: number, path: string, body: any): Prom
 
 export const screenCommand: ICommand = {
   name: 'screen',
-  aliases: ['screenshare', 'share'],
   description: 'Criar sala de screen sharing',
   usage: '$screen [help|stop]',
   category: 'discord',

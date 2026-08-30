@@ -1,11 +1,18 @@
 import http from 'node:http';
-import { platformManager } from '../platforms/PlatformManager';
+import { PlatformManager } from '../platforms/PlatformManager';
 
 /**
  * Servidor de testes HTTP na porta 3004.
  * Permite injetar comandos diretamente no bot via POST /test
- * 
+ *
  * Uso: curl -X POST http://localhost:3004/test -d '{"platform":"discord","command":"$menu"}'
+ *
+ * Nota de arquitetura: o PlatformManager é um singleton, mas o bundler (tsup)
+ * pode instanciar escopos de módulo separados por bundle. A instância "viva"
+ * (com adapters registrados) é publicada em `globalThis.__platformManager` por
+ * multiPlatform.ts. Aqui preferimos `getInstance()`, caindo para o global se o
+ * bundle corrente não compartilhar o mesmo escopo. Isso garante que o testServer
+ * sempre opera sobre a instância real.
  */
 export function startTestServer(port: number = 3004): void {
   const server = http.createServer((req, res) => {
@@ -26,26 +33,9 @@ export function startTestServer(port: number = 3004): void {
           return;
         }
 
-        // Criar contexto falso para executar o comando
-        const fakeCtx = {
-          platform,
-          chatId: 'test',
-          senderId: 'test',
-          senderName: 'Test',
-          command,
-          args: [],
-          reply: async (msg: string) => {
-            console.log(`[TestServer] Reply: ${msg}`);
-          },
-          react: async (emoji: string) => {
-            console.log(`[TestServer] React: ${emoji}`);
-          }
-        };
+        const pm: PlatformManager =
+          (globalThis as any).__platformManager || PlatformManager.getInstance();
 
-        const pm = (globalThis as any).__platformManager || platformManager;
-        // O PlatformManager real (com adapters registrados) expõe executeCommand(message, adapter).
-        // Montamos a mensagem de teste e resolvemos o adapter diretamente para evitar
-        // duplicidade de instâncias causada pelo bundler.
         const prefix = '$';
         const trimmed = command.trim();
         if (!trimmed.startsWith(prefix)) {
@@ -60,35 +50,17 @@ export function startTestServer(port: number = 3004): void {
           : platform === 'telegram'
             ? 'tg:146078742'
             : 'dc:1307158493907652648';
-        const testMessage = {
-          id: `test-${Date.now()}`,
-          platform,
-          chatId,
-          userId: chatId,
-          userName: 'TestUser',
-          text: command,
-          timestamp: new Date(),
-          isFromMe: false,
-          isCommand: true,
-          commandName,
-          args: parts,
-          raw: {},
-          hasMedia: false
-        };
-        let adapter = pm.adapters?.get(platform);
-        if (!adapter) {
-          for (const [key, value] of (pm.adapters?.entries?.() || [])) {
-            if (key.startsWith(platform)) { adapter = value; break; }
-          }
-        }
+        const adapter = pm.getAdapter(platform as any);
         if (!adapter) {
           res.writeHead(404, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: `Plataforma não encontrada: ${platform}` }));
           return;
         }
-        await pm.executeCommand(testMessage, adapter);
+        // Usa o método público executeTestCommand (que monta a PlatformMessage e
+        // despacha pelo handleIncomingMessage da instância real).
+        const result = await pm.executeTestCommand(platform, command);
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, platform, command }));
+        res.end(JSON.stringify({ ok: true, platform, command, result }));
       } catch (err: any) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));

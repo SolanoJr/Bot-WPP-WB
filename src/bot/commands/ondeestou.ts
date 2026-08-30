@@ -1,5 +1,11 @@
 import { ICommand } from './types';
 
+// Tipagem mínima para o registry global de chatIds em polling de localização.
+declare global {
+  // eslint-disable-next-line no-var
+  var pendingChatIds: Set<string> | undefined;
+}
+
 export const ondeEstouCommand: ICommand = {
   name: 'ondeestou',
   description: 'Gera um link seguro para envio de localização.',

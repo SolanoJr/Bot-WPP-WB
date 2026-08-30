@@ -430,6 +430,23 @@ export class PlatformManager {
   }
 
   /**
+   * Retorna o adapter registrado de uma plataforma (ou por prefixo, ex: "whatsapp").
+   * Substitui o acesso direto a `this.adapters` (privado) por uma API estável.
+   */
+  getAdapter(platform: PlatformType): PlatformAdapter | undefined {
+    let adapter = this.adapters.get(platform);
+    if (!adapter) {
+      for (const [key, value] of this.adapters) {
+        if (key.startsWith(platform)) {
+          adapter = value;
+          break;
+        }
+      }
+    }
+    return adapter;
+  }
+
+  /**
    * Verifica se plataforma está pronta
    */
   isReady(platform: PlatformType): boolean {
