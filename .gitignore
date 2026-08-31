@@ -54,3 +54,5 @@ build/
 backups/
 config/local.json
 config/production.json
+# 🗑️ RUNTIME STATE ORFÃO (não versionar)
+src/.pending-messages.json
