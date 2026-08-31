@@ -42,7 +42,7 @@ export async function handleKeywords(
   }
 
   const texto = msg.body.trim().toLowerCase();
-  const resposta = getSarcasticResponse(texto, msg);
+  const resposta = getSarcasticResponse();
   if (resposta) {
     try {
       await replyCtx.reply(resposta, { messageId: msg.id?.id });

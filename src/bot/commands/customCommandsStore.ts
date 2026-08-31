@@ -58,7 +58,7 @@ function loadNodeCommands(): GroupCommands {
   } catch {
     nodeCache = {};
   }
-  return nodeCache;
+  return nodeCache!;
 }
 
 function saveNodeCommands(commands: GroupCommands): void {

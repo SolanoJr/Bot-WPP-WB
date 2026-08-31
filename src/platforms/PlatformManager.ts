@@ -292,7 +292,7 @@ export class PlatformManager {
       metricsService.incrementCommand(message.commandName!, adapter.platform);
       await this.logCommandUsage(message.commandName!, message.userId, message.chatId);
 
-      await command.execute(ctx, adapter.client, message.args ?? []);
+      await command.execute(ctx);
     } catch (error: any) {
       console.error(`[PlatformManager] Erro no comando ${message.commandName}:`, error);
       await ctx.reply('⚠️ Ocorreu um erro interno ao executar este comando.');
@@ -305,7 +305,7 @@ export class PlatformManager {
   private async logCommandUsage(commandName: string, userId: string, groupId: string): Promise<void> {
     try {
       // Importar dinamicamente para evitar dependência circular
-      const { getDb } = await import('../services/databaseService');
+      const { getDb } = await import('../services/databaseService.js');
       const db = await getDb();
       
       // Limpar prefixos de plataforma dos IDs
@@ -362,8 +362,11 @@ export class PlatformManager {
       isMaster: isMaster(message.userId),
       isAdmin: contextIsAdmin,
       reply: async (text: string, options?: SendOptions) => {
-        // Enviar sem quoted por padrão (evita erros com IDs de teste)
-        await client.sendMessage(message.chatId, text);
+        // Responde citando (quote) a mensagem original do comando + respeita opções
+        await client.sendMessage(message.chatId, text, {
+          ...options,
+          replyToMessageId: message.id,
+        });
       },
       replyPrivate: async (text: string) => {
         // Para WhatsApp, envia no privado do usuário

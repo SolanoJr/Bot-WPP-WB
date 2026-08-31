@@ -88,7 +88,7 @@ export const banCommand: ICommand = {
 
       // Salvar no banco de banidos (persistência - impede re-entrada)
       try {
-        const { banUser } = await import('../../services/databaseService');
+        const { banUser } = await import('../../services/databaseService.js');
         await banUser({
           groupId: ctx.chatId,
           userId: userToBan,

@@ -42,7 +42,7 @@ export const sendMessageCommand: ICommand = {
     try {
       // Tentar obter o ID correto usando getNumberId
       try {
-        const numberId = await ctx.client.getNumberId(number);
+        const numberId = await (ctx.client as any).getNumberId(number);
         if (numberId) {
           chatId = numberId._serialized;
           console.log('[SENDMSG] ID obtido via getNumberId:', chatId);
@@ -53,7 +53,7 @@ export const sendMessageCommand: ICommand = {
 
       // Tentar obter contato para verificar se existe
       try {
-        const contact = await ctx.client.getContactById(chatId);
+        const contact = await (ctx.client as any).getContactById(chatId);
         console.log('[SENDMSG] Contato encontrado:', contact.number || contact.id._serialized);
       } catch (e) {
         console.log('[SENDMSG] Contato não encontrado:', e);

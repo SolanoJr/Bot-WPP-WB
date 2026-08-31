@@ -1,5 +1,5 @@
 import { ICommand } from './types';
-import { CommandContext } from '../types';
+import { CommandContext } from '../../platforms/base/PlatformTypes';
 import http from 'node:http';
 
 function postJson(hostname: string, port: number, path: string, body: any): Promise<any> {

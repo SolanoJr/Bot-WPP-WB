@@ -45,8 +45,8 @@ export const gttsCommand: ICommand = {
             fs.writeFileSync(audioPath, response.data);
 
             // Enviar como mensagem de áudio usando MessageMedia
-            const media = MessageMedia.fromFilePath(audioPath);
-            await ctx.client.sendMessage(ctx.chatId, media, { sendAudioAsVoice: true });
+            const media: any = MessageMedia.fromFilePath(audioPath);
+            await (ctx.client as any).sendMessage(ctx.chatId, media, { sendAudioAsVoice: true });
 
             // Limpar arquivo temporário após envio
             setTimeout(() => {

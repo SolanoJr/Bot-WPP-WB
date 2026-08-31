@@ -36,7 +36,6 @@ class DiscordClient implements PlatformClient {
         GatewayIntentBits.GuildMembers,
       ],
       partials: [Partials.Channel, Partials.Message, Partials.User],
-      makeDefaultProxies: false,
       presence: {
         status: 'online',
         activities: [{ name: 'Bot-WPP Multi-Platform', type: 0 }],
@@ -259,7 +258,7 @@ class DiscordClient implements PlatformClient {
     try {
       const msgId = messageId.split(':').pop();
       if (!msgId) return;
-      const msg = await this.client.messages.fetch(msgId);
+      const msg = await (this.client as any).messages.fetch(msgId);
       if (msg) await msg.react(emoji);
     } catch (e: any) {
       console.error(`[Discord] ❌ erro ao reagir: ${e?.message}`);

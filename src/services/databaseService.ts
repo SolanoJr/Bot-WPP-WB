@@ -81,7 +81,7 @@ export async function getDb(): Promise<Database> {
 export async function dbExecWithRetry(db: Database, sql: string, params: any[] = []): Promise<void> {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      await db.exec(sql, params);
+      await db.run(sql, params);
       return;
     } catch (err: any) {
       if (err.code === 'SQLITE_BUSY' && attempt < 2) {
@@ -93,7 +93,7 @@ export async function dbExecWithRetry(db: Database, sql: string, params: any[] =
   }
 }
 
-// Exportado para commandExecutor.ts registrar uso de comandos
+// Registra uso de comandos (chamado pelo PlatformManager.logCommandUsage)
 export async function recordCommandUsage(entry: { commandName: string; userId: string; groupId: string; groupName: string }): Promise<void> {
   try {
     const db = await getDb();
@@ -128,13 +128,13 @@ export async function listBanned(limit: number = 10): Promise<any[]> {
 }
 
 // Configuração de moderação de um grupo
-export async function getGroupMod(groupId: string): Promise<GroupModConfig | null> {
+export async function getGroupMod(groupId: string): Promise<GroupModConfig> {
   const db = await getDb();
   const row = await db.get(
     `SELECT antispam, antiestrangeiro, autolink, bemvindo, detectar, remover FROM group_mod WHERE group_id = ?`,
     [groupId]
   );
-  if (!row) return null;
+  if (!row) return {};
   return {
     antispam: row.autospam === 1 || row.autospam === true,
     antiestrangeiro: row.antiestrangeiro === 1 || row.antiestrangeiro === true,
@@ -148,7 +148,6 @@ export async function getGroupMod(groupId: string): Promise<GroupModConfig | nul
 // Estado resumido de moderação (on/off geral)
 export async function getGroupModState(groupId: string): Promise<string> {
   const config = await getGroupMod(groupId);
-  if (!config) return 'desativado';
   const allOn = ['antispam', 'antiestrangeiro', 'autolink', 'remover'].every(
     k => config[k as keyof GroupModConfig] !== false
   );
@@ -191,4 +190,30 @@ export async function setGroupModAll(groupId: string, config: GroupModConfig): P
       config.remover !== false ? 1 : 0,
     ]
   );
+}
+
+// Persiste a banição de um usuário no grupo (infração registrada)
+export async function banUser(entry: {
+  groupId: string;
+  userId: string;
+  bannedBy?: string;
+  reason?: string;
+}): Promise<void> {
+  const db = await getDb();
+  await db.run(
+    `INSERT INTO banned_users (group_id, user_id, reason, banned_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(group_id, user_id) DO UPDATE SET reason = excluded.reason, banned_at = excluded.banned_at`,
+    [entry.groupId, entry.userId, entry.reason || 'banido', Date.now()]
+  );
+}
+
+// Verifica se um usuário está banido no grupo
+export async function isUserBanned(groupId: string, userId: string): Promise<boolean> {
+  const db = await getDb();
+  const row = await db.get(
+    `SELECT 1 FROM banned_users WHERE group_id = ? AND user_id = ?`,
+    [groupId, userId]
+  );
+  return !!row;
 }

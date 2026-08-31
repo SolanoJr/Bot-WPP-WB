@@ -16,6 +16,5 @@ export const cantadaCommand: ICommand = {
     ];
     const choice = cantadas[Math.floor(Math.random() * cantadas.length)];
     await ctx.reply(choice);
-    return choice;
   },
 };

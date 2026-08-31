@@ -1,4 +1,4 @@
-import { CommandContext } from '../../platforms/base/PlatformTypes';
+import { CommandContext, ICommand } from '../../platforms/base/PlatformTypes';
 import { platformManager } from '../../platforms/PlatformManager';
 
 /**

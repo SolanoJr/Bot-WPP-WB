@@ -19,6 +19,12 @@ export interface PlatformUser {
   username?: string;             // Username/handle se houver
   isBot: boolean;
   platform: PlatformType;
+  // Permissões de grupo (populadas pelo adapter a partir do metadata da plataforma).
+  // Usadas por comandos destrutivos (ban/kick/promote) para blindar BOT e DONO.
+  isAdmin?: boolean;
+  isSuperAdmin?: boolean;
+  isOwner?: boolean;
+  isBusiness?: boolean;            // Conta business (WWebJS/legado)
   raw: any;                      // Objeto original da plataforma
 }
 
@@ -27,8 +33,11 @@ export interface PlatformChat {
   name: string;                  // Nome do grupo ou "Chat Privado"
   isGroup: boolean;
   platform: PlatformType;
+  description?: string;            // Descrição do grupo (WWebJS/legado)
   participants?: PlatformUser[]; // Para grupos
   raw: any;
+  // Metadados extras (WWebJS/legado)
+  metadata?: any;
   // Flag para indicar se as permissões dos participantes foram verificadas
   // Útil quando getChat() falha (ex: erro "r" no WhatsApp) e participantes não puderam ser obtidos
   isPermissionsVerified?: boolean;
@@ -52,6 +61,14 @@ export interface PlatformMessage {
   mentions?: PlatformUser[];     // Usuários mencionados
   hasMedia: boolean;
   mediaType?: 'image' | 'video' | 'audio' | 'document' | 'sticker' | 'location' | 'contact';
+  // Metadados de quote (WWebJS/legado)
+  quotedId?: string;
+  quotedText?: string;
+  quotedSender?: string;
+  quotedFromMe?: boolean;
+  quotedParticipant?: string;    // ID do participante quotado (Baileys)
+  // Metadados extras da plataforma
+  metadata?: any;
 }
 
 export interface PlatformClient {
@@ -72,6 +89,12 @@ export interface PlatformClient {
   onReady(handler: () => void): void;
   onDisconnected(handler: (reason: string) => void): void;
   react?(messageId: string, emoji: string): Promise<void>;
+  // Gestão de moderação (multiplataforma) — usados por comandos destrutivos.
+  // O adapter implementa conforme a plataforma (WWebJS/Baileys/Telegram/Discord).
+  mute?(userId: string, durationMs: number): Promise<void>;
+  unmute?(userId: string): Promise<void>;
+  promote?(userId: string): Promise<void>;
+  demote?(userId: string): Promise<void>;
   shutdown(): Promise<void>;
 }
 
@@ -126,5 +149,9 @@ export interface ICommand {
   name: string;
   description: string;
   platforms?: PlatformType[];    // Se undefined, disponível em todas
+  aliases?: string[];            // Aliases opcionais do comando
+  usage?: string;                // Exemplo de uso (ex: '$cmd [arg]')
+  category?: string;             // Categoria para menu/help
+  cooldown?: number;             // ms de cooldown por usuário (opcional)
   execute(ctx: CommandContext): Promise<void> | void;
 }

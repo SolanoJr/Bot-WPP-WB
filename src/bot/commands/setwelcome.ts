@@ -23,8 +23,8 @@ export const setwelcomeCommand: ICommand = {
             const freshChat = chat;
             const authorClean = cleanId(authorId);
             
-            const member = freshChat.participants.find((m: any) => cleanId(m.id._serialized) === authorClean);
-            isGroupAdmin = member && (member.isAdmin || member.isSuperAdmin);
+            const member = (chat.participants || []).find((m: any) => cleanId(m.id) === authorClean);
+            isGroupAdmin = !!(member && (member.isAdmin || member.isSuperAdmin));
 
             console.log(`🛡️ [ADMIN-CHECK] Usuário ${authorClean} é Admin? ${isGroupAdmin ? 'SIM' : 'NÃO'}`);
         }
@@ -41,7 +41,7 @@ export const setwelcomeCommand: ICommand = {
         }
 
         const newWelcome = ctx.args.join(' ');
-        const groupId = chat.id._serialized;
+        const groupId = chat.id;
         const RELAY_URL = process.env.RELAY_URL || 'https://bot-wpp-relay.onrender.com';
 
         try {

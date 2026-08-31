@@ -80,7 +80,14 @@ export function buildModToggle(name: string): ICommand {
       const enable = action === 'on';
 
       if (isMasterToggle) {
-        await setGroupModAll(chatId, enable);
+        await setGroupModAll(chatId, {
+          antispam: enable,
+          antiestrangeiro: enable,
+          autolink: enable,
+          bemvindo: enable,
+          detectar: enable,
+          remover: enable,
+        });
         return ctx.reply(`🛡️ AutoMod ${enable ? 'TODOS OS MÓDULOS ATIVADOS' : 'TODOS OS MÓDULOS DESATIVADOS'} neste grupo${groupTag(ctx)}.`);
       }
 

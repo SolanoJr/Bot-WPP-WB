@@ -147,7 +147,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
           if (process.env.WPP_AUTOSELFTEST === '1') {
             const alvoTesteBaileys = process.env.WPP_TEST_GROUP_ID || '';
             if (alvoTesteBaileys) {
-              import('../../devtest/selftest').then((mod) => {
+              import('../../devtest/selftest.js').then((mod) => {
                 setTimeout(() => mod.runSelfTestMod(this as any, alvoTesteBaileys).catch(() => {}), 6000);
               }).catch(() => {});
             }
@@ -212,12 +212,12 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
       this.sock.ev.on('group-participants.update', async (ev: any) => {
         try {
           if (ev?.action !== 'add') return;
-          const { handleMemberJoin } = await import('../../services/memberJoinService');
+          const { handleMemberJoin } = await import('../../services/memberJoinService.js');
           await handleMemberJoin(
             {
-              removeParticipant: (groupId, userId) => this.removeParticipant(groupId, userId),
-              sendMessage: (groupId, text, mentions) =>
-                this.sendMessage(groupId, text, mentions ? ({ mentionedIds: mentions } as any) : undefined),
+              removeParticipant: (groupId: string, userId: string) => this.removeParticipant(groupId, userId),
+              sendMessage: ((groupId: string, text: string) =>
+                this.sendMessage(groupId, text)) as any,
             },
             {
               groupId: normId(ev.id),
@@ -328,7 +328,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
         userId: normId(sender),
         userName: '',
         text: body,
-        timestamp: msg.messageTimestamp ? Number(msg.messageTimestamp) * 1000 : Date.now(),
+        timestamp: msg.messageTimestamp ? new Date(Number(msg.messageTimestamp) * 1000) : new Date(),
         isFromMe: fromMe,
         isCommand: body.startsWith('$'),
         mentions: mentioned.map((x: string) => ({ id: normId(x), name: '', isBot: false, platform: this.platform, raw: {} })),
@@ -353,7 +353,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
   async react(messageId: string, emoji: string): Promise<void> {
     if (!this.sock) return;
     try {
-      const msgId = messageId.split(':').pop();
+      const msgId = messageId.split(':').pop() || '';
       // Buscar a mensagem no store para obter a key
       const store = this.sock.store as any;
       const messages = Object.values(store.messages || {});
@@ -392,7 +392,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
         isFromMe: true,
         isCommand: false,
         hasMedia: false,
-        timestamp: Date.now(),
+        timestamp: new Date(),
         raw: res,
       };
     }
@@ -464,7 +464,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
       isFromMe: true,
       isCommand: false,
       hasMedia: false,
-      timestamp: Date.now(),
+      timestamp: new Date(),
       raw: res,
     };
   }
@@ -492,7 +492,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
       isFromMe: true,
       isCommand: false,
       hasMedia: true,
-      timestamp: Date.now(),
+      timestamp: new Date(),
       raw: res,
     };
   }
@@ -601,7 +601,8 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
 
   private sendQrToOwner(qr: string): void {
     const qrPath = path.join(this.authDir, 'qr.png');
-    import('qrcode').then(async (QR) => {
+    // @ts-ignore - qrcode não possui declarações de tipo
+    import('qrcode').then(async (QR: any) => {
       try {
         await QR.toFile(qrPath, qr, { width: 512, margin: 2 });
         console.log(`\n\n[Baileys] 📱 QR SALVO EM: ${qrPath}`);

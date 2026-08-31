@@ -54,8 +54,8 @@ export const votoCommand: ICommand = {
       await ctx.reply('⚠️ Voto deve ser "sim" ou "não".');
       return;
     }
-    const votoNormalizado = votoLower === 'nao' ? 'não' : votoLower;
-    await registrarVoto(id, ctx.userId, votoNormalizado as 'sim' | 'não', async (replyMsg: string) => {
+    const votoNormalizado = votoLower === 'nao' ? 'nao' : (votoLower as 'sim' | 'nao');
+    await registrarVoto(id, ctx.userId, votoNormalizado as 'sim' | 'nao', async (replyMsg: string) => {
       await ctx.reply(replyMsg);
     });
   },

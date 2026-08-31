@@ -19,7 +19,7 @@ export const promoteCommand: ICommand = {
         }
         
         const userToPromote = mentioned[0].id;
-        await ctx.client.promote(userToPromote);
+        await (ctx.client as any).promote(userToPromote);
         await ctx.reply(`✅ Usuário promovido a administrador.${groupTag(ctx)}`);
     }
 };

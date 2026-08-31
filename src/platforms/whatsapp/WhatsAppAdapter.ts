@@ -19,16 +19,16 @@ import {
   SendOptions,
   MediaPayload,
   MessageHandler
-} from './base/PlatformTypes';
+} from '../base/PlatformTypes';
 import { platformManager } from '../PlatformManager';
 import { processAutoMod } from '../../services/autoModService';
 import { handleKeywords } from '../../services/keywordHandler';
 import { startLocationPoller } from '../../services/locationPoller';
 
-export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
+export class WhatsAppAdapter implements PlatformAdapter {
   readonly platform: PlatformType = 'whatsapp';
-  readonly client: PlatformClient;
-  private innerClient!: Client;
+  readonly client: any;
+  private innerClient!: any;
   private messageHandler: MessageHandler | null = null;
   private readyHandler: (() => void) | null = null;
   private disconnectedHandler: ((reason: string) => void) | null = null;
@@ -344,6 +344,8 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       isGroup: chat?.isGroup || false,
       participants: [],
       metadata: chat || {},
+      platform: 'whatsapp',
+      raw: chat || {},
     };
   }
 
@@ -354,6 +356,8 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       name: contact?.pushname || contact?.name || userId,
       isBot: contact?.isBot || false,
       isBusiness: contact?.isBusiness || false,
+      platform: 'whatsapp',
+      raw: contact || {},
     };
   }
 
@@ -376,7 +380,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
     await this.innerClient.setGroupAdmin(chatId, participantId, isAdmin);
   }
 
-  private async registerMessageHandlers(): void {
+  private async registerMessageHandlers(): Promise<void> {
     this.innerClient.removeAllListeners?.('message');
     this.innerClient.removeAllListeners?.('message_create');
 
@@ -456,7 +460,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       console.log('[WhatsApp] Novo(s) membro(s) entrando:', { groupId, members: newMembers });
 
       try {
-        const { recordMemberJoin } = await import('../../services/autoModService');
+        const { recordMemberJoin } = await import('../../services/autoModService.js');
         for (const memberId of newMembers) {
           console.log('[handleMemberJoin] Registrando membro:', memberId);
           recordMemberJoin(groupId, memberId);
@@ -466,7 +470,7 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
       }
 
       try {
-        const { isUserBanned } = await import('../../services/databaseService');
+        const { isUserBanned } = await import('../../services/databaseService.js');
         for (const memberId of newMembers) {
           const cleanMember = memberId.replace('@lid', '@c.us');
           const banned = await isUserBanned(cleanMember, groupId);
@@ -488,12 +492,12 @@ export class WhatsAppAdapter implements PlatformAdapter, PlatformClient {
 
       let customMessage = '';
       try {
-        const { getWelcomeMessage } = await import('../../bot/commands/welcome');
+        const { getWelcomeMessage } = await import('../../bot/commands/welcome.js');
         customMessage = getWelcomeMessage(groupId) || '';
       } catch { /* ignora */ }
 
       try {
-        const { getGroupMod } = await import('../../services/databaseService');
+        const { getGroupMod } = await import('../../services/databaseService.js');
         const mod = await getGroupMod(groupId);
         if (!mod.bemvindo) {
           console.log(`[handleMemberJoin] bemvindo DESATIVADO no grupo ${groupId} - pulando saudacao`);

@@ -11,6 +11,5 @@ export const piadaCommand: ICommand = {
     ];
     const choice = jokes[Math.floor(Math.random() * jokes.length)];
     await ctx.reply(choice);
-    return choice;
   },
 };

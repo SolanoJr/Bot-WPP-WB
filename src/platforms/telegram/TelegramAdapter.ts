@@ -7,8 +7,8 @@
  * Isso elimina a race condition onde initialize() esperava um evento que já havia disparado.
  */
 
-import { Telegraf, Context as TelegrafContext } from 'telegraf';
-import { Message as TgMessage } from 'telegraf/typings/core/types/typegram';
+import { Telegraf } from 'telegraf';
+type TgMessage = any;
 import {
   PlatformType,
   PlatformAdapter,
@@ -40,7 +40,7 @@ class TelegramClient implements PlatformClient {
   }
 
   private setupEventHandlers() {
-    this.bot.on('message', async (ctx: TelegrafContext<TgMessage>) => {
+    this.bot.on('message', async (ctx: any) => {
       console.log('[Telegram] Mensagem recebida:', JSON.stringify({
         from: ctx.from?.username,
         text: ctx.message?.text,
@@ -97,7 +97,7 @@ class TelegramClient implements PlatformClient {
     }
   }
 
-  private normalizeMessage(ctx: TelegrafContext<TgMessage>): PlatformMessage {
+  private normalizeMessage(ctx: any): PlatformMessage {
     const tg = ctx.message || (ctx.update as any)?.message;
     if (!tg) {
       throw new Error('Telegram: ctx.message e ctx.update.message são undefined');
@@ -141,9 +141,9 @@ class TelegramClient implements PlatformClient {
     const cleanChatId = chatId.replace(/^tg:/, '');
     const sent = await this.bot.telegram.sendMessage(Number(cleanChatId), text, {
       parse_mode: options?.parseMode as any,
-      disable_web_page_preview: options?.disablePreview,
+      disable_web_page_preview: options?.disablePreview as any,
       reply_to_message_id: options?.replyToMessageId ? Number(options.replyToMessageId.replace(/^tg:/, '')) : undefined,
-    });
+    } as any);
     
     console.log(`[TelegramAdapter.sendMessage] EXIT - thisHash: ${thisHash}, sent:`, !!sent, 'typeof sent:', typeof sent);
     console.log(`[TelegramAdapter.sendMessage] Stack trace:`, stack);
@@ -231,7 +231,7 @@ class TelegramClient implements PlatformClient {
       await this.bot.telegram.callApi('setMessageReaction', {
         chat_id: Number(this.bot.botInfo?.id),
         message_id: Number(msgId),
-        reaction: [{ type: 'emoji', emoji }],
+        reaction: [{ type: 'emoji', emoji: emoji as any }],
       });
     } catch (e: any) {
       console.error(`[Telegram] ❌ erro ao reagir: ${e?.message}`);
@@ -254,7 +254,7 @@ export class TelegramAdapter implements PlatformAdapter {
 
   async initialize(): Promise<void> {
     console.log('[TelegramAdapter] Inicializando...');
-    if (this.isReady) {
+    if ((this.client as any).isReady) {
       console.log('[TelegramAdapter] Já estava pronto');
       return;
     }

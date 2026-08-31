@@ -19,7 +19,7 @@ export const muteCommand: ICommand = {
         }
         
         const userToMute = mentioned[0].id;
-        await ctx.client.mute(userToMute, 8 * 60 * 60); // 8 horas
+        await (ctx.client as any).mute(userToMute, 8 * 60 * 60); // 8 horas
         await ctx.reply(`✅ Usuário silenciado por 8 horas.${groupTag(ctx)}`);
     }
 };

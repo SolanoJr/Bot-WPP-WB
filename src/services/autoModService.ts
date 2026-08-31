@@ -154,7 +154,7 @@ export async function processAutoMod(msg: any, client: any): Promise<boolean> {
     groupIdForCheck = chat?.id?._serialized || msg.from;
   } catch { /* ignora */ }
   try {
-    const { getGroupMod } = await import('./databaseService');
+    const { getGroupMod } = await import('./databaseService.js');
     const mod = await getGroupMod(groupIdForCheck);
     const anyOn = mod.antispam || mod.antiestrangeiro || mod.autolink;
     if (!anyOn) {
@@ -223,7 +223,7 @@ export async function processAutoMod(msg: any, client: any): Promise<boolean> {
     }
     if (authorIsAdmin) return false;
 
-    const { getGroupMod, banUser } = await import('./databaseService');
+    const { getGroupMod, banUser } = await import('./databaseService.js');
     const mod = await getGroupMod(groupId);
 
     let detected = false;

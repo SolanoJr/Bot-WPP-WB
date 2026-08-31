@@ -6,7 +6,7 @@
   "scripts": {
     "dev:relay": "tsx watch src/relay/server.ts",
     "dev:screen": "cd src/services/discord-screen/client && npm run dev",
-    "build": "npm run build:relay && npm run build:services && npm run build:screen-server && npm run build:bot && npm run build:platforms && npm run build:core && npm run build:screen",
+    "build": "npm run build:relay && npm run build:services && npm run build:screen-server && npm run build:platforms && npm run build:core && npm run build:screen",
     "build:relay": "tsup src/relay/server.ts --out-dir dist/relay --format cjs",
     "build:services": "tsup src/services/*.ts src/services/discord-screen/DiscordScreenService.ts --out-dir dist/services --format cjs",
     "build:bot": "tsup src/bot/index.ts src/bot/config.ts src/bot/customCommands.ts src/bot/relayClient.ts src/bot/commands/*.ts --out-dir dist/bot --format cjs",
