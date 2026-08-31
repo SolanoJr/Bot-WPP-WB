@@ -91,7 +91,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
   constructor(opts: { authDir?: string; platform?: string } = {}) {
     this.authDir = opts.authDir
       ? path.join(process.cwd(), opts.authDir)
-      : path.join(process.cwd(), process.env.WWEBJS_AUTH_DIR || '.wwebjs_auth');
+      : path.join(process.cwd(), process.env.WPP_AUTH_DIR || 'sessions');
     if (opts.platform) this.platform = opts.platform as PlatformType;
     if (!fs.existsSync(this.authDir)) fs.mkdirSync(this.authDir, { recursive: true });
   }
@@ -208,7 +208,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
 
       // MODERAÇÃO DE ENTRADA (ban persistente, antibots, boas-vindas).
       // Antes isso existia SÓ no WhatsAppAdapter (WWebJS/legado), então com
-      // WPP_ENGINE=baileys nada disso rodava em produção.
+      // o engine Baileys nada disso rodava em produção. Agora o Baileys cobre tudo.
       this.sock.ev.on('group-participants.update', async (ev: any) => {
         try {
           if (ev?.action !== 'add') return;

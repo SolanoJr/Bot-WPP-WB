@@ -2,7 +2,7 @@
  * Kit de auto-teste do Hermes (em produção, no Linux).
  * NÃO apagar esta pasta — é o laboratório de validação do dono.
  *
- * O selftest roda no `ready` do WhatsAppAdapter (1x por boot).
+ * O selftest roda no `ready` do BaileysAdapter (1x por boot).
  * Manda a LISTA de comandos (1x cada, espaçado) no grupo teste e loga o resultado.
  * O bot processa cada comando normalmente — exatamente como se um humano tivesse digitado.
  * Só 1 restart por sessão de testes (não 1 por comando).

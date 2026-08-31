@@ -11,7 +11,7 @@ grupo teste e lendo o log estável para confirmar.
 - `SELFTEST.md` — este doc.
 
 ## Como ligar
-No `WhatsAppAdapter.ready`, após a msg de prova, chamar:
+No `BaileysAdapter.ready`, após a msg de prova, chamar:
 ```ts
 if (alvoTeste) setTimeout(() => runSelfTests(this, alvoTeste), 6000);
 ```

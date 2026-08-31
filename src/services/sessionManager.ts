@@ -45,8 +45,8 @@ export function getSessionConfigs(): SessionConfig[] {
 /**
  * Cria e registra os adapters WhatsApp para todas as sessões configuradas.
  * Se nenhuma sessão estiver em WPP_SESSIONS, cria a sessão legada (1 número)
- * usando WWEBJS_AUTH_DIR ou .wwebjs_auth.
- * Respeita WPP_ENGINE: 'baileys' (default) ou 'wwebjs'.
+ * usando WPP_AUTH_DIR ou sessions/ (default).
+ * Engine: Baileys (único, sem Chromium). O fallback WWebJS foi removido (BUG 39).
  */
 export function registerWhatsAppSessions(): void {
   const configs = getSessionConfigs();

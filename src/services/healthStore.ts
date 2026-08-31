@@ -1,6 +1,6 @@
 /**
  * healthStore — armazena o status de saúde do WPP de forma desacoplada.
- * O WhatsAppAdapter escreve aqui (no ready / forceReconnect) e o MetricsService
+ * O BaileysAdapter escreve aqui (no ready / forceReconnect) e o MetricsService
  * lê no endpoint /health, diferenciando "PM2 online" de "WPP realmente conectado".
  */
 

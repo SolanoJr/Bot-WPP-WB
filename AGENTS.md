@@ -97,7 +97,7 @@ Os agentes de IA podem assumir diversos papéis dentro do ciclo de vida do Bot-W
 ### 5.4. Sincronização de ambientes
 - Windows (dev) → GitHub → Linux (PM2). Sempre `git pull` no Linux + `npm run build` + `pm2 restart` (ou `pm2 delete` + `pm2 start ecosystem.config.js` se mudou log) após push.
 - O bot Linux está online; **não fazer `pm2 stop`/`restart` em loop** durante investigação — isso gera processos zumbis (Chromium) que saturaram a CPU (load 15) e impediam o QR.
-- Ver BUG_TRACKER.md (último: BUG 38) para histórico completo.
+- Ver BUG_TRACKER.md (último: BUG 39) para histórico completo.
 
 ### 5.5. Screen Sharing (`$screen`) — topologia e regras
 - **Screen server (original Jc007zZ/discord-screen):** `src/services/discord-screen/` (WebCodecs + WebSocket + Express SPA). Roda via **systemd `bot-wpp-screen.service`** na porta **3003** (`DISCORD_SCREEN_PORT`), NÃO via PM2 (o `screen-server` foi removido do `ecosystem.config.js` — conflito de porta; systemd é o dono).
@@ -106,7 +106,7 @@ Os agentes de IA podem assumir diversos papéis dentro do ciclo de vida do Bot-W
 - **`$screen`:** `src/bot/commands/screen.ts` cria guest session (`POST /api/session-guest`) + sala (`POST /api/rooms/create`) no 3003, responde com 2 links: **Transmitir** (`shareUrl`, role `broadcaster`) e **Assistir** (`viewerToken`, role `viewer`). Ambos ~100-110 chars (token compacto `room.uid.name.role.exp.sig` em `tokens.js`) — cabem no Discord sem truncar.
 - **Build do screen server:** `npm run build` (ou `build:screen-server`) copia `src/services/discord-screen/*.js` → `dist/services/discord-screen/` automaticamente. O `index.js` lê `DISCORD_SCREEN_PORT` e `DISCORD_SCREEN_PUBLIC_ORIGIN` do env (default 3003 / localhost:3003).
 - **Teste automatizado:** `testServer` na porta 3004 injeta comandos (`curl -X POST http://127.0.0.1:3004/test -d '{"platform":"discord","command":"$screen"}'`). O `PlatformManager` real fica em `globalThis.__platformManager` (defesa contra bundle scopes do tsup); `testServer.ts` usa `getInstance()` + `getAdapter()` (API pública, sem acesso a privados).
-- **Typecheck:** `npm run typecheck` (`tsc --noEmit`, com `ignoreDeprecations: 6.0`). Há 71 erros TS pré-existentes (ver BUG 37) — não bloqueiam o `tsup`. Corrigir apenas após teste de laboratório.
+- **Typecheck:** `npm run typecheck` (`tsc --noEmit`, com `ignoreDeprecations: 6.0`). **0 erros** (BUG 37 resolvido — dívida histórica de typecheck foi zerada). Manter 0 erros em todo commit.
 
 ### 5.6. Singleton do PlatformManager (anti-padrão conhecido)
 - O `PlatformManager` é singleton estático (`getInstance()`), mas o bundler (tsup) pode criar escopos de módulo separados por bundle. `multiPlatform.ts` publica a instância viva em `globalThis.__platformManager`; `testServer.ts` resolve via `getInstance()` caindo para o global. **Não remover o `globalThis`** — ele é a ponte cross-bundle intencional. Acessar `pm.adapters` (privado) de fora está proibido; use `getAdapter(platform)`.
