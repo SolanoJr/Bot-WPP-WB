@@ -33,7 +33,16 @@ Este documente rastreia bugs, erros e suas soluções para evitar repetição de
   - Imports relativos sem `.js` (`databaseService`, `PlatformTypes`) — exigido por `nodenext`.
   - `customCommandsStore.ts`/`send.ts`: nullabilidade de tipos.
 - **CORREÇÕES SEGURAS feitas (2026-08-30):** `screen.ts` (removeu `aliases` inexistente em `ICommand`), `ondeestou.ts` (declaração `global.pendingChatIds` tipada). `tsconfig.json` ganhou `ignoreDeprecations: "6.0"` para silenciar deprecation do `baseUrl` no TS 6.0.
-- **Status:** 🔄 PENDENTE. Próximo passo recomendado: corrigir os erros de comandos destrutivos (ban/kick/modToggle) apenas após teste no grupo "Teste", adicionando `isAdmin`/`isSuperAdmin` ao `PlatformUser` no `PlatformTypes`. Não priorizar sobre estabilidade.
+- **CORREÇÃO COMPLETA (2026-08-30, commit pós-4ea9598):** TODOS os 70 erros TS foram corrigidos de uma vez, com calma:
+  - `PlatformTypes`: adicionados `isAdmin`/`isSuperAdmin`/`isOwner`/`isBusiness` a `PlatformUser`; `description`/`metadata` a `PlatformChat`; `quotedFromMe`/`quotedParticipant`/`metadata` a `PlatformMessage`; `mute`/`promote` a `PlatformClient`. `ICommand` unificado (removido `types.ts` duplicado que não tinha `usage`/`aliases`).
+  - `ban`/`kick`/`modToggle`/`mute`/`promover`: usam `PlatformUser.isAdmin` e `client.mute/promote` (agora tipados). **Comandos destrutivos corrigidos com segurança** — `getGroupMod` agora retorna `{}` em vez de `null` (elimina NPE em autoMod).
+  - **BUG REAL descoberto e corrigido:** `banUser`/`isUserBanned` NÃO EXISTIAM em `databaseService` (só eram importados) → o `$ban` não persistia no DB e o `autoModService` quebrava silenciosamente. Criadas `banUser(entry)`/`isUserBanned(groupId,userId)` (tabela `banned_users` já existia no `initDatabase`). Também `memberJoinService.ts` NÃO EXISTIA (o Baileys importava `handleMemberJoin` dele) → criado com lógica de remover membro banido que entra no grupo.
+  - Imports relativos com `.js` (nodenext); caminhos quebrados (`../types`→`./types`, `../../../platforms/base/PlatformTypes`→`../../platforms/base/PlatformTypes`) corrigidos.
+  - `vote` (acento normalizado para `'nao'`), `cantada`/`piada` (removido `return` de string), `grupos`/`setwelcome`/`welcome`/`sendMessage` (casts WWebJS `_serialized`→id), `gtts` (`MessageMedia` any), `modToggle` (`setGroupModAll` com objeto).
+  - **Código legado morto removido** (conflitava/confundia): `testAPI.ts` (porta 3003 = screen server!), `messageHandler.ts`, `commandExecutor.ts` (duplicavam PlatformManager).
+  - **Quote + React em TODOS os comandos:** `PlatformManager.createCommandContext.reply` agora passa `replyToMessageId: message.id` (quote); `executeCommand` já faz `react('👍')` na mensagem de comando. Todos os adapters (Baileys/Discord/Telegram) suportam `replyToMessageId`.
+  - **Cópia morta `dist/bot` resolvida:** `build:bot` removido do pipeline `build` (gerava `dist/bot/*` não usado; entrypoint é `dist/core/multiPlatform.js`). `build:bot` mantido definido mas fora do pipeline.
+- **Status:** ✅ RESOLVIDO. `npm run typecheck` → 0 erros. `npm run build` → sucesso, não gera mais `dist/bot`.
 
 ## BUG 38 (2026-08-30): Rotação de chaves SSH expostas — ADIADA
 
