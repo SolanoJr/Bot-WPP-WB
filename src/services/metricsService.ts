@@ -12,6 +12,7 @@ import {
   Registry,
   collectDefaultMetrics
 } from 'prom-client';
+import logger from './loggerService';
 
 interface MetricsConfig {
   port?: number;
@@ -209,7 +210,7 @@ class MetricsService {
         res.set('Content-Type', this.registry.contentType);
         res.end(metrics);
       } catch (error) {
-        console.error('[Metrics] Erro ao retornar métricas:', error);
+        logger.error('[Metrics] Erro ao retornar métricas:', error);
         res.status(500).json({ error: 'Failed to collect metrics' });
       }
     });
@@ -226,7 +227,7 @@ class MetricsService {
   public start(): Promise<void> {
   return new Promise((resolve) => {
     this.server = this.app.listen(this.metricsPort, '127.0.0.1', () => {
-      console.log(`[Metrics] 📊 Servidor de Métricas iniciado em http://127.0.0.1:${this.metricsPort}${this.metricsPath}`);
+      logger.info(`[Metrics] 📊 Servidor de Métricas iniciado em http://127.0.0.1:${this.metricsPort}${this.metricsPath}`);
       resolve();
     });
   });
@@ -238,7 +239,7 @@ class MetricsService {
         this.server.close((err: any) => {
           if (err) reject(err);
           else {
-            console.log('[Metrics] 📊 Servidor de Métricas parado');
+            logger.info('[Metrics] 📊 Servidor de Métricas parado');
             resolve();
           }
         });

@@ -20,6 +20,7 @@ import {
 import { rateLimiter } from '../services/rateLimiter';
 import metricsService from '../services/metricsService';
 import { isMaster } from '../services/permissions';
+import logger, { logError, logWarning } from '../services/loggerService';
 
 type AdapterFactory = () => Promise<PlatformAdapter>;
 
@@ -48,10 +49,10 @@ export class PlatformManager {
    */
   registerAdapter(adapter: PlatformAdapter): void {
     if (this.adapters.has(adapter.platform)) {
-      console.warn(`[PlatformManager] Adapter para ${adapter.platform} já registrado, substituindo...`);
+      logWarning(`[PlatformManager] Adapter para ${adapter.platform} já registrado, substituindo...`);
     }
     this.adapters.set(adapter.platform, adapter);
-    console.log(`[PlatformManager] Adapter registrado: ${adapter.platform}`);
+    logger.info(`[PlatformManager] Adapter registrado: ${adapter.platform}`);
     
     // NOTA: Os handlers são configurados internamente pelo adapter
     // Não precisamos conectar aqui pois o adapter já implementa PlatformClient
@@ -71,23 +72,23 @@ export class PlatformManager {
    */
   async startAll(): Promise<void> {
     if (this.initialized) {
-      console.warn('[PlatformManager] Já inicializado');
+      logWarning('[PlatformManager] Já inicializado');
       return;
     }
 
-    console.log('[PlatformManager] Iniciando todas as plataformas...');
+    logger.info('[PlatformManager] Iniciando todas as plataformas...');
 
     // Inicializar em PARALELO (allSettled) para que uma plataforma lenta/travada
     // (ex: Telegram launch() aguardando ready) não bloqueie as demais (Discord/WPP).
     const results = await Promise.allSettled(
       Array.from(this.adapters.entries()).map(async ([platform, adapter]) => {
         try {
-          console.log(`[PlatformManager] Inicializando ${platform}...`);
+          logger.info(`[PlatformManager] Inicializando ${platform}...`);
           await adapter.initialize();
           this.setupAdapterHandlers(adapter);
-          console.log(`[PlatformManager] ✅ ${platform} pronto`);
+          logger.info(`[PlatformManager] ✅ ${platform} pronto`);
         } catch (error) {
-          console.error(`[PlatformManager] ❌ Falha ao iniciar ${platform}:`, error);
+          logError(`StartAll:${platform}`, error);
           // Continua com as outras plataformas
         }
       })
@@ -96,12 +97,12 @@ export class PlatformManager {
     // Log de resumo de falhas (se houver)
     results.forEach((r, i) => {
       if (r.status === 'rejected') {
-        console.error(`[PlatformManager] Plataforma ${i} falhou na inicialização:`, r.reason);
+        logError(`StartAll:platforma_${i}`, r.reason);
       }
     });
 
     this.initialized = true;
-    console.log('[PlatformManager] Todas as plataformas inicializadas');
+    logger.info('[PlatformManager] Todas as plataformas inicializadas');
   }
 
   /**
@@ -111,8 +112,12 @@ export class PlatformManager {
     const client = adapter.client;
 
     client.onMessage(async (rawMessage: PlatformMessage) => {
+      const startTs = Date.now();
       // Normalizar e enriquecer mensagem
       const message = this.enrichMessage(rawMessage, adapter.platform);
+
+      // Telemetria: mensagem recebida
+      metricsService.incrementMessage(adapter.platform);
 
       // Rastrear último chat visto nesta plataforma (para ponte $send)
       this.lastChatByPlatform.set(adapter.platform, message.chatId);
@@ -132,7 +137,7 @@ export class PlatformManager {
         try {
           await handler(message);
         } catch (error) {
-          console.error(`[PlatformManager] Erro no message handler:`, error);
+          logError('MessageHandler', error);
         }
       }
 
@@ -147,29 +152,36 @@ export class PlatformManager {
             await adapter.client.react(message.id, '👍');
           }
         } catch (reactErr: any) {
-          console.error('[REACT] erro ao reagir com 👍:', reactErr?.message);
+          logWarning(`[REACT] erro ao reagir com 👍: ${reactErr?.message}`);
         }
       }
+
+      // Telemetria: duração do processamento
+      metricsService.recordMessageProcessingDuration(adapter.platform, Date.now() - startTs);
     });
 
     client.onReady(() => {
-      console.log(`[PlatformManager] ${adapter.platform} conectado e pronto`);
+      // Telemetria: conexão de plataforma
+      metricsService.recordPlatformConnection(adapter.platform);
+      logger.info(`[PlatformManager] ${adapter.platform} conectado e pronto`);
       for (const handler of this.readyHandlers) {
         try {
           handler();
         } catch (error) {
-          console.error('[PlatformManager] Erro no ready handler:', error);
+          logError('ReadyHandler', error);
         }
       }
     });
 
     client.onDisconnected((reason: string) => {
-      console.log(`[PlatformManager] ${adapter.platform} desconectado: ${reason}`);
+      // Telemetria: desconexão de plataforma
+      metricsService.recordPlatformDisconnection(adapter.platform);
+      logger.info(`[PlatformManager] ${adapter.platform} desconectado: ${reason}`);
       for (const handler of this.disconnectedHandlers) {
         try {
           handler(adapter.platform, reason);
         } catch (error) {
-          console.error('[PlatformManager] Erro no disconnected handler:', error);
+          logError('DisconnectedHandler', error);
         }
       }
     });
@@ -233,12 +245,12 @@ export class PlatformManager {
     message.commandName = commandName;
     message.args = args;
     
-    console.log(`[PlatformManager] Comando recebido: ${commandName} de ${message.userName} (${message.platform})`);
+    logger.info(`[PlatformManager] Comando recebido: ${commandName} de ${message.userName} (${message.platform})`);
     
     // Buscar adapter da plataforma
     const adapter = this.adapters.get(message.platform);
     if (!adapter) {
-      console.error(`[PlatformManager] Adapter não encontrado para ${message.platform}`);
+      logger.error(`[PlatformManager] Adapter não encontrado para ${message.platform}`);
       return;
     }
     
@@ -254,7 +266,7 @@ export class PlatformManager {
 
     if (!command) {
       // Comando não encontrado - poderia buscar no relay (futuro)
-      console.log(`[PlatformManager] Comando não encontrado: ${message.commandName} em ${adapter.platform}`);
+      logger.info(`[PlatformManager] Comando não encontrado: ${message.commandName} em ${adapter.platform}`);
       return;
     }
 
@@ -286,7 +298,7 @@ export class PlatformManager {
     const ctx = await this.createCommandContext(message, adapter.client);
 
     try {
-      console.log(`[PlatformManager] Executando ${message.commandName} em ${adapter.platform} para ${message.userName}`);
+      logger.info(`[PlatformManager] Executando ${message.commandName} em ${adapter.platform} para ${message.userName}`);
 
       // Registrar métricas e uso
       metricsService.incrementCommand(message.commandName!, adapter.platform);
@@ -294,7 +306,7 @@ export class PlatformManager {
 
       await command.execute(ctx);
     } catch (error: any) {
-      console.error(`[PlatformManager] Erro no comando ${message.commandName}:`, error);
+      logError(`Command:${message.commandName}`, error);
       await ctx.reply('⚠️ Ocorreu um erro interno ao executar este comando.');
     }
   }
@@ -318,7 +330,7 @@ export class PlatformManager {
       );
     } catch (error) {
       // Não falhar o comando se logging falhar
-      console.error('[PlatformManager] Erro ao registrar log de comando:', error);
+      logError('LogCommandUsage', error);
     }
   }
 
@@ -362,6 +374,8 @@ export class PlatformManager {
       isMaster: isMaster(message.userId),
       isAdmin: contextIsAdmin,
       reply: async (text: string, options?: SendOptions) => {
+        // Telemetria: mensagem enviada
+        metricsService.recordMessageSent(message.platform);
         // Responde citando (quote) a mensagem original do comando.
         // Fallback: se o quote falhar (ex: ID inválido em ambiente de teste),
         // reenvia sem quote para não quebrar o comando.
@@ -371,7 +385,7 @@ export class PlatformManager {
             replyToMessageId: message.id,
           });
         } catch (quoteErr: any) {
-          console.warn(`[reply] quote falhou, reenviando sem quote: ${quoteErr?.message}`);
+          logWarning(`[reply] quote falhou, reenviando sem quote: ${quoteErr?.message}`);
           await client.sendMessage(message.chatId, text, options);
         }
       },
@@ -390,7 +404,7 @@ export class PlatformManager {
    */
   registerCommand(command: ICommand): void {
     this.commandRegistry.set(command.name, command);
-    console.log(`[PlatformManager] Comando registrado: ${command.name}${command.platforms ? ` (${command.platforms.join(', ')})` : ' (todas)'}`);
+    logger.info(`[PlatformManager] Comando registrado: ${command.name}${command.platforms ? ` (${command.platforms.join(', ')})` : ' (todas)'}`);
   }
 
   /**
@@ -427,7 +441,7 @@ export class PlatformManager {
           }
         }
       } catch (error) {
-        console.error(`[PlatformManager] Erro no broadcast para ${platform}:`, error);
+        logError(`Broadcast:${platform}`, error);
       }
     }
   }
@@ -488,13 +502,13 @@ export class PlatformManager {
    * Desliga todas as plataformas
    */
   async shutdownAll(): Promise<void> {
-    console.log('[PlatformManager] Desligando todas as plataformas...');
+    logger.info('[PlatformManager] Desligando todas as plataformas...');
     for (const [platform, adapter] of this.adapters) {
       try {
         await adapter.shutdown();
-        console.log(`[PlatformManager] ✅ ${platform} desligado`);
+        logger.info(`[PlatformManager] ✅ ${platform} desligado`);
       } catch (error) {
-        console.error(`[PlatformManager] Erro ao desligar ${platform}:`, error);
+        logError(`Shutdown:${platform}`, error);
       }
     }
     this.initialized = false;
