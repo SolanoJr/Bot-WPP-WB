@@ -27,7 +27,7 @@ git rev-parse --short HEAD &&
 pm2 list && 
 echo '=== INICIANDO DEPLOY ===' && 
 git fetch --all && 
-git reset --hard origin/main && 
+git reset --hard origin/master && \
 (npm ci || npm install) && 
 pm2 restart bot-wpp --update-env && 
 test -f backend/app.js && pm2 restart bot-backend --update-env || true && 

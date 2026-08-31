@@ -25,13 +25,10 @@ log "Descartando alterações locais no package.json/package-lock.json/linux_mai
 git checkout -- package.json package-lock.json linux_maintenance.sh || true
 
 log "Atualizando código…"
-git pull origin main | tee -a "$LOG_FILE"
+git pull origin master | tee -a "$LOG_FILE"
 
 log "Instalando dependências (npm ci)…"
 npm ci | tee -a "$LOG_FILE"
-
-log "Garantindo Chrome compatível com Puppeteer…"
-npx puppeteer browsers install chrome | tee -a "$LOG_FILE"
 
 log "Compilando projeto (npm run build)…"
 npm run build | tee -a "$LOG_FILE"
