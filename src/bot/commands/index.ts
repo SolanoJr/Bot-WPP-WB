@@ -103,6 +103,7 @@ const commands: Record<string, ICommand> = {
 
 // Registrar comandos personalizados
 import { getComandoBlock, addComandosId, addComandos, getComando, listComandos, removeComando } from './customCommandsStore';
+import { logWarning } from '../../services/loggerService';
 
 // Função principal para obter comando
 export function getCommand(name: string): ICommand | undefined {
@@ -128,7 +129,7 @@ export function getCommandsList(): { name: string; description: string }[] {
 export async function executeCommand(name: string, ctx: CommandContext): Promise<void> {
   const command = getCommand(name);
   if (!command) {
-    console.warn(`Comando "${name}" não encontrado`);
+    logWarning(`Comando "${name}" não encontrado`);
     return;
   }
   await command.execute(ctx);

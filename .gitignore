@@ -28,7 +28,10 @@ sessions.bak*/
 .env-screen
 home/
 
-# � ARTEFATOS LOCAIS
+# 🗑️ LOCKFILE DE SUBPROJETO (gerado pelo build do screen server — não versionar)
+src/services/discord-screen/client/package-lock.json
+
+# 🔐 ARTEFATOS LOCAIS
 .env.backup
 .whatsapp-instance.lock
 scripts/logs/

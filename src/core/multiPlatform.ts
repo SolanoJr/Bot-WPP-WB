@@ -13,10 +13,11 @@ import { DiscordAdapter } from '../platforms/discord/DiscordAdapter';
 import { loadCommands } from '../bot/commands';
 import metricsService from '../services/metricsService';
 import { startTestServer } from '../services/testServer';
+import logger, { logError } from '../services/loggerService';
 
-// 🕒 Timestamps nos logs: agora são prefixados pelo PM2 (log_date_format no
-// ecosystem.config.js). Removido o override de console.* daqui para evitar
-// timestamp duplicado (BUG 33 / melhoria de legibilidade).
+// 🕒 Logging: o loggerService (Winston) escreve no Console (com timestamp próprio)
+// E em arquivos estruturados (logs/combined.log, commands.jsonl, platforms.jsonl).
+// O PM2 também prefixa timestamp no log estável (log_date_format no ecosystem.config.js).
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -33,30 +34,30 @@ export async function initializePlatforms() {
   // a mesma instância com adapters registrados.
   (globalThis as any).__platformManager = platformManager;
 
-  console.log('🚀 Inicializando Bot-WPP Multi-Platform...');
+  logger.info('🚀 Inicializando Bot-WPP Multi-Platform...');
 
   // Inicializar servidor de métricas Prometheus (porta 3001, /metrics e /health)
   try {
     await metricsService.start();
     metricsService.startSystemMetricsCollection();
   } catch (error) {
-    console.error('❌ Erro ao iniciar métricas:', error);
+    logError('Metrics', error);
   }
 
   // Inicializador de testes na porta 3004 (permite injetar comandos via HTTP)
   try {
     startTestServer(3004);
   } catch (e: any) {
-    console.error('❌ Erro ao iniciar servidor de testes:', e.message);
+    logError('TestServer', e);
   }
 
   // Carregar comandos com tratamento de erro robusto
   try {
     const commands = loadCommands();
     platformManager.loadCommands(commands);
-    console.log(`✅ ${commands.size} comandos carregados`);
+    logger.info(`✅ ${commands.size} comandos carregados`);
   } catch (error) {
-    console.error('❌ Erro ao carregar comandos:', error);
+    logError('LoadCommands', error);
     // Continuar mesmo sem comandos para permitir debug
   }
 
@@ -65,7 +66,7 @@ export async function initializePlatforms() {
   try {
     registerWhatsAppSessions();
   } catch (error) {
-    console.error('❌ Erro ao registrar WhatsApp:', error);
+    logError('RegisterWhatsApp', error);
   }
 
   // Inicializar Telegram (se token configurado e válido)
@@ -75,10 +76,10 @@ export async function initializePlatforms() {
       const telegramAdapter = new TelegramAdapter(telegramToken);
       platformManager.registerAdapter(telegramAdapter);
     } catch (error) {
-      console.error('❌ Erro ao registrar Telegram:', error);
+      logError('RegisterTelegram', error);
     }
   } else {
-    console.log('⚠️ Telegram não configurado (TELEGRAM_BOT_TOKEN não definido ou inválido)');
+    logger.warn('⚠️ Telegram não configurado (TELEGRAM_BOT_TOKEN não definido ou inválido)');
   }
 
   // Inicializar Discord (se token configurado e válido)
@@ -88,10 +89,10 @@ export async function initializePlatforms() {
       const discordAdapter = new DiscordAdapter(discordToken);
       platformManager.registerAdapter(discordAdapter);
     } catch (error) {
-      console.error('❌ Erro ao registrar Discord:', error);
+      logError('RegisterDiscord', error);
     }
   } else {
-    console.log('⚠️ Discord não configurado (DISCORD_BOT_TOKEN não definido ou inválido)');
+    logger.warn('⚠️ Discord não configurado (DISCORD_BOT_TOKEN não definido ou inválido)');
   }
 
   // Inicializar todas as plataformas E configurar handlers de mensagem (registra o messageHandler
@@ -100,27 +101,27 @@ export async function initializePlatforms() {
 
   // Listar plataformas ativas
   const activePlatforms = platformManager.getActivePlatforms();
-  console.log(`📊 Plataformas ativas: ${activePlatforms.join(', ') || 'Nenhuma'}`);
+  logger.info(`📊 Plataformas ativas: ${activePlatforms.join(', ') || 'Nenhuma'}`);
 
   // Handler de desconexão
   platformManager.onDisconnected((platform, reason) => {
-    console.log(`⚠️ ${platform} desconectado: ${reason}`);
+    logger.warn(`⚠️ ${platform} desconectado: ${reason}`);
   });
 
   // Handler de pronto
   platformManager.onReady(() => {
-    console.log('🎉 Todas as plataformas prontas!');
+    logger.info('🎉 Todas as plataformas prontas!');
   });
 
   // Graceful shutdown
   process.on('SIGINT', async () => {
-    console.log('\n🛑 Encerrando bot...');
+    logger.info('🛑 Encerrando bot...');
     await platformManager.shutdownAll();
     process.exit(0);
   });
 
   process.on('SIGTERM', async () => {
-    console.log('\n🛑 Encerrando bot...');
+    logger.info('🛑 Encerrando bot...');
     await platformManager.shutdownAll();
     process.exit(0);
   });
@@ -128,6 +129,6 @@ export async function initializePlatforms() {
 
 // Inicializar
 initializePlatforms().catch(error => {
-  console.error('💥 Erro fatal na inicialização:', error);
+  logError('FatalInit', error);
   process.exit(1);
 });

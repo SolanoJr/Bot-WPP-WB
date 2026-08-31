@@ -14,9 +14,7 @@ module.exports = {
     log_date_format: 'YYYY-MM-DD HH:mm:ss.SSS',
     env_file: '/home/solanojr/bot-wpp/.env',
     env: {
-      NODE_ENV: 'production',
-      WPP_ENGINE: 'baileys',
-      WWEBJS_AUTH_DIR: '.baileys_auth'
+      NODE_ENV: 'production'
     }
   }]
 };
