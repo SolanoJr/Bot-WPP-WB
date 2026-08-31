@@ -362,11 +362,18 @@ export class PlatformManager {
       isMaster: isMaster(message.userId),
       isAdmin: contextIsAdmin,
       reply: async (text: string, options?: SendOptions) => {
-        // Responde citando (quote) a mensagem original do comando + respeita opções
-        await client.sendMessage(message.chatId, text, {
-          ...options,
-          replyToMessageId: message.id,
-        });
+        // Responde citando (quote) a mensagem original do comando.
+        // Fallback: se o quote falhar (ex: ID inválido em ambiente de teste),
+        // reenvia sem quote para não quebrar o comando.
+        try {
+          await client.sendMessage(message.chatId, text, {
+            ...options,
+            replyToMessageId: message.id,
+          });
+        } catch (quoteErr: any) {
+          console.warn(`[reply] quote falhou, reenviando sem quote: ${quoteErr?.message}`);
+          await client.sendMessage(message.chatId, text, options);
+        }
       },
       replyPrivate: async (text: string) => {
         // Para WhatsApp, envia no privado do usuário
