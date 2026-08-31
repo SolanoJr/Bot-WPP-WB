@@ -319,7 +319,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
       const quotedText = typeof quoted?.conversation === 'string'
         ? quoted.conversation
         : (typeof quoted?.extendedTextMessage?.text === 'string' ? quoted.extendedTextMessage.text : '');
-      console.log(`[DBG-disp] quotedExiste=${!!quoted} quotedText="${quotedText}" stanzaId=${quotedKey}`);
+      console.log(`[DBG-disp] citação: existe=${!!quoted} texto="${quotedText}"`);
 
       const platformMsg: PlatformMessage = {
         id: `${this.platform}:${key.id}`,
@@ -469,10 +469,11 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
     };
   }
 
-  async sendMedia(chatId: string, media: MediaPayload, caption?: string): Promise<PlatformMessage> {
+  async sendMedia(chatId: string, media: MediaPayload, caption?: string, options?: SendOptions): Promise<PlatformMessage> {
     if (!this.sock) throw new Error('Baileys não conectado');
     const jid = toJid(chatId);
     const msgOpts: any = { caption: caption || '' };
+    if (options?.sendAudioAsVoice && media.type === 'audio') msgOpts.ptt = true;
     if (typeof media.data === 'string' && fs.existsSync(media.data)) {
       msgOpts[media.type] = fs.readFileSync(media.data);
       if (media.filename) msgOpts.mimetype = media.mimetype;
@@ -530,6 +531,41 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
       isBot: false,
       raw: contact || {},
     };
+  }
+
+  /**
+   * Resolve um número de telefone para o JID do WhatsApp (fallback do WWebJS,
+   * agora nativo no Baileys). Usado por $sendmsg e validationService.
+   */
+  async getNumberId(phone: string): Promise<{ serialized: string; lid?: string } | null> {
+    const clean = String(phone).replace(/[^0-9]/g, '');
+    if (!clean) return null;
+    const jid = `${clean}@s.whatsapp.net`;
+    try {
+      const [res] = await this.sock.onWhatsApp(jid);
+      if (res && res.exists) return { serialized: normId(res.jid), lid: res.lid };
+      return null;
+    } catch (err: any) {
+      console.warn(`[Baileys] getNumberId falhou para ${phone}: ${err?.message}`);
+      return null;
+    }
+  }
+
+  async getContactById(id: string): Promise<PlatformUser | null> {
+    const jid = id.includes('@') ? id : `${id}@s.whatsapp.net`;
+    try {
+      const [res] = await this.sock.onWhatsApp(jid);
+      if (!res || !res.exists) return null;
+      return {
+        id: normId(res.jid),
+        name: '',
+        platform: this.platform,
+        raw: res,
+      } as PlatformUser;
+    } catch (err: any) {
+      console.warn(`[Baileys] getContactById falhou para ${id}: ${err?.message}`);
+      return null;
+    }
   }
 
   async getChats(): Promise<PlatformChat[]> {

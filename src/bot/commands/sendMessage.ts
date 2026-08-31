@@ -27,24 +27,18 @@ export const sendMessageCommand: ICommand = {
 
     // Remove caracteres não numéricos e garante o formato do chatId do WhatsApp
     let number = rawNumber.replace(/[^0-9]/g, '');
-    console.log('[SENDMSG] Número original:', rawNumber, '| Número limpo:', number, '| Comprimento:', number.length);
-    
-    // Adicionar código do país Brasil se não tiver
     if (number.length === 11) {
       number = '55' + number;
-      console.log('[SENDMSG] Adicionou código do país:', number);
     }
-    
     const message = messageParts.join(' ');
     let chatId = `${number}@c.us`;
-    console.log('[SENDMSG] Chat ID inicial:', chatId);
 
     try {
       // Tentar obter o ID correto usando getNumberId
       try {
-        const numberId = await (ctx.client as any).getNumberId(number);
+        const numberId = await ctx.client.getNumberId!(number);
         if (numberId) {
-          chatId = numberId._serialized;
+          chatId = numberId.serialized;
           console.log('[SENDMSG] ID obtido via getNumberId:', chatId);
         }
       } catch (e) {
@@ -53,8 +47,8 @@ export const sendMessageCommand: ICommand = {
 
       // Tentar obter contato para verificar se existe
       try {
-        const contact = await (ctx.client as any).getContactById(chatId);
-        console.log('[SENDMSG] Contato encontrado:', contact.number || contact.id._serialized);
+        const contact = await ctx.client.getContactById!(chatId);
+        console.log('[SENDMSG] Contato encontrado:', contact?.id);
       } catch (e) {
         console.log('[SENDMSG] Contato não encontrado:', e);
       }

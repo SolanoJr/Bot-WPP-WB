@@ -78,7 +78,7 @@ export interface PlatformClient {
   isReady: boolean;
   // Métodos principais
   sendMessage(chatId: string, text: string, options?: SendOptions): Promise<PlatformMessage>;
-  sendMedia(chatId: string, media: MediaPayload, caption?: string): Promise<PlatformMessage>;
+  sendMedia(chatId: string, media: MediaPayload, caption?: string, options?: SendOptions): Promise<PlatformMessage>;
   getChat(chatId: string): Promise<PlatformChat>;
   getUser(userId: string): Promise<PlatformUser>;
   getChats(): Promise<PlatformChat[]>;
@@ -89,8 +89,11 @@ export interface PlatformClient {
   onReady(handler: () => void): void;
   onDisconnected(handler: (reason: string) => void): void;
   react?(messageId: string, emoji: string): Promise<void>;
+  // Resolução de contatos (específico do WhatsApp — Baileys/WWebJS).
+  // Opcional: plataformas sem noção de "número de telefone" não implementam.
+  getNumberId?(phone: string): Promise<{ serialized: string; lid?: string } | null>;
+  getContactById?(id: string): Promise<PlatformUser | null>;
   // Gestão de moderação (multiplataforma) — usados por comandos destrutivos.
-  // O adapter implementa conforme a plataforma (WWebJS/Baileys/Telegram/Discord).
   mute?(userId: string, durationMs: number): Promise<void>;
   unmute?(userId: string): Promise<void>;
   promote?(userId: string): Promise<void>;
@@ -105,6 +108,8 @@ export interface SendOptions {
   parseMode?: 'markdown' | 'html' | 'none';
   disablePreview?: boolean;
   buttons?: ButtonOptions[];
+  sendAudioAsVoice?: boolean;       // Enviar áudio como mensagem de voz (PTT)
+  mentionedIds?: string[];          // IDs de usuários a mencionar
 }
 
 export interface ButtonOptions {

@@ -4,7 +4,25 @@ Este documente rastreia bugs, erros e suas soluções para evitar repetição de
 
 ---
 
-## BUG 36 (2026-08-30): Screen Sharing ($screen) — restaurado e encurtado
+## BUG 39 (2026-08-30): Remoção do engine WWebJS (whatsapp-web.js) — fallback acoplado no Baileys
+
+- **Contexto:** O projeto tinha DOIS adapters de WhatsApp: `BaileysAdapter` (engine ativo, `WPP_ENGINE=baileys`, sem Chromium) e `WhatsAppAdapter` (WWebJS legado, exigia Chromium/puppeteer). O WWebJS era o "fallback" mas NÃO rodava em produção e tinha código duplicado + bugs de runtime mascarados.
+- **Decisão do dono:** "acoplar as coisas úteis no nosso projeto, implementar o fallback no nosso sistema, e só então remover o WWebJS com segurança".
+- **O que foi acoplado no Baileys (para ter fallback 100% coberto antes de deletar o WWebJS):**
+  - `getNumberId(phone)` → `sock.onWhatsApp(jid)` (resolve número→JID). **Corrigiu bug de runtime**: `$sendmsg` e `validationService` chamavam `client.getNumberId` que NÃO EXISTIA no Baileys → quebravam no WPP real.
+  - `getContactById(id)` → `sock.onWhatsApp` (resolve contato).
+  - `sendMedia(chatId, media, caption?, options?)` agora aceita `options.sendAudioAsVoice` → `ptt: true` no Baileys. **Corrigiu bug de runtime**: `$gtts` usava `MessageMedia.fromFilePath` (WWebJS) que não existe no Baileys → quebrava. Agora usa `sendMedia` com buffer (agnóstico).
+  - `getNumberId`/`getContactById`/`mute`/`promote` adicionados ao `PlatformClient` (opcionais) e removidos os `(ctx.client as any)` órfãos em `sendMessage`/`mute`/`promover`.
+- **Remoção (segura, após acoplagem):**
+  - `src/platforms/whatsapp/WhatsAppAdapter.ts` DELETADO (git rm).
+  - `sessionManager.ts`: removido o branch `wwebjs` (agora só Baileys; `WPP_ENGINE` ignorado).
+  - `package.json`: removidos `whatsapp-web.js` e `puppeteer` (só eram usados pelo WWebJS).
+  - `gtts.ts`: removido import de `MessageMedia`.
+- **Cobertura confirmada:** o Baileys já tinha (e mantém) message handling, AutoMod, keywords, member-join (via `memberJoinService`), quote, react, `getChat`, `getUserInfo`, `removeParticipant`, `banParticipant`, `setAdmin`, `notifyOwner` (msg de prova), `getHealth` (heartbeat). Nada de funcionalidade foi perdido.
+- **Limpeza de logs (Fase B):** removidos ruídos de debug em produção — `[DBG-disp]` (Baileys), `[TelegramAdapter.sendMessage] ENTRY/EXIT + stack`, `[SENDMSG]`, `[VALIDATE]` (sucesso), logs mortos `[WhatsAppAdapter]` no keywordHandler. Mantidos logs de evento/erro.
+- **Status:** ✅ RESOLVIDO. Typecheck 0 erros, build OK. WWebJS eliminado; Baileys é o único engine (mais leve, sem Chromium).
+
+---
 
 - **Contexto:** O usuário queria o screen sharing funcionando "igual ao projeto original" (Jc007zZ/discord-screen) — WebCodecs, HTTPS via Tailscale Funnel, qualidade/latência boas, E como Discord Activity (abre dentro do Discord).
 - **Infra montada:**

@@ -46,10 +46,10 @@ export async function handleKeywords(
   if (resposta) {
     try {
       await replyCtx.reply(resposta, { messageId: msg.id?.id });
-      console.log(`😏 [WhatsAppAdapter] palavra-chave detectada, resposta enviada`);
+      console.log(`[keywordHandler] palavra-chave detectada, resposta enviada`);
       return true;
     } catch (err: any) {
-      console.error(`😏 [WhatsAppAdapter] ERRO: não foi possível enviar a resposta da palavra-chave:`, err?.message);
+      console.error(`[keywordHandler] ERRO: não foi possível enviar a resposta da palavra-chave:`, err?.message);
     }
   }
   return false;

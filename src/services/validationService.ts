@@ -21,16 +21,11 @@ interface SendMessageResult {
 
 const validateNumber = async (client: any, phoneNumber: string): Promise<ValidationResult> => {
     try {
-        console.log(`🔍 [VALIDATE] Validando número: ${phoneNumber}`);
-        
-        // Remover sufixos e formatar
         const cleanNumber = phoneNumber.replace('@c.us', '').replace('@g.us', '');
-        
-        // Verificar se o número existe no WhatsApp
-        const numberId = await client.getNumberId(cleanNumber);
-        
+
+        const numberId = await client.getNumberId!(cleanNumber);
+
         if (!numberId) {
-            console.log(`❌ [VALIDATE] NÃO EXISTE: ${phoneNumber}`);
             return {
                 valid: false,
                 error: 'No LID for user',
@@ -38,18 +33,17 @@ const validateNumber = async (client: any, phoneNumber: string): Promise<Validat
                 cleanNumber
             };
         }
-        
-        console.log(`✅ [VALIDATE] VÁLIDO: ${phoneNumber} -> ${numberId._serialized}`);
+
         return {
             valid: true,
             numberId,
             phoneNumber,
             cleanNumber,
-            serialized: numberId._serialized
+            serialized: numberId.serialized
         };
-        
+
     } catch (error: any) {
-        console.error(`❌ [VALIDATE] Erro ao validar ${phoneNumber}:`, error.message);
+        console.error(`[VALIDATE] Erro ao validar ${phoneNumber}:`, error.message);
         return {
             valid: false,
             error: error.message,

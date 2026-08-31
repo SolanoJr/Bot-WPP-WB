@@ -2,7 +2,6 @@ import { ICommand } from './types';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
-import { MessageMedia } from 'whatsapp-web.js';
 
 export const gttsCommand: ICommand = {
     name: 'gtts',
@@ -44,17 +43,22 @@ export const gttsCommand: ICommand = {
             const audioPath = path.join(tempDir, `tts_${Date.now()}.mp3`);
             fs.writeFileSync(audioPath, response.data);
 
-            // Enviar como mensagem de áudio usando MessageMedia
-            const media: any = MessageMedia.fromFilePath(audioPath);
-            await (ctx.client as any).sendMessage(ctx.chatId, media, { sendAudioAsVoice: true });
+            // Ler o áudio como buffer e enviar como mensagem de voz (agnóstico de plataforma)
+            const audioBuffer = fs.readFileSync(audioPath);
+            await ctx.client.sendMedia(ctx.chatId, {
+              type: 'audio',
+              data: audioBuffer,
+              filename: 'tts.mp3',
+              mimetype: 'audio/mpeg',
+            }, undefined, { sendAudioAsVoice: true });
 
             // Limpar arquivo temporário após envio
             setTimeout(() => {
-                try {
-                    fs.unlinkSync(audioPath);
-                } catch (e) {
-                    // Ignorar erro ao deletar
-                }
+              try {
+                fs.unlinkSync(audioPath);
+              } catch (e) {
+                // Ignorar erro ao deletar
+              }
             }, 5000);
 
         } catch (error) {

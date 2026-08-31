@@ -134,20 +134,12 @@ class TelegramClient implements PlatformClient {
 
   async sendMessage(chatId: string, text: string, options?: SendOptions): Promise<PlatformMessage> {
     const thisHash = Math.random().toString(36).substring(7);
-    const stack = new Error().stack;
-    console.log(`[TelegramAdapter.sendMessage] ENTRY - thisHash: ${thisHash}, this.constructor.name: ${this.constructor.name}, chatId: ${chatId}`);
-    console.log(`[TelegramAdapter.sendMessage] Stack trace:`, stack);
-    
     const cleanChatId = chatId.replace(/^tg:/, '');
     const sent = await this.bot.telegram.sendMessage(Number(cleanChatId), text, {
       parse_mode: options?.parseMode as any,
       disable_web_page_preview: options?.disablePreview as any,
       reply_to_message_id: options?.replyToMessageId ? Number(options.replyToMessageId.replace(/^tg:/, '')) : undefined,
     } as any);
-    
-    console.log(`[TelegramAdapter.sendMessage] EXIT - thisHash: ${thisHash}, sent:`, !!sent, 'typeof sent:', typeof sent);
-    console.log(`[TelegramAdapter.sendMessage] Stack trace:`, stack);
-    
     return this.normalizeMessage({ message: sent } as any);
   }
 

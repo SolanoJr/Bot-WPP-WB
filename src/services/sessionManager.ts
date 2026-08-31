@@ -6,21 +6,14 @@
  *
  * Configuração via .env:
  *   WPP_SESSIONS=558581344211,559999999999
- *   (se omitido, usa WWEBJS_AUTH_DIR ou .wwebjs_auth — compatibilidade retroativa)
+ *   (se omitido, usa sessions/<phone> — compatibilidade retroativa)
  *
- * Engine selection via WPP_ENGINE:
- *   baileys (default) - Baileys adapter (SEM Chromium, mais leve)
- *   wwebjs - whatsapp-web.js adapter (requer Chromium)
+ * Engine: Baileys (único, sem Chromium). O fallback WWebJS foi removido
+ * (ver BUG_TRACKER) — todas as funcionalidades foram acopladas no Baileys
+ * (getNumberId, getContactById, sendMedia com voz, member-join, etc).
  *
  * Cada número vira um adapter registrado no PlatformManager sob a chave
  *   whatsapp:<phone>   (ex: 'whatsapp:558581344211')
- *
- * PRÓXIMOS PASSOS (quando for expandir de verdade):
- *   - O PlatformManager já aceita string como chave (PlatformType = string).
- *   - Comandos que hoje hardcoded 'whatsapp' devem iterar sobre as chaves
- *     whatsapp:* para operar em todas as sessões (ex: broadcast, $automod).
- *   - Para "administrar outra sessão facilmente", basta adicionar o número no
- *     WPP_SESSIONS e restartar (PM2). Sem código extra.
  */
 
 import { platformManager } from '../platforms/PlatformManager';
@@ -57,38 +50,22 @@ export function getSessionConfigs(): SessionConfig[] {
  */
 export function registerWhatsAppSessions(): void {
   const configs = getSessionConfigs();
-  const engine = (process.env.WPP_ENGINE || 'baileys').toLowerCase();
 
   if (configs.length === 0) {
     // Modo legado: 1 sessão (mantém comportamento atual)
-    if (engine === 'baileys') {
-      const { BaileysAdapter } = require('../platforms/whatsapp/BaileysAdapter');
-      const legacyAdapter = new BaileysAdapter();
-      platformManager.registerAdapter(legacyAdapter);
-      console.log('[SessionManager] Modo legado: 1 sessão WhatsApp (Baileys).');
-    } else {
-      const { WhatsAppAdapter } = require('../platforms/whatsapp/WhatsAppAdapter');
-      const legacyAdapter = new WhatsAppAdapter();
-      platformManager.registerAdapter(legacyAdapter);
-      console.log('[SessionManager] Modo legado: 1 sessão WhatsApp (wwebjs).');
-    }
+    const { BaileysAdapter } = require('../platforms/whatsapp/BaileysAdapter');
+    const legacyAdapter = new BaileysAdapter();
+    platformManager.registerAdapter(legacyAdapter);
+    console.log('[SessionManager] Modo legado: 1 sessão WhatsApp (Baileys).');
     return;
   }
 
   for (const cfg of configs) {
     try {
-      if (engine === 'baileys') {
-        const { BaileysAdapter } = require('../platforms/whatsapp/BaileysAdapter');
-        const adapter = new BaileysAdapter({ authDir: cfg.authDir, platform: wppSessionKey(cfg.phone) });
-        platformManager.registerAdapter(adapter);
-        console.log(`[SessionManager] Sessão WhatsApp registrada: ${wppSessionKey(cfg.phone)} (authDir=${cfg.authDir}, engine=baileys)`);
-      } else {
-        const { WhatsAppAdapter } = require('../platforms/whatsapp/WhatsAppAdapter');
-        const adapter = new WhatsAppAdapter({ authDir: cfg.authDir });
-        (adapter as any).platform = wppSessionKey(cfg.phone);
-        platformManager.registerAdapter(adapter);
-        console.log(`[SessionManager] Sessão WhatsApp registrada: ${wppSessionKey(cfg.phone)} (authDir=${cfg.authDir}, engine=wwebjs)`);
-      }
+      const { BaileysAdapter } = require('../platforms/whatsapp/BaileysAdapter');
+      const adapter = new BaileysAdapter({ authDir: cfg.authDir, platform: wppSessionKey(cfg.phone) });
+      platformManager.registerAdapter(adapter);
+      console.log(`[SessionManager] Sessão WhatsApp registrada: ${wppSessionKey(cfg.phone)} (authDir=${cfg.authDir}, engine=baileys)`);
     } catch (error: any) {
       console.error(`[SessionManager] Erro ao registrar sessão ${cfg.phone}:`, error?.message);
     }
