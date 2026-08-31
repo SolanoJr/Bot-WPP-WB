@@ -83,16 +83,16 @@ Os agentes de IA podem assumir diversos papéis dentro do ciclo de vida do Bot-W
   [YYYY-MM-DD HH:MM:SS] [WhatsApp] ✅ Mensagem de prova ENVIADA para 558581344211@c.us
   ```
 
-### 5.2. Chromium headless + WhatsApp Web moderno
-- O WA Web moderno **exige WebGL** para renderizar a tela de QR. Sem `--use-gl=swiftshader`, o Chromium trava no splashscreen (sem QR, sem erro, CPU 0).
-- Use sempre: `--use-gl=swiftshader --enable-webgl --ignore-gpu-blocklist` + `userAgent` de Chrome real no `puppeteerConfig`/`Client` do `WhatsAppAdapter`.
-- `qrcode-terminal` DEVE estar instalado (já está em `package.json`); o código usa `qrcode-terminal`, NÃO `qrcode` (não instalar `qrcode` solto).
-- Timeout de diagnóstico de "não autenticou" é **240s** (swiftshader demora ~90s só para gerar o QR; 90s é falso-positivo).
+### 5.2. Conectividade WhatsApp (Baileys, sem Chromium)
+- O engine ativo é **Baileys** (`@whiskeysockets/baileys`), que **NÃO usa Chromium/puppeteer** — conecta via WebSocket com o servidor WA. QR é gerado em PNG (`qrcode`) e enviado ao dono (ou salvo em `authDir/qr.png`).
+- `WPP_ENGINE` foi **removido** — só existe o Baileys. O fallback WWebJS (`whatsapp-web.js`) foi eliminado (ver BUG 39); todas as funcionalidades foram acopladas no Baileys (`getNumberId`, `getContactById`, `sendMedia` com voz, member-join, etc).
+- Timeout de diagnóstico de "não autenticou" é **240s** (o Baileys pode demorar a gerar QR em sessão nova).
+- **Anti-regressão:** NUNCA reintroduzir `whatsapp-web.js`/`puppeteer` sem necessidade — o Baileys é o único engine. `qrcode-terminal` NÃO é mais usado (o Baileys usa `qrcode` para PNG).
 
 ### 5.3. Arquitetura atual (não confundir com a doc legada)
 - **Entry point real do PM2:** `dist/core/multiPlatform.js` (configurado em `ecosystem.config.js`). O sistema multi-plataforma (`PlatformManager` + adapters) É o ativo.
-- **Multi-número:** `src/services/sessionManager.ts` lê `WPP_SESSIONS` (CSV de números) e cria 1 `WhatsAppAdapter` por número (authDir isolado `sessions/<phone>`), registrado no `PlatformManager` como `whatsapp:<phone>`. Se `WPP_SESSIONS` vazio → modo legado (1 sessão `whatsapp`). `PlatformType` é `string` (não union).
-- Detalhes de anti-regressão estrutural: `docs/ARCHITECTURE_FIXES.md` (tratamento `@lid`, despacho `startAll`, AutoMod desacoplado, **multi-sessão seção 9**, Baileys seção 10).
+- **Multi-número:** `src/services/sessionManager.ts` lê `WPP_SESSIONS` (CSV de números) e cria 1 `BaileysAdapter` por número (authDir isolado `sessions/<phone>`, configurável via `WPP_AUTH_DIR`), registrado no `PlatformManager` como `whatsapp:<phone>`. Se `WPP_SESSIONS` vazio → modo legado (1 sessão `whatsapp`). `PlatformType` é `string` (não union).
+- Detalhes de anti-regressão estrutural: `ARCHITECTURE_FIXES.md` (na raiz; tratamento `@lid`, despacho `startAll`, AutoMod desacoplado, **multi-sessão**, Baileys como único engine).
 
 ### 5.4. Sincronização de ambientes
 - Windows (dev) → GitHub → Linux (PM2). Sempre `git pull` no Linux + `npm run build` + `pm2 restart` (ou `pm2 delete` + `pm2 start ecosystem.config.js` se mudou log) após push.
