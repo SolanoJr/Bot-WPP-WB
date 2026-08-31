@@ -138,6 +138,15 @@ function requirePermission(requiredLevel: PermissionLevel) {
 }
 
 /**
+ * Verifica se um usuário é um alvo protegido (não deve ser afetado por
+ * ações destrutivas como $delete de mensagem ou $demote) — ou seja, o dono (MASTER)
+ * ou um ADMIN. Usado por comandos de moderação para evitar auto-sabotagem.
+ */
+export function isProtectedTarget(userId: string): boolean {
+  return isMaster(userId) || isAdmin(userId);
+}
+
+/**
  * Retorna o ID do dono para notificações (QR codes, alertas, etc.).
  * Blinda contra o caso de retornar o LID do próprio bot (202658048684056@lid).
  * Prioridade: MASTER_LID > MASTER_USER > MASTER_NUMBER

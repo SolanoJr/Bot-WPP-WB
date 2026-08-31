@@ -1,4 +1,4 @@
-import { ICommand } from './types';
+import { ICommand, CommandContext } from './types';
 import { groupTag } from './format';
 
 export const muteCommand: ICommand = {
@@ -23,3 +23,11 @@ export const muteCommand: ICommand = {
         await ctx.reply(`✅ Usuário silenciado por 8 horas.${groupTag(ctx)}`);
     }
 };
+
+/**
+ * Desmuta um usuário do grupo (usado por $desmute).
+ * No WhatsApp/Baileys, mute com duração 0 equivale a desmutar.
+ */
+export async function unmuteUser(targetId: string, ctx: CommandContext): Promise<void> {
+    await ctx.client.mute!(targetId, 0);
+}

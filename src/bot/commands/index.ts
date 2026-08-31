@@ -45,6 +45,8 @@ import { sendCommand } from './send';
 import { cmdToggleCommand } from './cmdToggle';
 import { automodCommand, antispamModCommand, antiestrangeiroModCommand, autolinkModCommand, bemvindoModCommand, detectarModCommand, removerModCommand } from './modToggle';
 import { screenCommand } from './screen';
+import { deleteMsgCommand } from './deleteMsg';
+import { desmuteCommand } from './desmute';
 
 // Comandos registrados
 const commands: Record<string, ICommand> = {
@@ -99,6 +101,8 @@ const commands: Record<string, ICommand> = {
   autolink: autolinkModCommand,
   detectar: detectarModCommand,
   remover: removerModCommand,
+  delete: deleteMsgCommand,
+  desmute: desmuteCommand,
 };
 
 // Registrar comandos personalizados
