@@ -16,38 +16,15 @@ O Bot-WPP é um sistema distribuído projetado para operar como um bot multi-pla
 - **Entry Point**: `src/core/multiPlatform.ts` (configurado no PM2)
 
 ### Estado Atual (2026-08-12 — ATUALIZADO)
-✅ **O sistema multi-plataforma (`PlatformManager` + adapters) É o ativo e funciona.** O entry point do PM2 é `dist/core/multiPlatform.js` (ver `ecosystem.config.js`). O `src/whatsapp.ts` (legado) ainda existe mas só é importado por `src/core/bootServices.ts` (código compartilhado) — **não é o entry point ativo**.
+✅ **O sistema multi-plataforma (`PlatformManager` + adapters) É o ativo e funciona.** O entry point do PM2 é `dist/core/multiPlatform.js` (ver `ecosystem.config.js`). O engine de WhatsApp é **Baileys** (`@whiskeysockets/baileys`), que conecta via WebSocket **sem Chromium** (o fallback WWebJS/`whatsapp-web.js` foi removido — ver BUG_TRACKER BUG 39; todas as funcionalidades foram acopladas no Baileys).
 
-Comandos são despachados corretamente via `platformManager.startAll()` → `setupAdapterHandlers()` → `onMessage` → `messageHandler`. O bot conecta no WhatsApp (Chromium headless + swiftshader), Telegram e Discord simultaneamente, e responde a comandos (`$menu`, `$kick`, `$automod`, etc). Ver `docs/ARCHITECTURE_FIXES.md` para regras de anti-regressão (tratamento `@lid`, despacho `startAll`, AutoMod desacoplado, estabilidade do Chromium).
+Comandos são despachados corretamente via `platformManager.startAll()` → `setupAdapterHandlers()` → `onMessage` → `messageHandler`. O bot conecta no WhatsApp (Baileys), Telegram e Discord simultaneamente, e responde a comandos (`$menu`, `$kick`, `$automod`, etc). Ver `ARCHITECTURE_FIXES.md` (na raiz) para regras de anti-regressão (tratamento `@lid`, despacho `startAll`, AutoMod desacoplado, multi-sessão, Baileys como único engine).
 
 > Nota: a seção "Sistema Atual (Legado)" abaixo está retida apenas como histórico; o legado NÃO é mais o sistema ativo.
 
 ## Bugs Críticos Recentes
 
-### Puppeteer Browser Launch Failed (2026-08-05)
-**Problema:** Bot não conseguia inicializar WhatsApp devido a falha no launch do Chrome/Chromium
-
-**Causa Raiz:**
-- Tentativa de usar Chrome do sistema (`google-chrome-stable`, `chromium-browser`) falhou
-- Google Chrome 151 incompatível com ambiente headless sem display
-- `puppeteer-core` não baixa Chrome, precisa de executável externo
-
-**Solução:**
-- Instalar `puppeteer` completo (que baixa seu próprio Chrome compatível)
-- Remover função `resolveChromeExecutablePath()` do `WhatsAppAdapter.ts`
-- Simplificar configuração do Puppeteer para usar apenas flags essenciais
-- Adicionar `puppeteer` como dependência no `package.json`
-
-**Arquivos Modificados:**
-- `src/platforms/whatsapp/WhatsAppAdapter.ts` (removida função resolveChromeExecutablePath)
-- `package.json` (adicionado puppeteer como dependência)
-
-**Comando de Instalação:**
-```bash
-npm install puppeteer
-```
-
-**Status:** ✅ Resolvido
+> **Histórico (obsoleto):** O bug "Puppeteer Browser Launch Failed" (2026-08-05) não se aplica mais — o engine WWebJS (Chrome/Chromium via `whatsapp-web.js`/`puppeteer`) foi **removido** (BUG 39). O bot agora usa **Baileys** (WebSocket, sem Chromium), eliminando essa classe de problema.
 
 ### TypeError: .for is not iterable (2026-08-05)
 **Problema:** Bot entrava em loop de crash na inicialização com erro em `PlatformManager.loadCommands`
@@ -125,7 +102,7 @@ graph TD
 
 ### 1. Bot (Linux VPS) - Sistema Legado
 
--   **Tecnologia**: Node.js, TypeScript, `whatsapp-web.js`.
+-   **Tecnologia**: Node.js, TypeScript, **Baileys** (`@whiskeysockets/baileys`, WhatsApp via WebSocket sem Chromium).
 -   **Funções**:
     -   Conexão e autenticação com o WhatsApp.
     -   Recebimento e processamento de mensagens.
@@ -186,7 +163,7 @@ graph TD
 
 ## Fluxo de Dados e Interações Chave
 
-1.  **Inicialização do Bot**: O `src/whatsapp.ts` inicia o cliente `whatsapp-web.js`, realiza verificações de pré-voo (`preFlightCheck`) e configura os listeners de eventos.
+1.  **Inicialização do Bot**: O `src/core/multiPlatform.ts` (entry point do PM2) inicia os adapters (`PlatformManager.startAll()`), conecta o WhatsApp via **Baileys** (WebSocket, sem Chromium), Telegram e Discord, e registra os handlers de mensagem.
 2.  **Recebimento de Mensagens**: Qualquer mensagem recebida pelo WhatsApp é encaminhada para `src/services/messageHandler.ts`.
 3.  **Processamento de Mensagens**: 
     -   O `messageHandler` primeiro verifica se a mensagem é um comando (começa com `$`).
