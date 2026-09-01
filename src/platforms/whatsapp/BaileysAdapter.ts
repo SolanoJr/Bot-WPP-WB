@@ -109,12 +109,17 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
       const { state, saveCreds } = await useMultiFileAuthState(this.authDir);
       const { version } = await fetchLatestBaileysVersion();
 
+      // Logger silencioso para Baileys (evita poluição de logs com traces)
+      const pino = (await import('pino')).default;
+      const baileysLogger = pino({ level: process.env.BAILEYS_LOG_LEVEL || 'error' });
+
       this.sock = makeWASocket({
         version,
         auth: {
           creds: state.creds,
-          keys: makeCacheableSignalKeyStore(state.keys, console as any),
+          keys: makeCacheableSignalKeyStore(state.keys, baileysLogger),
         },
+        logger: baileysLogger, // P0: Silencia traces "loading from store", "updated cache"
         printQRInTerminal: true,
         connectTimeoutMs: 120000,
         keepAliveIntervalMs: 30000,

@@ -92,6 +92,58 @@ export async function initDatabase() {
       PRIMARY KEY (group_id, fingerprint, source_jid)
     );
   `);
+
+  // ─── Infrações por usuário ───
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS infractions (
+      group_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      count INTEGER NOT NULL DEFAULT 0,
+      last_infraction INTEGER NOT NULL,
+      PRIMARY KEY (group_id, user_id)
+    );
+  `);
+
+  // ─── P1.3: ÍNDICES OTIMIZADOS ───
+  // Melhoram performance de queries críticas (joins, lookups, ordenação)
+  
+  // banned_users: lookups por (group_id, user_id) são frequentes
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_banned_users_lookup 
+    ON banned_users(group_id, user_id);
+  `);
+
+  // group_mod: lookups por group_id únicos (já coberto por UNIQUE constraint)
+  // Mas adicionar índice explícito ajuda em queries que filtram por campos booleanos
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_group_mod_groupid 
+    ON group_mod(group_id);
+  `);
+
+  // infractions: lookups frequentes por (group_id, user_id)
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_infractions_lookup 
+    ON infractions(group_id, user_id);
+  `);
+
+  // mod_member_joins: queries filtram por group_id + member_id, ordenam por joined_at
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_member_joins_lookup 
+    ON mod_member_joins(group_id, member_id, joined_at DESC);
+  `);
+
+  // mod_msg_fingerprints: lookups por (group_id, fingerprint, source_jid) já coberto por PK
+  // Mas adicionar índice em first_seen ajuda no cleanup de entradas antigas
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_fingerprints_cleanup 
+    ON mod_msg_fingerprints(first_seen);
+  `);
+
+  // command_logs: queries agregam por group_id, command_name, ordenam por timestamp
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_command_logs_query 
+    ON command_logs(group_id, command_name, timestamp DESC);
+  `);
 }
 
 export async function getDb(): Promise<Database> {

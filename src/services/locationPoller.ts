@@ -1,4 +1,5 @@
 import { platformManager } from '../platforms/PlatformManager';
+import logger from './loggerService';
 
 const RELAY_URL = (process.env.RELAY_URL || 'https://bot-wpp-relay.onrender.com').trim();
 
@@ -9,14 +10,17 @@ export function startLocationPoller(intervalMs = 5000): void {
   started = true;
 
   const API_KEY = process.env.WARRIOR_AUTH_KEY || '';
-  console.log('[LocationPoller] API_KEY carregada?', API_KEY ? 'SIM (len ' + API_KEY.length + ')' : 'NÃO');
+  logger.info('[LocationPoller] Iniciando', {
+    hasApiKey: !!API_KEY,
+    apiKeyLength: API_KEY?.length || 0,
+    intervalMs,
+    relayUrl: RELAY_URL
+  });
 
   if (!(global as any).pendingChatIds || typeof (global as any).pendingChatIds.add !== 'function') {
     (global as any).pendingChatIds = new Set<string>();
   }
   const pending = (global as any).pendingChatIds as Set<string>;
-
-  console.log('[LocationPoller] Iniciado (polling a cada ' + intervalMs + 'ms em ' + RELAY_URL + ')');
 
   setInterval(async () => {
     if (pending.size === 0) return;
@@ -48,7 +52,7 @@ export function startLocationPoller(intervalMs = 5000): void {
             groupName = (chat as any)?.name || '';
           }
         } catch (e: any) {
-          console.warn('[LocationPoller] getChat falhou:', e?.message);
+          logger.warn('[LocationPoller] getChat falhou', { chatId, error: e?.message });
         }
 
         let cidade = '';
@@ -82,11 +86,22 @@ export function startLocationPoller(intervalMs = 5000): void {
         const adapter = platformManager.getAdapter('whatsapp');
         if (adapter?.client?.sendMessage) {
           await adapter.client.sendMessage(chatId, text);
-          console.log(`[LocationPoller] Localização enviada para ${chatId} (${lat},${lng}) grupo=${groupName || '-'} cidade=${cidade || '-'}`);
+          logger.info('[LocationPoller] Localização enviada', {
+            chatId,
+            lat,
+            lng,
+            groupName: groupName || '-',
+            cidade: cidade || '-'
+          });
         }
         pending.delete(chatId);
       } catch (e: any) {
-        console.error('[LocationPoller] erro ao processar', chatId, ':', e?.message, '| status=', e?.response?.status, '| code=', e?.code);
+        logger.error('[LocationPoller] Erro ao processar localização', {
+          chatId,
+          error: e?.message,
+          status: e?.response?.status,
+          code: e?.code
+        });
       }
     }
   }, intervalMs);

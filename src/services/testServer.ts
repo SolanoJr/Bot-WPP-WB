@@ -1,5 +1,6 @@
 import http from 'node:http';
 import { PlatformManager } from '../platforms/PlatformManager';
+import logger from './loggerService';
 
 /**
  * Servidor de testes HTTP na porta 3004.
@@ -69,7 +70,7 @@ export function startTestServer(port: number = 3004): void {
   });
 
   server.listen(port, () => {
-    console.log(`[TestServer] Servidor de testes iniciado na porta ${port}`);
-    console.log(`[TestServer] Exemplo: curl -X POST http://localhost:${port}/test -d '{"platform":"discord","command":"$menu"}'`);
+    logger.info(`[TestServer] Servidor de testes iniciado`, { port });
+    logger.info(`[TestServer] Exemplo: curl -X POST http://localhost:${port}/test -d '{"platform":"discord","command":"$menu"}'`);
   });
 }

@@ -1,4 +1,5 @@
 import { getSarcasticResponse } from './aiService';
+import logger from './loggerService';
 
 export interface ReplyContext {
   chatId?: string;
@@ -46,10 +47,16 @@ export async function handleKeywords(
   if (resposta) {
     try {
       await replyCtx.reply(resposta, { messageId: msg.id?.id });
-      console.log(`[keywordHandler] palavra-chave detectada, resposta enviada`);
+      logger.info('[keywordHandler] Palavra-chave detectada, resposta enviada', {
+        chatId: replyCtx.chatId,
+        userId: replyCtx.userId
+      });
       return true;
     } catch (err: any) {
-      console.error(`[keywordHandler] ERRO: não foi possível enviar a resposta da palavra-chave:`, err?.message);
+      logger.error('[keywordHandler] Erro ao enviar resposta', {
+        chatId: replyCtx.chatId,
+        error: err?.message
+      });
     }
   }
   return false;

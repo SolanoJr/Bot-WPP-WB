@@ -15,6 +15,8 @@ import metricsService from '../services/metricsService';
 import { startTestServer } from '../services/testServer';
 import logger, { logError } from '../services/loggerService';
 import { runPeriodicCleanup } from '../services/autoModEngine';
+import { memoryMonitor } from '../services/memoryMonitor';
+import { startPeriodicCleanup } from '../services/cleanupService';
 
 // 🕒 Logging: o loggerService (Winston) escreve no Console (com timestamp próprio)
 // E em arquivos estruturados (logs/combined.log, commands.jsonl, platforms.jsonl).
@@ -114,20 +116,14 @@ export async function initializePlatforms() {
     logger.info('🎉 Todas as plataformas prontas!');
     // Iniciar cleanup periódico do autoMod (fingerprints + audit trail)
     startAutoModPeriodicCleanup();
+    // Iniciar monitoramento de memória (check a cada 60s)
+    memoryMonitor.start(60000);
+    // P2.3: Iniciar limpeza periódica (a cada 6h)
+    startPeriodicCleanup();
   });
 
-  // Graceful shutdown
-  process.on('SIGINT', async () => {
-    logger.info('🛑 Encerrando bot...');
-    await platformManager.shutdownAll();
-    process.exit(0);
-  });
-
-  process.on('SIGTERM', async () => {
-    logger.info('🛑 Encerrando bot...');
-    await platformManager.shutdownAll();
-    process.exit(0);
-  });
+  // P1.2: Graceful shutdown melhorado
+  setupGracefulShutdown();
 }
 
 // Inicializar
@@ -154,4 +150,85 @@ function startAutoModPeriodicCleanup(): void {
       logger.warn('[autoMod] cleanup periódico falhou:', e?.message);
     }
   }, intervalMs).unref();
+}
+
+/**
+ * P1.2: Graceful Shutdown
+ * 
+ * Gerencia o encerramento gracioso do bot:
+ * - Desconecta todas as plataformas corretamente
+ * - Para o monitoramento de memória
+ * - Para o servidor de métricas
+ * - Previne múltiplas execuções
+ * - Timeout de 10s para forçar encerramento
+ */
+let isShuttingDown = false;
+
+function setupGracefulShutdown(): void {
+  const shutdown = async (signal: string) => {
+    if (isShuttingDown) {
+      logger.warn(`[Shutdown] Já está encerrando... Ignorando ${signal}`);
+      return;
+    }
+
+    isShuttingDown = true;
+    logger.info(`🛑 [Shutdown] Recebido ${signal} - iniciando encerramento gracioso...`);
+
+    // Timeout de segurança (10s): força encerramento se travar
+    const forceExitTimer = setTimeout(() => {
+      logger.error('💀 [Shutdown] Timeout atingido (10s) - forçando encerramento');
+      process.exit(1);
+    }, 10000);
+
+    try {
+      // 1. Parar monitoramento de memória
+      logger.info('[Shutdown] Parando monitoramento de memória...');
+      memoryMonitor.stop();
+
+      // 2. Desconectar todas as plataformas
+      logger.info('[Shutdown] Desconectando plataformas...');
+      await platformManager.shutdownAll();
+
+      // 3. Parar servidor de métricas
+      logger.info('[Shutdown] Parando servidor de métricas...');
+      await metricsService.stop();
+
+      // 4. Dar tempo para logs finalizarem
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      logger.info('✅ [Shutdown] Encerramento gracioso concluído');
+      
+      clearTimeout(forceExitTimer);
+      process.exit(0);
+    } catch (error: any) {
+      logger.error('[Shutdown] Erro durante encerramento', { error: error?.message });
+      clearTimeout(forceExitTimer);
+      process.exit(1);
+    }
+  };
+
+  // SIGINT: Ctrl+C no terminal
+  process.on('SIGINT', () => shutdown('SIGINT'));
+
+  // SIGTERM: PM2 reload/stop
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+  // Errors não tratados (última barreira)
+  process.on('uncaughtException', (error) => {
+    logger.error('💀 [Fatal] Uncaught Exception', { error: error.message, stack: error.stack });
+    shutdown('uncaughtException');
+  });
+
+  process.on('unhandledRejection', (reason: any) => {
+    logger.error('💀 [Fatal] Unhandled Rejection', { 
+      reason: reason?.message || String(reason),
+      stack: reason?.stack
+    });
+    // Não encerrar em prod para unhandledRejection (apenas logar)
+    if (process.env.NODE_ENV !== 'production') {
+      shutdown('unhandledRejection');
+    }
+  });
+
+  logger.info('✅ [Shutdown] Handlers configurados (SIGINT, SIGTERM, uncaughtException, unhandledRejection)');
 }

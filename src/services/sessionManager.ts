@@ -18,6 +18,7 @@
 
 import { platformManager } from '../platforms/PlatformManager';
 import { wppSessionKey } from '../platforms/base/PlatformTypes';
+import logger from './loggerService';
 
 export interface SessionConfig {
   phone: string;
@@ -56,7 +57,7 @@ export function registerWhatsAppSessions(): void {
     const { BaileysAdapter } = require('../platforms/whatsapp/BaileysAdapter');
     const legacyAdapter = new BaileysAdapter();
     platformManager.registerAdapter(legacyAdapter);
-    console.log('[SessionManager] Modo legado: 1 sessão WhatsApp (Baileys).');
+    logger.info('[SessionManager] Modo legado: 1 sessão WhatsApp (Baileys)');
     return;
   }
 
@@ -65,9 +66,16 @@ export function registerWhatsAppSessions(): void {
       const { BaileysAdapter } = require('../platforms/whatsapp/BaileysAdapter');
       const adapter = new BaileysAdapter({ authDir: cfg.authDir, platform: wppSessionKey(cfg.phone) });
       platformManager.registerAdapter(adapter);
-      console.log(`[SessionManager] Sessão WhatsApp registrada: ${wppSessionKey(cfg.phone)} (authDir=${cfg.authDir}, engine=baileys)`);
+      logger.info('[SessionManager] Sessão WhatsApp registrada', {
+        session: wppSessionKey(cfg.phone),
+        authDir: cfg.authDir,
+        engine: 'baileys'
+      });
     } catch (error: any) {
-      console.error(`[SessionManager] Erro ao registrar sessão ${cfg.phone}:`, error?.message);
+      logger.error('[SessionManager] Erro ao registrar sessão', {
+        phone: cfg.phone,
+        error: error?.message
+      });
     }
   }
 }

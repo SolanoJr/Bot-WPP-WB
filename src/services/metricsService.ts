@@ -215,12 +215,49 @@ class MetricsService {
       }
     });
 
-    this.app.get('/health', (req: Request, res: Response) => {
-      res.json({
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime()
-      });
+    this.app.get('/health', async (req: Request, res: Response) => {
+      try {
+        // P1.4: Healthcheck melhorado com status por plataforma
+        const pm = (globalThis as any).__platformManager;
+        const memStats = process.memoryUsage();
+        const heapPercent = (memStats.heapUsed / memStats.heapTotal) * 100;
+
+        // Status por plataforma
+        const platformStatuses: Record<string, any> = {};
+        if (pm && pm.getAdapters) {
+          const adapters = pm.getAdapters();
+          for (const [key, adapter] of adapters.entries()) {
+            platformStatuses[key] = {
+              connected: adapter.isConnected?.() ?? false,
+              platform: adapter.getPlatform?.() ?? key
+            };
+          }
+        }
+
+        const health = {
+          status: heapPercent < 90 ? 'healthy' : 'degraded',
+          timestamp: new Date().toISOString(),
+          uptime: process.uptime(),
+          memory: {
+            heapUsed: Math.round(memStats.heapUsed / 1024 / 1024),
+            heapTotal: Math.round(memStats.heapTotal / 1024 / 1024),
+            heapPercent: Math.round(heapPercent * 100) / 100,
+            rss: Math.round(memStats.rss / 1024 / 1024)
+          },
+          platforms: platformStatuses,
+          activePlatformsCount: Object.keys(platformStatuses).length
+        };
+
+        const statusCode = health.status === 'healthy' ? 200 : 503;
+        res.status(statusCode).json(health);
+      } catch (error: any) {
+        logger.error('[Metrics] Erro no healthcheck:', error);
+        res.status(500).json({
+          status: 'unhealthy',
+          error: error?.message,
+          timestamp: new Date().toISOString()
+        });
+      }
     });
   }
 
@@ -306,6 +343,60 @@ class MetricsService {
 
   public recordRelayResponseTime(durationMs: number): void {
     this.relayResponseTime.observe(durationMs);
+  }
+
+  // ========== P3.2: TELEMETRIA ADICIONAL ==========
+
+  private gcForcedCounter?: Counter<string>;
+  private gcBytesFreedGauge?: Gauge<string>;
+  private memoryAlertsCounter?: Counter<string>;
+
+  /**
+   * Registra uso de memória (chamado pelo memoryMonitor)
+   */
+  public recordMemoryUsage(heapUsed: number, heapTotal: number, rss: number): void {
+    // Já temos memory_usage_bytes, mas vamos adicionar métricas mais granulares
+    this.memoryUsage.set(heapUsed);
+  }
+
+  /**
+   * Registra execução de GC (garbage collection)
+   */
+  public recordGarbageCollection(bytesFreed: number): void {
+    // Contador de GC forçado pelo memoryMonitor
+    if (!this.gcForcedCounter) {
+      this.gcForcedCounter = new Counter({
+        name: 'gc_forced_total',
+        help: 'Total de garbage collections forçadas pelo memoryMonitor',
+        registers: [this.registry]
+      });
+    }
+    this.gcForcedCounter.inc();
+
+    // Gauge de bytes liberados na última GC
+    if (!this.gcBytesFreedGauge) {
+      this.gcBytesFreedGauge = new Gauge({
+        name: 'gc_bytes_freed',
+        help: 'Bytes liberados na última garbage collection',
+        registers: [this.registry]
+      });
+    }
+    this.gcBytesFreedGauge.set(bytesFreed);
+  }
+
+  /**
+   * Registra alerta de memória (85% ou 92%)
+   */
+  public recordMemoryAlert(level: 'warning' | 'critical'): void {
+    if (!this.memoryAlertsCounter) {
+      this.memoryAlertsCounter = new Counter({
+        name: 'memory_alerts_total',
+        help: 'Total de alertas de memória disparados',
+        labelNames: ['level'],
+        registers: [this.registry]
+      });
+    }
+    this.memoryAlertsCounter.inc({ level });
   }
 
   public setQueueSize(size: number): void {

@@ -4,6 +4,8 @@
  * Implementa validação com getNumberId() para evitar erro "No LID for user"
  */
 
+import logger from './loggerService';
+
 interface ValidationResult {
     valid: boolean;
     error?: string;
@@ -43,7 +45,7 @@ const validateNumber = async (client: any, phoneNumber: string): Promise<Validat
         };
 
     } catch (error: any) {
-        console.error(`[VALIDATE] Erro ao validar ${phoneNumber}:`, error.message);
+        logger.error('[VALIDATE] Erro ao validar número', { phoneNumber, error: error.message });
         return {
             valid: false,
             error: error.message,
@@ -57,20 +59,21 @@ const validateAndSendMessage = async (client: any, phoneNumber: string, message:
     const validation = await validateNumber(client, phoneNumber);
     
     if (!validation.valid) {
-        console.log(`🚫 [SEND] Número inválido - NÃO tentando enviar`);
+        logger.warn('[SEND] Número inválido - não tentando enviar', { phoneNumber, error: validation.error });
         throw new Error(`Número inválido: ${phoneNumber} (${validation.error})`);
     }
     
     // Se válido, enviar mensagem
     try {
         const targetChatId = validation.serialized;
-        console.log(`📤 [SEND] Enviando para ${targetChatId}`);
+        logger.info('[SEND] Enviando mensagem', { targetChatId });
         
         const result = await client.sendMessage(targetChatId, message);
         
-        console.log(`✅ [SEND] Mensagem enviada com sucesso!`);
-        console.log(`📊 [SEND] MessageID: ${result.id?.id || 'unknown'}`);
-        console.log(`📊 [SEND] Para: ${targetChatId}`);
+        logger.info('[SEND] Mensagem enviada com sucesso', {
+            messageId: result.id?.id || 'unknown',
+            to: targetChatId
+        });
         
         return {
             success: true,
@@ -79,7 +82,10 @@ const validateAndSendMessage = async (client: any, phoneNumber: string, message:
         };
         
     } catch (error: any) {
-        console.error(`❌ [SEND] Erro ao enviar para ${validation.serialized}:`, error.message);
+        logger.error('[SEND] Erro ao enviar mensagem', {
+            to: validation.serialized,
+            error: error.message
+        });
         throw error;
     }
 };

@@ -4,6 +4,8 @@
  * Controle de acesso baseado em níveis de usuário
  */
 
+import logger from './loggerService';
+
 // Configuração de usuários
 const MASTER_USER = process.env.MASTER_USER || '5588998314322@c.us';
 const MASTER_NUMBER = process.env.MASTER_NUMBER || '5588998314322';
@@ -70,7 +72,11 @@ function hasPermission(userId: string, requiredLevel: PermissionLevel): boolean 
 
     // Log solicitado: [PERMISSÃO]
     if (requiredLevel !== PERMISSIONS.USER) {
-        console.log(`[PERMISSÃO] Recebido: ${userClean} | Master: ${cleanId(MASTER_USER)} | Resultado: [${hasPerm ? 'Sim' : 'Não'}]`);
+        logger.debug('[PERMISSÃO] Verificação', {
+            user: userClean,
+            master: cleanId(MASTER_USER),
+            hasPermission: hasPerm
+        });
     }
 
     return hasPerm;
@@ -116,7 +122,7 @@ function requirePermission(requiredLevel: PermissionLevel) {
         const userId = msg.author || msg.from;
         
         // Log de AUDITORIA REAL solicitado
-        console.log(`[DEBUG] ID Bruto Recebido: ${userId}`);
+        logger.debug('[DEBUG] ID Bruto Recebido', { userId });
 
         if (!hasPermission(userId, requiredLevel)) {
             switch (requiredLevel) {
@@ -157,7 +163,7 @@ export function getOwnerNotifyTarget(): string | null {
     const lid = process.env.MASTER_LID.trim();
     // Garante que não é o LID do próprio bot
     if (!lid.includes('202658048684056')) return lid;
-    console.warn('[permissions] MASTER_LID é o LID do próprio bot — ignorando');
+    logger.warn('[permissions] MASTER_LID é o LID do próprio bot — ignorando');
   }
   // MASTER_USER (formato completo: 5588998314322@c.us ou @lid)
   if (process.env.MASTER_USER) {

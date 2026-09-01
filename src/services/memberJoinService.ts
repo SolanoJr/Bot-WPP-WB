@@ -7,6 +7,7 @@ import {
   recordMemberJoin,
   recordMemberRemove,
 } from './databaseService.js';
+import logger from './loggerService';
 
 interface MemberJoinContext {
   removeParticipant: (groupId: string, userId: string) => Promise<void>;
@@ -53,7 +54,11 @@ export async function handleMemberJoin(
         }
       }
     } catch (err: any) {
-      console.error('[memberJoinService] erro:', err?.message);
+      logger.error('[memberJoinService] Erro ao processar entrada', {
+        groupId: event.groupId,
+        member: idOf(member),
+        error: err?.message
+      });
     }
   }
 }

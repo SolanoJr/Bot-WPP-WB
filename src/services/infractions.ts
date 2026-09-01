@@ -1,5 +1,6 @@
 // Infrações por (grupo, usuário). 3 strikes = remoção (nunca ban, exceto bot).
 import { getDb } from './databaseService';
+import logger from './loggerService';
 
 export const MAX_INFRACTIONS = 3;
 
@@ -24,7 +25,7 @@ export async function recordInfraction(groupId: string, userId: string): Promise
     const row: any = await db.get ? db.get(`SELECT count FROM infractions WHERE group_id = ? AND user_id = ?`, g, u) : null;
     return row?.count || 1;
   } catch (e: any) {
-    console.error('[DB] Falha ao registrar infração:', e?.message);
+    logger.error('[DB] Falha ao registrar infração', { groupId: g, userId: u, error: e?.message });
     return 1;
   }
 }
@@ -37,7 +38,7 @@ export async function getInfractionCount(groupId: string, userId: string): Promi
     const row = await db.get(`SELECT count FROM infractions WHERE group_id = ? AND user_id = ?`, g, u);
     return row?.count || 0;
   } catch (e: any) {
-    console.error('[DB] Falha ao ler infração:', e?.message);
+    logger.error('[DB] Falha ao ler infração', { groupId: g, userId: u, error: e?.message });
     return 0;
   }
 }
@@ -49,6 +50,6 @@ export async function resetInfractions(groupId: string, userId: string): Promise
     const db = await getDb();
     await db.run(`DELETE FROM infractions WHERE group_id = ? AND user_id = ?`, g, u);
   } catch (e: any) {
-    console.error('[DB] Falha ao zerar infração:', e?.message);
+    logger.error('[DB] Falha ao zerar infração', { groupId: g, userId: u, error: e?.message });
   }
 }
