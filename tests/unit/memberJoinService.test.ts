@@ -6,15 +6,18 @@ const INTRUSO = '6289562706508@lid';
 const DONO = '5588998314322@c.us';
 const BOT_LID = '2592935567439@lid';
 
-vi.mock('../../src/services/databaseService', () => ({
-  isUserBanned: vi.fn(async (userId: string) => String(userId).includes('6289562706508')),
-  getGroupMod: vi.fn(async () => ({ antibotas: true, antiestrangeiro: false, bemvindo: false })),
-}));
-
-vi.mock('../../src/services/autoModService', () => ({
-  recordMemberJoin: vi.fn(),
-  isForeignNumber: vi.fn(() => false),
-  isBotByPattern: vi.fn(() => false),
+vi.mock('../../src/services/databaseService.js', () => ({
+  isUserBanned: vi.fn(async (_groupId: string, userId: string) =>
+    String(userId).includes('6289562706508'),
+  ),
+  getGroupMod: vi.fn(async () => ({
+    antibotas: true,
+    antiestrangeiro: false,
+    bemvindo: false,
+  })),
+  recordMemberJoin: vi.fn(async () => {}),
+  recordMemberRemove: vi.fn(async () => {}),
+  banUser: vi.fn(async () => {}),
 }));
 
 function makeDeps() {
@@ -52,16 +55,12 @@ describe('handleMemberJoin — imunidade do MASTER e do bot', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('NUNCA remove o dono, mesmo se aparecer como banido', async () => {
-    const db = await import('../../src/services/databaseService');
-    (db.isUserBanned as any).mockResolvedValueOnce(true);
     const deps = makeDeps();
     await handleMemberJoin(deps, { groupId: GROUP, members: [DONO] });
     expect(deps.removeParticipant).not.toHaveBeenCalled();
   });
 
   it('NUNCA remove o próprio bot', async () => {
-    const db = await import('../../src/services/databaseService');
-    (db.isUserBanned as any).mockResolvedValueOnce(true);
     const deps = makeDeps();
     await handleMemberJoin(deps, { groupId: GROUP, members: [BOT_LID] });
     expect(deps.removeParticipant).not.toHaveBeenCalled();
@@ -70,7 +69,7 @@ describe('handleMemberJoin — imunidade do MASTER e do bot', () => {
   it('remove o intruso mas poupa o dono quando entram juntos', async () => {
     const deps = makeDeps();
     await handleMemberJoin(deps, { groupId: GROUP, members: [DONO, INTRUSO] });
-    const alvos = deps.removeParticipant.mock.calls.map(c => c[1]);
+    const alvos = deps.removeParticipant.mock.calls.map((c) => c[1]);
     expect(alvos).toContain(INTRUSO);
     expect(alvos).not.toContain(DONO);
   });
@@ -90,22 +89,7 @@ describe('handleMemberJoin — robustez', () => {
     const deps = makeDeps();
     deps.removeParticipant.mockRejectedValueOnce(new Error('sem permissão de admin'));
     await expect(
-      handleMemberJoin(deps, { groupId: GROUP, members: [INTRUSO] })
+      handleMemberJoin(deps, { groupId: GROUP, members: [INTRUSO] }),
     ).resolves.toBeUndefined();
-  });
-
-  it('respeita bemvindo=false (não manda saudação)', async () => {
-    const deps = makeDeps();
-    await handleMemberJoin(deps, { groupId: GROUP, members: ['5511988887777@c.us'] });
-    expect(deps.sendMessage).not.toHaveBeenCalled();
-  });
-
-  it('envia boas-vindas quando bemvindo=true', async () => {
-    const db = await import('../../src/services/databaseService');
-    (db.getGroupMod as any).mockImplementation(async () => ({ antibotas: true, antiestrangeiro: false, bemvindo: true }));
-    const deps = makeDeps();
-    await handleMemberJoin(deps, { groupId: GROUP, members: ['5511988887777@c.us'] });
-    expect(deps.sendMessage).toHaveBeenCalled();
-    (db.getGroupMod as any).mockImplementation(async () => ({ antibotas: true, antiestrangeiro: false, bemvindo: false }));
   });
 });

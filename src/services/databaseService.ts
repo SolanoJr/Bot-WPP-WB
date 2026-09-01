@@ -6,14 +6,12 @@ import fs from 'fs';
 const DB_DIR = path.join(process.cwd(), 'data');
 const DB_FILE = 'bot_database.db';
 
-// Garante que a pasta data existe
 if (!fs.existsSync(DB_DIR)) {
   fs.mkdirSync(DB_DIR, { recursive: true });
 }
 
 const dbPath = path.join(DB_DIR, DB_FILE);
 
-// Tipo de configuração de moderação por grupo
 export interface GroupModConfig {
   antispam?: boolean;
   antiestrangeiro?: boolean;
@@ -29,11 +27,10 @@ export async function initDatabase() {
     driver: sqlite3.Database
   });
 
-  // Otimizações SQLite: WAL mode (concorrência) e busy_timeout (evita SQLITE_BUSY)
   await db.exec("PRAGMA journal_mode=WAL;");
   await db.exec("PRAGMA busy_timeout=5000;");
 
-  // Tabela de Logs de Comandos (Estatísticas)
+  // ─── Logs de comandos ───
   await db.exec(`
     CREATE TABLE IF NOT EXISTS command_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,7 +42,7 @@ export async function initDatabase() {
     );
   `);
 
-  // Tabela de usuários banidos
+  // ─── Usuários banidos ───
   await db.exec(`
     CREATE TABLE IF NOT EXISTS banned_users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,7 +54,7 @@ export async function initDatabase() {
     );
   `);
 
-  // Tabela de configurações de moderação por grupo
+  // ─── Configurações de moderação por grupo ───
   await db.exec(`
     CREATE TABLE IF NOT EXISTS group_mod (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,6 +65,31 @@ export async function initDatabase() {
       bemvindo BOOLEAN DEFAULT 0,
       detectar BOOLEAN DEFAULT 0,
       remover BOOLEAN DEFAULT 1
+    );
+  `);
+
+  // ─── AUDIT TRAIL: entrada/saída de membros ───
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS mod_member_joins (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      group_id TEXT NOT NULL,
+      member_id TEXT NOT NULL,
+      joined_at INTEGER NOT NULL,
+      left_at INTEGER,
+      reason TEXT DEFAULT 'not_set',
+      UNIQUE(group_id, member_id, joined_at)
+    );
+  `);
+
+  // ─── AUDIT TRAIL: fingerprint de mensagens repetidas (anti-spam) ───
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS mod_msg_fingerprints (
+      group_id TEXT NOT NULL,
+      fingerprint TEXT NOT NULL,
+      source_jid TEXT NOT NULL,
+      first_seen INTEGER NOT NULL,
+      count INTEGER NOT NULL DEFAULT 1,
+      PRIMARY KEY (group_id, fingerprint, source_jid)
     );
   `);
 }
@@ -93,7 +115,6 @@ export async function dbExecWithRetry(db: Database, sql: string, params: any[] =
   }
 }
 
-// Registra uso de comandos (chamado pelo PlatformManager.logCommandUsage)
 export async function recordCommandUsage(entry: { commandName: string; userId: string; groupId: string; groupName: string }): Promise<void> {
   try {
     const db = await getDb();
@@ -106,7 +127,6 @@ export async function recordCommandUsage(entry: { commandName: string; userId: s
   }
 }
 
-// Retorna métricas de uso de comandos por grupo
 export async function getCommandMetrics(): Promise<any[]> {
   const db = await getDb();
   return db.all(`
@@ -118,7 +138,6 @@ export async function getCommandMetrics(): Promise<any[]> {
   `);
 }
 
-// Lista de usuários banidos
 export async function listBanned(limit: number = 10): Promise<any[]> {
   const db = await getDb();
   return db.all(
@@ -127,7 +146,6 @@ export async function listBanned(limit: number = 10): Promise<any[]> {
   );
 }
 
-// Configuração de moderação de um grupo
 export async function getGroupMod(groupId: string): Promise<GroupModConfig> {
   const db = await getDb();
   const row = await db.get(
@@ -136,7 +154,7 @@ export async function getGroupMod(groupId: string): Promise<GroupModConfig> {
   );
   if (!row) return {};
   return {
-    antispam: row.autospam === 1 || row.autospam === true,
+    antispam: row.antispam === 1 || row.antispam === true,
     antiestrangeiro: row.antiestrangeiro === 1 || row.antiestrangeiro === true,
     autolink: row.autolink === 1 || row.autolink === true,
     bemvindo: row.bemvindo === 1 || row.bemvindo === true,
@@ -145,7 +163,6 @@ export async function getGroupMod(groupId: string): Promise<GroupModConfig> {
   };
 }
 
-// Estado resumido de moderação (on/off geral)
 export async function getGroupModState(groupId: string): Promise<string> {
   const config = await getGroupMod(groupId);
   const allOn = ['antispam', 'antiestrangeiro', 'autolink', 'remover'].every(
@@ -157,7 +174,6 @@ export async function getGroupModState(groupId: string): Promise<string> {
   return 'desativado';
 }
 
-// Define um campo específico de moderação
 export async function setGroupModField(groupId: string, field: keyof GroupModConfig, value: boolean): Promise<void> {
   const db = await getDb();
   await db.run(
@@ -167,7 +183,6 @@ export async function setGroupModField(groupId: string, field: keyof GroupModCon
   );
 }
 
-// Define toda a configuração de uma vez
 export async function setGroupModAll(groupId: string, config: GroupModConfig): Promise<void> {
   const db = await getDb();
   await db.run(
@@ -192,7 +207,6 @@ export async function setGroupModAll(groupId: string, config: GroupModConfig): P
   );
 }
 
-// Persiste a banição de um usuário no grupo (infração registrada)
 export async function banUser(entry: {
   groupId: string;
   userId: string;
@@ -208,7 +222,6 @@ export async function banUser(entry: {
   );
 }
 
-// Verifica se um usuário está banido no grupo
 export async function isUserBanned(groupId: string, userId: string): Promise<boolean> {
   const db = await getDb();
   const row = await db.get(
@@ -216,4 +229,104 @@ export async function isUserBanned(groupId: string, userId: string): Promise<boo
     [groupId, userId]
   );
   return !!row;
+}
+
+// ─── AUDIT TRAIL: member joins / leaves ───
+
+export async function recordMemberJoin(groupId: string, memberId: string): Promise<void> {
+  const db = await getDb();
+  try {
+    await db.run(
+      `INSERT INTO mod_member_joins (group_id, member_id, joined_at, left_at, reason)
+       VALUES (?, ?, ?, NULL, 'not_set')
+       ON CONFLICT(group_id, member_id, joined_at) DO NOTHING`,
+      [groupId, memberId, Date.now()]
+    );
+  } catch (err: any) {
+    console.warn('[mod_member_joins] recordMemberJoin falhou:', err?.message);
+  }
+}
+
+export async function recordMemberRemove(groupId: string, memberId: string, reason: 'kick' | 'ban' | 'voluntarily' | 'not_set' = 'not_set'): Promise<void> {
+  const db = await getDb();
+  try {
+    // Marca a entrada mais recente não-encerrada do membro
+    await db.run(
+      `UPDATE mod_member_joins SET left_at = ?, reason = ? WHERE group_id = ? AND member_id = ? AND left_at IS NULL`,
+      [Date.now(), reason, groupId, memberId]
+    );
+  } catch (err: any) {
+    console.warn('[mod_member_joins] recordMemberRemove falhou:', err?.message);
+  }
+}
+
+export async function isMemberCurrentlyInGroup(groupId: string, memberId: string): Promise<boolean> {
+  const db = await getDb();
+  const row = await db.get(
+    `SELECT 1 FROM mod_member_joins WHERE group_id = ? AND member_id = ? AND left_at IS NULL LIMIT 1`,
+    [groupId, memberId]
+  );
+  return !!row;
+}
+
+export async function getMemberJoinHistory(groupId: string, memberId: string): Promise<Array<{ joined_at: number; left_at: number | null; reason: string }>> {
+  const db = await getDb();
+  const rows = await db.all(
+    `SELECT joined_at, left_at, reason FROM mod_member_joins WHERE group_id = ? AND member_id = ? ORDER BY joined_at DESC`,
+    [groupId, memberId]
+  );
+  return rows.map(r => ({ joined_at: Number(r.joined_at), left_at: r.left_at ? Number(r.left_at) : null, reason: r.reason }));
+}
+
+// ─── AUDIT TRAIL: fingerprints de mensagens repetidas ───
+
+export async function recordMessageFingerprint(groupId: string, fingerprint: string, sourceJid: string): Promise<void> {
+  const db = await getDb();
+  try {
+    await db.run(
+      `INSERT INTO mod_msg_fingerprints (group_id, fingerprint, source_jid, first_seen, count)
+       VALUES (?, ?, ?, ?, 1)
+       ON CONFLICT(group_id, fingerprint, source_jid) DO UPDATE SET count = count + 1, first_seen = excluded.first_seen`,
+      [groupId, fingerprint, sourceJid, Date.now()]
+    );
+  } catch (err: any) {
+    console.warn('[mod_msg_fingerprints] recordMessageFingerprint falhou:', err?.message);
+  }
+}
+
+export async function getRecentFingerprintCount(groupId: string, fingerprint: string, sourceJid: string, maxAgeSeconds: number): Promise<number> {
+  const db = await getDb();
+  const cutoff = Date.now() - maxAgeSeconds * 1000;
+  const row = await db.get(
+    `SELECT count FROM mod_msg_fingerprints WHERE group_id = ? AND fingerprint = ? AND source_jid = ? AND first_seen >= ?`,
+    [groupId, fingerprint, sourceJid, cutoff]
+  );
+  return row ? Number(row.count) : 0;
+}
+
+export async function cleanupOldFingerprintEntries(maxAgeSeconds: number = 3600): Promise<void> {
+  const db = await getDb();
+  try {
+    const cutoff = Date.now() - maxAgeSeconds * 1000;
+    await db.run(
+      `DELETE FROM mod_msg_fingerprints WHERE first_seen < ?`,
+      [cutoff]
+    );
+  } catch (err: any) {
+    console.warn('[mod_msg_fingerprints] cleanupOldFingerprintEntries falhou:', err?.message);
+  }
+}
+
+export async function cleanupOldJoinEntries(maxAgeSeconds: number = 2592000): Promise<void> {
+  // Só limpa entradas encerradas (left_at != NULL) com mais de N dias. Membros ativos nunca são limpos.
+  const db = await getDb();
+  try {
+    const cutoff = Date.now() - maxAgeSeconds * 1000;
+    await db.run(
+      `DELETE FROM mod_member_joins WHERE left_at IS NOT NULL AND left_at < ?`,
+      [cutoff]
+    );
+  } catch (err: any) {
+    console.warn('[mod_member_joins] cleanupOldJoinEntries falhou:', err?.message);
+  }
 }

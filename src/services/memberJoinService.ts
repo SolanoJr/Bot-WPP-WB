@@ -1,7 +1,12 @@
-// memberJoinService.ts
+// src/services/memberJoinService.ts
 // Tratamento de entrada de membros em grupos (engine Baileys/ativo).
 // Verifica se o membro que entrou está banido e, se estiver, remove-o.
-import { isUserBanned, banUser } from './databaseService.js';
+import {
+  isUserBanned,
+  banUser,
+  recordMemberJoin,
+  recordMemberRemove,
+} from './databaseService.js';
 
 interface MemberJoinContext {
   removeParticipant: (groupId: string, userId: string) => Promise<void>;
@@ -10,30 +15,45 @@ interface MemberJoinContext {
 
 interface MemberJoinEvent {
   groupId: string;
-  members: { id: string; name?: string }[];
+  members: (string | { id: string; name?: string })[];
+}
+
+/** Helper: extrai o ID do membro (string ou objeto). */
+function idOf(member: string | { id: string; name?: string }): string {
+  return typeof member === 'string' ? member : member.id;
+}
+
+/** Helper: extrai o nome display do membro. */
+function nameOf(member: string | { id: string; name?: string }): string {
+  return typeof member === 'string' ? '' : (member.name || '');
 }
 
 /**
  * Para cada membro que entrou, se estiver banido no grupo, remove-o.
+ * Ignora eventos sem grupo ou sem membros.
  */
 export async function handleMemberJoin(
   ctx: MemberJoinContext,
-  event: MemberJoinEvent
+  event: MemberJoinEvent,
 ): Promise<void> {
+  if (!event.groupId || event.members.length === 0) return;
   for (const member of event.members) {
     try {
-      const banned = await isUserBanned(event.groupId, member.id);
+      const id = idOf(member);
+      await recordMemberJoin(event.groupId, id);
+      const banned = await isUserBanned(event.groupId, id);
       if (banned) {
-        await ctx.removeParticipant(event.groupId, member.id);
+        await ctx.removeParticipant(event.groupId, id);
+        await recordMemberRemove(event.groupId, id, 'ban');
         if (ctx.sendMessage) {
           await ctx.sendMessage(
             event.groupId,
-            `🚫 ${member.name || member.id} estava banido e foi removido ao entrar.`
+            `🚫 ${nameOf(member) || id} foi banido e removido do grupo.`,
           );
         }
       }
     } catch (err: any) {
-      console.error('[memberJoinService] erro ao processar entrada:', err?.message);
+      console.error('[memberJoinService] erro:', err?.message);
     }
   }
 }

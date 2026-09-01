@@ -646,8 +646,10 @@ export function attachBroadcaster(room, ws, info, fonte = 'tela') {
 export function startStream(room, entry) {
   entry.streaming = true;
   entry.startedAt = Date.now();
-  entry.config = null;
-  entry.audioConfig = null;
+  // Não apagar config/audioConfig — broadcaster manda config ANTES do start
+  // (via handleBroadcaster 'config' -> setConfig). Apagar aqui faz
+  // isWebM falhar e o initChunk nunca ser guardado/reenviado.
+  entry.initChunk = null;
   // Transmissão nova recomeça do zero: ninguém assiste até pedir.
   for (const v of room.viewers) {
     v.__primed?.delete(entry.slot);
@@ -694,6 +696,13 @@ export function pushChunk(room, entry, chunk) {
   recordTraffic(entry.traffic, 'receivedBytes', bytes);
 
   if (chunk[SLOT_BYTE] !== entry.slot) return;
+
+  // Guarda o primeiro chunk WebM (contém EBML header) para reenviar a quem entrar depois
+  const isWebM = entry.config?.codec?.includes('webm') || entry.config?.mimeType?.includes('webm');
+  if (isWebM && !entry.initChunk && bytes > 0) {
+    // Primeiro chunk após start — clona para não ser afetado por send
+    try { entry.initChunk = chunk.slice ? chunk.slice() : Buffer.from(chunk); } catch { entry.initChunk = chunk; }
+  }
 
   const tipo = chunk[TYPE_BYTE];
   const isKeyframe = tipo === KEYFRAME;
@@ -778,8 +787,7 @@ export function stopStream(room, entry) {
   if (!entry.streaming) return;
   entry.streaming = false;
   entry.startedAt = null;
-  entry.config = null;
-  entry.audioConfig = null;
+  entry.initChunk = null;
   for (const v of room.viewers) {
     v.__primed?.delete(entry.slot);
     v.__watching?.delete(entry.slot);
@@ -809,7 +817,18 @@ export function watch(room, ws, slot) {
   if (ws.__watching.has(slot)) return;
 
   ws.__watching.add(slot);
-  ws.__primed.delete(slot);
+  // WebM via MediaRecorder não tem keyframe real — o primeiro Blob já
+  // contém o EBML header (init segment). Quem entra no meio perderia.
+  // Prime imediato para WebM, e reenvia o init guardado se houver.
+  const isWebM = entry.config?.codec?.includes('webm') || entry.config?.mimeType?.includes('webm');
+  if (isWebM) {
+    ws.__primed.add(slot);
+    if (entry.initChunk && ws.readyState === ws.OPEN) {
+      try { ws.send(entry.initChunk); } catch {}
+    }
+  } else {
+    ws.__primed.delete(slot);
+  }
 
   if (entry.config) sendJson(ws, { type: 'config', slot, config: entry.config });
   if (entry.audioConfig) {

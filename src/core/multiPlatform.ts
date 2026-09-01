@@ -14,6 +14,7 @@ import { loadCommands } from '../bot/commands';
 import metricsService from '../services/metricsService';
 import { startTestServer } from '../services/testServer';
 import logger, { logError } from '../services/loggerService';
+import { runPeriodicCleanup } from '../services/autoModEngine';
 
 // 🕒 Logging: o loggerService (Winston) escreve no Console (com timestamp próprio)
 // E em arquivos estruturados (logs/combined.log, commands.jsonl, platforms.jsonl).
@@ -111,6 +112,8 @@ export async function initializePlatforms() {
   // Handler de pronto
   platformManager.onReady(() => {
     logger.info('🎉 Todas as plataformas prontas!');
+    // Iniciar cleanup periódico do autoMod (fingerprints + audit trail)
+    startAutoModPeriodicCleanup();
   });
 
   // Graceful shutdown
@@ -132,3 +135,23 @@ initializePlatforms().catch(error => {
   logError('FatalInit', error);
   process.exit(1);
 });
+
+/**
+ * Inicia o cleanup periódico do motor de moderação automática.
+ * Chama runPeriodicCleanup a cada 15 minutos para manter tabelas de
+ * fingerprints e audit trail pequenas.
+ */
+function startAutoModPeriodicCleanup(): void {
+  // já chama uma vez imediatamente para limpar coisas antigas antes do intervalo
+  void runPeriodicCleanup().catch((e: any) => {
+    logger.warn('[autoMod] cleanup periódico inicial falhou:', e?.message);
+  });
+  const intervalMs = 15 * 60 * 1000; // 15 min
+  setInterval(async () => {
+    try {
+      await runPeriodicCleanup();
+    } catch (e: any) {
+      logger.warn('[autoMod] cleanup periódico falhou:', e?.message);
+    }
+  }, intervalMs).unref();
+}

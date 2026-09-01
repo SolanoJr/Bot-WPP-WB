@@ -17,7 +17,6 @@ import makeWASocket, {
   makeCacheableSignalKeyStore,
   type WAMessageKey,
   type WAMessage,
-  type proto,
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import path from 'path';
@@ -260,7 +259,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
   // ============================================================
   // NORMALIZAÇÃO DE MENSAGEM
   // ============================================================
-  private dispatchMessage(msg: any): void {
+  private async dispatchMessage(msg: any): Promise<void> {
     try {
       const hasStub = msg.messageStubType || (Array.isArray(msg.messageStubParameters) && msg.messageStubParameters.length > 0);
       if (hasStub) { return; }
@@ -340,7 +339,57 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
         raw: msg,
       };
       this.msgHandler?.(platformMsg);
-      // Atualiza healthStore
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // MODERAÇÃO AUTOMÁTICA (tempo real) — fire-and-forget, não bloqueia
+      // o caminho crítico de despacho de comandos.
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      try {
+        const { evaluate } = await import('../../services/autoModEngine.js');
+        void (async () => {
+          try {
+            // display name do remetente (do store local do Baileys)
+            let senderName = '';
+            if (this.sock?.store) {
+              try {
+                const cts = this.sock.store.contacts || {};
+                const profile = cts[sender] || cts[`${sender}`] || {};
+                senderName = profile.formattedName || profile.notify || profile.verifiedName || '';
+              } catch { /* ignorar */ }
+            }
+            await evaluate(
+              msg,
+              {
+                sock: this.sock,
+                userId: this.userId,
+                groupName: from.endsWith('@g.us') ? (this.sock?.store?.chats?.[from]?.subject || from) : from,
+                getChat: async (jid) => {
+                  try {
+                    const res = await this.getChat(jid);
+                    return { participants: (res?.participants || []).map((p: any) => p?.id || p), id: res?.id || jid, subject: res?.name };
+                  } catch { return null; }
+                },
+                sendMessage: async (jid, text, opts) => {
+                  try { await this.sendMessage(jid, text, opts); return {} as any; } catch { return null as any; }
+                },
+                removeParticipant: async (g, u) => {
+                  try { await this.removeParticipant(g, u); } catch { /* ignorar */ }
+                },
+                log: console.log.bind(console),
+                warn: console.warn.bind(console),
+                error: console.error.bind(console),
+              },
+              from,
+              sender,
+              senderName,
+            );
+          } catch (err: any) {
+            console.warn('[Baileys] autoModEngine.evaluate falhou:', err?.message);
+          }
+        })();
+      } catch (err: any) {
+        console.warn('[Baileys] não foi possível carregar autoModEngine:', err?.message);
+      }
+      // ── fim autoMod ──────────────────────────────────────────────────────
       this.getHealth();
     } catch (e: any) {
       console.error(`[Baileys] ❌ erro ao normalizar msg: ${e?.message}`);

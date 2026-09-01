@@ -71,7 +71,9 @@ export function createBroadcaster({
   let viewers = 0;
 
   const hasWebCodecs = !!(window.VideoEncoder && window.VideoFrame && window.EncodedVideoChunk);
-  const useWebCodecs = hasWebCodecs;
+  // Usar MediaRecorder como padrão para compatibilidade com o viewer via MediaSource.
+  // WebCodecs continua disponível, mas requer transmuxing H.264→WebM no viewer.
+  const useWebCodecs = false; // hasWebCodecs;
 
   function cleanup() {
     if (statsTimer) { clearInterval(statsTimer); statsTimer = null; }
@@ -88,35 +90,164 @@ export function createBroadcaster({
     onEnd?.(reason ?? '');
   }
 
+  let reconnectCount = 0;
+  const MAX_RECONNECT = 5;
+
   async function connect() {
     return new Promise((resolve, reject) => {
-      ws = new WebSocket(wsUrl);
-      ws.onopen = () => resolve();
-      ws.onerror = (e) => reject(e);
-      ws.onclose = () => { if (running) stop('Conexão com o servidor caiu.'); };
+      console.log(`[broadcaster] Conectando ao WebSocket (tentativa ${reconnectCount + 1}/${MAX_RECONNECT}):`, wsUrl);
+      const attemptWs = new WebSocket(wsUrl);
+      let settled = false;
+      attemptWs.binaryType = 'arraybuffer';
+      attemptWs.onopen = () => {
+        console.log('[broadcaster] WebSocket aberto');
+        ws = attemptWs;
+        reconnectCount = 0;
+        // binding de eventos pós-open fica no ws principal
+        ws.onclose = (e) => {
+          console.log('[broadcaster] WebSocket fechado:', e.code, e.reason || '(sem reason)', 'running=', running);
+          if (running) {
+            if (reconnectCount < MAX_RECONNECT) {
+              reconnectCount++;
+              const delay = Math.min(1000 * Math.pow(2, reconnectCount -1), 10000);
+              console.log(`[broadcaster] Reconectando em ${delay}ms...`);
+              setTimeout(() => connect().then(startAfterConnect).catch((err) => stop('Conexão com o servidor caiu. ' + (err?.message||''))), delay);
+            } else {
+              stop('Conexão com o servidor caiu.');
+            }
+          }
+        };
+        ws.onerror = (e) => {
+          console.error('[broadcaster] Erro no WebSocket (pós-open):', e);
+        };
+        // Mensagens do servidor (slot, state, need-keyframe, chunks)
+        ws.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(ev.data);
+            if (msg.type === 'slot') console.log('[broadcaster] slot', msg.slot);
+            else if (msg.type === 'need-keyframe') console.log('[broadcaster] need-keyframe');
+            else if (msg.type === 'chunks') console.log('[broadcaster] chunks', msg.on ? 'on' : 'off');
+            else if (msg.type === 'state') {
+              // Atualiza contador local de espectadores
+              if (typeof msg.viewers === 'number') viewers = msg.viewers;
+              console.log('[broadcaster] state viewers', viewers);
+            }
+            else if (msg.type === 'error') { console.error('[broadcaster] erro do servidor:', msg.message); stop(msg.message); }
+            else console.log('[broadcaster] msg', msg.type);
+          } catch {}
+        };
+        settled = true;
+        resolve();
+      };
+      attemptWs.onerror = (e) => {
+        console.error('[broadcaster] Erro no WebSocket (tentativa):', e);
+        if (!settled) { settled = true; reject(e); }
+      };
+      attemptWs.onclose = (e) => {
+        if (!settled) {
+          console.log('[broadcaster] Fechado antes de abrir:', e.code, e.reason);
+          settled = true;
+          reject(new Error(`WS fechado antes de abrir: ${e.code} ${e.reason||''}`));
+        }
+      };
     });
+  }
+
+  async function startAfterConnect() {
+    try {
+      ws.send(JSON.stringify({
+        type: 'config',
+        config: {
+          codec: useWebCodecs ? 'avc1.640028' : 'video/webm;codecs=vp9',
+          mimeType: useWebCodecs ? 'video/mp4;codecs="avc1.640028"' : 'video/webm;codecs=vp9',
+        },
+      }));
+
+      running = true;
+      startedAt = Date.now();
+
+      if (useWebCodecs) {
+        await startWebCodecs(stream);
+        onStatus?.({ codec: 'webcodecs', width: 1920, height: 1080 });
+      } else {
+        await startMediaRecorder(stream);
+        onStatus?.({ codec: 'mediarecorder' });
+      }
+
+      ws.send(JSON.stringify({ type: 'start' }));
+
+      // Heartbeat para manter a conexão viva
+      const heartbeat = setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ping' }));
+        } else {
+          clearInterval(heartbeat);
+        }
+      }, 10000);
+
+      statsTimer = setInterval(() => {
+        onStats?.({
+          viewers,
+          fps: frames,
+          mbps: (bytes * 8) / 1e6,
+          seconds: Math.floor((Date.now() - startedAt) / 1000),
+        });
+        bytes = 0;
+        frames = 0;
+      }, 1000);
+
+      return stream;
+    } catch (err) {
+      cleanup();
+      throw err;
+    }
   }
 
   // Implementação WebCodecs
   async function startWebCodecs(stream) {
-    // Encontrar nível H264 adequado
     const width = 1920;
     const height = 1080;
-    const macroblocos = Math.ceil(width / 16) * Math.ceil(height / 16);
-    const porSegundo = macroblocos * fps;
-    let nivel = 0x28; // 4.0
-    if (porSegundo > 245760) nivel = 0x2a; // 4.2
-    if (porSegundo > 522240) nivel = 0x32; // 5.0
 
-    const codec = `avc1.${nivel.toString(16).padStart(2, '0')}001E`;
-    const config = {
-      codec,
-      width,
-      height,
-      bitrate,
-      framerate: fps,
-      latencyMode: 'realtime',
-    };
+    // Tentar codecs H.264 do mais preferencial ao menos.
+    // Formato: avc1.<profile><constraint><level>
+    const codecCandidates = [
+      'avc1.640028', // High, Level 4.0
+      'avc1.64002A', // High, Level 4.2
+      'avc1.640032', // High, Level 5.0
+      'avc1.64001F', // High, Level 3.1
+      'avc1.64001E', // High, Level 3.0
+      'avc1.4D401E', // Main, Level 3.0
+      'avc1.42C01E', // Baseline, Level 3.0
+    ];
+
+    let codec = null;
+    let config = null;
+
+    for (const candidate of codecCandidates) {
+      try {
+        config = {
+          codec: candidate,
+          width,
+          height,
+          bitrate,
+          framerate: fps,
+          latencyMode: 'realtime',
+        };
+
+        const result = await VideoEncoder.isConfigSupported(config);
+        if (result?.supported) {
+          codec = candidate;
+          console.log(`[broadcaster] Codec suportado: ${candidate}`);
+          break;
+        }
+      } catch (err) {
+        console.log(`[broadcaster] Codec ${candidate} não suportado:`, err.message);
+      }
+    }
+
+    if (!codec) {
+      throw new Error('Nenhum codec H.264 suportado encontrado');
+    }
 
     const onEncoded = (chunk) => {
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -127,9 +258,8 @@ export function createBroadcaster({
       const packet = new Uint8Array(1 + 1 + 8 + buf.byteLength);
       packet[0] = 0; // slot
       packet[1] = chunk.type === 'key' ? TIPO_KEYFRAME : TIPO_DELTA;
-      // Timestamp como BigUint64
       const view = new DataView(packet.buffer);
-      view.setUint64(2, BigInt(chunk.timestamp || Date.now()), false);
+      view.setFloat64(2, chunk.timestamp || Date.now(), false);
       packet.set(new Uint8Array(buf), 10);
       
       ws.send(packet);
@@ -142,7 +272,6 @@ export function createBroadcaster({
       error: (err) => stop(`Erro no encoder: ${err.message}`),
     });
 
-    await VideoEncoder.isConfigSupported(config);
     encoder.configure(config);
 
     // Capturar frames da tela usando canvas + requestFrame
@@ -189,7 +318,7 @@ export function createBroadcaster({
           packet[0] = 0; // slot
           packet[1] = TIPO_DELTA;
           const view = new DataView(packet.buffer);
-          view.setUint64(2, BigInt(Date.now()), false);
+          view.setFloat64(2, Date.now(), false);
           packet.set(new Uint8Array(buf), 10);
           
           ws?.send(packet);
@@ -213,30 +342,7 @@ export function createBroadcaster({
       track.addEventListener('ended', () => stop('Você parou o compartilhamento pelo navegador.'));
 
       await connect();
-
-      running = true;
-      startedAt = Date.now();
-
-      if (useWebCodecs) {
-        await startWebCodecs(stream);
-        onStatus?.({ codec: 'webcodecs', width: 1920, height: 1080 });
-      } else {
-        await startMediaRecorder(stream);
-        onStatus?.({ codec: 'mediarecorder' });
-      }
-
-      ws.send(JSON.stringify({ type: 'start' }));
-
-      statsTimer = setInterval(() => {
-        onStats?.({
-          viewers,
-          fps: frames,
-          mbps: (bytes * 8) / 1e6,
-          seconds: Math.floor((Date.now() - startedAt) / 1000),
-        });
-        bytes = 0;
-        frames = 0;
-      }, 1000);
+      await startAfterConnect();
 
       return stream;
     } catch (err) {
