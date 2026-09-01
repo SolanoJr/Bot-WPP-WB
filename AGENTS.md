@@ -79,8 +79,8 @@ Os agentes de IA podem assumir diversos papéis dentro do ciclo de vida do Bot-W
 - **Nunca** conclua "bot não conecta / não autentica" lendo `bot-wpp-out.log`. Use `bot-wpp-stable.out.log` ou `pm2 logs bot-wpp`.
 - Prova de que o bot está online aparece assim no log estável:
   ```
-  [YYYY-MM-DD HH:MM:SS] [WhatsApp] ✅ Pronto como WarriorBlack (558581344211@c.us)
-  [YYYY-MM-DD HH:MM:SS] [WhatsApp] ✅ Mensagem de prova ENVIADA para 558581344211@c.us
+  [YYYY-MM-DD HH:MM:SS] [Baileys] ✅ Conectado como WarriorBlack (558581344211:70@s.whatsapp.net)
+  [YYYY-MM-DD HH:MM:SS] [PlatformManager] whatsapp:558581344211 conectado e pronto
   ```
 
 ### 5.2. Conectividade WhatsApp (Baileys, sem Chromium)
@@ -89,26 +89,33 @@ Os agentes de IA podem assumir diversos papéis dentro do ciclo de vida do Bot-W
 - Timeout de diagnóstico de "não autenticou" é **240s** (o Baileys pode demorar a gerar QR em sessão nova).
 - **Anti-regressão:** NUNCA reintroduzir `whatsapp-web.js`/`puppeteer` sem necessidade — o Baileys é o único engine. `qrcode-terminal` NÃO é mais usado (o Baileys usa `qrcode` para PNG).
 
-### 5.3. Arquitetura atual (não confundir com a doc legada)
+### 5.3. AutoMod (engine Baileys — autoModEngine.ts)
+- O serviço de moderação ativo é **autoModEngine.ts** (engine Baileys), não `autoModService.ts` (legado WWebJS).
+- `autoModEngine.ts` processa mensagens do Baileys (`WAMessage`) e aplica regras (antiestrangeiro, antispam, autolink, detectar, remover).
+- Integração: `BaileysAdapter.dispatchMessage` → fire-and-forget (não bloqueia caminho crítico).
+- Flags no `group_mod` (databaseService): `antiestrangeiro`, `antispam`, `autolink`, `detectar`, `remover`.
+- **Anti-regressão:** NUNCA usar `autoModService.ts` em código novo — está obsoleto e depende de WWebJS.
+
+### 5.4. Arquitetura atual (não confundir com a doc legada)
 - **Entry point real do PM2:** `dist/core/multiPlatform.js` (configurado em `ecosystem.config.js`). O sistema multi-plataforma (`PlatformManager` + adapters) É o ativo.
 - **Multi-número:** `src/services/sessionManager.ts` lê `WPP_SESSIONS` (CSV de números) e cria 1 `BaileysAdapter` por número (authDir isolado `sessions/<phone>`, configurável via `WPP_AUTH_DIR`), registrado no `PlatformManager` como `whatsapp:<phone>`. Se `WPP_SESSIONS` vazio → modo legado (1 sessão `whatsapp`). `PlatformType` é `string` (não union).
 - Detalhes de anti-regressão estrutural: `ARCHITECTURE_FIXES.md` (na raiz; tratamento `@lid`, despacho `startAll`, AutoMod desacoplado, **multi-sessão**, Baileys como único engine).
 
-### 5.4. Sincronização de ambientes
+### 5.5. Sincronização de ambientes
 - Windows (dev) → GitHub → Linux (PM2). Sempre `git pull` no Linux + `npm run build` + `pm2 restart` (ou `pm2 delete` + `pm2 start ecosystem.config.js` se mudou log) após push.
 - O bot Linux está online; **não fazer `pm2 stop`/`restart` em loop** durante investigação — isso gera processos zumbis (Chromium) que saturaram a CPU (load 15) e impediam o QR.
 - Ver BUG_TRACKER.md (último: BUG 39) para histórico completo.
 
-### 5.5. Screen Sharing (`$screen`) — topologia e regras
+### 5.6. Screen Sharing (`$screen`) — topologia e regras
 - **Screen server (original Jc007zZ/discord-screen):** `src/services/discord-screen/` (WebCodecs + WebSocket + Express SPA). Roda via **systemd `bot-wpp-screen.service`** na porta **3003** (`DISCORD_SCREEN_PORT`), NÃO via PM2 (o `screen-server` foi removido do `ecosystem.config.js` — conflito de porta; systemd é o dono).
 - **HTTPS:** Tailscale Funnel → `https://ubuntu.tail8486e7.ts.net` → `http://127.0.0.1:3003` (systemd `tailscale-funnel.service`, `Restart=always`). WebCodecs **exige HTTPS**; HTTP não funciona. Cloudflare Tunnel bloqueado por firewall (QUIC/UDP 7844); localtunnel instável — Funnel é o caminho estável.
 - **Discord Activity:** Developer Portal → Activity URL `https://ubuntu.tail8486e7.ts.net`, Redirect URI `https://ubuntu.tail8486e7.ts.net/auth/callback`.
 - **`$screen`:** `src/bot/commands/screen.ts` cria guest session (`POST /api/session-guest`) + sala (`POST /api/rooms/create`) no 3003, responde com 2 links: **Transmitir** (`shareUrl`, role `broadcaster`) e **Assistir** (`viewerToken`, role `viewer`). Ambos ~100-110 chars (token compacto `room.uid.name.role.exp.sig` em `tokens.js`) — cabem no Discord sem truncar.
 - **Build do screen server:** `npm run build` (ou `build:screen-server`) copia `src/services/discord-screen/*.js` → `dist/services/discord-screen/` automaticamente. O `index.js` lê `DISCORD_SCREEN_PORT` e `DISCORD_SCREEN_PUBLIC_ORIGIN` do env (default 3003 / localhost:3003).
 - **Teste automatizado:** `testServer` na porta 3004 injeta comandos (`curl -X POST http://127.0.0.1:3004/test -d '{"platform":"discord","command":"$screen"}'`). O `PlatformManager` real fica em `globalThis.__platformManager` (defesa contra bundle scopes do tsup); `testServer.ts` usa `getInstance()` + `getAdapter()` (API pública, sem acesso a privados).
-- **Typecheck:** `npm run typecheck` (`tsc --noEmit`, com `ignoreDeprecations: 6.0`). **0 erros** (BUG 37 resolvido — dívida histórica de typecheck foi zerada). Manter 0 erros em todo commit.
+- **Typecheck:** `npm run typecheck` (`tsc --noEmit`, com `ignoreDeprecations: 6.0`). **0 erros** (BUG 37 resolvido + limpeza de dependências WWebJS em 2026-09-01). Manter 0 erros em todo commit.
 
-### 5.6. Singleton do PlatformManager (anti-padrão conhecido)
+### 5.7. Singleton do PlatformManager (anti-padrão conhecido)
 - O `PlatformManager` é singleton estático (`getInstance()`), mas o bundler (tsup) pode criar escopos de módulo separados por bundle. `multiPlatform.ts` publica a instância viva em `globalThis.__platformManager`; `testServer.ts` resolve via `getInstance()` caindo para o global. **Não remover o `globalThis`** — ele é a ponte cross-bundle intencional. Acessar `pm.adapters` (privado) de fora está proibido; use `getAdapter(platform)`.
 
 ## 4. Política de Atualização do AGENTS.md
