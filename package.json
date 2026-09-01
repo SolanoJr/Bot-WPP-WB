@@ -12,7 +12,7 @@
     "build:platforms": "tsup src/platforms/**/*.ts --out-dir dist/platforms --format cjs",
     "build:core": "tsup src/core/multiPlatform.ts --out-dir dist/core --format cjs",
     "build:screen": "cd src/services/discord-screen/client && npm install && npm run build",
-    "build:screen-server": "node -e \"require('child_process');const cp=require('child_process');const s='src/services/discord-screen',d='dist/services/discord-screen';require('fs').mkdirSync(d,{recursive:true});cp.execSync('cp '+s+'/*.js '+d+'/')\"",
+    "build:screen-server": "node -e \"const fs=require('fs'),path=require('path');const s=path.join('src','services','discord-screen'),d=path.join('dist','services','discord-screen');fs.mkdirSync(d,{recursive:true});for(const f of fs.readdirSync(s)){if(f.endsWith('.js'))fs.copyFileSync(path.join(s,f),path.join(d,f));}\"",
     "typecheck": "tsc --noEmit",
     "postinstall": "patch-package 2>/dev/null || true",
     "start": "node dist/relay/server.js",
