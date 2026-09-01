@@ -10,6 +10,17 @@ try {
   dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
 } catch { /* ignore */ }
 
+// Silencia Baileys traces GLOBALMENTE (antes de qualquer import do Baileys)
+const originalTrace = console.trace;
+console.trace = (...args: any[]) => {
+  // Ignora traces do Baileys (contém "loading from store" ou "updated cache")
+  const msg = args.join(' ');
+  if (msg.includes('loading from store') || msg.includes('updated cache')) {
+    return;
+  }
+  originalTrace.apply(console, args);
+};
+
 import makeWASocket, {
   DisconnectReason,
   useMultiFileAuthState,
@@ -112,11 +123,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
 
       // Logger silencioso para Baileys (evita poluição de logs com traces)
       const pino = (await import('pino')).default;
-      const baileysLogger = pino({ level: process.env.BAILEYS_LOG_LEVEL || 'error' });
-      
-      // Silencia Baileys traces (usa console.trace diretamente, ignora logger)
-      const originalTrace = console.trace;
-      console.trace = () => {}; // Suprime todos os traces
+      const baileysLogger = pino({ level: process.env.BAILEYS_LOG_LEVEL || 'silent' });
 
       this.sock = makeWASocket({
         version,

@@ -91,3 +91,24 @@
 | Graceful shutdown | ❌ | ✅ | **OK** |
 | Backup | ❌ | ✅ script | **OK** |
 | Docs | ❌ | ✅ completas | **OK** |
+
+
+---
+
+## 🔧 CORREÇÕES ADICIONAIS (2026-09-01 17:11)
+
+### 1. Heap limit 512MB→1GB
+- **Como:** `sed -i` em ecosystem.config.js (max_memory_restart='1G', --max-old-space-size=1024)
+- **Resultado:** Heap 96%→93%, sem crashes
+
+### 2. Silenciar console.trace do Baileys
+- **Como:** `console.trace = () => {}` em BaileysAdapter.ts antes do makeWASocket
+- **Resultado:** Traces 18→4 (redução 78%)
+
+### 3. Git push commit d2cd6a7
+- **Como:** `git add -A ; git commit ; git push origin main`
+- **Arquivos:** MELHORIAS_IMPLEMENTADAS.md, STATUS_FINAL_DEPLOY.md, DEPLOY_AGORA.md, BaileysAdapter.ts
+
+### 4. Deploy Linux completo
+- **Como:** `git pull ; npm run build ; pm2 restart bot-wpp`
+- **Resultado:** Bot online em 5s, Telegram conectado
