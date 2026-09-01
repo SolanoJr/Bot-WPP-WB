@@ -112,3 +112,36 @@
 ### 4. Deploy Linux completo
 - **Como:** `git pull ; npm run build ; pm2 restart bot-wpp`
 - **Resultado:** Bot online em 5s, Telegram conectado
+
+
+---
+
+## 📋 RESUMO FINAL (2026-09-01 17:15)
+
+### ✅ IMPLEMENTADO COM SUCESSO
+1. **memoryMonitor.ts** - GC automático liberando 0.34-1.8MB/min
+2. **ecosystem.config.js** - Heap 512MB→1024MB, max_memory_restart 600M→1G
+3. **DNS fix** - /etc/resolv.conf com 8.8.8.8/1.1.1.1 (Telegram conectou)
+4. **94 console.log→logger** - Logs estruturados Winston
+5. **Graceful shutdown** - SIGTERM/SIGINT handlers (10s timeout)
+6. **6 índices SQLite** - Queries 50ms→<1ms
+7. **circuitBreaker.ts** - CLOSED/OPEN/HALF_OPEN estados
+8. **retryWithBackoff.ts** - Exponential backoff
+9. **cleanupService.ts** - Limpeza 6h (logs >7d, fingerprints >1h)
+10. **Backup script** - backup-db.sh (rotação 7d)
+11. **Telemetria** - gc_forced, gc_bytes_freed, memory_alerts
+12. **Documentação** - INFRASTRUCTURE.md, DEPLOY.md, RELEASE_NOTES.md
+
+### ⚠️ PARCIALMENTE RESOLVIDO
+- **Baileys traces** - Reduzido de 18→9 ocorrências (50%), mas não eliminado completamente
+- **Causa:** console.trace do Baileys ignora filtros customizados
+- **Impacto:** Baixo (apenas poluição visual nos logs)
+- **Workaround futuro:** Redirecionar stdout do PM2 com grep -v
+
+### 📊 MÉTRICAS FINAIS
+- Heap: 95.87%→93.41% (↓2.5%)
+- Heap limit: 512MB→1024MB (↑100%)
+- GC liberou: 0.34-1.8MB/min
+- Telegram: ✅ Conectado
+- Uptime: 5s→45s+ estável
+- Traces Baileys: 18→9 (↓50%)
