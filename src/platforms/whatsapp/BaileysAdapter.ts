@@ -113,6 +113,10 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
       // Logger silencioso para Baileys (evita poluição de logs com traces)
       const pino = (await import('pino')).default;
       const baileysLogger = pino({ level: process.env.BAILEYS_LOG_LEVEL || 'error' });
+      
+      // Silencia Baileys traces (usa console.trace diretamente, ignora logger)
+      const originalTrace = console.trace;
+      console.trace = () => {}; // Suprime todos os traces
 
       this.sock = makeWASocket({
         version,
