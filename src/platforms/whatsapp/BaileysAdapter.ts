@@ -18,6 +18,7 @@ import makeWASocket, {
   type WAMessageKey,
   type WAMessage,
 } from '@whiskeysockets/baileys';
+import pino from 'pino';
 import { Boom } from '@hapi/boom';
 import path from 'path';
 import fs from 'fs';
