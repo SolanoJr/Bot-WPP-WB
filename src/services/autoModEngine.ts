@@ -351,53 +351,57 @@ export async function evaluate(
   const msgType = msg.message ?? {};
 
   // REGRA 1: antiestrangeiro (absoluto) — ban+remove+delete de TODO não-brasileiro
-  if (config.antiestrangeiro && isForeignNumber(senderJid)) {
-    const reasonText = `${senderName || senderJid} — DDI estrangeiro (anti-estrangeiro).`;
-    reportedActions.push(`ANTIESTRANGEIRO: ${reasonText}`);
-    ctx.log(`[AutoMod] antiestrangeiro ativado: ${reasonText}`);
+    if (config.antiestrangeiro && isForeignNumber(senderJid)) {
+      const reasonText = `${senderName || senderJid} — DDI estrangeiro (anti-estrangeiro).`;
+      reportedActions.push(`ANTIESTRANGEIRO: ${reasonText}`);
+      ctx.log(`[AutoMod] antiestrangeiro ativado: ${reasonText}`);
 
-    // Ban persistente — com blindagem
-    if (isProtectedTarget(senderJid)) {
-      ctx.log(`[AutoMod] antiestrangeiro ignorado — ID protegido: ${senderJid}`);
-    } else if (config.remover) {
-      try {
-        await banUser({ groupId, userId: senderJid, reason: 'banido-autoestrangeiro' });
-        ctx.log(`[AutoMod] ban persistente registrado para ${senderJid}`);
-      } catch (err: any) { ctx.warn('[AutoMod] erro ao banir:', err?.message); }
-
-      // Remove do grupo
-      try {
-        await ctx.removeParticipant(groupId, senderJid);
-        ctx.log(`[AutoMod] removido do grupo: ${senderJid}`);
-        reportedActions.push(`REMOVIDO`);
-      } catch (err: any) {
-        ctx.warn(`[AutoMod] erro ao remover ${senderJid}:`, err?.message);
-        reportedActions.push(`FALHA AO REMOVER (${err?.message || 'erro'})`);
+      // Blindagem: ID protegido não é banido/removido/deletado
+      if (isProtectedTarget(senderJid)) {
+        ctx.log(`[AutoMod] antiestrangeiro ignorado — ID protegido: ${senderJid}`);
+        return { acted: false, reason: 'antiestrangeiro: ID protegido', action: 'none' };
       }
-    }
 
-    // Delete mensagem (se bot for admin) — antiestrangeiro sempre deleta
-    try { 
-        await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
-        ctx.log(`[AutoMod] mensagem deletada de ${senderJid}`);
-        reportedActions.push(`MSGMENSAGEMAPAGADA`);
-      } catch (err: any) {
-        ctx.warn(`[AutoMod] erro ao deletar mensagem:`, err?.message);
-    }
-    // Anunciar se detectar on
-    if (config.detectar === true) {
-      const ann = reportedActions.join(' | ');
-      try {
-        await ctx.sendMessage(groupId, `🚫 [AUTOMOD] ${ann}: ${senderName || senderJid} (${senderJid})`);
-      } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar:', err?.message); }
-    }
+      // Ban persistente
+      if (config.remover) {
+        try {
+          await banUser({ groupId, userId: senderJid, reason: 'banido-autoestrangeiro' });
+          ctx.log(`[AutoMod] ban persistente registrado para ${senderJid}`);
+        } catch (err: any) { ctx.warn('[AutoMod] erro ao banir:', err?.message); }
 
-    return {
-      acted:true,
-      reason:`antiestrangeiro: ${reportedActions.join('; ')}`,
-      action:'ban+remove+delete+announce',
-    };
-  }
+        // Remove do grupo
+        try {
+          await ctx.removeParticipant(groupId, senderJid);
+          ctx.log(`[AutoMod] removido do grupo: ${senderJid}`);
+          reportedActions.push(`REMOVIDO`);
+        } catch (err: any) {
+          ctx.warn(`[AutoMod] erro ao remover ${senderJid}:`, err?.message);
+          reportedActions.push(`FALHA AO REMOVER (${err?.message || 'erro'})`);
+        }
+      }
+
+      // Delete mensagem (se bot for admin) — antiestrangeiro sempre deleta
+      try { 
+          await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
+          ctx.log(`[AutoMod] mensagem deletada de ${senderJid}`);
+          reportedActions.push(`MSGMENSAGEMAPAGADA`);
+        } catch (err: any) {
+          ctx.warn(`[AutoMod] erro ao deletar mensagem:`, err?.message);
+      }
+      // Anunciar se detectar on
+      if (config.detectar === true) {
+        const ann = reportedActions.join(' | ');
+        try {
+          await ctx.sendMessage(groupId, `🚫 [AUTOMOD] ${ann}: ${senderName || senderJid} (${senderJid})`);
+        } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar:', err?.message); }
+      }
+
+      return {
+        acted:true,
+        reason:`antiestrangeiro: ${reportedActions.join('; ')}`,
+        action:'ban+remove+delete+announce',
+      };
+    }
 
   // REGRA 2: anti-bot (remover) — foreign + conteúdo suspeito + nome suspeito + repetido
   // Threshold: >=2 sinais → ban+remove+delete+announce
