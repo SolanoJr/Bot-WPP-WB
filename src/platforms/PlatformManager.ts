@@ -550,8 +550,12 @@ export class PlatformManager {
     const testMessage: PlatformMessage = {
       id: `test-${Date.now()}`,
       platform,
-      chatId: platform === 'whatsapp' || platform.startsWith('whatsapp:') ? '55858134422@c.us' : platform === 'telegram' ? 'tg:146078742' : 'dc:1521942390082900190',
-      userId: platform === 'whatsapp' || platform.startsWith('whatsapp:') ? '55858134422@c.us' : platform === 'telegram' ? 'tg:146078742' : 'dc:1307158493907652648',
+      chatId: platform === 'whatsapp' || platform.startsWith('whatsapp:')
+        ? (process.env.WPP_TEST_CHAT_ID || '558581344211@c.us')
+        : platform === 'telegram' ? 'tg:146078742' : 'dc:1521942390082900190',
+      userId: platform === 'whatsapp' || platform.startsWith('whatsapp:')
+        ? (process.env.WPP_TEST_USER_ID || '558581344211@c.us')
+        : platform === 'telegram' ? 'tg:146078742' : 'dc:1307158493907652648',
       userName: 'TestUser',
       text: command,
       timestamp: new Date(),

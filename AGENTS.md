@@ -118,6 +118,11 @@ Os agentes de IA podem assumir diversos papéis dentro do ciclo de vida do Bot-W
 ### 5.7. Singleton do PlatformManager (anti-padrão conhecido)
 - O `PlatformManager` é singleton estático (`getInstance()`), mas o bundler (tsup) pode criar escopos de módulo separados por bundle. `multiPlatform.ts` publica a instância viva em `globalThis.__platformManager`; `testServer.ts` resolve via `getInstance()` caindo para o global. **Não remover o `globalThis`** — ele é a ponte cross-bundle intencional. Acessar `pm.adapters` (privado) de fora está proibido; use `getAdapter(platform)`.
 
+### 5.8. Identidade do bot e formato brasileiro
+- O identificador observado no Baileys/produção é `558581344211` (sem o nono dígito no JID atual) e o LID do bot é `2592935567439`.
+- O formato brasileiro com nono dígito `5585981344211` é tratado apenas como alias protegido para operações destrutivas; não é usado para escolher a sessão nem para enviar mensagens.
+- Não alterar esses valores sem confirmar o `sock.user.id` real da sessão ativa.
+
 ## 4. Política de Atualização do AGENTS.md
 
 Este documento deve ser revisado e atualizado sempre que houver uma mudança significativa nos papéis dos agentes, nas diretrizes de segurança, ou na arquitetura do projeto. As atualizações devem ser propostas pelo Agente de Documentação ou por qualquer outro agente que identifique a necessidade, e aprovadas pelo usuário humano ou por um Agente de Governança (se definido).

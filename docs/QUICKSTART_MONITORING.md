@@ -32,7 +32,7 @@ docker-compose ps
 
 ### 3️⃣ Integrar no Código Bot
 
-Adicione ao seu arquivo principal (ex: `src/core/index.ts` ou `src/whatsapp.ts`):
+O entrypoint atual é `src/core/multiPlatform.ts`; não crie um `src/whatsapp.ts` paralelo.
 
 ```typescript
 import metricsService from './services/metricsService';

@@ -70,8 +70,8 @@ bot-wpp/
 │       └── 2026-09-01-checklist.md
 │
 └── laboratorio/                 # Scripts de teste
-    ├── test-remover-bot.sh
-    └── test-bot-removal.ts
+    ├── README.md
+    └── selftest.ts
 ```
 
 ---

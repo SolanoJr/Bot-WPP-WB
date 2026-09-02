@@ -67,7 +67,6 @@ app.get('/debug-env-check', async (_req, res) => {
     res.json({
         ok: true,
         len: WARRIOR_AUTH_KEY.length,
-        prefix: WARRIOR_AUTH_KEY.substring(0, 4),
         storage: stats,
         timestamp: new Date().toISOString()
     });
@@ -150,5 +149,5 @@ app.get('/pending/:chatId', checkApiKey, async (req: Request, res: Response) => 
 
 app.listen(PORT, () => {
     console.log(`🚀 Relay Server (TS) ONLINE na porta ${PORT}`);
-    console.log(`🔐 Warrior Key: ${WARRIOR_AUTH_KEY.substring(0, 4)}... (Len: ${WARRIOR_AUTH_KEY.length})`);
+    console.log(`🔐 Warrior Key configurada (comprimento: ${WARRIOR_AUTH_KEY.length})`);
 });

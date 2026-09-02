@@ -1,3 +1,4 @@
+import { isProtectedTarget } from '../../services/permissions';
 // src/platforms/discord/DiscordAdapter.ts
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import {
@@ -49,6 +50,15 @@ class DiscordClient implements PlatformClient {
     console.log('[Discord] Iniciando login...');
     try {
       await this.client.login(this.token);
+      if (!this.isReady) {
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('timeout aguardando clientReady')), 10000);
+          this.client.once('clientReady', () => {
+            clearTimeout(timeout);
+            resolve();
+          });
+        });
+      }
       console.log('[Discord] Chamada de login concluída');
     } catch (err: any) {
       console.error('[Discord] ❌ Falha no login (possível rate limit):', err?.message || err);
@@ -236,6 +246,7 @@ class DiscordClient implements PlatformClient {
   }
 
   async removeParticipant(chatId: string, userId: string): Promise<void> {
+    if (isProtectedTarget(userId)) throw new Error('alvo protegido: operação bloqueada');
     const cleanChatId = chatId.replace(/^dc:/, '');
     const cleanUserId = userId.replace(/^dc:/, '');
     const channel = await this.client.channels.fetch(cleanChatId) as any;
@@ -246,6 +257,7 @@ class DiscordClient implements PlatformClient {
   }
 
   async banParticipant(chatId: string, userId: string): Promise<void> {
+    if (isProtectedTarget(userId)) throw new Error('alvo protegido: operação bloqueada');
     const cleanChatId = chatId.replace(/^dc:/, '');
     const cleanUserId = userId.replace(/^dc:/, '');
     const channel = await this.client.channels.fetch(cleanChatId) as any;

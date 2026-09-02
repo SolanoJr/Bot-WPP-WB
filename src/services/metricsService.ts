@@ -13,6 +13,7 @@ import {
   collectDefaultMetrics
 } from 'prom-client';
 import logger from './loggerService';
+import { getWppHealth } from './healthStore';
 
 interface MetricsConfig {
   port?: number;
@@ -217,25 +218,28 @@ class MetricsService {
 
     this.app.get('/health', async (req: Request, res: Response) => {
       try {
-        // P1.4: Healthcheck melhorado com status por plataforma
+        // P1.4: Healthcheck usa estado real de conexão, não apenas processo vivo.
         const pm = (globalThis as any).__platformManager;
         const memStats = process.memoryUsage();
         const heapPercent = (memStats.heapUsed / memStats.heapTotal) * 100;
+        const wppHealth = getWppHealth();
 
         // Status por plataforma
         const platformStatuses: Record<string, any> = {};
-        if (pm && pm.getAdapters) {
-          const adapters = pm.getAdapters();
-          for (const [key, adapter] of adapters.entries()) {
+        if (pm?.getActivePlatforms && pm?.getAdapter) {
+          for (const key of pm.getActivePlatforms()) {
+            const adapter = pm.getAdapter(key);
             platformStatuses[key] = {
-              connected: adapter.isConnected?.() ?? false,
-              platform: adapter.getPlatform?.() ?? key
+              connected: adapter?.client?.isReady ?? false,
+              platform: adapter?.client?.platform ?? key
             };
           }
         }
 
+        const connectedPlatformsCount = Object.values(platformStatuses)
+          .filter((status: any) => status.connected).length;
         const health = {
-          status: heapPercent < 90 ? 'healthy' : 'degraded',
+          status: heapPercent >= 90 ? 'degraded' : wppHealth.wpp === 'connected' ? 'healthy' : 'degraded',
           timestamp: new Date().toISOString(),
           uptime: process.uptime(),
           memory: {
@@ -244,8 +248,10 @@ class MetricsService {
             heapPercent: Math.round(heapPercent * 100) / 100,
             rss: Math.round(memStats.rss / 1024 / 1024)
           },
+          wpp: wppHealth,
           platforms: platformStatuses,
-          activePlatformsCount: Object.keys(platformStatuses).length
+          activePlatformsCount: connectedPlatformsCount,
+          registeredPlatformsCount: Object.keys(platformStatuses).length
         };
 
         const statusCode = health.status === 'healthy' ? 200 : 503;

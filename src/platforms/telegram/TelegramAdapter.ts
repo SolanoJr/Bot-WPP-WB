@@ -1,3 +1,4 @@
+import { isProtectedTarget } from '../../services/permissions';
 // src/platforms/telegram/TelegramAdapter.ts
 /**
  * Telegram Adapter using Telegraf.
@@ -32,6 +33,9 @@ class TelegramClient implements PlatformClient {
   private messageHandler: MessageHandler | null = null;
   private readyHandler: (() => void) | null = null;
   private disconnectedHandler: ((reason: string) => void) | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectAttempts = 0;
+  private shuttingDown = false;
 
   constructor(token: string) {
     this.token = token;
@@ -65,6 +69,7 @@ class TelegramClient implements PlatformClient {
       }
       this.isReady = false;
       if (this.disconnectedHandler) this.disconnectedHandler(err.message);
+      this.scheduleReconnect();
     });
   }
 
@@ -74,10 +79,10 @@ class TelegramClient implements PlatformClient {
    */
   async launch(): Promise<void> {
     console.log('[Telegram] Iniciando launch()...');
-    console.log('[Telegram] Token usado:', this.token.substring(0, 10) + '...');
     try {
       await this.bot.launch();
       this.isReady = true;
+      this.reconnectAttempts = 0;
       this.userId = this.bot.botInfo?.id?.toString() ?? '';
       this.userName = this.bot.botInfo?.username ?? 'TelegramBot';
       console.log(`[Telegram] ✅ Pronto como ${this.userName} (${this.userId})`);
@@ -93,8 +98,20 @@ class TelegramClient implements PlatformClient {
         console.error('[Telegram] Request URL:', err.request?.path || err.config?.url);
         console.error('[Telegram] Request method:', err.config?.method);
       }
+      this.scheduleReconnect();
       throw err;
     }
+  }
+
+  private scheduleReconnect(): void {
+    if (this.shuttingDown || this.isReady || this.reconnectTimer || this.reconnectAttempts >= 5) return;
+    const delayMs = Math.min(120000, 5000 * 2 ** this.reconnectAttempts);
+    this.reconnectAttempts += 1;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.launch().catch(() => undefined);
+    }, delayMs);
+    console.warn(`[Telegram] Reconexão agendada em ${Math.round(delayMs / 1000)}s (tentativa ${this.reconnectAttempts}/5)`);
   }
 
   private normalizeMessage(ctx: any): PlatformMessage {
@@ -200,6 +217,7 @@ class TelegramClient implements PlatformClient {
   }
 
   async removeParticipant(chatId: string, userId: string): Promise<void> {
+    if (isProtectedTarget(userId)) throw new Error('alvo protegido: operação bloqueada');
     const cleanChatId = Number(chatId.replace(/^tg:/, ''));
     const cleanUserId = Number(userId.replace(/^tg:/, ''));
     // kickChatMember remove o usuário do grupo (sem banir permanentemente)
@@ -207,6 +225,7 @@ class TelegramClient implements PlatformClient {
   }
 
   async banParticipant(chatId: string, userId: string): Promise<void> {
+    if (isProtectedTarget(userId)) throw new Error('alvo protegido: operação bloqueada');
     const cleanChatId = Number(chatId.replace(/^tg:/, ''));
     const cleanUserId = Number(userId.replace(/^tg:/, ''));
     // banChatMember bane permanentemente (até revogar)
@@ -231,7 +250,12 @@ class TelegramClient implements PlatformClient {
   }
 
   async shutdown(): Promise<void> {
-    await this.bot.stop();
+    this.shuttingDown = true;
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+    try { await this.bot.stop(); } catch (error: any) {
+      if (!String(error?.message || '').includes('not running')) throw error;
+    }
     this.isReady = false;
   }
 }

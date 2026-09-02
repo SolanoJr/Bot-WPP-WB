@@ -2,6 +2,16 @@
 
 Este documento registra bugs críticos encontrados e suas respectivas soluções para evitar reincidência.
 
+## Estado atual (2026-09-02)
+
+- **CONFIRMADO / P0:** proteções de dono e bot agora usam comparação exata de telefone/LID em `permissions.ts` e também nos três adapters.
+- **CONFIRMADO / P1:** `$mute` usa estado do core, preserva `@lid` e bloqueia dono/bot; há testes unitários de regressão.
+- **CONFIRMADO / P1:** healthcheck lê `healthStore` e `PlatformManager.getActivePlatforms()`/`getAdapter()`; processo PM2 online não equivale a WhatsApp conectado.
+- **PENDENTE / P1:** produção precisa ser reconciliada com `ecosystem.config.js` antes de qualquer restart: cwd, logs, `--expose-gc` e banco.
+- **PENDENTE / P2:** suíte local ainda requer binding compatível do `sqlite3` com Node 20 ou uma estratégia de dependência nativa multiplataforma.
+
+As entradas abaixo são histórico legado. Referências a WWebJS, Chromium, `src/whatsapp.ts` e `autoModService.ts` não descrevem o engine atual, que é Baileys.
+
 ## 1. Comandos Ignorados ($pergunta, $ban)
 - **Sintoma**: O bot recebia o comando mas não respondia ou dava erro de "não definido".
 - **Causa**: Conflito no `messageHandler.ts` onde a moderação interceptava o comando antes da execução, ou o `dist` estava desalinhado com o `src`.

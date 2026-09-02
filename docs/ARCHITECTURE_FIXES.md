@@ -1,5 +1,9 @@
 # docs/ARCHITECTURE_FIXES.md — Registro de Correções de Arquitetura (anti-regressão)
 
+> Estado atual (2026-09-02): o engine ativo é Baileys. As referências a WWebJS,
+> Chromium e Puppeteer abaixo são contexto histórico de bugs já encerrados, não
+> instruções para implementação nova.
+
 > Documento de contexto para IDEs/agentes. Mantenha atualizado a cada correção estrutural.
 > Última atualização: 2026-08-07.
 
@@ -140,13 +144,10 @@ Chromium isolada. Implementado em `src/services/sessionManager.ts` (commit 40f9e
 **Próximo passo (quando expandir de verdade):** comandos como `$automod`, `$menu`, broadcast
 devem iterar todas as sessões `whatsapp:*`. Hoje só a sessão legada é coberta.
 
-## 10. Otimização futura: Baileys (substituir Chromium/whatsapp-web.js)
+## 10. Estado do engine WhatsApp
 
-O `whatsapp-web.js` exige 1 Chromium headless por sessão (swiftshader + UA real, BUG 33).
-Isso limita o escalonamento por RAM/CPU. **Baileys** (WebSocket puro, sem navegador) elimina o
-Chromium → muito menor footprint por número. Caminho de migração (mini-início documentado):
-- `PlatformAdapter`/`PlatformClient` já são agnósticos → criar `BaileysAdapter` implementando a mesma interface.
-- Substituir `whatsapp-web.js` por `@whiskeysockets/baileys` no adapter WPP.
-- Manter o mesmo `messageHandler`/`CommandContext` (já desacoplado).
-- **Não fazer agora** — só quando o número de sessões WPP saturar a RAM da máquina.
+O `BaileysAdapter` é o adapter ativo e usa WebSocket, sem Chromium. O contrato
+`PlatformAdapter`/`PlatformClient` continua agnóstico para permitir futuras
+plataformas, mas código novo deve integrar Baileys diretamente e não reintroduzir
+WWebJS/Puppeteer sem decisão arquitetural explícita.
 

@@ -10,6 +10,11 @@ import logger from './loggerService';
 const MASTER_USER = process.env.MASTER_USER || '5588998314322@c.us';
 const MASTER_NUMBER = process.env.MASTER_NUMBER || '5588998314322';
 const ADMINS = new Set((process.env.ADMINS || '').split(',').filter(Boolean));
+const BOT_NUMBER = process.env.BOT_NUMBER || '558581344211';
+const BOT_LID = process.env.BOT_LID || '2592935567439';
+const OWNER_LID = process.env.MASTER_LID || '202658048684056';
+const OWNER_NUMBER_ALIASES = new Set(['88998314322', '8898314322', '558898314322']);
+const BOT_NUMBER_ALIASES = new Set([cleanId(BOT_NUMBER), '5585981344211']);
 
 // Níveis de permissão
 const PERMISSIONS = {
@@ -28,8 +33,20 @@ type PermissionLevel = typeof PERMISSIONS[keyof typeof PERMISSIONS];
 function cleanId(id: string): string {
     if (!id || typeof id !== 'string') return '';
     // Lidar com IDs que podem vir como objetos ou strings complexas
-    const baseId = id.includes('@') ? id.split('@')[0] : id;
+    const baseId = (id.includes('@') ? id.split('@')[0] : id)
+        .replace(/^[a-z]+:/i, '')
+        .split(':')[0];
     return baseId.replace(/\D/g, '');
+}
+
+function extractLid(id: string): string {
+    if (!id || typeof id !== 'string' || !id.includes('@lid')) return '';
+    return cleanId(id);
+}
+
+function isBotTarget(userId: string): boolean {
+    return BOT_NUMBER_ALIASES.has(cleanId(userId)) ||
+        extractLid(userId) === cleanId(BOT_LID);
 }
 
 /**
@@ -89,18 +106,19 @@ function hasPermission(userId: string, requiredLevel: PermissionLevel): boolean 
  */
 function isMaster(userId: string): boolean {
     if (!userId || typeof userId !== 'string') return false;
-  
-    // OFICIAL - MAPEAMENTO LID (Linked ID)
-    if (userId.includes('202658048684056')) return true;
 
-    const clean = cleanId(userId);
+    const userClean = cleanId(userId);
+    const userLid = extractLid(userId);
+    if (isBotTarget(userId)) return false;
+
+    const clean = userClean;
     const masterClean = cleanId(MASTER_USER);
     const masterNumClean = cleanId(MASTER_NUMBER);
+        const ownerLid = cleanId(OWNER_LID);
 
-    return clean === masterClean || 
-           clean === masterNumClean || 
-           userId.includes('88998314322') ||
-           userId.includes('8898314322'); // Fallback para variação de número
+        return clean === masterClean || clean === masterNumClean ||
+            OWNER_NUMBER_ALIASES.has(clean) ||
+           (userLid !== '' && userLid === ownerLid);
 }
 
 /**
@@ -149,7 +167,11 @@ function requirePermission(requiredLevel: PermissionLevel) {
  * ou um ADMIN. Usado por comandos de moderação para evitar auto-sabotagem.
  */
 export function isProtectedTarget(userId: string): boolean {
-  return isMaster(userId) || isAdmin(userId);
+    return isMaster(userId) || isBotTarget(userId);
+}
+
+export function getBotIdentifiers(): { number: string; lid: string } {
+    return { number: BOT_NUMBER, lid: BOT_LID };
 }
 
 /**
@@ -162,18 +184,18 @@ export function getOwnerNotifyTarget(): string | null {
   if (process.env.MASTER_LID) {
     const lid = process.env.MASTER_LID.trim();
     // Garante que não é o LID do próprio bot
-    if (!lid.includes('202658048684056')) return lid;
-    logger.warn('[permissions] MASTER_LID é o LID do próprio bot — ignorando');
+    if (!isBotTarget(lid)) return lid;
+    logger.warn('[permissions] MASTER_LID é o identificador do próprio bot — ignorando');
   }
   // MASTER_USER (formato completo: 5588998314322@c.us ou @lid)
   if (process.env.MASTER_USER) {
     const user = process.env.MASTER_USER.trim();
-    if (!user.includes('202658048684056')) return user;
+    if (!isBotTarget(user)) return user;
   }
   // MASTER_NUMBER (apenas números: 5588998314322)
   if (process.env.MASTER_NUMBER) {
     const num = process.env.MASTER_NUMBER.trim();
-    if (!num.includes('202658048684056')) return `${num}@c.us`;
+    if (!isBotTarget(num)) return `${num}@c.us`;
   }
   // Fallback hardcoded (mantém compatibilidade)
   return '5588998314322@c.us';
@@ -189,5 +211,7 @@ export {
     MASTER_USER,
     MASTER_NUMBER,
     ADMINS,
-    cleanId
+    cleanId,
+    extractLid,
+    isBotTarget
 };

@@ -9,9 +9,9 @@ services:
     container_name: bot-wpp
     environment:
       - NODE_ENV=production
-      - TELEGRAM_BOT_TOKEN=8980550439:AAHXFpJRKQ_aHMzclMqous5rC5D9y2HITvA
-      - DISCORD_BOT_TOKEN=1307158493907652648
-      - DISCORD_BOT_SECRET=tmSQjstaQvmlC6FCAcyQeZdYoMCqjAuQ
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN is required}
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN:?DISCORD_BOT_TOKEN is required}
+      - DISCORD_BOT_SECRET=${DISCORD_BOT_SECRET:?DISCORD_BOT_SECRET is required}
       - METRICS_PORT=3001
       - METRICS_PATH=/metrics
     ports:

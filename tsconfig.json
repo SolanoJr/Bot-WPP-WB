@@ -4,7 +4,7 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": ".",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -19,6 +19,6 @@
       "@bot/*": ["src/bot/*"]
     }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "laboratorio/selftest.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

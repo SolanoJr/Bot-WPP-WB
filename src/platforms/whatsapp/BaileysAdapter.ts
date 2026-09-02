@@ -54,6 +54,8 @@ import {
 // O destino do dono é resolvido por getOwnerNotifyTarget(), que blinda esse caso
 // e nunca devolve o identificador do bot.
 import { getOwnerNotifyTarget } from '../../services/permissions';
+import { isProtectedTarget } from '../../services/permissions';
+import { handleMutedMessage } from '../../bot/commands/mute';
 
 // Converte ID do Baileys para formato interno.
 // ⚠️ A versão anterior fazia `.replace(/:/, '@')`, o que transformava
@@ -146,6 +148,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
         const { connection, qr, lastDisconnect, isNewLogin } = update;
         if (qr) {
           this.qrPending = true;
+          this.getHealth();
           console.log(`[Baileys] 📱 QR recebido — enviando ao dono...`);
           this.sendQrToOwner(qr);
         }
@@ -163,7 +166,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
           if (process.env.WPP_AUTOSELFTEST === '1') {
             const alvoTesteBaileys = process.env.WPP_TEST_GROUP_ID || '';
             if (alvoTesteBaileys) {
-              import('../../devtest/selftest.js').then((mod) => {
+              import('../../../laboratorio/selftest.js').then((mod) => {
                 setTimeout(() => mod.runSelfTestMod(this as any, alvoTesteBaileys).catch(() => {}), 6000);
               }).catch(() => {});
             }
@@ -171,6 +174,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
         }
         if (connection === 'close') {
           this.isReady = false;
+          this.getHealth();
           const reason = lastDisconnect?.error?.message || 'unknown';
           console.log(`[Baileys] 🔌 Conexão fechada: ${reason}`);
           this.disconnectedHandler?.(reason);
@@ -355,6 +359,16 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
         hasMedia: false,
         raw: msg,
       };
+      const muted = await handleMutedMessage({
+        chatId: normId(from),
+        userId: normId(sender),
+        raw: {
+          delete: async () => {
+            await this.sock?.sendMessage(from, { delete: key });
+          },
+        },
+      });
+      if (muted) return;
       this.msgHandler?.(platformMsg);
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       // MODERAÇÃO AUTOMÁTICA (tempo real) — fire-and-forget, não bloqueia
@@ -650,12 +664,14 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
   // GESTÃO DE MEMBROS
   // ============================================================
   async removeParticipant(chatId: string, userId: string): Promise<void> {
+    if (isProtectedTarget(userId)) throw new Error('alvo protegido: operação bloqueada');
     const jid = toJid(chatId);
     const userJid = toJid(userId);
     await this.sock.groupParticipantsUpdate(jid, [userJid], 'remove');
   }
 
   async banParticipant(chatId: string, userId: string): Promise<void> {
+    if (isProtectedTarget(userId)) throw new Error('alvo protegido: operação bloqueada');
     const jid = toJid(chatId);
     const userJid = toJid(userId);
     // Baileys não tem "ban" nativo; remove + bloqueia
@@ -708,7 +724,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
       try {
         await QR.toFile(qrPath, qr, { width: 512, margin: 2 });
         console.log(`\n\n[Baileys] 📱 QR SALVO EM: ${qrPath}`);
-        console.log(`[Baileys] 📱 ESCANEIE COM OUTRO CELULAR: https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}\n\n`);
+        console.log('[Baileys] 📱 QR salvo no diretório de autenticação; não é exibido em logs.');
         // Tenta enviar ao dono (pode falhar se WPP ainda não abriu)
         const ownerTarget = getOwnerNotifyTarget();
         try {

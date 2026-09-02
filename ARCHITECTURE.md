@@ -52,8 +52,8 @@ graph TD
 
     subgraph Bot-WPP (Linux VPS)
         direction LR
-        A[src/whatsapp.ts] -- Processa Eventos --> B{src/services/messageHandler.ts}
-        B -- Não é Comando --> C[src/services/moderationService.ts]
+        A[src/core/multiPlatform.ts] -- Registra adapters --> B[PlatformManager]
+        B -- Recebe PlatformMessage --> C[CommandContext / AutoMod]
         B -- Não é Comando --> D[src/services/keywordHandler.ts]
         B -- É Comando --> E[src/bot/commands/index.ts]
         E -- Executa --> F[Comandos Individuais (src/bot/commands/*)]
@@ -111,7 +111,7 @@ graph TD
     -   Moderação de conteúdo e filtragem de palavras-chave.
     -   Integração com a API Gemini para respostas inteligentes.
 -   **Gerenciamento de Processos**: PM2 para garantir alta disponibilidade e reinício automático.
--   **Entry Point**: `src/whatsapp.ts` → `startBot()`
+-   **Entry Point**: `src/core/multiPlatform.ts` → `initializePlatforms()`
 -   **Comandos**: Assinatura legada `(msg, client, args)`
 
 ### 2. PlatformManager (Sistema Novo)
@@ -167,7 +167,7 @@ graph TD
 2.  **Recebimento de Mensagens**: Qualquer mensagem recebida pelo WhatsApp é encaminhada para `src/services/messageHandler.ts`.
 3.  **Processamento de Mensagens**: 
     -   O `messageHandler` primeiro verifica se a mensagem é um comando (começa com `$`).
-    -   Se **não** for um comando, a mensagem passa por `src/services/moderationService.ts` (para spam, links, apostas) e `src/services/keywordHandler.ts` (para trollagem, palavras-chave como "bot"). Essas etapas podem resultar na exclusão da mensagem ou em uma resposta automática.
+    -   Se **não** for um comando, a mensagem pode passar pelo `autoModEngine.ts` e pelo `keywordHandler.ts`. Essas etapas podem resultar na exclusão da mensagem ou em uma resposta automática.
     -   Se **for** um comando, ele é processado diretamente. O `messageHandler` tenta encontrar o comando no mapa de comandos carregados (`src/bot/commands/index.ts`).
     -   Se o comando não for encontrado localmente, o `src/services/relayClient.ts` é acionado para buscar comandos customizados no serviço de Relay.
 4.  **Sistema de Geolocalização**: 

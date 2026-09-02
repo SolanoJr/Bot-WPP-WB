@@ -3,7 +3,10 @@ import { open, Database } from 'sqlite';
 import path from 'path';
 import fs from 'fs';
 
-const DB_DIR = path.join(process.cwd(), 'data');
+const PROJECT_ROOT = path.resolve(__dirname, '../..');
+const DB_DIR = process.env.BOT_DATA_DIR
+  ? path.resolve(process.env.BOT_DATA_DIR)
+  : path.join(PROJECT_ROOT, 'data');
 const DB_FILE = 'bot_database.db';
 
 if (!fs.existsSync(DB_DIR)) {

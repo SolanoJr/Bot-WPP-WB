@@ -44,13 +44,6 @@ export function startTestServer(port: number = 3004): void {
           res.end(JSON.stringify({ error: 'Command must start with $' }));
           return;
         }
-        const parts = trimmed.slice(prefix.length).trim().split(/\s+/);
-        const commandName = (parts.shift() || '').toLowerCase();
-        const chatId = platform === 'whatsapp' || platform.startsWith('whatsapp:')
-          ? '55858134422@c.us'
-          : platform === 'telegram'
-            ? 'tg:146078742'
-            : 'dc:1307158493907652648';
         const adapter = pm.getAdapter(platform as any);
         if (!adapter) {
           res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -69,7 +62,7 @@ export function startTestServer(port: number = 3004): void {
     });
   });
 
-  server.listen(port, () => {
+  server.listen(port, '127.0.0.1', () => {
     logger.info(`[TestServer] Servidor de testes iniciado`, { port });
     logger.info(`[TestServer] Exemplo: curl -X POST http://localhost:${port}/test -d '{"platform":"discord","command":"$menu"}'`);
   });

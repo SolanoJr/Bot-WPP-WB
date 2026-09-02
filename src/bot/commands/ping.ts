@@ -7,8 +7,7 @@ export const pingCommand: ICommand = {
     async execute(ctx) {
         const startTime = Date.now();
         
-        // Envia mensagem temporária para medir latência real
-        const tempMsg = await ctx.reply('🏓 Calculando...');
+        await ctx.reply('🏓 Calculando...');
         
         const latency = Date.now() - startTime;
         const platformName = ctx.platform.charAt(0).toUpperCase() + ctx.platform.slice(1);
@@ -22,11 +21,6 @@ export const pingCommand: ICommand = {
             '✅ Bot está online e funcionando!'
         ].join('\n');
         
-        // Atualiza a mensagem com a latência real
-        if (tempMsg && ctx.platform === 'whatsapp') {
-            await ctx.sendMessage(ctx.chatId, response, { edit: tempMsg });
-        } else {
-            await ctx.reply(response);
-        }
+        await ctx.reply(response);
     }
 };

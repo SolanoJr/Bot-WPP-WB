@@ -62,6 +62,7 @@ describe('isProtectedTarget — imunidade do dono e do bot', () => {
 
   it('protege o próprio bot (telefone e LID, inclusive com sufixo de device)', () => {
     expect(isProtectedTarget(BOT_PHONE)).toBe(true);
+    expect(isProtectedTarget('5585981344211@c.us')).toBe(true);
     expect(isProtectedTarget(BOT_LID)).toBe(true);
     expect(isProtectedTarget('2592935567439:60@lid')).toBe(true);
     expect(isProtectedTarget('wpp:558581344211@c.us')).toBe(true);
