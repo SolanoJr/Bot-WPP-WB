@@ -179,7 +179,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
           console.log(`[Baileys] 🔌 Conexão fechada: ${reason}`);
           this.disconnectedHandler?.(reason);
           const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
-          if (statusCode === DisconnectReason.loggedOut || statusCode === 428) {
+          if (statusCode === DisconnectReason.loggedOut) {
             console.log(`[Baileys] 🚪 Deslogado — precisa escanear QR novamente.`);
             // Notifica o dono UMA vez e para de reconectar em loop.
             // O servidor WA invalidou a sessão — sem novo QR, reconectar não resolve.
