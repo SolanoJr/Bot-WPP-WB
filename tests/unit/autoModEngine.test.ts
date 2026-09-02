@@ -19,6 +19,7 @@ import {
   containsSpamKeyword,
   fingerprint,
   evaluate,
+  isProtectedTarget,
 } from '../../src/services/autoModEngine';
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -347,6 +348,51 @@ describe('evaluate — antiestrangeiro', () => {
     await evaluate(msg, ctx, GROUP_JID, BR_BR_JID, 'Tester');
     expect(db.cleanupOldFingerprintEntries).toHaveBeenCalledWith(3600);
   });
+
+  it('NÃO ban/remover MASTER estrangeiro (isProtectedTarget)', async () => {
+    const db = await mockDb();
+    db.getGroupMod.mockResolvedValue(groupConfig({ antiestrangeiro: true, remover: true, detectar: true }));
+
+    const ctx = makeCtx();
+    const msg = makeWAMessage({ conversation: 'teste' });
+    msg.key.participant = '5588998314322@c.us'; // MASTER_USER
+    const result = await evaluate(msg, ctx, GROUP_JID, '5588998314322@c.us', 'Dono');
+
+    expect(result.acted).toBe(false); // não age (proteção)
+    expect(db.banUser).not.toHaveBeenCalled();
+    expect(ctx.removeParticipant).not.toHaveBeenCalled();
+    expect(ctx.sendMessage).not.toHaveBeenCalledWith(GROUP_JID, '', expect.objectContaining({ delete: expect.any(Object) }));
+  });
+
+  it('NÃO ban/remover BOT estrangeiro (isProtectedTarget)', async () => {
+    const db = await mockDb();
+    db.getGroupMod.mockResolvedValue(groupConfig({ antiestrangeiro: true, remover: true, detectar: true }));
+
+    const ctx = makeCtx();
+    const msg = makeWAMessage({ conversation: 'teste' });
+    msg.key.participant = '558581344211@c.us'; // BOT_NUMBER
+    const result = await evaluate(msg, ctx, GROUP_JID, '558581344211@c.us', 'WarriorBlack');
+
+    expect(result.acted).toBe(false); // não age (proteção)
+    expect(db.banUser).not.toHaveBeenCalled();
+    expect(ctx.removeParticipant).not.toHaveBeenCalled();
+    expect(ctx.sendMessage).not.toHaveBeenCalledWith(GROUP_JID, '', expect.objectContaining({ delete: expect.any(Object) }));
+  });
+
+  it('usuário estrangeiro normal → regra continua funcionando (ban+remove+delete)', async () => {
+    const db = await mockDb();
+    db.getGroupMod.mockResolvedValue(groupConfig({ antiestrangeiro: true, remover: true, detectar: true }));
+
+    const ctx = makeCtx();
+    const msg = makeWAMessage({ conversation: 'teste' });
+    msg.key.participant = '1234567890@c.us'; // estrangeiro genérico
+    const result = await evaluate(msg, ctx, GROUP_JID, '1234567890@c.us', 'Estrangeiro');
+
+    expect(result.acted).toBe(true);
+    expect(result.action).toContain('ban');
+    expect(db.banUser).toHaveBeenCalledWith(expect.objectContaining({ groupId: GROUP_JID, userId: '1234567890@c.us' }));
+    expect(ctx.removeParticipant).toHaveBeenCalledWith(GROUP_JID, '1234567890@c.us');
+  });
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -413,6 +459,64 @@ describe('evaluate — anti-bot', () => {
 
     const result = await evaluate(msg, ctx, GROUP_JID, FOREIGN_JID, 'João Silva');
     expect(result.acted).toBe(false);
+  });
+
+  it('NÃO ban/remover MASTER no anti-bot (isProtectedTarget)', async () => {
+    const db = await mockDb();
+    db.getGroupMod.mockResolvedValue(groupConfig({ antiestrangeiro: false, remover: true, autolink: true, antispam: true, detectar: true }));
+
+    const ctx = makeCtx();
+    const msg = makeWAMessage({
+      extendedTextMessage: {
+        text: 'cadastre-se em https://casino-win.xyz agora',
+        linkPreview: { 'canonical-url': 'https://casino-win.xyz' },
+      },
+    });
+    msg.key.participant = '5588998314322@c.us'; // MASTER_USER
+
+    const result = await evaluate(msg, ctx, GROUP_JID, '5588998314322@c.us', 'Dono');
+    expect(result.acted).toBe(false);
+    expect(db.banUser).not.toHaveBeenCalled();
+    expect(ctx.removeParticipant).not.toHaveBeenCalled();
+  });
+
+  it('NÃO ban/remover BOT no anti-bot (isProtectedTarget)', async () => {
+    const db = await mockDb();
+    db.getGroupMod.mockResolvedValue(groupConfig({ antiestrangeiro: false, remover: true, autolink: true, antispam: true, detectar: true }));
+
+    const ctx = makeCtx();
+    const msg = makeWAMessage({
+      extendedTextMessage: {
+        text: 'cadastre-se em https://casino-win.xyz agora',
+        linkPreview: { 'canonical-url': 'https://casino-win.xyz' },
+      },
+    });
+    msg.key.participant = '558581344211@c.us'; // BOT_NUMBER
+
+    const result = await evaluate(msg, ctx, GROUP_JID, '558581344211@c.us', 'WarriorBlack');
+    expect(result.acted).toBe(false);
+    expect(db.banUser).not.toHaveBeenCalled();
+    expect(ctx.removeParticipant).not.toHaveBeenCalled();
+  });
+
+  it('usuário estrangeiro normal com 2+ sinais → anti-bot continua funcionando', async () => {
+    const db = await mockDb();
+    db.getGroupMod.mockResolvedValue(groupConfig({ antiestrangeiro: false, remover: true, autolink: true, antispam: true, detectar: true }));
+
+    const ctx = makeCtx();
+    const msg = makeWAMessage({
+      extendedTextMessage: {
+        text: 'cadastre-se em https://casino-win.xyz agora',
+        linkPreview: { 'canonical-url': 'https://casino-win.xyz' },
+      },
+    });
+    msg.key.participant = '1234567890@c.us'; // estrangeiro genérico
+
+    const result = await evaluate(msg, ctx, GROUP_JID, '1234567890@c.us', 'Bot');
+    expect(result.acted).toBe(true);
+    expect(result.action).toContain('ban');
+    expect(db.banUser).toHaveBeenCalledWith(expect.objectContaining({ groupId: GROUP_JID, userId: '1234567890@c.us' }));
+    expect(ctx.removeParticipant).toHaveBeenCalledWith(GROUP_JID, '1234567890@c.us');
   });
 });
 
