@@ -262,18 +262,29 @@ export async function setGroupModAll(groupId: string, config: GroupModConfig): P
   );
 }
 
+import { isProtectedTarget } from '../services/permissions.js';
+
 export async function banUser(entry: {
   groupId: string;
   userId: string;
   bannedBy?: string;
   reason?: string;
 }): Promise<void> {
+  const uid = String(entry.userId ?? '').trim();
+  if (!uid) throw new Error('[banUser] userId vazio');
+
+  // blindagem: nunca banir o BOT, o DONO ou ADMINS
+  if (isProtectedTarget(uid)) {
+    console.warn(`[databaseService] banUser bloqueado: tentativa de banir ID protegido (${uid}) no grupo ${entry.groupId}.`);
+    return;
+  }
+
   const db = await getDb();
   await db.run(
     `INSERT INTO banned_users (group_id, user_id, reason, banned_at)
      VALUES (?, ?, ?, ?)
      ON CONFLICT(group_id, user_id) DO UPDATE SET reason = excluded.reason, banned_at = excluded.banned_at`,
-    [entry.groupId, entry.userId, entry.reason || 'banido', Date.now()]
+    [entry.groupId, uid, entry.reason || 'banido', Date.now()]
   );
 }
 

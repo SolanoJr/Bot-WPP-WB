@@ -23,6 +23,7 @@ import {
   cleanupOldFingerprintEntries,
   cleanupOldJoinEntries,
 } from './databaseService.js';
+import { isProtectedTarget } from '../services/permissions.js';
 
 // ─── Configurações editáveis ────────────────────────────────────────────────
 const SUSPICIOUS_DOMAINS = [
@@ -355,8 +356,10 @@ export async function evaluate(
     reportedActions.push(`ANTIESTRANGEIRO: ${reasonText}`);
     ctx.log(`[AutoMod] antiestrangeiro ativado: ${reasonText}`);
 
-    // Ban persistente
-    if (config.remover) {
+    // Ban persistente — com blindagem
+    if (isProtectedTarget(senderJid)) {
+      ctx.log(`[AutoMod] antiestrangeiro ignorado — ID protegido: ${senderJid}`);
+    } else if (config.remover) {
       try {
         await banUser({ groupId, userId: senderJid, reason: 'banido-autoestrangeiro' });
         ctx.log(`[AutoMod] ban persistente registrado para ${senderJid}`);
@@ -410,20 +413,28 @@ export async function evaluate(
     reportedActions.push(`ANTIBOT: ${reasonText}`);
     ctx.log(`[AutoMod] antibot ativado: ${reasonText}`);
 
-    // Ban persistente
-    try {
-      await banUser({ groupId, userId: senderJid, reason: 'banido-antibot' });
-      ctx.log(`[AutoMod] ban persistente registrado para ${senderJid}`);
-    } catch (err: any) { ctx.warn('[AutoMod] erro ao banir:', err?.message); }
+    // Ban persistente — com blindagem
+    if (isProtectedTarget(senderJid)) {
+      ctx.log(`[AutoMod] antibot ignorado — ID protegido: ${senderJid}`);
+    } else {
+      try {
+        await banUser({ groupId, userId: senderJid, reason: 'banido-antibot' });
+        ctx.log(`[AutoMod] ban persistente registrado para ${senderJid}`);
+      } catch (err: any) { ctx.warn('[AutoMod] erro ao banir:', err?.message); }
+    }
 
-    // Remove do grupo
-    try {
-      await ctx.removeParticipant(groupId, senderJid);
-      ctx.log(`[AutoMod] removido do grupo: ${senderJid}`);
-      reportedActions.push(`REMOVIDO`);
-    } catch (err: any) {
-      ctx.warn(`[AutoMod] erro ao remover ${senderJid}:`, err?.message);
-      reportedActions.push(`FALHA AO REMOVER (${err?.message || 'erro'})`);
+    // Remove do grupo — com blindagem
+    if (isProtectedTarget(senderJid)) {
+      ctx.log(`[AutoMod] antibot ignorado — ID protegido: ${senderJid}`);
+    } else {
+      try {
+        await ctx.removeParticipant(groupId, senderJid);
+        ctx.log(`[AutoMod] removido do grupo: ${senderJid}`);
+        reportedActions.push(`REMOVIDO`);
+      } catch (err: any) {
+        ctx.warn(`[AutoMod] erro ao remover ${senderJid}:`, err?.message);
+        reportedActions.push(`FALHA AO REMOVER (${err?.message || 'erro'})`);
+      }
     }
 
     // Delete mensagem
