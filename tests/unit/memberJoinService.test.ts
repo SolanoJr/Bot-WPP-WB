@@ -14,11 +14,12 @@ vi.mock('../../src/services/databaseService.js', () => ({
     antibotas: true,
     antiestrangeiro: false,
     bemvindo: false,
+    audit_only: false,
   })),
   recordMemberJoin: vi.fn(async () => {}),
   recordMemberRemove: vi.fn(async () => {}),
   banUser: vi.fn(async () => {}),
-}));
+}))
 
 function makeDeps() {
   return {

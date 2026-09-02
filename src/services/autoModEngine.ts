@@ -305,13 +305,19 @@ export async function evaluate(
   }
 
   // Nada ligado → return
-  const anyOn = config.antiestrangeiro || config.remover || config.autolink || config.antispam;
-  if (!anyOn) {
-    ctx.log(`[AutoMod] grupo ${groupId}: nada ligado — ignorando`);
-    return { acted:false, reason:'nada ligado', action:'none' };
-  }
+    const anyOn = config.antiestrangeiro || config.remover || config.autolink || config.antispam;
+    if (!anyOn) {
+      ctx.log(`[AutoMod] grupo ${groupId}: nada ligado — ignorando`);
+      return { acted:false, reason:'nada ligado', action:'none' };
+    }
 
-  // 3. Auditoria: registrar entrada do membro (se ainda não registrado)
+    // Audit-only mode: detectar e logar, NÃO executar ações destrutivas
+    const isAuditOnly = config.audit_only === true;
+    if (isAuditOnly) {
+      ctx.log(`[AutoMod] grupo ${groupId}: MODO AUDITORIA — apenas detectar e registrar`);
+    }
+
+    // 3. Auditoria: registrar entrada do membro (se ainda não registrado)
   try {
     await recordMemberJoin(groupId, senderJid);
   } catch (err: any) {
@@ -352,16 +358,22 @@ export async function evaluate(
   const msgType = msg.message ?? {};
 
   // REGRA 1: antiestrangeiro (absoluto) — ban+remove+delete de TODO não-brasileiro
-    if (config.antiestrangeiro && isForeignNumber(senderJid)) {
-      const reasonText = `${senderName || senderJid} — DDI estrangeiro (anti-estrangeiro).`;
-      reportedActions.push(`ANTIESTRANGEIRO: ${reasonText}`);
-      ctx.log(`[AutoMod] antiestrangeiro ativado: ${reasonText}`);
+      if (config.antiestrangeiro && isForeignNumber(senderJid)) {
+        const reasonText = `${senderName || senderJid} — DDI estrangeiro (anti-estrangeiro).`;
+        reportedActions.push(`ANTIESTRANGEIRO: ${reasonText}`);
+        ctx.log(`[AutoMod] antiestrangeiro ativado: ${reasonText}`);
 
-      // Blindagem: ID protegido não é banido/removido/deletado
-      if (isProtectedTarget(senderJid)) {
-        ctx.log(`[AutoMod] antiestrangeiro ignorado — ID protegido: ${senderJid}`);
-        return { acted: false, reason: 'antiestrangeiro: ID protegido', action: 'none' };
-      }
+        // Blindagem: ID protegido não é banido/removido/deletado
+        if (isProtectedTarget(senderJid)) {
+          ctx.log(`[AutoMod] antiestrangeiro ignorado — ID protegido: ${senderJid}`);
+          return { acted: false, reason: 'antiestrangeiro: ID protegido', action: 'none' };
+        }
+
+        // Audit-only mode: apenas registrar, não executar ações
+        if (isAuditOnly) {
+          ctx.log(`[AutoMod] AUDIT-ONLY antiestrangeiro: ${senderJid} seria banido/removido/deletado`);
+          return { acted: false, reason: 'antiestrangeiro: audit-only', action: 'none' };
+        }
 
       // Ban persistente
       if (config.remover) {
@@ -418,15 +430,21 @@ export async function evaluate(
   if (hasSpamKeyword && spamContext) botSignals.push('spam-com-contexto');
 
   if (config.remover && botSignals.length >= 2) {
-      const reasonText = `${senderName || senderJid} — bot detectado (${botSignals.join(', ')}).`;
-      reportedActions.push(`ANTIBOT: ${reasonText}`);
-      ctx.log(`[AutoMod] antibot ativado: ${reasonText}`);
+        const reasonText = `${senderName || senderJid} — bot detectado (${botSignals.join(', ')}).`;
+        reportedActions.push(`ANTIBOT: ${reasonText}`);
+        ctx.log(`[AutoMod] antibot ativado: ${reasonText}`);
 
-      // Blindagem: ID protegido não é banido/removido/deletado
-      if (isProtectedTarget(senderJid)) {
-        ctx.log(`[AutoMod] antibot ignorado — ID protegido: ${senderJid}`);
-        return { acted: false, reason: 'antibot: ID protegido', action: 'none' };
-      }
+        // Blindagem: ID protegido não é banido/removido/deletado
+        if (isProtectedTarget(senderJid)) {
+          ctx.log(`[AutoMod] antibot ignorado — ID protegido: ${senderJid}`);
+          return { acted: false, reason: 'antibot: ID protegido', action: 'none' };
+        }
+
+        // Audit-only mode: apenas registrar, não executar ações
+        if (isAuditOnly) {
+          ctx.log(`[AutoMod] AUDIT-ONLY antibot: ${senderJid} seria banido/removido/deletado (sinais: ${botSignals.join(', ')})`);
+          return { acted: false, reason: 'antibot: audit-only', action: 'none' };
+        }
 
       // Ban persistente
       try {
@@ -470,14 +488,21 @@ export async function evaluate(
           }
 
   // REGRA 3: anti-link (autolink) — delete mensagem + announce (sem ban)
-    if (config.autolink && isSuspiciousDomain(domains)) {
-      // Blindagem: ID protegido não tem mensagem deletada
-      if (isProtectedTarget(senderJid)) {
-        ctx.log(`[AutoMod] antilink ignorado — ID protegido: ${senderJid}`);
-        return { acted: false, reason: 'antilink: ID protegido', action: 'none' };
-      }
+      if (config.autolink && isSuspiciousDomain(domains)) {
+        // Compute urlList first for audit logging
+        const urlList = [...new Set(domains.filter(d => SUSPICIOUS_DOMAINS.some(s => d.includes(s))))].join(', ');
 
-      const urlList = [...new Set(domains.filter(d => SUSPICIOUS_DOMAINS.some(s => d.includes(s))))].join(', ');
+        // Blindagem: ID protegido não tem mensagem deletada
+        if (isProtectedTarget(senderJid)) {
+          ctx.log(`[AutoMod] antilink ignorado — ID protegido: ${senderJid}`);
+          return { acted: false, reason: 'antilink: ID protegido', action: 'none' };
+        }
+
+        // Audit-only mode: apenas registrar, não executar ações
+        if (isAuditOnly) {
+          ctx.log(`[AutoMod] AUDIT-ONLY antilink: mensagem de ${senderJid} seria deletada (domínios: ${urlList})`);
+          return { acted: false, reason: 'antilink: audit-only', action: 'none' };
+        }
       reportedActions.push(`ANTILINK: domínio(s) suspeito(s) ${urlList} em ${senderJid}`);
       ctx.log(`[AutoMod] antilink ativado: domínios ${urlList} de ${senderJid}`);
 
@@ -509,10 +534,16 @@ export async function evaluate(
     // Palavra-chave ISOLADA (sem contexto) NÃO dispara ação, conforme solicitação.
     if (config.antispam && hasSpamKeyword && spamContext) {
       // Blindagem: ID protegido não tem mensagem deletada
-      if (isProtectedTarget(senderJid)) {
-        ctx.log(`[AutoMod] antispam ignorado — ID protegido: ${senderJid}`);
-        return { acted: false, reason: 'antispam: ID protegido', action: 'none' };
-      }
+            if (isProtectedTarget(senderJid)) {
+              ctx.log(`[AutoMod] antispam ignorado — ID protegido: ${senderJid}`);
+              return { acted: false, reason: 'antispam: ID protegido', action: 'none' };
+            }
+
+            // Audit-only mode: apenas registrar, não executar ações
+            if (isAuditOnly) {
+              ctx.log(`[AutoMod] AUDIT-ONLY antispam: mensagem de ${senderJid} seria deletada`);
+              return { acted: false, reason: 'antispam: audit-only', action: 'none' };
+            }
 
       const snippet = text.slice(0, 40);
       reportedActions.push(`ANTISPAM: palavra-chave "${snippet}${text.length > 40 ? '...' : ''}" em ${senderJid}`);
