@@ -557,6 +557,36 @@ describe('evaluate — anti-link', () => {
     const result = await evaluate(msg, ctx, GROUP_JID, BR_BR_JID, 'João');
     expect(result.acted).toBe(false);
   });
+
+  it('NÃO deleta mensagem do MASTER (isProtectedTarget)', async () => {
+    const db = await mockDb();
+    db.getGroupMod.mockResolvedValue(groupConfig({ antiestrangeiro: false, remover: false, autolink: true, antispam: false, detectar: true }));
+
+    const ctx = makeCtx();
+    const msg = makeWAMessage({
+      extendedTextMessage: { text: ' Acesse https://casino-win.xyz ' },
+    });
+    msg.key.participant = '5588998314322@c.us'; // MASTER_USER
+
+    const result = await evaluate(msg, ctx, GROUP_JID, '5588998314322@c.us', 'Dono');
+    expect(result.acted).toBe(false);
+    expect(ctx.sendMessage).not.toHaveBeenCalledWith(GROUP_JID, '', expect.objectContaining({ delete: expect.any(Object) }));
+  });
+
+  it('NÃO deleta mensagem do BOT (isProtectedTarget)', async () => {
+    const db = await mockDb();
+    db.getGroupMod.mockResolvedValue(groupConfig({ antiestrangeiro: false, remover: false, autolink: true, antispam: false, detectar: true }));
+
+    const ctx = makeCtx();
+    const msg = makeWAMessage({
+      extendedTextMessage: { text: ' Acesse https://casino-win.xyz ' },
+    });
+    msg.key.participant = '558581344211@c.us'; // BOT_NUMBER
+
+    const result = await evaluate(msg, ctx, GROUP_JID, '558581344211@c.us', 'WarriorBlack');
+    expect(result.acted).toBe(false);
+    expect(ctx.sendMessage).not.toHaveBeenCalledWith(GROUP_JID, '', expect.objectContaining({ delete: expect.any(Object) }));
+  });
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -607,6 +637,44 @@ describe('evaluate — anti-spam', () => {
 
     const result = await evaluate(msg, ctx, GROUP_JID, FOREIGN_JID, 'Spammer');
     expect(result.acted).toBe(true);
+  });
+
+  it('NÃO deleta mensagem do MASTER (isProtectedTarget)', async () => {
+    const db = await mockDb();
+    db.getGroupMod.mockResolvedValue(groupConfig({ antiestrangeiro: false, remover: false, autolink: false, antispam: true, detectar: true }));
+    db.getRecentFingerprintCount.mockResolvedValue(5); // contexto
+
+    const ctx = makeCtx();
+    const msg = makeWAMessage({
+      extendedTextMessage: {
+        text: 'ganhe dinheiro rápido em https://casino-win.xyz',
+        linkPreview: { 'canonical-url': 'https://casino-win.xyz' },
+      },
+    });
+    msg.key.participant = '5588998314322@c.us'; // MASTER_USER
+
+    const result = await evaluate(msg, ctx, GROUP_JID, '5588998314322@c.us', 'Dono');
+    expect(result.acted).toBe(false);
+    expect(ctx.sendMessage).not.toHaveBeenCalledWith(GROUP_JID, '', expect.objectContaining({ delete: expect.any(Object) }));
+  });
+
+  it('NÃO deleta mensagem do BOT (isProtectedTarget)', async () => {
+    const db = await mockDb();
+    db.getGroupMod.mockResolvedValue(groupConfig({ antiestrangeiro: false, remover: false, autolink: false, antispam: true, detectar: true }));
+    db.getRecentFingerprintCount.mockResolvedValue(5);
+
+    const ctx = makeCtx();
+    const msg = makeWAMessage({
+      extendedTextMessage: {
+        text: 'ganhe dinheiro rápido em https://casino-win.xyz',
+        linkPreview: { 'canonical-url': 'https://casino-win.xyz' },
+      },
+    });
+    msg.key.participant = '558581344211@c.us'; // BOT_NUMBER
+
+    const result = await evaluate(msg, ctx, GROUP_JID, '558581344211@c.us', 'WarriorBlack');
+    expect(result.acted).toBe(false);
+    expect(ctx.sendMessage).not.toHaveBeenCalledWith(GROUP_JID, '', expect.objectContaining({ delete: expect.any(Object) }));
   });
 });
 
