@@ -5,6 +5,7 @@
  */
 
 import express, { Request, Response, Express } from 'express';
+import v8 from 'node:v8';
 import {
   Counter,
   Gauge,
@@ -221,7 +222,8 @@ class MetricsService {
         // P1.4: Healthcheck usa estado real de conexão, não apenas processo vivo.
         const pm = (globalThis as any).__platformManager;
         const memStats = process.memoryUsage();
-        const heapPercent = (memStats.heapUsed / memStats.heapTotal) * 100;
+        const heapLimit = v8.getHeapStatistics().heap_size_limit;
+        const heapPercent = (memStats.heapUsed / heapLimit) * 100;
         const wppHealth = getWppHealth();
 
         // Status por plataforma
@@ -245,6 +247,7 @@ class MetricsService {
           memory: {
             heapUsed: Math.round(memStats.heapUsed / 1024 / 1024),
             heapTotal: Math.round(memStats.heapTotal / 1024 / 1024),
+            heapLimit: Math.round(heapLimit / 1024 / 1024),
             heapPercent: Math.round(heapPercent * 100) / 100,
             rss: Math.round(memStats.rss / 1024 / 1024)
           },

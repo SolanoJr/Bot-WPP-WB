@@ -7,6 +7,7 @@
 
 import logger from './loggerService';
 import metricsService from './metricsService';
+import v8 from 'node:v8';
 
 interface MemoryStats {
   heapUsed: number;
@@ -69,7 +70,7 @@ export class MemoryMonitor {
     return {
       heapUsed: usage.heapUsed,
       heapTotal: usage.heapTotal,
-      heapUsedPercent: (usage.heapUsed / usage.heapTotal) * 100,
+      heapUsedPercent: (usage.heapUsed / v8.getHeapStatistics().heap_size_limit) * 100,
       rss: usage.rss,
       external: usage.external,
     };
