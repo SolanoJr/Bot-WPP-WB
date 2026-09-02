@@ -24,10 +24,11 @@ export async function handleKeywords(
   msg: any,
   replyCtx: ReplyContext,
 ): Promise<boolean> {
-  if (!msg?.body) return false;
+  const body = typeof msg?.body === 'string' ? msg.body : typeof msg?.text === 'string' ? msg.text : '';
+  if (!body.trim() || body.trim().startsWith('$')) return false;
 
   // Deduplicação: mesma frase não responde duas vezes em 5s
-  const chave = `${replyCtx.chatId || ''}|${replyCtx.userId || ''}|${msg.body.trim().toLowerCase()}`;
+  const chave = `${replyCtx.chatId || ''}|${replyCtx.userId || ''}|${body.trim().toLowerCase()}`;
   const agora = Date.now();
   if (respondedDup.has(chave)) {
     const t = respondedDup.get(chave)!;
@@ -37,16 +38,24 @@ export async function handleKeywords(
 
   // Máscaras de cross-check
   if (isCrossCheckBefore(msg)) return true;
-  if (msg?.epochTime && msg.body.length < 7) return true;
+  if (msg?.epochTime && body.length < 7) return true;
   if (msg?.author && msg.author === replyCtx.userId) {
-    if (isCrossCheckCapture(replyCtx, msg?.author || msg?.from || '', msg.body)) return true;
+    if (isCrossCheckCapture(replyCtx, msg?.author || msg?.from || '', body)) return true;
   }
 
-  const texto = msg.body.trim().toLowerCase();
+  const texto = body.trim().toLowerCase();
+  if (texto.includes('removeu você do grupo')) {
+    await msg.delete?.(true);
+    await msg.reply?.('Tentativa de zoeira detectada. Hoje não, amigão. 😂');
+    return true;
+  }
+  if (!texto.includes('bot')) return false;
   const resposta = getSarcasticResponse();
   if (resposta) {
     try {
-      await replyCtx.reply(resposta, { messageId: msg.id?.id });
+      const reply = (replyCtx as Partial<ReplyContext>).reply || msg.reply;
+      if (typeof reply !== 'function') return false;
+      await reply.call((replyCtx as Partial<ReplyContext>).reply ? replyCtx : msg, resposta, { messageId: msg.id?.id });
       logger.info('[keywordHandler] Palavra-chave detectada, resposta enviada', {
         chatId: replyCtx.chatId,
         userId: replyCtx.userId

@@ -10,7 +10,7 @@ export const ondeEstouCommand: ICommand = {
   name: 'ondeestou',
   description: 'Gera um link seguro para envio de localização.',
   async execute(ctx) {
-    const chatId = ctx.chatId;
+    const chatId = ctx.chatId || (ctx as any).from || (ctx.msg as any)?.chatId;
     const interfaceUrl = process.env.LOCATION_INTERFACE_URL || 'https://bot-wpp-wb-sc.pages.dev';
     const relayUrl = (process.env.RELAY_URL && process.env.RELAY_URL.includes('bot-wpp-relay.onrender.com'))
       ? process.env.RELAY_URL

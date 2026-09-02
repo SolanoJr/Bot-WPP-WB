@@ -75,18 +75,3 @@ vi.mock('lowdb', () => ({
   Low: vi.fn(() => ({ data: {}, read: vi.fn().mockResolvedValue(undefined), write: vi.fn().mockResolvedValue(undefined) })),
 }));
 
-vi.mock('whatsapp-web.js', () => ({
-  Client: vi.fn(() => ({
-    initialize: vi.fn().mockResolvedValue(undefined),
-    destroy: vi.fn().mockResolvedValue(undefined),
-    on: vi.fn(),
-    once: vi.fn(),
-    sendMessage: vi.fn().mockResolvedValue({}),
-    getChatById: vi.fn().mockResolvedValue({ id: { _serialized: 'chat1' }, isGroup: true, participants: [] }),
-    getContactById: vi.fn().mockResolvedValue({ id: { _serialized: 'user1' }, pushname: 'User' }),
-    getChats: vi.fn().mockResolvedValue([]),
-    info: { wid: { _serialized: '558581344211@c.us' }, pushname: 'Bot' },
-  })),
-  LocalAuth: vi.fn(),
-  MessageMedia: { fromUrl: vi.fn().mockResolvedValue({}) },
-}));

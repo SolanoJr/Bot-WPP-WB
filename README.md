@@ -43,6 +43,7 @@ O sistema utiliza a chave **WARRIOR_AUTH_KEY** (16 caracteres) para autenticar t
 ### Pré-requisitos
 
 -   Node.js 20.x, igual ao ambiente de produção e CI
+-   Versão recomendada: `20.20.2` (também registrada em `.nvmrc`)
 -   npm (gerenciador de pacotes do Node.js)
 -   PM2 (para gerenciamento de processos em produção no Linux)
 -   Conta no Google Cloud com acesso à Gemini API (Modelo: `gemini-2.0-flash`)

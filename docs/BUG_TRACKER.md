@@ -9,8 +9,9 @@ Este documento registra bugs críticos encontrados e suas respectivas soluções
 - **CONFIRMADO / P1:** healthcheck lê `healthStore` e `PlatformManager.getActivePlatforms()`/`getAdapter()`; processo PM2 online não equivale a WhatsApp conectado.
 - **CONFIRMADO / P1:** percentuais de memória usam o limite real do heap V8, não o `heapTotal` elástico de curto prazo.
 - **CONFIRMADO / P1:** `npm audit --omit=dev` está sem vulnerabilidades runtime após atualizar transitivas. O npm 10 do Linux ainda reporta 6 vulnerabilidades altas somente em ferramentas de desenvolvimento; não afetam o processo de produção e ficam pendentes de atualização compatível do toolchain.
-- **PENDENTE / P1:** produção precisa ser reconciliada com `ecosystem.config.js` antes de qualquer restart: cwd, logs, `--expose-gc` e banco.
+- **RESOLVIDO / P1:** produção foi reconciliada com `ecosystem.config.js`: cwd, logs estáveis, `--expose-gc` e banco estão corretos.
 - **PENDENTE / P2:** suíte local ainda requer binding compatível do `sqlite3` com Node 20 ou uma estratégia de dependência nativa multiplataforma.
+- **RESOLVIDO / P2:** com Node `20.20.2` e scripts nativos habilitados, a suíte completa passa `146/146`; Node 24 não é runtime suportado para esta validação.
 
 As entradas abaixo são histórico legado. Referências a WWebJS, Chromium, `src/whatsapp.ts` e `autoModService.ts` não descrevem o engine atual, que é Baileys.
 
