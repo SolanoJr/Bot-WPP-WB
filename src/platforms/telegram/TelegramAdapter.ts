@@ -36,6 +36,7 @@ class TelegramClient implements PlatformClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempts = 0;
   private shuttingDown = false;
+  private launchStarted = false;
 
   constructor(token: string) {
     this.token = token;
@@ -78,15 +79,27 @@ class TelegramClient implements PlatformClient {
    * Separado do construtor para evitar race condition.
    */
   async launch(): Promise<void> {
+    if (this.launchStarted || this.shuttingDown) return;
     console.log('[Telegram] Iniciando launch()...');
     try {
-      await this.bot.launch();
+      const getMe = (this.bot.telegram as any).getMe;
+      if (typeof getMe === 'function') {
+        const me = await getMe.call(this.bot.telegram);
+        this.userId = me?.id?.toString() ?? '';
+        this.userName = me?.username ?? 'TelegramBot';
+      }
       this.isReady = true;
       this.reconnectAttempts = 0;
-      this.userId = this.bot.botInfo?.id?.toString() ?? '';
-      this.userName = this.bot.botInfo?.username ?? 'TelegramBot';
       console.log(`[Telegram] ✅ Pronto como ${this.userName} (${this.userId})`);
       if (this.readyHandler) this.readyHandler();
+      this.launchStarted = true;
+      void this.bot.launch().catch((error: any) => {
+        this.launchStarted = false;
+        this.isReady = false;
+        this.disconnectedHandler?.(error?.message || String(error));
+        this.scheduleReconnect();
+        console.error('[Telegram] ❌ Erro no polling:', error?.message || error);
+      });
     } catch (err: any) {
       console.error('[Telegram] ❌ Erro no launch():', err.message);
       console.error('[Telegram] Stack trace:', err.stack);
@@ -256,6 +269,7 @@ class TelegramClient implements PlatformClient {
     try { await this.bot.stop(); } catch (error: any) {
       if (!String(error?.message || '').includes('not running')) throw error;
     }
+    this.launchStarted = false;
     this.isReady = false;
   }
 }
