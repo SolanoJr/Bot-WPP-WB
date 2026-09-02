@@ -23,6 +23,7 @@ import {
   cleanupOldFingerprintEntries,
   cleanupOldJoinEntries,
 } from './databaseService.js';
+import { recordInfraction } from './infractions.js';
 import { isProtectedTarget } from '../services/permissions.js';
 
 // ─── Configurações editáveis ────────────────────────────────────────────────
@@ -381,27 +382,31 @@ export async function evaluate(
       }
 
       // Delete mensagem (se bot for admin) — antiestrangeiro sempre deleta
-      try { 
-          await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
-          ctx.log(`[AutoMod] mensagem deletada de ${senderJid}`);
-          reportedActions.push(`MSGMENSAGEMAPAGADA`);
-        } catch (err: any) {
-          ctx.warn(`[AutoMod] erro ao deletar mensagem:`, err?.message);
-      }
-      // Anunciar se detectar on
-      if (config.detectar === true) {
-        const ann = reportedActions.join(' | ');
-        try {
-          await ctx.sendMessage(groupId, `🚫 [AUTOMOD] ${ann}: ${senderName || senderJid} (${senderJid})`);
-        } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar:', err?.message); }
-      }
+            try { 
+                await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
+                ctx.log(`[AutoMod] mensagem deletada de ${senderJid}`);
+                reportedActions.push(`MSGMENSAGEMAPAGADA`);
+              } catch (err: any) {
+                ctx.warn(`[AutoMod] erro ao deletar mensagem:`, err?.message);
+            }
+      
+            // Registrar infração
+            await recordInfraction(groupId, senderJid).catch(err => ctx.warn('[AutoMod] erro ao registrar infração:', err?.message));
 
-      return {
-        acted:true,
-        reason:`antiestrangeiro: ${reportedActions.join('; ')}`,
-        action:'ban+remove+delete+announce',
-      };
-    }
+            // Anunciar se detectar on
+            if (config.detectar === true) {
+              const ann = reportedActions.join(' | ');
+              try {
+                await ctx.sendMessage(groupId, `🚫 [AUTOMOD] ${ann}: ${senderName || senderJid} (${senderJid})`);
+              } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar:', err?.message); }
+            }
+
+            return {
+              acted:true,
+              reason:`antiestrangeiro: ${reportedActions.join('; ')}`,
+              action:'ban+remove+delete+announce',
+            };
+          }
 
   // REGRA 2: anti-bot (remover) — foreign + conteúdo suspeito + nome suspeito + repetido
   // Threshold: >=2 sinais → ban+remove+delete+announce
@@ -440,26 +445,29 @@ export async function evaluate(
       }
 
       // Delete mensagem
-      try {
-        await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
-        ctx.log(`[AutoMod] mensagem deletada de ${senderJid}`);
-        reportedActions.push(`MSGUPDELETE`);
-      } catch (err: any) { ctx.warn('[AutoMod] erro ao deletar:', err?.message); }
+            try {
+              await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
+              ctx.log(`[AutoMod] mensagem deletada de ${senderJid}`);
+              reportedActions.push(`MSGUPDELETE`);
+            } catch (err: any) { ctx.warn('[AutoMod] erro ao deletar:', err?.message); }
 
-      // Anunciar se detectar on
-      if (config.detectar === true) {
-        const ann = reportedActions.join(' | ');
-        try {
-          await ctx.sendMessage(groupId, `🤖 [AUTOMOD] ${ann}: ${senderName || senderJid} (${senderJid})`);
-        } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar:', err?.message); }
-      }
+            // Registrar infração
+            await recordInfraction(groupId, senderJid).catch(err => ctx.warn('[AutoMod] erro ao registrar infração:', err?.message));
 
-      return {
-        acted: true,
-        reason: `antibot: ${botSignals.join(', ')} → ${reportedActions.join('; ')}`,
-        action: 'ban+remove+delete+announce',
-      };
-    }
+            // Anunciar se detectar on
+            if (config.detectar === true) {
+              const ann = reportedActions.join(' | ');
+              try {
+                await ctx.sendMessage(groupId, `🤖 [AUTOMOD] ${ann}: ${senderName || senderJid} (${senderJid})`);
+              } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar:', err?.message); }
+            }
+
+            return {
+              acted: true,
+              reason: `antibot: ${botSignals.join(', ')} → ${reportedActions.join('; ')}`,
+              action: 'ban+remove+delete+announce',
+            };
+          }
 
   // REGRA 3: anti-link (autolink) — delete mensagem + announce (sem ban)
     if (config.autolink && isSuspiciousDomain(domains)) {
@@ -518,22 +526,25 @@ export async function evaluate(
       } catch (err: any) { ctx.warn('[AutoMod] erro ao deletar mensagem:', err?.message); }
 
       // Anunciar se detectar on
-      if (config.detectar === true) {
-        const ann = reportedActions.join(' | ');
-        try {
-          await ctx.sendMessage(
-            groupId,
-            `📢 [AUTOMOD] Mensagem removida (spam detectado): ${senderName || senderJid} (${senderJid})`
-          );
-        } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar:', err?.message); }
-      }
+            if (config.detectar === true) {
+              const ann = reportedActions.join(' | ');
+              try {
+                await ctx.sendMessage(
+                  groupId,
+                  `📢 [AUTOMOD] Mensagem removida (spam detectado): ${senderName || senderJid} (${senderJid})`
+                );
+              } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar:', err?.message); }
+            }
 
-      return {
-        acted:true,
-        reason:`antispam: ${reportedActions.join('; ')}`,
-        action:'delete+announce',
-      };
-    }
+            // Registrar infração
+            await recordInfraction(groupId, senderJid).catch(err => ctx.warn('[AutoMod] erro ao registrar infração:', err?.message));
+
+            return {
+              acted:true,
+              reason:`antispam: ${reportedActions.join('; ')}`,
+              action:'delete+announce',
+            };
+          }
 
   // Nada ativado que precise agir
   ctx.log(`[AutoMod] sem ações: config=${JSON.stringify(config)} foreign=${isForeignNumber(senderJid)} spamKW=${hasSpamKeyword} spamCtx=${spamContext} domain=${isSuspiciousDomain(domains)} botSig=${botSignals.length}`);
