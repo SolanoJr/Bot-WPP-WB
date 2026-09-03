@@ -67,6 +67,8 @@ export interface PlatformMessage {
   quotedSender?: string;
   quotedFromMe?: boolean;
   quotedParticipant?: string;    // ID do participante quotado (Baileys)
+  // Correlation ID para tracing entre plataformas e serviços
+  correlationId?: string;
   // Metadados extras da plataforma
   metadata?: any;
 }

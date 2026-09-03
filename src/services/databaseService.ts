@@ -22,6 +22,7 @@ export interface GroupModConfig {
   bemvindo?: boolean;
   detectar?: boolean;
   remover?: boolean;
+  audit_only?: boolean;
 }
 
 export async function initDatabase() {
@@ -58,18 +59,19 @@ export async function initDatabase() {
   `);
 
   // ─── Configurações de moderação por grupo ───
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS group_mod (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      group_id TEXT NOT NULL UNIQUE,
-      antispam BOOLEAN DEFAULT 1,
-      antiestrangeiro BOOLEAN DEFAULT 1,
-      autolink BOOLEAN DEFAULT 1,
-      bemvindo BOOLEAN DEFAULT 0,
-      detectar BOOLEAN DEFAULT 0,
-      remover BOOLEAN DEFAULT 1
-    );
-  `);
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS group_mod (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_id TEXT NOT NULL UNIQUE,
+        antispam BOOLEAN DEFAULT 1,
+        antiestrangeiro BOOLEAN DEFAULT 1,
+        autolink BOOLEAN DEFAULT 1,
+        bemvindo BOOLEAN DEFAULT 0,
+        detectar BOOLEAN DEFAULT 0,
+        remover BOOLEAN DEFAULT 1,
+        audit_only BOOLEAN DEFAULT 0
+      );
+    `);
 
   // ─── AUDIT TRAIL: entrada/saída de membros ───
   await db.exec(`
@@ -204,7 +206,7 @@ export async function listBanned(limit: number = 10): Promise<any[]> {
 export async function getGroupMod(groupId: string): Promise<GroupModConfig> {
   const db = await getDb();
   const row = await db.get(
-    `SELECT antispam, antiestrangeiro, autolink, bemvindo, detectar, remover FROM group_mod WHERE group_id = ?`,
+    `SELECT antispam, antiestrangeiro, autolink, bemvindo, detectar, remover, audit_only FROM group_mod WHERE group_id = ?`,
     [groupId]
   );
   if (!row) return {};
@@ -215,6 +217,7 @@ export async function getGroupMod(groupId: string): Promise<GroupModConfig> {
     bemvindo: row.bemvindo === 1 || row.bemvindo === true,
     detectar: row.detectar === 1 || row.detectar === true,
     remover: row.remover === 1 || row.remover === true,
+    audit_only: row.audit_only === 1 || row.audit_only === true,
   };
 }
 
@@ -262,18 +265,29 @@ export async function setGroupModAll(groupId: string, config: GroupModConfig): P
   );
 }
 
+import { isProtectedTarget } from '../services/permissions.js';
+
 export async function banUser(entry: {
   groupId: string;
   userId: string;
   bannedBy?: string;
   reason?: string;
 }): Promise<void> {
+  const uid = String(entry.userId ?? '').trim();
+  if (!uid) throw new Error('[banUser] userId vazio');
+
+  // blindagem: nunca banir o BOT, o DONO ou ADMINS
+  if (isProtectedTarget(uid)) {
+    console.warn(`[databaseService] banUser bloqueado: tentativa de banir ID protegido (${uid}) no grupo ${entry.groupId}.`);
+    return;
+  }
+
   const db = await getDb();
   await db.run(
     `INSERT INTO banned_users (group_id, user_id, reason, banned_at)
      VALUES (?, ?, ?, ?)
      ON CONFLICT(group_id, user_id) DO UPDATE SET reason = excluded.reason, banned_at = excluded.banned_at`,
-    [entry.groupId, entry.userId, entry.reason || 'banido', Date.now()]
+    [entry.groupId, uid, entry.reason || 'banido', Date.now()]
   );
 }
 

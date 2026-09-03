@@ -23,6 +23,8 @@ import {
   cleanupOldFingerprintEntries,
   cleanupOldJoinEntries,
 } from './databaseService.js';
+import { recordInfraction } from './infractions.js';
+import { isProtectedTarget } from '../services/permissions.js';
 
 // ─── Configurações editáveis ────────────────────────────────────────────────
 const SUSPICIOUS_DOMAINS = [
@@ -303,13 +305,19 @@ export async function evaluate(
   }
 
   // Nada ligado → return
-  const anyOn = config.antiestrangeiro || config.remover || config.autolink || config.antispam;
-  if (!anyOn) {
-    ctx.log(`[AutoMod] grupo ${groupId}: nada ligado — ignorando`);
-    return { acted:false, reason:'nada ligado', action:'none' };
-  }
+    const anyOn = config.antiestrangeiro || config.remover || config.autolink || config.antispam;
+    if (!anyOn) {
+      ctx.log(`[AutoMod] grupo ${groupId}: nada ligado — ignorando`);
+      return { acted:false, reason:'nada ligado', action:'none' };
+    }
 
-  // 3. Auditoria: registrar entrada do membro (se ainda não registrado)
+    // Audit-only mode: detectar e logar, NÃO executar ações destrutivas
+    const isAuditOnly = config.audit_only === true;
+    if (isAuditOnly) {
+      ctx.log(`[AutoMod] grupo ${groupId}: MODO AUDITORIA — apenas detectar e registrar`);
+    }
+
+    // 3. Auditoria: registrar entrada do membro (se ainda não registrado)
   try {
     await recordMemberJoin(groupId, senderJid);
   } catch (err: any) {
@@ -350,15 +358,97 @@ export async function evaluate(
   const msgType = msg.message ?? {};
 
   // REGRA 1: antiestrangeiro (absoluto) — ban+remove+delete de TODO não-brasileiro
-  if (config.antiestrangeiro && isForeignNumber(senderJid)) {
-    const reasonText = `${senderName || senderJid} — DDI estrangeiro (anti-estrangeiro).`;
-    reportedActions.push(`ANTIESTRANGEIRO: ${reasonText}`);
-    ctx.log(`[AutoMod] antiestrangeiro ativado: ${reasonText}`);
+      if (config.antiestrangeiro && isForeignNumber(senderJid)) {
+        const reasonText = `${senderName || senderJid} — DDI estrangeiro (anti-estrangeiro).`;
+        reportedActions.push(`ANTIESTRANGEIRO: ${reasonText}`);
+        ctx.log(`[AutoMod] antiestrangeiro ativado: ${reasonText}`);
 
-    // Ban persistente
-    if (config.remover) {
+        // Blindagem: ID protegido não é banido/removido/deletado
+        if (isProtectedTarget(senderJid)) {
+          ctx.log(`[AutoMod] antiestrangeiro ignorado — ID protegido: ${senderJid}`);
+          return { acted: false, reason: 'antiestrangeiro: ID protegido', action: 'none' };
+        }
+
+        // Audit-only mode: apenas registrar, não executar ações
+        if (isAuditOnly) {
+          ctx.log(`[AutoMod] AUDIT-ONLY antiestrangeiro: ${senderJid} seria banido/removido/deletado`);
+          return { acted: false, reason: 'antiestrangeiro: audit-only', action: 'none' };
+        }
+
+      // Ban persistente
+      if (config.remover) {
+        try {
+          await banUser({ groupId, userId: senderJid, reason: 'banido-autoestrangeiro' });
+          ctx.log(`[AutoMod] ban persistente registrado para ${senderJid}`);
+        } catch (err: any) { ctx.warn('[AutoMod] erro ao banir:', err?.message); }
+
+        // Remove do grupo
+        try {
+          await ctx.removeParticipant(groupId, senderJid);
+          ctx.log(`[AutoMod] removido do grupo: ${senderJid}`);
+          reportedActions.push(`REMOVIDO`);
+        } catch (err: any) {
+          ctx.warn(`[AutoMod] erro ao remover ${senderJid}:`, err?.message);
+          reportedActions.push(`FALHA AO REMOVER (${err?.message || 'erro'})`);
+        }
+      }
+
+      // Delete mensagem (se bot for admin) — antiestrangeiro sempre deleta
+            try { 
+                await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
+                ctx.log(`[AutoMod] mensagem deletada de ${senderJid}`);
+                reportedActions.push(`MSGMENSAGEMAPAGADA`);
+              } catch (err: any) {
+                ctx.warn(`[AutoMod] erro ao deletar mensagem:`, err?.message);
+            }
+      
+            // Registrar infração
+            await recordInfraction(groupId, senderJid).catch(err => ctx.warn('[AutoMod] erro ao registrar infração:', err?.message));
+
+            // Anunciar se detectar on
+            if (config.detectar === true) {
+              const ann = reportedActions.join(' | ');
+              try {
+                await ctx.sendMessage(groupId, `🚫 [AUTOMOD] ${ann}: ${senderName || senderJid} (${senderJid})`);
+              } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar:', err?.message); }
+            }
+
+            return {
+              acted:true,
+              reason:`antiestrangeiro: ${reportedActions.join('; ')}`,
+              action:'ban+remove+delete+announce',
+            };
+          }
+
+  // REGRA 2: anti-bot (remover) — foreign + conteúdo suspeito + nome suspeito + repetido
+  // Threshold: >=2 sinais → ban+remove+delete+announce
+  const botSignals: string[] = [];
+  if (isForeignNumber(senderJid)) botSignals.push('foreign');
+  if (isSuspiciousDomain(domains)) botSignals.push('link-suspeito');
+  if (msgType.buttonsMessage || msgType.listMessage || msgType.templateMessage || msgType.interactiveMessage) botSignals.push('mensagem-interativa');
+  if (suspiciousName) botSignals.push('nome-suspeito');
+  if (hasSpamKeyword && spamContext) botSignals.push('spam-com-contexto');
+
+  if (config.remover && botSignals.length >= 2) {
+        const reasonText = `${senderName || senderJid} — bot detectado (${botSignals.join(', ')}).`;
+        reportedActions.push(`ANTIBOT: ${reasonText}`);
+        ctx.log(`[AutoMod] antibot ativado: ${reasonText}`);
+
+        // Blindagem: ID protegido não é banido/removido/deletado
+        if (isProtectedTarget(senderJid)) {
+          ctx.log(`[AutoMod] antibot ignorado — ID protegido: ${senderJid}`);
+          return { acted: false, reason: 'antibot: ID protegido', action: 'none' };
+        }
+
+        // Audit-only mode: apenas registrar, não executar ações
+        if (isAuditOnly) {
+          ctx.log(`[AutoMod] AUDIT-ONLY antibot: ${senderJid} seria banido/removido/deletado (sinais: ${botSignals.join(', ')})`);
+          return { acted: false, reason: 'antibot: audit-only', action: 'none' };
+        }
+
+      // Ban persistente
       try {
-        await banUser({ groupId, userId: senderJid, reason: 'banido-autoestrangeiro' });
+        await banUser({ groupId, userId: senderJid, reason: 'banido-antibot' });
         ctx.log(`[AutoMod] ban persistente registrado para ${senderJid}`);
       } catch (err: any) { ctx.warn('[AutoMod] erro ao banir:', err?.message); }
 
@@ -371,144 +461,121 @@ export async function evaluate(
         ctx.warn(`[AutoMod] erro ao remover ${senderJid}:`, err?.message);
         reportedActions.push(`FALHA AO REMOVER (${err?.message || 'erro'})`);
       }
-    }
 
-    // Delete mensagem (se bot for admin) — antiestrangeiro sempre deleta
-    try { 
-        await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
-        ctx.log(`[AutoMod] mensagem deletada de ${senderJid}`);
-        reportedActions.push(`MSGMENSAGEMAPAGADA`);
-      } catch (err: any) {
-        ctx.warn(`[AutoMod] erro ao deletar mensagem:`, err?.message);
-    }
-    // Anunciar se detectar on
-    if (config.detectar === true) {
-      const ann = reportedActions.join(' | ');
-      try {
-        await ctx.sendMessage(groupId, `🚫 [AUTOMOD] ${ann}: ${senderName || senderJid} (${senderJid})`);
-      } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar:', err?.message); }
-    }
+      // Delete mensagem
+            try {
+              await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
+              ctx.log(`[AutoMod] mensagem deletada de ${senderJid}`);
+              reportedActions.push(`MSGUPDELETE`);
+            } catch (err: any) { ctx.warn('[AutoMod] erro ao deletar:', err?.message); }
 
-    return {
-      acted:true,
-      reason:`antiestrangeiro: ${reportedActions.join('; ')}`,
-      action:'ban+remove+delete+announce',
-    };
-  }
+            // Registrar infração
+            await recordInfraction(groupId, senderJid).catch(err => ctx.warn('[AutoMod] erro ao registrar infração:', err?.message));
 
-  // REGRA 2: anti-bot (remover) — foreign + conteúdo suspeito + nome suspeito + repetido
-  // Threshold: >=2 sinais → ban+remove+delete+announce
-  const botSignals: string[] = [];
-  if (isForeignNumber(senderJid)) botSignals.push('foreign');
-  if (isSuspiciousDomain(domains)) botSignals.push('link-suspeito');
-  if (msgType.buttonsMessage || msgType.listMessage || msgType.templateMessage || msgType.interactiveMessage) botSignals.push('mensagem-interativa');
-  if (suspiciousName) botSignals.push('nome-suspeito');
-  if (hasSpamKeyword && spamContext) botSignals.push('spam-com-contexto');
+            // Anunciar se detectar on
+            if (config.detectar === true) {
+              const ann = reportedActions.join(' | ');
+              try {
+                await ctx.sendMessage(groupId, `🤖 [AUTOMOD] ${ann}: ${senderName || senderJid} (${senderJid})`);
+              } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar:', err?.message); }
+            }
 
-  if (config.remover && botSignals.length >= 2) {
-    const reasonText = `${senderName || senderJid} — bot detectado (${botSignals.join(', ')}).`;
-    reportedActions.push(`ANTIBOT: ${reasonText}`);
-    ctx.log(`[AutoMod] antibot ativado: ${reasonText}`);
-
-    // Ban persistente
-    try {
-      await banUser({ groupId, userId: senderJid, reason: 'banido-antibot' });
-      ctx.log(`[AutoMod] ban persistente registrado para ${senderJid}`);
-    } catch (err: any) { ctx.warn('[AutoMod] erro ao banir:', err?.message); }
-
-    // Remove do grupo
-    try {
-      await ctx.removeParticipant(groupId, senderJid);
-      ctx.log(`[AutoMod] removido do grupo: ${senderJid}`);
-      reportedActions.push(`REMOVIDO`);
-    } catch (err: any) {
-      ctx.warn(`[AutoMod] erro ao remover ${senderJid}:`, err?.message);
-      reportedActions.push(`FALHA AO REMOVER (${err?.message || 'erro'})`);
-    }
-
-    // Delete mensagem
-    try {
-      await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
-      ctx.log(`[AutoMod] mensagem deletada de ${senderJid}`);
-      reportedActions.push(`MSGUPDELETE`);
-    } catch (err: any) { ctx.warn('[AutoMod] erro ao deletar:', err?.message); }
-
-    // Anunciar se detectar on
-    if (config.detectar === true) {
-      const ann = reportedActions.join(' | ');
-      try {
-        await ctx.sendMessage(groupId, `🤖 [AUTOMOD] ${ann}: ${senderName || senderJid} (${senderJid})`);
-      } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar:', err?.message); }
-    }
-
-    return {
-      acted:true,
-      reason:`antibot: ${botSignals.join(', ')} → ${reportedActions.join('; ')}`,
-      action:'ban+remove+delete+announce',
-    };
-  }
+            return {
+              acted: true,
+              reason: `antibot: ${botSignals.join(', ')} → ${reportedActions.join('; ')}`,
+              action: 'ban+remove+delete+announce',
+            };
+          }
 
   // REGRA 3: anti-link (autolink) — delete mensagem + announce (sem ban)
-  if (config.autolink && isSuspiciousDomain(domains)) {
-    const urlList = [...new Set(domains.filter(d => SUSPICIOUS_DOMAINS.some(s => d.includes(s))))].join(', ');
-    reportedActions.push(`ANTILINK: domínio(s) suspeito(s) ${urlList} em ${senderJid}`);
-    ctx.log(`[AutoMod] antilink ativado: domínios ${urlList} de ${senderJid}`);
+      if (config.autolink && isSuspiciousDomain(domains)) {
+        // Compute urlList first for audit logging
+        const urlList = [...new Set(domains.filter(d => SUSPICIOUS_DOMAINS.some(s => d.includes(s))))].join(', ');
 
-    // Delete mensagem
-    try {
-      await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
-      ctx.log(`[AutoMod] mensagem deletada por antilink: ${senderJid}`);
-      reportedActions.push(`MSGUPDELETE`);
-    } catch (err: any) { ctx.warn('[AutoMod] erro ao deletar mensagem:', err?.message); }
+        // Blindagem: ID protegido não tem mensagem deletada
+        if (isProtectedTarget(senderJid)) {
+          ctx.log(`[AutoMod] antilink ignorado — ID protegido: ${senderJid}`);
+          return { acted: false, reason: 'antilink: ID protegido', action: 'none' };
+        }
 
-    // Anunciar se detectar on
-    if (config.detectar === true) {
+        // Audit-only mode: apenas registrar, não executar ações
+        if (isAuditOnly) {
+          ctx.log(`[AutoMod] AUDIT-ONLY antilink: mensagem de ${senderJid} seria deletada (domínios: ${urlList})`);
+          return { acted: false, reason: 'antilink: audit-only', action: 'none' };
+        }
+      reportedActions.push(`ANTILINK: domínio(s) suspeito(s) ${urlList} em ${senderJid}`);
+      ctx.log(`[AutoMod] antilink ativado: domínios ${urlList} de ${senderJid}`);
+
+      // Delete mensagem
       try {
-        await ctx.sendMessage(
-          groupId,
-          `🔗 [AUTOMOD] Mensagem removida (link suspeito): ${senderName || senderJid} (${senderJid}) — domínios: ${urlList}`
-        );
-      } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar:', err?.message); }
-    }
+        await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
+        ctx.log(`[AutoMod] mensagem deletada por antilink: ${senderJid}`);
+        reportedActions.push(`MSGUPDELETE`);
+      } catch (err: any) { ctx.warn('[AutoMod] erro ao deletar mensagem:', err?.message); }
 
-    return {
-      acted:true,
-      reason:`antilink: domínios ${urlList}`,
-      action:'delete+announce',
-    };
-  }
+      // Anunciar se detectar on
+      if (config.detectar === true) {
+        try {
+          await ctx.sendMessage(
+            groupId,
+            `🔗 [AUTOMOD] Mensagem removida (link suspeito): ${senderName || senderJid} (${senderJid}) — domínios: ${urlList}`
+          );
+        } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar:', err?.message); }
+      }
+
+      return {
+        acted:true,
+        reason:`antilink: domínios ${urlList}`,
+        action:'delete+announce',
+      };
+    }
 
   // REGRA 4: anti-spam (antispam) — palavra-chave + contexto → delete mensagem + announce
-  // Palavra-chave ISOLADA (sem contexto) NÃO dispara ação, conforme solicitação.
-  if (config.antispam && hasSpamKeyword && spamContext) {
-    const snippet = text.slice(0, 40);
-    reportedActions.push(`ANTISPAM: palavra-chave "${snippet}${text.length > 40 ? '...' : ''}" em ${senderJid}`);
-    ctx.log(`[AutoMod] antispam ativado: anti-spam keyword + contexto → delete+announce`);
+    // Palavra-chave ISOLADA (sem contexto) NÃO dispara ação, conforme solicitação.
+    if (config.antispam && hasSpamKeyword && spamContext) {
+      // Blindagem: ID protegido não tem mensagem deletada
+            if (isProtectedTarget(senderJid)) {
+              ctx.log(`[AutoMod] antispam ignorado — ID protegido: ${senderJid}`);
+              return { acted: false, reason: 'antispam: ID protegido', action: 'none' };
+            }
 
-    // Delete mensagem
-    try {
-      await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
-      ctx.log(`[AutoMod] mensagem deletada por antispam: ${senderJid}`);
-      reportedActions.push(`MSGUPDELETE`);
-    } catch (err: any) { ctx.warn('[AutoMod] erro ao deletar mensagem:', err?.message); }
+            // Audit-only mode: apenas registrar, não executar ações
+            if (isAuditOnly) {
+              ctx.log(`[AutoMod] AUDIT-ONLY antispam: mensagem de ${senderJid} seria deletada`);
+              return { acted: false, reason: 'antispam: audit-only', action: 'none' };
+            }
 
-    // Anunciar se detectar on
-    if (config.detectar === true) {
-      const ann = reportedActions.join(' | ');
+      const snippet = text.slice(0, 40);
+      reportedActions.push(`ANTISPAM: palavra-chave "${snippet}${text.length > 40 ? '...' : ''}" em ${senderJid}`);
+      ctx.log(`[AutoMod] antispam ativado: anti-spam keyword + contexto → delete+announce`);
+
+      // Delete mensagem
       try {
-        await ctx.sendMessage(
-          groupId,
-          `📢 [AUTOMOD] Mensagem removida (spam detectado): ${senderName || senderJid} (${senderJid})`
-        );
-      } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar:', err?.message); }
-    }
+        await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
+        ctx.log(`[AutoMod] mensagem deletada por antispam: ${senderJid}`);
+        reportedActions.push(`MSGUPDELETE`);
+      } catch (err: any) { ctx.warn('[AutoMod] erro ao deletar mensagem:', err?.message); }
 
-    return {
-      acted:true,
-      reason:`antispam: ${reportedActions.join('; ')}`,
-      action:'delete+announce',
-    };
-  }
+      // Anunciar se detectar on
+            if (config.detectar === true) {
+              const ann = reportedActions.join(' | ');
+              try {
+                await ctx.sendMessage(
+                  groupId,
+                  `📢 [AUTOMOD] Mensagem removida (spam detectado): ${senderName || senderJid} (${senderJid})`
+                );
+              } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar:', err?.message); }
+            }
+
+            // Registrar infração
+            await recordInfraction(groupId, senderJid).catch(err => ctx.warn('[AutoMod] erro ao registrar infração:', err?.message));
+
+            return {
+              acted:true,
+              reason:`antispam: ${reportedActions.join('; ')}`,
+              action:'delete+announce',
+            };
+          }
 
   // Nada ativado que precise agir
   ctx.log(`[AutoMod] sem ações: config=${JSON.stringify(config)} foreign=${isForeignNumber(senderJid)} spamKW=${hasSpamKeyword} spamCtx=${spamContext} domain=${isSuspiciousDomain(domains)} botSig=${botSignals.length}`);

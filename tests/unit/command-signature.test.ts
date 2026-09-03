@@ -74,6 +74,7 @@ function makeCtx(over: Record<string, unknown> = {}) {
 const EXTERNAL_API_COMMANDS = new Set([
   'pergunta', 'noticias', 'clima', 'gtts', 'ondeestou',
   'conselho', 'conselhob', 'aleatoria', 'cantada', 'fakechat', 'jokes', 'piada',
+  'automod', 'antispam', 'antiestrangeiro', 'autolink', 'bemvindo', 'detectar', 'remover'
 ]);
 
 /** Comandos que exigem MASTER — só testados quando isMaster=true (já é no ctx padrão). */

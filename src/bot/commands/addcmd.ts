@@ -1,14 +1,17 @@
 import { ICommand } from './types';
 import { getComandoBlock, addComandosId, addComandos } from './customCommandsStore';
+import { isMaster } from '../../services/permissions';
 
-/**
- * Command to add a custom command to a group using local storage.
- * Usage: $addcmd <groupId> <commandText>
- */
+/** Adiciona um comando customizado ao grupo. Só o dono (isMaster) pode usar. */
 export const addCmdCommand: ICommand = {
   name: 'addcmd',
-  description: 'Adiciona um comando customizado ao grupo.',
+  description: 'Adiciona um comando customizado ao grupo (somente dono).',
   async execute(ctx) {
+    if (!isMaster(ctx.userId)) {
+      await ctx.reply('⛔ Este comando é restrito ao dono do bot.');
+      return;
+    }
+
     const [groupId, ...commandParts] = ctx.args;
     const commandText = commandParts.join(' ');
 
@@ -17,13 +20,12 @@ export const addCmdCommand: ICommand = {
       return;
     }
 
-    // Ensure a command block exists for the group
+    // Cria bloco se não existir
     const existing = getComandoBlock(groupId);
     if (!existing) {
-      // Cria bloco se não existir
       try {
         addComandosId(groupId);
-      } catch (e) {
+      } catch {
         await ctx.reply('⚠️ Não foi possível criar bloco de comandos.');
         return;
       }
@@ -32,7 +34,7 @@ export const addCmdCommand: ICommand = {
     try {
       addComandos(groupId, commandText);
       await ctx.reply(`✅ Comando adicionado ao grupo ${groupId}.`);
-    } catch (e) {
+    } catch {
       await ctx.reply('⚠️ Erro ao adicionar comando.');
     }
   },

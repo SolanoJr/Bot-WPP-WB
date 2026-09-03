@@ -8,6 +8,7 @@ import {
   recordMemberRemove,
 } from './databaseService.js';
 import logger from './loggerService';
+import { isProtectedTarget } from './permissions.js';
 
 interface MemberJoinContext {
   removeParticipant: (groupId: string, userId: string) => Promise<void>;
@@ -44,6 +45,14 @@ export async function handleMemberJoin(
       await recordMemberJoin(event.groupId, id);
       const banned = await isUserBanned(event.groupId, id);
       if (banned) {
+        // Blindagem: ID protegido (MASTER/BOT/ADMIN) não é removido mesmo se estiver na lista de banidos
+        if (isProtectedTarget(id)) {
+          logger.warn('[memberJoinService] Entrada de ID protegido banido ignorada', {
+            groupId: event.groupId,
+            memberId: id,
+          });
+          continue;
+        }
         await ctx.removeParticipant(event.groupId, id);
         await recordMemberRemove(event.groupId, id, 'ban');
         if (ctx.sendMessage) {
