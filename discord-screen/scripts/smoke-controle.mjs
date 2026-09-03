@@ -8,8 +8,8 @@
  */
 import WebSocket from 'ws';
 
-const BASE = 'http://localhost:3001';
-const WSB = 'ws://localhost:3001';
+const BASE = 'http://localhost:3002';
+const WSB = 'ws://localhost:3002';
 const api = async (p, b) =>
   (
     await fetch(BASE + p, {

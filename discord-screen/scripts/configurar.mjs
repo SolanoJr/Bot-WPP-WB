@@ -74,7 +74,7 @@ if (modo === '1') {
   titulo(`  ${cor.verde}Pronto.${cor.fim}`);
   linha();
   linha(`  Agora rode:   ${cor.forte}npm start${cor.fim}`);
-  linha(`  E abra:       ${cor.forte}http://localhost:3001${cor.fim}`);
+  linha(`  E abra:       ${cor.forte}http://localhost:3002${cor.fim}`);
   linha();
   nota('  Dica: abra em duas janelas do navegador. Compartilhe a tela numa');
   nota('  e assista pela outra — dá para ver tudo funcionando sozinho.');

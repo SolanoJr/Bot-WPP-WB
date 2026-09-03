@@ -30,8 +30,8 @@ git pull origin main | tee -a "$LOG_FILE"
 log "Instalando dependências (npm ci)…"
 npm ci | tee -a "$LOG_FILE"
 
-log "Instalando dependências do screen share…"
-cd discord-screen && npm ci && cd client && npm ci && cd ../.. | tee -a "$LOG_FILE"
+log "Instalando dependências do screen share (workspace discord-screen)…"
+cd discord-screen && npm ci && cd .. | tee -a "$LOG_FILE"
 
 log "Compilando projeto (npm run build)…"
 npm run build | tee -a "$LOG_FILE"

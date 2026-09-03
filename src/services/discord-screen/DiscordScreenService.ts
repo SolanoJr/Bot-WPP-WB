@@ -177,7 +177,7 @@ export function createDiscordScreenServiceFromEnv(): DiscordScreenService | null
     DISCORD_CLIENT_SECRET,
     DISCORD_BOT_TOKEN,
     DISCORD_ADMIN_ID,
-    DISCORD_SCREEN_PORT = '3001',
+    DISCORD_SCREEN_PORT = '3002',
     DISCORD_SCREEN_PUBLIC_ORIGIN,
     TURN_URL,
     TURN_USER,

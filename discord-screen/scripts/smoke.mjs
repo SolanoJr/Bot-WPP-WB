@@ -10,8 +10,8 @@
  */
 import WebSocket from 'ws';
 
-const BASE = process.env.SMOKE_BASE || 'http://localhost:3001';
-const WSB = process.env.SMOKE_WS || 'ws://localhost:3001';
+const BASE = process.env.SMOKE_BASE || 'http://localhost:3002';
+const WSB = process.env.SMOKE_WS || 'ws://localhost:3002';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let failures = 0;

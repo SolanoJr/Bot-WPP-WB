@@ -49,7 +49,7 @@ export const screenCommand: ICommand = {
     }
 
     try {
-      const screenPort = process.env.DISCORD_SCREEN_PORT || '3001';
+      const screenPort = process.env.DISCORD_SCREEN_PORT || '3002';
       const baseUrl = process.env.DISCORD_SCREEN_PUBLIC_ORIGIN || `http://localhost:${screenPort}`;
       
       const guest = await postJson('127.0.0.1', parseInt(screenPort, 10), '/api/session-guest', { name: userName });

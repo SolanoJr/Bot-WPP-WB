@@ -13,7 +13,7 @@ import { systemSnapshot, startSampling } from './system.js';
 import { buildAdminDashboard } from './admin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
+dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
 const {
   DISCORD_CLIENT_ID,
@@ -23,10 +23,19 @@ const {
   TURN_URL = '',
   TURN_USER = '',
   TURN_PASS = '',
-  PUBLIC_ORIGIN: ORIGEM_CRUA = 'http://localhost:3001',
-  PORT = 3001,
+  // Alias legado (ex.: Cloudflare/Pages) + nome oficial do bot.
+  PUBLIC_ORIGIN: ORIGEM_ENV = '',
+  DISCORD_SCREEN_PUBLIC_ORIGIN = '',
+  PORT: PORT_ENV = '',
+  DISCORD_SCREEN_PORT = '',
   NODE_ENV = 'development',
 } = process.env;
+
+// Porta/origem vêm do .env do bot (DISCORD_SCREEN_*); caem para o padrão local.
+// (PORT=0 é válido — os testes usam para cobrir o listen sem abrir porta.)
+const _PORTA = Number.parseInt(DISCORD_SCREEN_PORT || PORT_ENV || '', 10);
+const PORT = Number.isFinite(_PORTA) ? _PORTA : 3002;
+const ORIGEM_CRUA = DISCORD_SCREEN_PUBLIC_ORIGIN || ORIGEM_ENV || 'http://localhost:3002';
 
 // Uma barra sobrando no fim se propaga: o shareUrl vira "//share.html" e o
 // redirect do OAuth vira "//auth/callback", que não bate com o endereço
@@ -910,7 +919,7 @@ app.use(
   }),
 );
 
-app.get('*', (req, res, next) => {
+app.use((req, res, next) => {
   if (req.path.startsWith('/api')) return next();
   res.setHeader('Cache-Control', 'no-store');
   res.sendFile(path.join(clientDist, 'index.html'), (err) => err && next());

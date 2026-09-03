@@ -53,7 +53,7 @@ const ENDERECO = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/;
  */
 export async function abrirTunel({ aoEndereco = () => {}, rapido = false, gravar } = {}) {
   const env = lerEnv();
-  const porta = env.PORT || '3001';
+  const porta = env.PORT || '3002';
   const config = rapido ? '' : env.TUNEL_CONFIG || '';
 
   // Um túnel descartável nunca sobrescreve o endereço de quem tem túnel
@@ -225,7 +225,7 @@ function anunciar(url, escreveu, clientId) {
 
 // Só quando chamado direto. Importado pelo dev.mjs, nada disto roda.
 if (path.resolve(fileURLToPath(import.meta.url)) === path.resolve(process.argv[1] ?? '')) {
-  const porta = lerEnv().PORT || '3001';
+  const porta = lerEnv().PORT || '3002';
   console.log(`\n${cor.fraco}  Abrindo o túnel para localhost:${porta}…${cor.fim}`);
   console.log(`${cor.fraco}  Deixe esta janela aberta enquanto estiver usando.${cor.fim}\n`);
 

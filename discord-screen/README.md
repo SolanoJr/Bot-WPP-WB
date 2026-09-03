@@ -52,7 +52,7 @@ Para desligar, aperte `Ctrl + C` na janela preta. Isso derruba tudo junto.
 ### Só quero testar no navegador
 
 Se ele perguntar como você quer usar, escolha a opção **sem Discord**. Aí é só
-abrir <http://localhost:3001> em duas janelas, criar uma sala numa, entrar pela
+abrir <http://localhost:3002> em duas janelas, criar uma sala numa, entrar pela
 outra e clicar em **Compartilhar tela** — você vê sua própria tela chegando do
 outro lado.
 
@@ -168,7 +168,7 @@ O endereço público mudou. Vá no site do Discord em **Activities → URL Mappi
 e troque o *Target* pelo endereço que aparece na janela preta. Para isso não
 acontecer nunca mais, rode `npm run tunel:criar`.
 
-**"A porta 3001 já está sendo usada"**
+**"A porta 3002 já está sendo usada"**
 Tem outra janela do programa aberta. Feche a outra e tente de novo.
 
 **O botão de compartilhar abre uma aba e não acontece nada**

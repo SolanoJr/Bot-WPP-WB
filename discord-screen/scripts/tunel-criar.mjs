@@ -181,7 +181,7 @@ if (!fs.existsSync(credenciais)) {
 
 // ---------------------------------------------------------------- arquivos
 
-const porta = lerEnv().PORT || '3001';
+const porta = lerEnv().PORT || '3002';
 const configPath = path.join(CASA, `${nome}.yml`);
 
 // Regra catch-all obrigatória no fim: sem ela o cloudflared recusa a subir.

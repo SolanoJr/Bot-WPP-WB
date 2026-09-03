@@ -45,7 +45,7 @@ module.exports = {
     env_file: '/home/solanojr/bot-wpp/.env',
     env: {
       NODE_ENV: 'production',
-      PORT: 3001
+      PORT: 3002
     },
     node_args: [
       '--expose-gc',

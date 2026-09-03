@@ -1,5 +1,23 @@
 # 📜 ChangeLog - WarriorBlack Bot
 
+## [v1.3.1] - 2026-09-03
+### 🖥️ Screen Share — consolidação, porta 3002, compat Express 5
+
+#### Corrigido
+- **Porta do screen 3001 → 3002**: colidia com as métricas Prometheus (`:3001/metrics`, `:3001/health`, documentadas e ativas em produção). Métricas mantêm 3001; screen (server, client proxy, scripts, `Dockerfile`, `Caddyfile`, `.env.example`, `ecosystem.config.js`, `$screen`, `DiscordScreenService`) usa 3002
+- **Server lê `DISCORD_SCREEN_PORT` / `DISCORD_SCREEN_PUBLIC_ORIGIN` do `.env`** (antes hardcoded 3001/localhost; `dotenv` agora aponta para o `.env` da raiz do bot)
+- **Catch-all SPA compatível com Express 5**: `app.get('*')` → `app.use(...)` (o `*` quebra no `path-to-regexp` v8; as 3 suítes `index*.test.js` nem carregavam)
+- **Removido `discord-screen/server/node_modules`**: resto de install aninhado (Express 4 parcial, sem `array-flatten`) que sombreava o Express 5 do workspace e mascarava a quebra acima
+
+#### Removido (código morto)
+- **Fork legado `src/services/discord-screen/`** (server, client, public, shared + testes): duplicata não importada por nada em `src/` e fora do `include` do vitest raiz. `discord-screen/` é o canônico; em `src/services/discord-screen/` resta só o `DiscordScreenService.ts` (wrapper do processo filho)
+- **Script `build:screen-server`**: copiava os `.js` legados para `dist/` (runtime usa o fonte via PM2/serviço); removido do pipeline `build`
+- Scripts normalizados para workspace: `build:screen`/`screen:build`/`screen:install`/`dev:screen*` usam `npm --prefix` (antes `cd discord-screen/client && npm run build` caía no Vite 8 transitivo da raiz)
+
+#### Validado
+- Suite `discord-screen/`: **390 testes, 11 arquivos, tudo verde**
+- Raiz: typecheck 0 erros, build OK, **156 testes verdes**
+
 ## [v1.3.0] - 2026-09-03
 ### 🖥️ Discord Screen Share (Activity) — Integração Completa
 

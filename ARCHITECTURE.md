@@ -74,7 +74,7 @@ O Bot-WPP é um sistema distribuído multi-plataforma (WhatsApp, Telegram, Disco
 | **WhatsApp** | Baileys v7 (WebSocket) | `BaileysAdapter.ts` | — |
 | **Telegram** | Telegraf v4 | `TelegramAdapter.ts` | — |
 | **Discord** | discord.js v14 | `DiscordAdapter.ts` | — |
-| **Screen Share** | Express + WebRTC | `discord-screen/server/index.js` | 3001 |
+| **Screen Share** | Express + WebRTC | `discord-screen/server/index.js` | 3002 |
 
 **Interface unificada**: `PlatformTypes.ts` define `PlatformMessage`, `PlatformClient`, `PlatformAdapter`, `CommandContext`, `SendOptions`, `MediaPayload`.
 
@@ -105,11 +105,11 @@ O Bot-WPP é um sistema distribuído multi-plataforma (WhatsApp, Telegram, Disco
 
 | Componente | Local | Função |
 |---|---|---|
-| **Server** | `discord-screen/server/index.js` | Express + WebSocket (porta 3001), OAuth2 Discord, salas WebRTC, admin dashboard |
+| **Server** | `discord-screen/server/index.js` | Express + WebSocket (porta 3002), OAuth2 Discord, salas WebRTC, admin dashboard |
 | **Client** | `discord-screen/client/` | Vite + React-like vanilla, `@discord/embedded-app-sdk`, captura tela via `getDisplayMedia` |
 | **Shared** | `discord-screen/shared/` | WebRTC signaling, broadcaster, tokens JWT |
 | **Comando** | `$screen` | Cria sessão guest → sala → retorna links Transmitir/Assistir |
-| **PM2** | `discord-screen` | Porta 3001, logs dedicados, auto-restart |
+| **PM2** | `discord-screen` | Porta 3002, logs dedicados, auto-restart |
 
 **Fluxo no Discord**:
 1. Usuário entra em call de voz → clica no foguete 🚀 → Activity "Sala de Tela"
@@ -128,7 +128,7 @@ O Bot-WPP é um sistema distribuído multi-plataforma (WhatsApp, Telegram, Disco
 | `databaseService.ts` | SQLite (WAL) — banned_users, group_mod, mod_member_joins, mod_msg_fingerprints, infractions, command_logs |
 | `loggerService.ts` | Winston (console + combined.log + error.log + commands.jsonl + platforms.jsonl) |
 | `metricsService.ts` | Prometheus (porta 3001: `/metrics`, `/health`) |
-| `discord-screen/DiscordScreenService.ts` | Wrapper para processo filho do screen server |
+| `src/services/discord-screen/DiscordScreenService.ts` | Wrapper (processo filho) do screen server — único residente em `src/services/discord-screen/` |
 | `testServer.ts` | HTTP :3004 (POST /test para injeção de comandos) |
 | `cleanupService.ts` | Limpeza periódica (6h) |
 | `memoryMonitor.ts` | Monitoramento de memória (60s) |
@@ -197,7 +197,7 @@ Baileys WebSocket
 | Script | Função |
 |---|---|
 | `sync_and_deploy.sh` | `git pull` → `npm ci` (bot + screen) → `npm run build` → `pm2 delete/start ecosystem.config.js` → `pm2 save` |
-| `ecosystem.config.js` | PM2: `bot-wpp` (porta —) + `discord-screen` (porta 3001) |
+| `ecosystem.config.js` | PM2: `bot-wpp` (porta —) + `discord-screen` (porta 3002) |
 | `package.json` scripts | `screen:install`, `screen:build`, `screen:dev`, `screen:start`, `screen:tunel`, `screen:tunel:criar`, `screen:configurar` |
 
 ---
@@ -217,7 +217,7 @@ DISCORD_ADMIN_ID=1307158493907652648
 
 # Screen Share (Activity)
 SESSION_SECRET=***  # 32+ chars hex
-DISCORD_SCREEN_PORT=3001
+DISCORD_SCREEN_PORT=3002
 DISCORD_SCREEN_PUBLIC_ORIGIN=https://seu-dominio.pages.dev
 DISCORD_ADMIN_ID=1307158493907652648
 

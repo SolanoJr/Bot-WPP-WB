@@ -8,8 +8,8 @@ export default defineConfig({
     // Necessário quando o Vite é exposto por um túnel (cloudflared/ngrok).
     allowedHosts: true,
     proxy: {
-      '/api': 'http://localhost:3001',
-      '/ws': { target: 'ws://localhost:3001', ws: true },
+      '/api': 'http://localhost:3002',
+      '/ws': { target: 'ws://localhost:3002', ws: true },
     },
   },
   build: {

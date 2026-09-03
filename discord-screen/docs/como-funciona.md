@@ -231,5 +231,5 @@ streams, e isolamento entre salas e instâncias.
 ## Rodando enquanto mexe no código
 
 `npm start` reconstrói o site a cada execução. Para recarregar sozinho a cada
-salvamento, use `npm run dev` — ele sobe o servidor na 3001 e o site na 5173,
+salvamento, use `npm run dev` — ele sobe o servidor na 3002 e o site na 5173,
 e é a 5173 que você abre.
