@@ -31,7 +31,10 @@ log "Instalando dependências (npm ci)…"
 npm ci | tee -a "$LOG_FILE"
 
 log "Instalando dependências do screen share (workspace discord-screen)…"
-cd discord-screen && npm ci && cd .. | tee -a "$LOG_FILE"
+# NOTA: `npm ci` quebra aqui (lock gerado no Windows + npm 10 no Linux =
+# EBADPLATFORM nos optionals do esbuild). `npm install` respeita o lock e
+# resolve os binários da plataforma correta.
+cd discord-screen && npm install --no-audit --no-fund && cd .. | tee -a "$LOG_FILE"
 
 log "Compilando projeto (npm run build)…"
 npm run build | tee -a "$LOG_FILE"
