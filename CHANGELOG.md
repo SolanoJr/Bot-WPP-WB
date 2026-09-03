@@ -1,5 +1,42 @@
 # 📜 ChangeLog - WarriorBlack Bot
 
+## [v1.3.0] - 2026-09-03
+### 🖥️ Discord Screen Share (Activity) — Integração Completa
+
+#### Adicionado / Corrigido
+- **Novo módulo `discord-screen/`**: Discord Activity completa (Express + WebRTC) para screen sharing
+  - Server: Express + WebSocket (porta 3001), OAuth2 Discord, salas WebRTC, admin dashboard
+  - Client: Vite + vanilla JS, `@discord/embedded-app-sdk`, captura tela via `getDisplayMedia`
+  - Shared: WebRTC signaling, broadcaster, tokens JWT compactos
+- **Comando `$screen`**: Cria sessão guest → sala → retorna links **Transmitir** (broadcaster) e **Assistir** (viewer)
+- **Integração no core**: `DiscordScreenService` inicializado no `multiPlatform.ts` após `platformManager.startAll()`
+  - Graceful shutdown inclui parada do screen service
+  - Variável global `discordScreenService` para cleanup
+- **PM2**: Novo processo `discord-screen` (`./discord-screen/server/index.js`, porta 3001)
+  - Logs dedicados (`discord-screen-stable.out.log/.err.log`)
+  - Memória 300M, node_args otimizados
+- **Deploy automatizado** (`sync_and_deploy.sh`):
+  - `npm ci` no `discord-screen/` e `discord-screen/client/`
+  - `pm2 delete/start` para ambos processos via `ecosystem.config.js`
+- **Variáveis de ambiente** (`.env.example`):
+  - `DISCORD_CLIENT_SECRET`, `SESSION_SECRET`, `DISCORD_SCREEN_PORT=3001`
+  - `DISCORD_SCREEN_PUBLIC_ORIGIN`, `DISCORD_ADMIN_ID`, `TURN_URL/USER/PASS`
+- **Comando `$screen`** registrado (`src/bot/commands/screen.ts`):
+  - Usa `DISCORD_SCREEN_PORT`/`DISCORD_SCREEN_PUBLIC_ORIGIN` do `.env`
+  - Conecta na porta correta do screen server (3001)
+  - Fallback para localhost se não configurado
+
+#### Limpeza
+- Removidas pastas vazias: `src/platforms/discord/middlewares`, `src/platforms/telegram/middlewares`, `.test_auth`, `discord-screen/.cache`
+- `ARCHITECTURE.md` reescrito para refletir estado real (Baileys ativo, Screen Share integrado)
+
+#### Status
+- Typecheck: 0 erros
+- Build: Sucesso (inclui client Vite build)
+- Testes: 156 passing (19 arquivos, +10 novos testes do screen)
+- Git: Commit `526a30a` pushed para origin/main
+- Deploy pronto: `sync_and_deploy.sh` atualizado para gerenciar ambos processos PM2
+
 ## [v1.2.1] - 2026-09-02
 ### 🔒 Segurança: blindagem AntiMod contra banimento acidental de BOT/DONO/ADMINS
 

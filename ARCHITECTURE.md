@@ -2,186 +2,262 @@
 
 ## Visão Geral
 
-O Bot-WPP é um sistema distribuído projetado para operar como um bot multi-plataforma (WhatsApp, Telegram, Discord). A arquitetura está em transição entre dois sistemas:
+O Bot-WPP é um sistema distribuído multi-plataforma (WhatsApp, Telegram, Discord, Screen Share) com arquitetura unificada.
 
-### Sistema Atual (Legado)
-- **Bot (Cliente WhatsApp Web)**: O coração do sistema, responsável por interagir diretamente com o WhatsApp. Ele processa mensagens, executa comandos e gerencia a comunicação com o serviço de Relay.
-- **Relay (Serviço Intermediário)**: Um servidor Node.js que atua como um buffer e orquestrador. Ele gerencia a comunicação entre o Frontend e o Bot, armazena temporariamente dados de localização e pode hospedar lógica de comandos customizados.
-- **Frontend (Interface Web)**: Uma interface web simples para a captura de coordenadas GPS, que envia dados para o Relay.
+---
 
-### Sistema Novo (Multi-Plataforma)
-- **PlatformManager**: Orquestrador singleton que gerencia múltiplas plataformas (WhatsApp, Telegram, Discord)
-- **PlatformAdapter**: Interface unificada para cada plataforma
-- **CommandContext**: Contexto unificado para execução de comandos
-- **Entry Point**: `src/core/multiPlatform.ts` (configurado no PM2)
+## Estado Atual (2026-09-03 — ATUAL)
 
-### Estado Atual (2026-08-12 — ATUALIZADO)
-✅ **O sistema multi-plataforma (`PlatformManager` + adapters) É o ativo e funciona.** O entry point do PM2 é `dist/core/multiPlatform.js` (ver `ecosystem.config.js`). O engine de WhatsApp é **Baileys** (`@whiskeysockets/baileys`), que conecta via WebSocket **sem Chromium** (o fallback WWebJS/`whatsapp-web.js` foi removido — ver BUG_TRACKER BUG 39; todas as funcionalidades foram acopladas no Baileys).
+✅ **Sistema multi-plataforma (`PlatformManager` + adapters) É o ativo e funciona.**
 
-Comandos são despachados corretamente via `platformManager.startAll()` → `setupAdapterHandlers()` → `onMessage` → `messageHandler`. O bot conecta no WhatsApp (Baileys), Telegram e Discord simultaneamente, e responde a comandos (`$menu`, `$kick`, `$automod`, etc). Ver `ARCHITECTURE_FIXES.md` (na raiz) para regras de anti-regressão (tratamento `@lid`, despacho `startAll`, AutoMod desacoplado, multi-sessão, Baileys como único engine).
+- **Entry Point**: `dist/core/multiPlatform.js` (PM2 via `ecosystem.config.js`)
+- **Engine WhatsApp**: **Baileys** (`@whiskeysockets/baileys` v7) — WebSocket puro, **sem Chromium**. O fallback WWebJS/Chromium foi **removido** (BUG 39).
+- **Plataformas ativas**: WhatsApp (Baileys), Telegram, Discord, **Discord Screen Share (Activity)**
+- **Comandos**: ~70 registrados, assinatura unificada `execute(ctx: CommandContext)`, prefixo `$`
 
-> Nota: a seção "Sistema Atual (Legado)" abaixo está retida apenas como histórico; o legado NÃO é mais o sistema ativo.
-
-## Bugs Críticos Recentes
-
-> **Histórico (obsoleto):** O bug "Puppeteer Browser Launch Failed" (2026-08-05) não se aplica mais — o engine WWebJS (Chrome/Chromium via `whatsapp-web.js`/`puppeteer`) foi **removido** (BUG 39). O bot agora usa **Baileys** (WebSocket, sem Chromium), eliminando essa classe de problema.
-
-### TypeError: .for is not iterable (2026-08-05)
-**Problema:** Bot entrava em loop de crash na inicialização com erro em `PlatformManager.loadCommands`
-
-**Causa Raiz:** Incompatibilidade de tipos entre `loadCommands()` (retornava `Record`) e `PlatformManager.loadCommands()` (esperava `Map`)
-
-**Solução:**
-- Modificado `loadCommands()` para retornar `Map<string, ICommand>`
-- Removido `await` de `loadCommands()` em `multiPlatform.ts`
-- Adicionado try/catch robusto na inicialização
-
-**Arquivos Modificados:**
-- `src/bot/commands/index.ts` (linha 131-136)
-- `src/core/multiPlatform.ts` (linha 22-29)
-
-**Status:** ✅ Resolvido
+---
 
 ## Diagrama de Arquitetura
 
-### Sistema Legado (Atual)
-```mermaid
-graph TD
-    User[Usuário WhatsApp] -- Mensagem --> WhatsApp[Serviço WhatsApp]
-    WhatsApp -- Evento de Mensagem --> Bot[Bot-WPP (Linux VPS)]
-
-    subgraph Bot-WPP (Linux VPS)
-        direction LR
-        A[src/core/multiPlatform.ts] -- Registra adapters --> B[PlatformManager]
-        B -- Recebe PlatformMessage --> C[CommandContext / AutoMod]
-        B -- Não é Comando --> D[src/services/keywordHandler.ts]
-        B -- É Comando --> E[src/bot/commands/index.ts]
-        E -- Executa --> F[Comandos Individuais (src/bot/commands/*)]
-        E -- Comando não encontrado --> G[src/services/relayClient.ts]
-    end
-
-    subgraph Relay (Render.com)
-        direction LR
-        H[API REST] -- Recebe Localização --> I[Armazenamento Temporário (In-Memory)]
-        J[API REST] -- Fornece Comandos Customizados --> K[Lógica de Comandos Customizados]
-    end
-
-    subgraph Frontend (Cloudflare Pages)
-        direction LR
-        L[Interface Web] -- Envia Localização --> H
-    end
-
-    G -- Busca Comandos Customizados --> J
-    Bot -- Polling de Localização --> H
-    I -- Envia Localização --> Bot
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        Bot-WPP Multi-Platform                        │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                    PlatformManager (Singleton)                 │   │
+│  │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────┐ │   │
+│  │  │  WhatsApp   │ │  Telegram   │ │  Discord    │ │ Screen  │ │   │
+│  │  │  (Baileys)  │ │  (Telegraf) │ │ (discord.js)│ │ Share   │ │   │
+│  │  └──────┬──────┘ └──────┬──────┘ └──────┬──────┘ └────┬────┘ │   │
+│  │         │               │               │            │      │   │
+│  │         └───────────────┼───────────────┼────────────┘      │   │
+│  │                         ▼               ▼                   │   │
+│  │              ┌─────────────────────────────────────────┐    │   │
+│  │              │         Command Registry (~70 cmds)      │    │   │
+│  │              │  $screen, $menu, $ping, $ban, $kick, ... │    │   │
+│  │              └─────────────────────────────────────────┘    │   │
+│  │                         │                                    │   │
+│  │              ┌──────────▼──────────┐ ┌──────────────────┐   │   │
+│  │              │    AutoMod Engine   │ │  Rate Limiter    │   │   │
+│  │              │  (antiestrangeiro,  │ │  (20 cmd/min)    │   │   │
+│  │              │   remover, autolink, │ └──────────────────┘   │   │
+│  │              │   antispam, detectar)│                      │   │
+│  │              └─────────────────────┘                        │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+         ▲                    ▲                    ▲
+         │                    │                    │
+    ┌────┴────┐        ┌─────┴─────┐       ┌─────┴─────┐
+    │WhatsApp │        │ Telegram  │       │ Discord   │
+    │(Baileys)│        │ (Telegraf)│       │+Screen    │
+    └─────────┘        └───────────┘       │  (Activity)│
+                                           └───────────┘
 ```
 
-### Sistema Multi-Plataforma (Planejado)
-```mermaid
-graph TD
-    User1[Usuário WhatsApp] --> WhatsApp[WhatsApp Adapter]
-    User2[Usuário Telegram] --> Telegram[Telegram Adapter]
-    User3[Usuário Discord] --> Discord[Discord Adapter]
+---
 
-    subgraph PlatformManager
-        direction LR
-        WhatsApp --> PM[PlatformManager]
-        Telegram --> PM
-        Discord --> PM
-        PM --> CR[Command Registry]
-        PM --> RH[Rate Limiter]
-        PM --> DB[Database Service]
-    end
+## Componentes Principais
 
-    CR --> Commands[Comandos Unificados]
-    Commands --> CTX[CommandContext]
-    CTX --> Execute[Executar Comando]
+### 1. Core (`src/core/`)
+
+| Arquivo | Função |
+|---------|--------|
+| `multiPlatform.ts` | **Entry point PM2**. Inicializa PlatformManager, carrega comandos, registra adapters (WhatsApp/Telegram/Discord/Screen), inicia métricas Prometheus (porta 3001), testServer (3004), graceful shutdown. |
+| `index.ts` | Compartilhado (legacy compat) — não é entry point. |
+
+### 2. Platforms (`src/platforms/`)
+
+| Adapter | Engine | Arquivo principal | Porta |
+|---------|--------|-------------------|-------|
+| **WhatsApp** | Baileys v7 (WebSocket) | `BaileysAdapter.ts` | — |
+| **Telegram** | Telegraf v4 | `TelegramAdapter.ts` | — |
+| **Discord** | discord.js v14 | `DiscordAdapter.ts` | — |
+| **Screen Share** | Express + WebRTC | `discord-screen/server/index.js` | 3001 |
+
+**Interface unificada**: `PlatformTypes.ts` define `PlatformMessage`, `PlatformClient`, `PlatformAdapter`, `CommandContext`, `SendOptions`, `MediaPayload`.
+
+### 3. Bot Commands (`src/bot/commands/`)
+
+- **~70 comandos** registrados via `loadCommands()` → `Map<string, ICommand>`
+- Prefixo unificado: `$`
+- Assinatura: `execute(ctx: CommandContext)` — **padronizada** (BUG 47)
+- Categorias: Admin, Moderação, Utilidades, Jogos, IA, Screen Share, etc.
+- Rate limiting: 20 comandos/min por usuário
+
+### 4. AutoMod Engine (`src/services/autoModEngine.ts`)
+
+**Ativo no Baileys** (fire-and-forget, não bloqueia comandos).
+
+| Flag (`group_mod`) | Gatilho | Ação |
+|---|---|---|
+| `antiestrangeiro` | DDI ≠ 55 | Ban persistente + remove + delete + announce |
+| `remover` (antibot) | ≥2 sinais (foreign + link suspeito + nome suspeito + interativo + repetido) | Ban + remove + delete + announce |
+| `autolink` | Domínio suspeito | Delete + announce |
+| `antispam` | Keyword spam + contexto | Delete + announce |
+| `detectar` | Anuncia ações | Toggle |
+| `remover` | Habilita antibot | Toggle |
+
+**Proteções**: `isProtectedTarget()` bloqueia ações sobre BOT e DONO (comparação exata de IDs).
+
+### 5. Discord Screen Share (Activity) — **NOVO**
+
+| Componente | Local | Função |
+|---|---|---|
+| **Server** | `discord-screen/server/index.js` | Express + WebSocket (porta 3001), OAuth2 Discord, salas WebRTC, admin dashboard |
+| **Client** | `discord-screen/client/` | Vite + React-like vanilla, `@discord/embedded-app-sdk`, captura tela via `getDisplayMedia` |
+| **Shared** | `discord-screen/shared/` | WebRTC signaling, broadcaster, tokens JWT |
+| **Comando** | `$screen` | Cria sessão guest → sala → retorna links Transmitir/Assistir |
+| **PM2** | `discord-screen` | Porta 3001, logs dedicados, auto-restart |
+
+**Fluxo no Discord**:
+1. Usuário entra em call de voz → clica no foguete 🚀 → Activity "Sala de Tela"
+2. Ou usa `$screen` no WhatsApp → recebe links **Transmitir** (broadcaster) e **Assistir** (viewer)
+3. Chrome/Edge recomendado (captura aba com áudio)
+
+---
+
+## Serviços Compartilhados (`src/services/`)
+
+| Serviço | Função |
+|---|---|
+| `autoModEngine.ts` | Motor de moderação (ativo no Baileys) |
+| `memberJoinService.ts` | Entrada de participantes (ban persistente, anti-bot, welcome) |
+| `permissions.ts` | MASTER/ADMIN/USER, `isProtectedTarget`, `getOwnerNotifyTarget` |
+| `databaseService.ts` | SQLite (WAL) — banned_users, group_mod, mod_member_joins, mod_msg_fingerprints, infractions, command_logs |
+| `loggerService.ts` | Winston (console + combined.log + error.log + commands.jsonl + platforms.jsonl) |
+| `metricsService.ts` | Prometheus (porta 3001: `/metrics`, `/health`) |
+| `discord-screen/DiscordScreenService.ts` | Wrapper para processo filho do screen server |
+| `testServer.ts` | HTTP :3004 (POST /test para injeção de comandos) |
+| `cleanupService.ts` | Limpeza periódica (6h) |
+| `memoryMonitor.ts` | Monitoramento de memória (60s) |
+| `cleanupService.ts` | Limpeza periódica (6h) |
+| `keywordHandler.ts` | Sarcasmo/keywords ("bot", "removeu você do grupo") |
+| `sessionManager.ts` | Multi-número WhatsApp (WPP_SESSIONS CSV) |
+
+---
+
+## Banco de Dados (SQLite + WAL)
+
+| Tabela | Função |
+|---|---|
+| `command_logs` | Auditoria de comandos executados |
+| `banned_users` | Ban persistente (user_id + group_id único) |
+| `group_mod` | Config AutoMod por grupo (flags booleanas) |
+| `mod_member_joins` | Audit trail entrada/saída (joined_at, left_at, reason) |
+| `mod_msg_fingerprints` | Anti-spam (fingerprint + count + janela 60s) |
+| `infractions` | Contador de infrações por usuário/grupo |
+
+---
+
+## Fluxo de Mensagem (WhatsApp/Baileys)
+
+```
+Baileys WebSocket
+    │
+    ├─ sock.ev.on('messages.upsert')  [notify|append]
+    │       │
+    │       └─ dispatchMessage(msg)  →  PlatformMessage
+    │           ├─ normId/toJid (IDs preservam @lid/@c.us/@g.us)
+    │           ├─ Extrai: text, mentions, quoted, media
+    │           └─ msgHandler(platformMsg)  →  PlatformManager
+    │
+    ├─ PlatformManager.onMessage
+    │       ├─ enrichMessage (prefixa wpp:/tg:/dc:)
+    │       ├─ Detecta comando ($prefix)
+    │       ├─ messageHandlers globais (telemetria)
+    │       └─ Se comando: executeCommand → CommandContext → command.execute(ctx)
+    │
+    └─ AUTO-MOD (fire-and-forget, não bloqueia)
+            └─ autoModEngine.evaluate(msg, ctx, groupId, senderJid, senderName)
+                ├─ getGroupMod(config)
+                ├─ Regras em ordem: antiestrangeiro → remover → autolink → antispam
+                ├─ Ban persistente (banned_users) + removeParticipant + delete + announce
+                └─ detectar flag → anuncia no grupo
 ```
 
-## Componentes Detalhados
+---
 
-### 1. Bot (Linux VPS) - Sistema Legado
+## Monitoramento e Observabilidade
 
--   **Tecnologia**: Node.js, TypeScript, **Baileys** (`@whiskeysockets/baileys`, WhatsApp via WebSocket sem Chromium).
--   **Funções**:
-    -   Conexão e autenticação com o WhatsApp.
-    -   Recebimento e processamento de mensagens.
-    -   Execução de comandos internos.
-    -   Polling do serviço de Relay para localizações pendentes.
-    -   Moderação de conteúdo e filtragem de palavras-chave.
-    -   Integração com a API Gemini para respostas inteligentes.
--   **Gerenciamento de Processos**: PM2 para garantir alta disponibilidade e reinício automático.
--   **Entry Point**: `src/core/multiPlatform.ts` → `initializePlatforms()`
--   **Comandos**: Assinatura legada `(msg, client, args)`
+| Componente | Endpoint/Porta | Detalhes |
+|---|---|---|
+| **Prometheus** | `:3001/metrics` | Counters, Gauges, Histograms (cmds, msgs, latência, memória, GC) |
+| **Healthcheck** | `:3001/health` | Heap %, WPP status, plataformas conectadas |
+| **TestServer** | `:3004` | `POST /test {platform, command}` injeta comandos |
+| **Logs PM2** | `~/.pm2/logs/bot-wpp-stable.out.log` | Timestamp prefixado, merge_logs |
+| **Logs App** | `logs/` | combined.log, error.log, commands.jsonl, platforms.jsonl |
+| **Screen Logs** | `~/.pm2/logs/discord-screen-stable.out.log` | Logs dedicados do screen server |
 
-### 2. PlatformManager (Sistema Novo)
+---
 
--   **Tecnologia**: Node.js, TypeScript
--   **Funções**:
-    -   Gerenciar múltiplas plataformas simultaneamente
-    -   Normalizar IDs com prefixos (wpp:, tg:, dc:)
-    -   Executar comandos de forma agnóstica
-    -   Suportar broadcast entre plataformas
-    -   Registry de comandos global
--   **Entry Point**: `src/core/multiPlatform.ts`
--   **Comandos**: Assinatura nova `(ctx: CommandContext)`
--   **Status**: Implementado mas não está sendo usado
+## Scripts de Deploy
 
-### 3. Problemas de Integração
+| Script | Função |
+|---|---|
+| `sync_and_deploy.sh` | `git pull` → `npm ci` (bot + screen) → `npm run build` → `pm2 delete/start ecosystem.config.js` → `pm2 save` |
+| `ecosystem.config.js` | PM2: `bot-wpp` (porta —) + `discord-screen` (porta 3001) |
+| `package.json` scripts | `screen:install`, `screen:build`, `screen:dev`, `screen:start`, `screen:tunel`, `screen:tunel:criar`, `screen:configurar` |
 
-**Entry Point Conflitante:**
-- `ecosystem.config.js` aponta para `dist/core/multiPlatform.js`
-- `src/core/index.ts` chama `startBot()` do sistema legado
-- Isso causa inconsistência no sistema ativo
+---
 
-**Comandos com Problemas:**
-- `$ban`: Tem `platforms: ['whatsapp']` mas verificação falha
-- `lista1edit`: Usa formato legado sem `CommandContext`
-- Outros comandos podem ter problemas similares
+## Variáveis de Ambiente Críticas (`.env`)
 
-**Solução Necessária:**
-1. Unificar entry point para usar `multiPlatform.ts`
-2. Migrar todos os comandos para `CommandContext`
-3. Remover código legado desnecessário
+```bash
+# WhatsApp
+WPP_ENGINE=baileys
+WPP_SESSIONS=558581344211  # opcional: multi-número CSV
 
-### 2. Relay (Render.com)
+# Discord
+DISCORD_BOT_TOKEN=...
+DISCORD_CLIENT_ID=1307158493907652648
+DISCORD_CLIENT_SECRET=***
+DISCORD_ADMIN_ID=1307158493907652648
 
--   **Tecnologia**: Node.js, Express.js.
--   **Funções**: 
-    -   API REST para receber dados de localização do Frontend.
-    -   API REST para fornecer localizações pendentes ao Bot.
-    -   API REST para gerenciar e fornecer comandos customizados.
-    -   Armazenamento temporário (in-memory) de localizações e metadados de clientes.
--   **Características**: Arquitetura `Pure JS` para evitar problemas de dependências nativas em ambientes de deploy como Render.
+# Screen Share (Activity)
+SESSION_SECRET=***  # 32+ chars hex
+DISCORD_SCREEN_PORT=3001
+DISCORD_SCREEN_PUBLIC_ORIGIN=https://seu-dominio.pages.dev
+DISCORD_ADMIN_ID=1307158493907652648
 
-### 3. Frontend (Cloudflare Pages)
+# Telegram
+TELEGRAM_BOT_TOKEN=...
 
--   **Tecnologia**: HTML, CSS, JavaScript.
--   **Funções**: 
-    -   Interface de usuário para solicitar e capturar a localização GPS do dispositivo.
-    -   Envio seguro das coordenadas de localização para o serviço de Relay.
+# Banco
+BOT_DATA_DIR=/home/solanojr/bot-wpp/data
 
-## Fluxo de Dados e Interações Chave
+# Segurança
+MASTER_USER=5588998314322@c.us
+MASTER_LID=202658048684056
+BOT_NUMBER=558581344211
+BOT_LID=2592935567439
+```
 
-1.  **Inicialização do Bot**: O `src/core/multiPlatform.ts` (entry point do PM2) inicia os adapters (`PlatformManager.startAll()`), conecta o WhatsApp via **Baileys** (WebSocket, sem Chromium), Telegram e Discord, e registra os handlers de mensagem.
-2.  **Recebimento de Mensagens**: Qualquer mensagem recebida pelo WhatsApp é encaminhada para `src/services/messageHandler.ts`.
-3.  **Processamento de Mensagens**: 
-    -   O `messageHandler` primeiro verifica se a mensagem é um comando (começa com `$`).
-    -   Se **não** for um comando, a mensagem pode passar pelo `autoModEngine.ts` e pelo `keywordHandler.ts`. Essas etapas podem resultar na exclusão da mensagem ou em uma resposta automática.
-    -   Se **for** um comando, ele é processado diretamente. O `messageHandler` tenta encontrar o comando no mapa de comandos carregados (`src/bot/commands/index.ts`).
-    -   Se o comando não for encontrado localmente, o `src/services/relayClient.ts` é acionado para buscar comandos customizados no serviço de Relay.
-4.  **Sistema de Geolocalização**: 
-    -   O Frontend captura a localização do usuário e a envia para o Relay via API.
-    -   O Bot periodicamente faz polling no Relay para verificar se há localizações pendentes para os `chatIds` que as solicitaram.
-    -   Ao receber uma localização do Relay, o Bot a formata e a envia de volta ao usuário no WhatsApp.
+---
 
-## Protocolo de Segurança
+## Documentação Relacionada
 
-A comunicação entre os componentes é protegida por uma chave de autenticação (`WARRIOR_AUTH_KEY`) que deve ser configurada em todas as pontas (Frontend, Bot, Relay) para garantir que apenas serviços autorizados possam interagir. A chave é enviada no cabeçalho `x-api-key` nas requisições para o Relay.
+| Arquivo | Conteúdo |
+|---|---|
+| `ARCHITECTURE_FIXES.md` | 10 regras anti-regressão (lid, startAll paralelo, AutoMod desacoplado, multi-sessão) |
+| `BUG_TRACKER.md` | Histórico de bugs (BUG 1-47) |
+| `CHANGELOG.md` | Versões v1.0.0 → v1.3.0+ |
+| `TODO.md` | Pendências atuais |
+| `SCREEN_SHARING.md` | Detalhes do Discord Screen Share |
+| `MONITORING_GUIDE.md` | Prometheus + Grafana setup |
+| `laboratorio/README.md` | Auto-teste (`WPP_AUTOSELFTEST=1`), testServer HTTP :3004 |
 
-## Considerações de Design
+---
 
--   **Modularidade**: O código é organizado em módulos para facilitar a manutenção e a adição de novas funcionalidades.
--   **Escalabilidade**: A separação de responsabilidades entre Bot, Relay e Frontend permite que cada componente seja escalado independentemente.
--   **Resiliência**: O uso de PM2 para o Bot e a arquitetura `Pure JS` para o Relay visam aumentar a robustez do sistema em ambientes de produção.
--   **Segurança**: Implementação de chaves de API e moderação de conteúdo para proteger o sistema contra uso indevido e spam.
+## Próximos Passos (Pendências `TODO.md`)
+
+- [ ] Remover `src/services/autoModService.ts` (WWebJS legado — confirmar se não há imports)
+- [ ] Consolidar `docs/ARCHITECTURE_FIXES.md` → `AGENTS.md` ou remover
+- [ ] `dns.setServers` no `multiPlatform.ts` — documentar ou remover (inefetivo para axios)
+- [ ] Documentar limitação `$sendmsg` (só Baileys tem `getNumberId`)
+- [ ] Configurar tunnel fixo Cloudflare para Screen Share em produção
+
+---
+
+*Última atualização: 2026-09-03 — Commit `526a30a` (feat: integra discord-screen como Discord Activity)*
