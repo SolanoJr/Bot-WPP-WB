@@ -38,5 +38,29 @@ As entradas abaixo são histórico legado. Referências a WWebJS, Chromium, `src
 - **Causa**: O `menu.ts` estava tentando importar de `moderationService` (antigo) em vez de `autoModService` (novo).
 - **Solução**: Unificada a fonte de dados para `autoModService.ts` e atualizado o comando `$menu`.
 
+## 5. Screen share na porta do Prometheus (3001)
+- **Sintoma**: `discord-screen` e `metricsService` disputando `:3001` — um dos dois morria com `EADDRINUSE` após o deploy.
+- **Causa**: Screen herdou a 3001 do `discord-screen-main`; métricas já ocupavam a 3001 (documentado em `MONITORING_GUIDE.md`, scrape ativo em produção).
+- **Solução**: Screen movido para **3002** (server, client proxy, scripts, `Dockerfile`, `Caddyfile`, `.env.example`, `ecosystem.config.js`, `$screen`, `DiscordScreenService`); server passou a ler `DISCORD_SCREEN_PORT` / `DISCORD_SCREEN_PUBLIC_ORIGIN` do `.env` (antes hardcoded). Métricas mantêm 3001.
+- **Status**: CONFIRMADO e corrigido (2026-09-03, commit `46b4e21`). Produção: screen `{"ok":true}` em `:3002`, métricas saudáveis em `:3001`.
+
+## 6. `sync_and_deploy.sh` rodava o resto do deploy dentro de `discord-screen/`
+- **Sintoma**: Deploy "verde" mas `pm2 start ecosystem.config.js` falhava (`File not found`) e o bot ficava fora do ar; o `npm run build` executado era o do pacote screen, não o da raiz.
+- **Causa**: `cd discord-screen && npm install ... && cd .. | tee -a ...` — o pipe cria subshell e o `cd ..` se perdia; o shell principal permanecia em `discord-screen/`.
+- **Solução**: Linha reescrita com `>> "$LOG_FILE" 2>&1` (sem pipe) + comentário de aviso no script.
+- **Status**: CONFIRMADO e corrigido (2026-09-03, commit `4f43901`).
+
+## 7. Catch-all `app.get('*')` quebra no Express 5
+- **Sintoma**: 3 suítes (`index`, `index-admin`, `index-ws`) falhavam no import (`path-to-regexp: Missing parameter name at index 1: *`), mascarado por um `server/node_modules` aninhado com Express 4 parcial.
+- **Causa**: Workspace hoista Express **5.2.1**; `'*'` não é mais rota válida no `path-to-regexp` v8.
+- **Solução**: `app.get('*', ...)` → `app.use(...)` em `discord-screen/server/index.js`; removido o `server/node_modules` aninhado (já é gitignored).
+- **Status**: CONFIRMADO e corrigido (2026-09-03) — suite `discord-screen/`: 390 testes, 11 arquivos, tudo verde.
+
+## 8. Processo órfão do screen legado ocupando a porta em produção
+- **Sintoma**: Novo `discord-screen` (PM2) morria em loop com "porta já em uso" mesmo após o fix da porta.
+- **Causa**: Processo de 01/Set rodando `dist/services/discord-screen/index.js` (código legado deletado), fora do PM2, segurando `:3003` — e o `.env` de produção ainda apontava `DISCORD_SCREEN_PORT=3003`.
+- **Solução**: Órfão finalizado, `.env` de produção ajustado para `3002`, sobras do `dist/services/discord-screen/` removidas no servidor.
+- **Status**: CONFIRMADO e corrigido (2026-09-03). Pendente: validar fluxo completo via laboratório (`$screen` no grupo Teste).
+
 ---
 *Mantido por Manus AI - Última atualização: Julho 2026*
