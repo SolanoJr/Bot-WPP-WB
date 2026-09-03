@@ -34,7 +34,9 @@ log "Instalando dependências do screen share (workspace discord-screen)…"
 # NOTA: `npm ci` quebra aqui (lock gerado no Windows + npm 10 no Linux =
 # EBADPLATFORM nos optionals do esbuild). `npm install` respeita o lock e
 # resolve os binários da plataforma correta.
-cd discord-screen && npm install --no-audit --no-fund && cd .. | tee -a "$LOG_FILE"
+# (Sem `| tee` nesta linha: pipe criaria subshell e o `cd ..` se perderia,
+# deixando o resto do deploy rodando dentro de discord-screen/.)
+cd discord-screen && npm install --no-audit --no-fund >> "$LOG_FILE" 2>&1 && cd ..
 
 log "Compilando projeto (npm run build)…"
 npm run build | tee -a "$LOG_FILE"
