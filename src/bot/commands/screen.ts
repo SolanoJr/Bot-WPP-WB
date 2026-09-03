@@ -49,20 +49,22 @@ export const screenCommand: ICommand = {
     }
 
     try {
-      const guest = await postJson('127.0.0.1', 3003, '/api/session-guest', { name: userName });
+      const screenPort = process.env.DISCORD_SCREEN_PORT || '3001';
+      const baseUrl = process.env.DISCORD_SCREEN_PUBLIC_ORIGIN || `http://localhost:${screenPort}`;
+      
+      const guest = await postJson('127.0.0.1', parseInt(screenPort, 10), '/api/session-guest', { name: userName });
       if (!guest.identity) {
         await reply('❌ Erro ao criar sessão.');
         return;
       }
 
-      const room = await postJson('127.0.0.1', 3003, '/api/rooms/create', {
+      const room = await postJson('127.0.0.1', parseInt(screenPort, 10), '/api/rooms/create', {
         identity: guest.identity,
         name: `Screen de ${userName}`,
         channelId: msg?.chatId?.replace('dc:', '') || ''
       });
 
       if (room.roomId) {
-        const baseUrl = process.env.DISCORD_SCREEN_PUBLIC_ORIGIN || 'https://ubuntu.tail8486e7.ts.net';
         const viewerLink = `${baseUrl}/share.html?t=${room.viewerToken}`;
         await reply(
           '🎮 **Screen Sharing**\n\n' +

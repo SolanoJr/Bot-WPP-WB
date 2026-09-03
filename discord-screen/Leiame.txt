@@ -1,0 +1,30 @@
+vídeo tutorial: https://www.youtube.com/watch?v=g_aKI5b4Ug0
+duvidas da glr: https://x.com/daviaxs_/status/2090469810773659986
+site: https://discord.suagateway.com.br/
+GitHub: https://github.com/Jc007zZ/discord-screen
+
+comandos no powershell:
+npm i
+npm run start:fast
+
+depois entrar no link: https://discord.com/developers/applications
+copio o id cliente: 1545106372675248259
+copio a secret: X2MjpA0RTJJBzeU8k7ZG7_2WaeKehTwP
+
+pego a url q me deram pra colocar no mapeamento de url alvo:
+tide-power-coral-databases.trycloudflare.com
+
+vou em redirecionamento e adiciono:
+https://127.0.0.1
+https://dictionaries-exec-cooler-consistency.trycloudflare.com/auth/callback
+
+copio meu link de instalação para abrir no navegador:
+https://tide-power-coral-databases.trycloudflare.com/auth/callback
+
+coloco os links de termos e privacidade:
+https://tide-power-coral-databases.trycloudflare.com/termos
+https://tide-power-coral-databases.trycloudflare.com/privacidade
+
+
+
+

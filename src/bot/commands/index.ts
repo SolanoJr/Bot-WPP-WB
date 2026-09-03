@@ -102,8 +102,9 @@ const commands: Record<string, ICommand> = {
   detectar: detectarModCommand,
   remover: removerModCommand,
   delete: deleteMsgCommand,
-  desmute: desmuteCommand,
-};
+    desmute: desmuteCommand,
+    screen: screenCommand,
+  };
 
 // Registrar comandos personalizados
 import { getComandoBlock, addComandosId, addComandos, getComando, listComandos, removeComando } from './customCommandsStore';

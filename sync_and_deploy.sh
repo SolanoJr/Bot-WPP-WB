@@ -30,6 +30,9 @@ git pull origin master | tee -a "$LOG_FILE"
 log "Instalando dependências (npm ci)…"
 npm ci | tee -a "$LOG_FILE"
 
+log "Instalando dependências do screen share…"
+cd discord-screen && npm ci && cd client && npm ci && cd ../.. | tee -a "$LOG_FILE"
+
 log "Compilando projeto (npm run build)…"
 npm run build | tee -a "$LOG_FILE"
 
@@ -41,7 +44,12 @@ if pm2 list | grep -q "bot-wpp"; then
   pm2 delete bot-wpp || true
 fi
 
-log "Iniciando bot-wpp a partir do ecosystem.config.js…"
+if pm2 list | grep -q "discord-screen"; then
+  log "Deletando processo antigo do discord-screen no PM2…"
+  pm2 delete discord-screen || true
+fi
+
+log "Iniciando bot-wpp e discord-screen a partir do ecosystem.config.js…"
 pm2 start ecosystem.config.js
 
 log "Salvando lista de processos do PM2…"

@@ -17,6 +17,7 @@ import logger, { logError } from '../services/loggerService';
 import { runPeriodicCleanup } from '../services/autoModEngine';
 import { memoryMonitor } from '../services/memoryMonitor';
 import { startPeriodicCleanup } from '../services/cleanupService';
+import { createDiscordScreenServiceFromEnv } from '../services/discord-screen/DiscordScreenService';
 
 // 🕒 Logging: o loggerService (Winston) escreve no Console (com timestamp próprio)
 // E em arquivos estruturados (logs/combined.log, commands.jsonl, platforms.jsonl).
@@ -99,10 +100,23 @@ export async function initializePlatforms() {
   }
 
   // Inicializar todas as plataformas E configurar handlers de mensagem (registra o messageHandler
-  // que despacha os comandos). O startAll() faz adapter.initialize() + setupAdapterHandlers() para cada adapter.
-  await platformManager.startAll();
+    // que despacha os comandos). O startAll() faz adapter.initialize() + setupAdapterHandlers() para cada adapter.
+    await platformManager.startAll();
 
-  // Listar plataformas ativas
+    // Inicializar Discord Screen Sharing (Activity) se credenciais estiverem configuradas
+      try {
+        discordScreenService = createDiscordScreenServiceFromEnv();
+        if (discordScreenService) {
+          await discordScreenService.start();
+          logger.info('[DiscordScreenService] Screen sharing iniciado com sucesso');
+        } else {
+          logger.info('[DiscordScreenService] Não configurado (credenciais ausentes)');
+        }
+      } catch (error) {
+        logError('DiscordScreenService', error);
+      }
+
+    // Listar plataformas ativas
   const activePlatforms = platformManager.getActivePlatforms();
   logger.info(`📊 Plataformas ativas: ${activePlatforms.join(', ') || 'Nenhuma'}`);
 
@@ -163,6 +177,7 @@ function startAutoModPeriodicCleanup(): void {
  * - Timeout de 10s para forçar encerramento
  */
 let isShuttingDown = false;
+let discordScreenService: ReturnType<typeof createDiscordScreenServiceFromEnv> | null = null;
 
 function setupGracefulShutdown(): void {
   const shutdown = async (signal: string) => {
@@ -185,15 +200,21 @@ function setupGracefulShutdown(): void {
       logger.info('[Shutdown] Parando monitoramento de memória...');
       memoryMonitor.stop();
 
-      // 2. Desconectar todas as plataformas
+      // 2. Parar Discord Screen Sharing
+      logger.info('[Shutdown] Parando Discord Screen Sharing...');
+      if (discordScreenService) {
+        await discordScreenService.stop();
+      }
+
+      // 3. Desconectar todas as plataformas
       logger.info('[Shutdown] Desconectando plataformas...');
       await platformManager.shutdownAll();
 
-      // 3. Parar servidor de métricas
+      // 4. Parar servidor de métricas
       logger.info('[Shutdown] Parando servidor de métricas...');
       await metricsService.stop();
 
-      // 4. Dar tempo para logs finalizarem
+      // 5. Dar tempo para logs finalizarem
       await new Promise(resolve => setTimeout(resolve, 500));
 
       logger.info('✅ [Shutdown] Encerramento gracioso concluído');

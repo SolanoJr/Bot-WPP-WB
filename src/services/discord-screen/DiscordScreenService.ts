@@ -59,19 +59,19 @@ export class DiscordScreenService {
       };
 
       const projectRoot = process.env.PWD || process.cwd();
-      const serverPath = path.join(projectRoot, 'src', 'services', 'discord-screen', 'index.js');
-      const clientDist = path.join(projectRoot, 'src', 'services', 'discord-screen', 'client', 'dist');
+      const serverPath = path.join(projectRoot, 'discord-screen', 'server', 'index.js');
+      const clientDist = path.join(projectRoot, 'discord-screen', 'client', 'dist');
       const hasClientBuild = fs.existsSync(path.join(clientDist, 'index.html'));
 
       if (!hasClientBuild && this.config.nodeEnv === 'production') {
         console.warn('[DiscordScreenService] Client build not found at', clientDist);
-        console.warn('[DiscordScreenService] Run "npm run build:screen" to build the client');
+        console.warn('[DiscordScreenService] Run "npm run screen:build" to build the client');
       }
 
       console.log('[DiscordScreenService] Starting server on port', this.config.port);
       console.log('[DiscordScreenService] Public origin:', this.config.publicOrigin);
 
-      const workingDir = path.join(projectRoot, 'src', 'services', 'discord-screen');
+      const workingDir = path.join(projectRoot, 'discord-screen');
 
       this.process = spawn('node', [serverPath], {
         env,
@@ -192,7 +192,7 @@ export function createDiscordScreenServiceFromEnv(): DiscordScreenService | null
   }
 
   const adminIds = DISCORD_ADMIN_ID
-    ? String(DISCORD_ADMIN_ID).split(/[,\s;]+/).filter(Boolean)
+    ? String(DISCORD_ADMIN_ID).split(/[,\\s;]+/).filter(Boolean)
     : [];
 
   const publicOrigin = DISCORD_SCREEN_PUBLIC_ORIGIN || `http://localhost:${DISCORD_SCREEN_PORT}`;
