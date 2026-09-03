@@ -15,7 +15,10 @@ module.exports = {
     log_date_format: 'YYYY-MM-DD HH:mm:ss.SSS',
     env_file: '/home/solanojr/bot-wpp/.env',
     env: {
-      NODE_ENV: 'production'
+      NODE_ENV: 'production',
+      // O PM2 já sobe o discord-screen como processo próprio — o bot não deve
+      // gerar um segundo server filho na mesma porta (ver DiscordScreenService).
+      DISCORD_SCREEN_EXTERNAL: 'true'
     },
     // Otimização P0: flags do Node.js
     node_args: [

@@ -106,10 +106,21 @@ export class DiscordScreenService {
         }
       });
 
-      const readyTimeout = setTimeout(() => {
-        console.log('[DiscordScreenService] Server startup timeout - assuming ready');
-        this.isRunning = true;
-        resolve();
+      const readyTimeout = setTimeout(async () => {
+        // Sem sinal de ready em 10s: não presumir nada — perguntar ao server.
+        try {
+          const res = await fetch(`http://127.0.0.1:${this.config.port}/api/health`);
+          if (res.ok) {
+            console.log('[DiscordScreenService] Server respondeu /api/health — pronto');
+            this.isRunning = true;
+            resolve();
+            return;
+          }
+          throw new Error(`health check HTTP ${res.status}`);
+        } catch (err) {
+          this.startPromise = null;
+          reject(new Error(`[DiscordScreenService] Server não respondeu em 10s na porta ${this.config.port}: ${(err as Error).message}`));
+        }
       }, 10000);
 
       this.process.stdout?.on('data', (data) => {
@@ -179,12 +190,21 @@ export function createDiscordScreenServiceFromEnv(): DiscordScreenService | null
     DISCORD_ADMIN_ID,
     DISCORD_SCREEN_PORT = '3002',
     DISCORD_SCREEN_PUBLIC_ORIGIN,
+    DISCORD_SCREEN_EXTERNAL = '',
     TURN_URL,
     TURN_USER,
     TURN_PASS,
     SESSION_SECRET,
     NODE_ENV = 'development',
   } = process.env;
+
+  // Um dono só para o server: quando o PM2 (ou outro supervisor) já sobe o
+  // discord-screen, o bot NÃO deve gerar um segundo processo filho na mesma
+  // porta — o filho morreria com EADDRINUSE e o "assuming ready" mascarava isso.
+  if (DISCORD_SCREEN_EXTERNAL === '1' || DISCORD_SCREEN_EXTERNAL.toLowerCase() === 'true') {
+    console.log('[DiscordScreenService] Gerenciado externamente (DISCORD_SCREEN_EXTERNAL) — spawn interno desativado');
+    return null;
+  }
 
   if (!DISCORD_CLIENT_ID || !DISCORD_CLIENT_SECRET || !DISCORD_BOT_TOKEN) {
     console.log('[DiscordScreenService] Missing required Discord credentials, screen sharing disabled');
