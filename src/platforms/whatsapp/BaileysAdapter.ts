@@ -282,6 +282,20 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
   // ============================================================
   private async dispatchMessage(msg: any): Promise<void> {
     try {
+      const OBSERVATION_MODE = process.env.WPP_OBSERVATION_MODE === '1';
+      // ── Laboratório de observação: captura evento bruto ANTES da normalização ──
+      if (OBSERVATION_MODE) {
+        try {
+          const obs = require('../../laboratorio/observer.js');
+          if (obs && typeof obs.callObserverHook === 'function') {
+            const remoteJid = msg.key?.remoteJid || '';
+            const isGroup = remoteJid.endsWith('@g.us');
+            const groupForObs = isGroup ? remoteJid : (msg.key?.participant || remoteJid);
+            obs.callObserverHook(msg, groupForObs);
+          }
+        } catch { /* observação opcional — não falha se módulo não existir */ }
+      }
+
       const hasStub = msg.messageStubType || (Array.isArray(msg.messageStubParameters) && msg.messageStubParameters.length > 0);
       if (hasStub) { return; }
       const m = msg.message || {};
