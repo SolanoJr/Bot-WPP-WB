@@ -65,22 +65,27 @@ export const screenCommand: ICommand = {
       // 2. comando veio de outra plataforma mas quem pediu é o dono: o id do
       //    Discord dele está no DISCORD_ADMIN_ID.
       let voice: { channelId: string; channelName: string } | null = null;
+      let voiceMotivo = '';
       try {
         const pm = (globalThis as any).__platformManager;
         const dc = pm?.getAdapter?.('discord') as {
           findUserVoiceChannel?: (id: string) => Promise<{ channelId: string; channelName: string } | null>;
         } | undefined;
-        if (dc?.findUserVoiceChannel) {
-          if (ctx.platform === 'discord' && ctx.userId) {
-            voice = await dc.findUserVoiceChannel(ctx.userId);
-          } else if (ctx.isMaster && process.env.DISCORD_ADMIN_ID) {
-            const adminId = process.env.DISCORD_ADMIN_ID.split(/[\s,;]+/).filter(Boolean)[0];
-            if (adminId) voice = await dc.findUserVoiceChannel(adminId);
-          }
+        if (!dc?.findUserVoiceChannel) {
+          voiceMotivo = 'adapter discord indisponível';
+        } else if (ctx.platform === 'discord' && ctx.userId) {
+          voice = await dc.findUserVoiceChannel(ctx.userId);
+          if (!voice) voiceMotivo = 'autor fora de call';
+        } else if (ctx.isMaster && process.env.DISCORD_ADMIN_ID) {
+          const adminId = process.env.DISCORD_ADMIN_ID.split(/[\s,;]+/).filter(Boolean)[0];
+          if (adminId) voice = await dc.findUserVoiceChannel(adminId);
+          if (!voice) voiceMotivo = 'dono fora de call';
         }
-      } catch {
+      } catch (err: any) {
         voice = null;
+        voiceMotivo = `erro: ${err?.message ?? err}`;
       }
+      console.log(`[ScreenCommand] call de voz: ${voice ? `#${voice.channelName} (${voice.channelId})` : `não achada (${voiceMotivo || 'sem motivo'})`} — plataforma=${ctx.platform} autor=${userName}`);
 
       if (voice) {
         const room = await postJson('127.0.0.1', parseInt(screenPort, 10), '/api/rooms/call-link', {

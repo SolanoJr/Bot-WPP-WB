@@ -23,9 +23,13 @@ function socket() {
     OPEN: 1,
     readyState: 1,
     bufferedAmount: 0,
+    fechado: false,
     recebidas: [],
     send(data) {
       if (typeof data === 'string') this.recebidas.push(JSON.parse(data));
+    },
+    close() {
+      this.fechado = true;
     },
   };
 }
@@ -105,6 +109,19 @@ describe('sala vazia', () => {
 
     expect(captura.recebidas.some((m) => m.type === 'stop-request')).toBe(true);
     expect(room.broadcasters.size).toBe(0);
+  });
+
+  it('segura a sala por 2 minutos com aba de captura aberta', () => {
+    const room = sala();
+    R.attachControl(room, socket(), 'leitor-lento');
+
+    // A carência curta já passou faz tempo; com aba aberta a sala continua.
+    vi.advanceTimersByTime(CARENCIA * 5);
+    expect(R.getRoom(room.id)).toBe(room);
+
+    // Mas aba esquecida não é sala eterna: em 2 minutos fecha.
+    vi.advanceTimersByTime(120 * 1000 + SWEEP * 2);
+    expect(R.getRoom(room.id)).toBeNull();
   });
 
   it('derruba a transmissão de quem saiu da atividade, e aí a sala fecha', () => {

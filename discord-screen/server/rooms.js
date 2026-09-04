@@ -43,6 +43,10 @@ const MAX_ROOM_NAME = 40;
 // 12s cobre um reload com folga e some rápido o bastante para não deixar sala
 // fantasma na lista.
 const EMPTY_GRACE_MS = 12 * 1000;
+// Sala vazia mas com aba de captura aberta: alguém está lendo a página do
+// link e vai clicar em transmitir. Matar em 12s punia leitor lento — a aba
+// prova intenção, e aba esquecida continua morrendo sozinha em 2 minutos.
+const CONTROLE_GRACE_MS = 120 * 1000;
 // Quanto tempo a transmissão de alguém sobrevive à saída dessa pessoa da sala.
 // Existe pelo mesmo motivo da carência acima: recarregar a atividade desconecta
 // e reconecta, e sem ela um F5 derrubaria a transmissão de quem não saiu de
@@ -443,7 +447,7 @@ const sweeper = setInterval(() => {
       room.emptySince = now;
       continue;
     }
-    if (now - room.emptySince > EMPTY_GRACE_MS) {
+    if (now - room.emptySince > (room.controles.size > 0 ? CONTROLE_GRACE_MS : EMPTY_GRACE_MS)) {
       // As abas de captura não seguram a sala de pé, mas continuam ligadas a
       // ela — e essa é a única conexão que sobrevive a este ponto, justamente
       // porque ficou de fora da conta de vazio. Sem fechar aqui, ela segue
