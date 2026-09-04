@@ -35,6 +35,9 @@ class DiscordClient implements PlatformClient {
         GatewayIntentBits.MessageContent,
         GatewayIntentBits.DirectMessages,
         GatewayIntentBits.GuildMembers,
+        // Necessário para o $screen achar em qual call de voz a pessoa está
+        // (voice states chegam por evento de gateway, não por REST).
+        GatewayIntentBits.GuildVoiceStates,
       ],
       partials: [Partials.Channel, Partials.Message, Partials.User],
       presence: {
@@ -224,6 +227,37 @@ class DiscordClient implements PlatformClient {
       platform: 'discord',
       raw: user,
     } as PlatformUser;
+  }
+
+  /**
+   * Em qual call de voz a pessoa está (primeira encontrada nos servidores).
+   * Usado pelo $screen para apontar a transmissão para a sala daquela call —
+   * quem abre a atividade dentro dela cai direto na tela, sem link.
+   * Retorna null quando o Discord está offline ou a pessoa não está em call.
+   */
+  async findUserVoiceChannel(userId: string): Promise<{ guildId: string; channelId: string; channelName: string } | null> {
+    try {
+      if (!this.isReady) return null;
+      const cleanId = userId.replace(/^dc:/, '');
+      for (const guild of this.client.guilds.cache.values()) {
+        let member: any = guild.members.cache.get(cleanId) ?? null;
+        if (!member) {
+          try {
+            member = await guild.members.fetch(cleanId);
+          } catch {
+            continue;
+          }
+        }
+        const voice = member?.voice?.channel;
+        if (voice) {
+          return { guildId: guild.id, channelId: voice.id, channelName: voice.name ?? 'call' };
+        }
+      }
+      return null;
+    } catch (e: any) {
+      console.error(`[Discord] ❌ erro ao buscar call de voz: ${e?.message}`);
+      return null;
+    }
   }
 
   async getChats(): Promise<PlatformChat[]> {

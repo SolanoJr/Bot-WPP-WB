@@ -72,6 +72,41 @@ describe('sala vazia', () => {
     expect(R.getRoom(room.id)).toBe(room);
   });
 
+  it('não derruba quem transmite com a aba de captura aberta', () => {
+    const room = sala();
+    const captura = socket();
+    const quem = { id: 'transmissor', name: 'Quem transmite' };
+    R.attachBroadcaster(room, captura, quem);
+    // Só o link, sem atividade aberta: a conexão de controle da aba prova
+    // que a pessoa está lá — confundir isto com abandono matava a
+    // transmissão ~15s depois de começar.
+    R.attachControl(room, socket(), quem.id);
+
+    vi.advanceTimersByTime(SEM_PRESENCA * 3);
+
+    expect(captura.recebidas.some((m) => m.type === 'stop-request')).toBe(false);
+    expect(room.broadcasters.size).toBe(1);
+    expect(R.getRoom(room.id)).toBe(room);
+  });
+
+  it('derruba quando a aba de captura fecha', () => {
+    const room = sala();
+    const captura = socket();
+    const controle = socket();
+    R.attachBroadcaster(room, captura, { id: 'transmissor', name: 'Quem transmite' });
+    R.attachControl(room, controle, 'transmissor');
+
+    vi.advanceTimersByTime(SEM_PRESENCA);
+    expect(room.broadcasters.size).toBe(1);
+
+    // Aba fechada = socket morto = sem presença: a proteção continua valendo.
+    R.detachControl(room, controle);
+    vi.advanceTimersByTime(SEM_PRESENCA + SWEEP * 2);
+
+    expect(captura.recebidas.some((m) => m.type === 'stop-request')).toBe(true);
+    expect(room.broadcasters.size).toBe(0);
+  });
+
   it('derruba a transmissão de quem saiu da atividade, e aí a sala fecha', () => {
     const room = sala();
     const captura = socket();

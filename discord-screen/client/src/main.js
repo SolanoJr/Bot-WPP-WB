@@ -1252,8 +1252,17 @@ async function boot() {
 
   // Sem login o lobby ainda abre: dá para ver as salas antes de entrar. Só
   // criar e entrar é que pedem identidade.
-  session = inDiscord ? await authDiscord(config) : await authWeb();
-
+  //
+  // Sem este try, qualquer falha aqui (ex.: authorize do Discord travado)
+  // estourava como rejection sem tratamento: o vigia disparava o genérico
+  // "Está demorando…" e o motivo real sumia. Agora a tela diz o que travou.
+  try {
+    session = inDiscord ? await authDiscord(config) : await authWeb();
+  } catch (err) {
+    clearTimeout(vigia);
+    setEmpty('Não foi possível entrar', err?.message ?? 'erro desconhecido');
+    return;
+  }
   clientId = params.get('client_id') || (await config).clientId || null;
   checkVersion((await config).asset);
   clearTimeout(vigia);
@@ -1728,6 +1737,21 @@ function checkVersion(asset) {
 }
 
 /**
+ * Corrida com prazo: as chamadas do SDK do Discord não têm timeout próprio e,
+ * se o cliente do Discord não responder, o boot trava para sempre (foi assim
+ * que nasceu o "Está demorando…" sem motivo). O ramo perdedor ganha um catch
+ * silencioso para não virar rejection sem tratamento depois.
+ */
+function comPrazo(promessa, ms, oQue) {
+  Promise.resolve(promessa).catch(() => {});
+  let timer = null;
+  const prazo = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${oQue} não respondeu em ${ms / 1000}s.`)), ms);
+  });
+  return Promise.race([promessa, prazo]).finally(() => clearTimeout(timer));
+}
+
+/**
  * @param {Promise<{clientId?:string}>|string} fonteDoId promessa da config, ou
  * o id direto quando já se sabe qual é (o caminho da renovação de sessão).
  */
@@ -1745,16 +1769,20 @@ async function authDiscord(fonteDoId) {
 
   const clientId = id;
   sdk = new DiscordSDK(clientId);
-  await sdk.ready();
+  await comPrazo(sdk.ready(), 12000, 'Discord (ready)');
 
-  const { code } = await sdk.commands.authorize({
+  const { code } = await comPrazo(
+    sdk.commands.authorize({
     client_id: clientId,
     response_type: 'code',
     state: '',
     prompt: 'none',
     // Só precisamos de /users/@me. Menos escopo, menos atrito no consentimento.
     scope: ['identify'],
-  });
+    }),
+    15000,
+    'Discord (authorize)',
+  );
 
   const { access_token } = await post(`${P}/api/token`, { code, client_id: clientId });
 
@@ -1765,7 +1793,7 @@ async function authDiscord(fonteDoId) {
   // guild/channel vão junto para o servidor poder confirmar, pelo Discord, que
   // a pessoa está mesmo naquela call.
   const [, sessao] = await Promise.all([
-    sdk.commands.authenticate({ access_token }),
+    comPrazo(sdk.commands.authenticate({ access_token }), 12000, 'Discord (authenticate)'),
     post(`${P}/api/session`, {
       access_token,
       instance_id: sdk.instanceId,

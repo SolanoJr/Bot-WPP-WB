@@ -597,6 +597,30 @@ app.post('/api/rooms/call', (req, res) => {
   res.json(issueRoomTokens(room.id, me));
 });
 
+/**
+ * Link de transmissão para a sala de um canal de voz específico.
+ *
+ * Quem pede é o bot (ex.: `$screen`): ele descobriu em qual call o dono está
+ * pelo Discord e quer o link de captura apontado para a sala daquela call —
+ * assim quem abre a atividade dentro da call cai direto na transmissão, sem
+ * link e sem escolher sala. O `channelId` é só dígitos (id de canal do
+ * Discord); qualquer outra coisa é recusada.
+ */
+app.post('/api/rooms/call-link', (req, res) => {
+  const me = identityOf(req, res);
+  if (!me) return;
+
+  const channelId = String(req.body?.channelId ?? '').replace(/\D/g, '').slice(0, 32);
+  if (!channelId) return res.status(400).json({ error: 'channelId inválido.' });
+
+  const room = R.ensureCallRoom(me.instance, `call-${channelId}`, {
+    guildId: me.guild ?? null,
+    guildName: me.guildName ?? null,
+    channelId,
+  });
+  res.json(issueRoomTokens(room.id, me));
+});
+
 app.post('/api/rooms/join', (req, res) => {
   const me = identityOf(req, res);
   if (!me) return;

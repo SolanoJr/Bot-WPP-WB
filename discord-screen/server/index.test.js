@@ -369,6 +369,46 @@ describe('/api/rooms/list', () => {
   });
 });
 
+describe('/api/rooms/call-link', () => {
+  it('recusa quem não traz identidade assinada', async () => {
+    const resposta = await post('/api/rooms/call-link', { identity: 'forjada', channelId: '123' });
+
+    expect(resposta.status).toBe(401);
+  });
+
+  it('aponta o link para a sala da call informada', async () => {
+    const me = await identidade({ instance_id: 'call-link-1' });
+    const corpo = await (
+      await post('/api/rooms/call-link', { identity: me.identity, channelId: '999888777' })
+    ).json();
+
+    expect(corpo.roomId).toBe('call-999888777');
+    expect(corpo.viewerToken).toBeTypeOf('string');
+    expect(corpo.shareUrl).toContain('/share.html?t=');
+  });
+
+  it('recusa channelId que não é id de canal', async () => {
+    const me = await identidade({ instance_id: 'call-link-2' });
+
+    for (const ruim of ['', 'abc', 'wss://evil', '../../x']) {
+      const resposta = await post('/api/rooms/call-link', { identity: me.identity, channelId: ruim });
+      expect(resposta.status).toBe(400);
+    }
+  });
+
+  it('reutiliza a mesma sala da call em chamadas repetidas', async () => {
+    const me = await identidade({ instance_id: 'call-link-3' });
+    const um = await (
+      await post('/api/rooms/call-link', { identity: me.identity, channelId: '111222' })
+    ).json();
+    const dois = await (
+      await post('/api/rooms/call-link', { identity: me.identity, channelId: '111222' })
+    ).json();
+
+    expect(um.roomId).toBe(dois.roomId);
+  });
+});
+
 describe('/api/rooms/create', () => {
   it('recusa quem não traz identidade assinada', async () => {
     const resposta = await post('/api/rooms/create', { identity: 'forjada', name: 'X' });

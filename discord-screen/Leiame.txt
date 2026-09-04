@@ -1,30 +1,38 @@
+Referências originais (projeto base):
 vídeo tutorial: https://www.youtube.com/watch?v=g_aKI5b4Ug0
 duvidas da glr: https://x.com/daviaxs_/status/2090469810773659986
 site: https://discord.suagateway.com.br/
 GitHub: https://github.com/Jc007zZ/discord-screen
 
-comandos no powershell:
+Setup local (powershell, pasta discord-screen/):
 npm i
 npm run start:fast
 
-depois entrar no link: https://discord.com/developers/applications
-copio o id cliente: 1545106372675248259
-copio a secret: X2MjpA0RTJJBzeU8k7ZG7_2WaeKehTwP
+Portal do desenvolvedor: https://discord.com/developers/applications
+copio o id cliente: 1307158493907652648
+copio a secret (Applications > General Information > Client Secret):
+(colear aqui a secret ATUAL do portal — nunca commitar secret real neste arquivo)
 
-pego a url q me deram pra colocar no mapeamento de url alvo:
-tide-power-coral-databases.trycloudflare.com
+URL pública do screen (Tailscale Funnel -> 127.0.0.1:3002):
+https://ubuntu.tail8486e7.ts.net
 
-vou em redirecionamento e adiciono:
-https://127.0.0.1
-https://dictionaries-exec-cooler-consistency.trycloudflare.com/auth/callback
+Mapeamento de URL da Activity (Portal > Activities > URL Mappings):
+prefixo /  ->  alvo https://ubuntu.tail8486e7.ts.net
 
-copio meu link de instalação para abrir no navegador:
-https://tide-power-coral-databases.trycloudflare.com/auth/callback
+Redirecionamento OAuth2 (Portal > OAuth2 > Redirects) — adicionar:
+https://ubuntu.tail8486e7.ts.net/auth/callback
 
-coloco os links de termos e privacidade:
-https://tide-power-coral-databases.trycloudflare.com/termos
-https://tide-power-coral-databases.trycloudflare.com/privacidade
+Links de termos e privacidade (Portal > General Information):
+https://ubuntu.tail8486e7.ts.net/termos
+https://ubuntu.tail8486e7.ts.net/privacidade
 
+Link de instalação (Portal > OAuth2 > URL Generator, scopes: bot + applications.commands):
+(gerar no portal e colar aqui)
 
+Como transmitir (2 caminhos):
+1. Discord: entrar num canal de voz > foguete (Activities) > Sala de Tela.
+2. Navegador: abrir o link Transmitir que o $screen manda
+   (https://ubuntu.tail8486e7.ts.net/share.html?t=<token>).
 
-
+Compartilhar tela = abrir o link Transmitir, escolher a tela/janela e pronto;
+quem assiste abre o link Assistir ou entra pela Activity.

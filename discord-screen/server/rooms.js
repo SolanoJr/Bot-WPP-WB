@@ -152,13 +152,19 @@ export function broadcastersOf(room, userId, fonte = null) {
 const transmitindo = (room, userId) => broadcastersOf(room, userId).length > 0;
 
 /**
- * A pessoa está na sala, e não só transmitindo para ela.
+ * A pessoa está na sala — assistindo ou com a aba de captura aberta.
  *
- * A aba de captura não conta: ela tem conexão própria e continua de pé depois
- * que a atividade fecha, que é justamente o caso a detectar.
+ * A aba de captura conta: ela é uma conexão viva que só existe com a página
+ * aberta, e fechar a aba derruba o socket (o sweeper limpa em seguida). Sem
+ * isto, transmitir pelo link — sem abrir a atividade como espectador — era
+ * confundido com abandono e a transmissão caía ~15s depois de começar.
+ *
+ * O caso que continua protegido: aba fechada = socket morto = sem presença,
+ * e a transmissão cai. Ninguém transmite sem uma janela aberta mostrando isso.
  */
 function temViewer(room, userId) {
   for (const v of room.viewers) if (v.__info?.id === userId) return true;
+  for (const c of room.controles) if (c.__controlOf === userId) return true;
   return false;
 }
 
