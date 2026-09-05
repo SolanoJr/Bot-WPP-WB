@@ -282,18 +282,40 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
   // ============================================================
   private async dispatchMessage(msg: any): Promise<void> {
     try {
-      const OBSERVATION_MODE = process.env.WPP_OBSERVATION_MODE === '1';
       // ── Laboratório de observação: captura evento bruto ANTES da normalização ──
-      if (OBSERVATION_MODE) {
-        try {
-          const obs = require('../../laboratorio/observer.js');
-          if (obs && typeof obs.callObserverHook === 'function') {
-            const remoteJid = msg.key?.remoteJid || '';
-            const isGroup = remoteJid.endsWith('@g.us');
-            const groupForObs = isGroup ? remoteJid : (msg.key?.participant || remoteJid);
-            obs.callObserverHook(msg, groupForObs);
-          }
-        } catch { /* observação opcional — não falha se módulo não existir */ }
+      {
+        const OBSERVATION_MODE = process.env.WPP_OBSERVATION_MODE === '1';
+        if (OBSERVATION_MODE) {
+          try {
+            const obs = require('../../laboratorio/observer.js');
+            if (obs && typeof obs.callObserverHook === 'function') {
+              let groupForObs = '';
+              let isGroupMsg = false;
+              const remoteJid = msg.key?.remoteJid || '';
+              const isRemoteGroup = remoteJid.endsWith('@g.us');
+              if (isRemoteGroup) {
+                // Grupo padrão: remoteJid é o grupo, participant é o remetente
+                groupForObs = remoteJid;
+                isGroupMsg = true;
+              } else if (msg.key?.participant && msg.key.participant.endsWith('@g.us')) {
+                // Grupo LID: remoteJid = LID do remetente, participant = grupo
+                groupForObs = msg.key.participant;
+                isGroupMsg = true;
+              }
+              if (isGroupMsg && groupForObs) {
+                obs.callObserverHook({
+                  rawMsg: msg,
+                  groupJid: groupForObs,
+                  senderJid: msg.key?.participant || remoteJid,
+                  fromMe: !!msg.key?.fromMe,
+                  pushName: msg.pushName || '',
+                  messageTimestamp: msg.messageTimestamp,
+                  eventType: 'messages.upsert',
+                });
+              }
+            }
+          } catch { /* observação opcional — não falha se módulo não existir */ }
+        }
       }
 
       const hasStub = msg.messageStubType || (Array.isArray(msg.messageStubParameters) && msg.messageStubParameters.length > 0);

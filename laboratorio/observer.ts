@@ -150,14 +150,228 @@ function extractSubtype(obj: any): string {
   return 'unknown';
 }
 
-// ─── Captura do evento bruto ─────────────────────────────────────────────────
+// ─── Captura detalhada do payload bruto ─────────────────────────────────────
 
-export function captureRawEvent(rawMsg: any, groupJid: string, eventType: string): RawBaileysEvent {
+/**
+ * FASE 3: Captura detalhada do payload bruto recebido pelo Baileys.
+ *
+ * Extrai TODOS os campos relevantes para diagnóstico, sem expor
+ * tokens, credenciais, cookies, sessão ou dados secretos.
+ */
+export interface DetailedObservationPayload {
+  /** Identificador único desta observação */
+  observationId: string;
+  /** Timestamp de quando a observação foi criada */
+  observedAt: string;
+  /** Correlation ID */
+  correlationId: string;
+  /** Evento Baileys: messages.upsert | messages.update | group-participants.update */
+  eventType: string;
+  /** JID do grupo */
+  groupJid: string;
+  /** JID do remetente */
+  senderJid: string;
+  /** Se a mensagem é do próprio bot */
+  fromMe: boolean;
+  /** PushName (nome mostrado no WhatsApp) */
+  pushName: string;
+  /** Timestamp do servidor (ms) */
+  serverTimestamp: number;
+  /** messageId (key.id) */
+  messageId: string;
+  /** remoteJid */
+  remoteJid: string;
+  /** participant (remetente no grupo) */
+  participant: string;
+  /** messageStubType (se houver) */
+  messageStubType: number | undefined;
+  /** messageStubParameters (se houver) */
+  messageStubParameters: any[];
+  /** Chaves no msg.message */
+  messageKeys: string[];
+  /** Chaves no msg.key */
+  keyKeys: string[];
+  /** Tipo classificado da mensagem */
+  messageType: MessageTypeClassification;
+  /** Campos sensíveis filtrados */
+  safePayload: Record<string, any>;
+  /** Tipo de conteúdo principal */
+  contentType: string;
+  /** Tamanho aproximado do payload (para detectar mensagens gigantes) */
+  payloadSize: number;
+  /** Campos adicionais detectados */
+  extraFields: string[];
+  /** Se é mensagem de grupo */
+  isGroup: boolean;
+  /** Correlação com entrada de membro */
+  joinCorrelation?: {
+    participant: string;
+    joinTimestamp: number;
+    firstMessageTimestamp: number;
+    intervalMs: number;
+    messagesAfterJoin: number;
+  };
+  /** Sinais de suspeita */
+  signals: string[];
+  /** Detecção resumida */
+  detected: boolean;
+  /** Reason da detecção */
+  reason: string;
+}
+
+export function captureDetailedPayload(event: {
+  rawMsg: any;
+  groupJid: string;
+  senderJid: string;
+  fromMe: boolean;
+  pushName: string;
+  messageTimestamp: number | undefined;
+  eventType: string;
+}): DetailedObservationPayload {
+  const rawMsg = event.rawMsg;
+  const m = rawMsg?.message || {};
+  const key = rawMsg?.key || {};
+
+  const messageId = key.id || '';
+  const remoteJid = key.remoteJid || '';
+  const participant = key.participant || '';
+  const messageStubType = rawMsg.messageStubType;
+  const messageStubParameters = rawMsg.messageStubParameters || [];
+
+  const messageKeys = Object.keys(m).sort();
+  const keyKeys = Object.keys(key).sort();
+
+  const isGroup = remoteJid.endsWith('@g.us') || participant.endsWith('@g.us');
+
+  // Conteúdo principal: qual campo tem o texto?
+  let contentType = 'none';
+  if (typeof m.conversation === 'string' && m.conversation.trim()) contentType = 'conversation';
+  else if (m.extendedTextMessage) contentType = 'extendedTextMessage';
+  else if (m.imageMessage) contentType = 'imageMessage';
+  else if (m.videoMessage) contentType = 'videoMessage';
+  else if (m.audioMessage) contentType = 'audioMessage';
+  else if (m.documentMessage) contentType = 'documentMessage';
+  else if (m.stickerMessage) contentType = 'stickerMessage';
+  else if (m.buttonsMessage) contentType = 'buttonsMessage';
+  else if (m.listMessage) contentType = 'listMessage';
+  else if (m.listResponseMessage) contentType = 'listResponseMessage';
+  else if (m.interactiveMessage) contentType = 'interactiveMessage';
+  else if (m.templateMessage) contentType = 'templateMessage';
+  else if (m.locationMessage) contentType = 'locationMessage';
+  else if (m.contactMessage) contentType = 'contactMessage';
+  else if (m.groupInviteMessage) contentType = 'groupInviteMessage';
+  else if (m.poll) contentType = 'poll';
+  else if (m.productMessage) contentType = 'productMessage';
+  else if (m.orderMessage) contentType = 'orderMessage';
+  else if (Object.keys(m).length > 0) contentType = 'other';
+
+  // Extrairos marcadores do conteúdo para diagnóstico (sem expor dados sensíveis)
+  const extraFields: string[] = [];
+
+  if (m.extendedTextMessage) {
+    const etm = m.extendedTextMessage as any;
+    if (etm.linkPreview) extraFields.push('extendedTextMessage.linkPreview');
+    if (etm.contextInfo) {
+      if (etm.contextInfo.mentionedJidList?.length) extraFields.push('extendedTextMessage.contextInfo.mentionedJidList');
+      if (etm.contextInfo.quotedMessage) extraFields.push('extendedTextMessage.contextInfo.quotedMessage');
+      if (etm.contextInfo.externalAdherence) extraFields.push('extendedTextMessage.contextInfo.externalAdherence');
+    }
+    if (etm.contextInfo?.broadcast && etm.contextInfo.broadcast?.alive) extraFields.push('broadcast');
+    if (etm.contextInfo?.isForwarded) extraFields.push('isForwarded');
+  }
+
+  if (m.buttonsMessage) extraFields.push('buttonsMessage');
+  if (m.templateMessage) extraFields.push('templateMessage');
+  if (m.interactiveMessage) extraFields.push('interactiveMessage');
+  if (m.productMessage) extraFields.push('productMessage');
+  if (m.orderMessage) extraFields.push('orderMessage');
+  if (m.listMessage) extraFields.push('listMessage');
+
+  if (rawMsg.pushName) extraFields.push('pushName (remote)');
+
+  // Tipo classificado
+  const messageType = classifyMessagePayload(rawMsg);
+
+  // Sinais de suspeita
+  const signals: string[] = [];
+  const senderName = event.pushName || (rawMsg?.ack?.notify || '');
+
+  // Sinal 1: tipo incomum
+  if (messageType.type === 'unknown') signals.push('TIPO_DESCONHECIDO');
+  if (messageType.type === 'interactive') signals.push('INTERACTIVE');
+  if (messageType.type === 'multi') signals.push('MULTI_TIPO');
+  if (messageType.type === 'sticker') signals.push('STICKER');
+  if (messageType.type === 'document') signals.push('DOCUMENTO');
+  if (messageType.type === 'image') {
+    if (m.imageMessage?.caption) signals.push('IMAGE_COM_CAPTION');
+    else signals.push('IMAGE_SEM_CAPTION');
+  }
+  if (messageType.type === 'template') signals.push('TEMPLATE');
+  if (messageType.type === 'buttons' || messageType.type === 'multi' && messageType.subtypes.some(s => s.startsWith('buttonsMessage'))) {
+    signals.push('BOTAO');
+  }
+
+  // Sinal 2: foreign
+  if (isForeignNumber(event.senderJid)) signals.push('FOREIGN_NUMBER');
+
+  // Sinal 3: nome suspeito
+  if (!event.pushName || event.pushName.trim() === '') signals.push('NOME_VAZIO');
+  else if (/^(bot|robô|assistant|auto|spammer|spam|🤖)/i.test(event.pushName)) signals.push('NOME_SUSPEITO');
+
+  // Sinal 4: link preview suspeito
+  const linkPreview = m.extendedTextMessage?.linkPreview;
+  if (linkPreview) {
+    const url = linkPreview['canonical-url'] || linkPreview['matchedText'] || '';
+    if (url) {
+      signals.push(`LINK_PREVIEW:${extractDomain(url)}`);
+      if (isSuspiciousDomain(extractDomain(url))) signals.push('LINK_SUSPEITOSO');
+    }
+  }
+
+  // Sinal 5: forwarded / mentions
+  const cinfo = m.extendedTextMessage?.contextInfo || m.imageMessage?.contextInfo || {};
+  if (cinfo.forwarded) signals.push('ENCAMINHADO');
+  if (cinfo.mentionedJidList && cinfo.mentionedJidList.length > 0) signals.push('MENCOES');
+
+  // Sinal 6: sem texto
+  if (!platformMsgText(m)) signals.push('SEM_TEXTO');
+
+  // Sinal 7: stub
+  if (messageStubType) signals.push(`STUB_TYPE:${messageStubType}`);
+
+  const payloadSize = JSON.stringify(rawMsg).length;
+
+  const observationId = `obs-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const correlationId = randomUUID();
+
+  const detected = signals.length > 0;
+
   return {
-    rawMsg,
-    groupJid,
-    serverTimestamp: rawMsg.messageTimestamp ? Number(rawMsg.messageTimestamp) * 1000 : Date.now(),
-    eventType: eventType as any,
+    observationId,
+    observedAt: new Date().toISOString(),
+    correlationId,
+    eventType: event.eventType,
+    groupJid: event.groupJid,
+    senderJid: event.senderJid,
+    fromMe: event.fromMe,
+    pushName: event.pushName,
+    serverTimestamp: event.messageTimestamp ? Number(event.messageTimestamp) * 1000 : Date.now(),
+    messageId,
+    remoteJid,
+    participant,
+    messageStubType,
+    messageStubParameters,
+    messageKeys,
+    keyKeys,
+    messageType,
+    safePayload: filterSensitiveFields(rawMsg),
+    contentType,
+    payloadSize,
+    extraFields,
+    isGroup,
+    signals,
+    detected,
+    reason: detected ? `Sinais: ${signals.join(', ')}` : 'sem sinais de suspeita',
   };
 }
 
@@ -461,80 +675,37 @@ function ensureLogFile(): void {
   if (!fs.existsSync(LOG_FILE)) fs.writeFileSync(LOG_FILE, '', 'utf-8');
 }
 
-export function logObservation(obs: FullObservation): void {
+export function logObservation(obs: DetailedObservationPayload): void {
   ensureLogFile();
   const entry = {
     observationId: obs.observationId,
-    observedAt: obs.observedAt.toISOString(),
+    observedAt: obs.observedAt,
     correlationId: obs.correlationId,
-    eventType: obs.rawEvent.eventType,
-    groupJid: obs.rawEvent.groupJid,
-    messageType: obs.detectedType,
-    detection: obs.detection,
+    eventType: obs.eventType,
+    groupJid: obs.groupJid,
+    senderJid: obs.senderJid,
+    fromMe: obs.fromMe,
+    pushName: obs.pushName,
+    messageId: obs.messageId,
+    messageType: obs.messageType,
+    contentType: obs.contentType,
+    contentTypeDetail: obs.contentType,
+    isGroup: obs.isGroup,
+    payloadSize: obs.payloadSize,
+    messageKeys: obs.messageKeys.join(','),
+    keyKeys: obs.keyKeys.join(','),
+    detection: {
+      detected: obs.detected,
+      reason: obs.reason,
+      signals: obs.signals,
+    },
     joinCorrelation: obs.joinCorrelation,
-    comparison: obs.comparison,
-    rawMessageKeys: Object.keys(obs.rawEvent.rawMsg.message || {}).join(','),
-    lostFields: obs.phases.normalized.lostFields,
-    survivingFields: obs.phases.normalized.survivingFields,
-    lossReason: obs.phases.normalized.lossReason,
+    extraFields: obs.extraFields,
+    messageStubType: obs.messageStubType,
+    safePayloadKeys: Object.keys(obs.safePayload).join(','),
   };
   fs.appendFileSync(LOG_FILE, JSON.stringify(entry) + '\n', 'utf-8');
   obsLog.debug(`[OBSERVATION] registrada: ${obs.observationId}`);
-}
-
-// ─── Fabrica de observação ───────────────────────────────────────────────────
-
-export function createObservation(
-  rawMsg: any,
-  groupJid: string,
-  eventType: string,
-  senderJid: string,
-  senderName: string,
-  joinInfo?: { participant: string; timestamp: number },
-): FullObservation {
-  const observationId = `obs-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const correlationId = randomUUID();
-
-  const rawEvent = captureRawEvent(rawMsg, groupJid, eventType);
-  const detectedType = classifyMessagePayload(rawMsg);
-  const detection = detectSuspiciousMessage(rawMsg, detectedType, senderJid, senderName, groupJid);
-
-  let joinCorrelation: FullObservation['joinCorrelation'] | undefined;
-  if (joinInfo && detection.signals.length > 0) {
-    const normalizedSender = senderJid.replace(/@.*$/, '');
-    const normalizedJoin = joinInfo.participant.replace(/@.*$/, '');
-    if (normalizedSender === normalizedJoin) {
-      joinCorrelation = {
-        participant: senderJid,
-        joinTimestamp: joinInfo.timestamp,
-        firstMessageTimestamp: rawEvent.serverTimestamp,
-        intervalMs: rawEvent.serverTimestamp - joinInfo.timestamp,
-        messagesAfterJoin: 1,
-      };
-    }
-  }
-
-  const obs: FullObservation = {
-    observationId,
-    observedAt: new Date(),
-    rawEvent,
-    correlationId,
-    detectedType,
-    phases: {
-      raw: filterSensitiveFields(rawMsg),
-      normalized: {
-        platformMessage: undefined as any,
-        survivingFields: [],
-        lostFields: [],
-        lossReason: '',
-      },
-    },
-    detection,
-    joinCorrelation,
-  };
-
-  logObservation(obs);
-  return obs;
 }
 
 function filterSensitiveFields(raw: any): Record<string, any> {
@@ -554,25 +725,98 @@ function filterSensitiveFields(raw: any): Record<string, any> {
 
 // ─── Hook de observação ─────────────────────────────────────────────────────
 
-let observerHook: ((rawMsg: any, groupJid: string) => void) | null = null;
+interface ObserverHookEvent {
+  rawMsg: any;
+  groupJid: string;
+  senderJid: string;
+  fromMe: boolean;
+  pushName: string;
+  messageTimestamp: number | undefined;
+  eventType: string;
+}
 
-export function setObserverHook(hook: (rawMsg: any, groupJid: string) => void): void {
+let observerHook: ((event: ObserverHookEvent) => void) | null = null;
+
+export function setObserverHook(hook: (event: ObserverHookEvent) => void): void {
   observerHook = hook;
   obsLog.info('[OBSERVATION] hook registrado');
 }
 
-export function callObserverHook(rawMsg: any, groupJid: string): void {
+export function callObserverHook(event: ObserverHookEvent): void {
   if (observerHook) {
     try {
-      observerHook(rawMsg, groupJid);
+      observerHook(event);
     } catch (err: any) {
       obsLog.error(`[OBSERVATION] erro no hook: ${err?.message}`);
     }
   }
 }
 
-// ─── Inicialização ──────────────────────────────────────────────────────────
+// ─── Pipeline padrão de observação ──────────────────────────────────────────
 
+/**
+ * Pipeline padrão que implementa todo o fluxo de observação:
+ * 1. Captura detalhada do payload bruto (FASE 3)
+ * 2. Classificação do tipo de mensagem (FASE 4)
+ * 3. Detecção experimental sem ação (FASE 4)
+ * 4. Correlação com entrada de membro (FASE 6)
+ * 5. Registro no log isolado (FASE 9)
+ *
+ * NÃO toma nenhuma ação destrutiva.
+ */
+function defaultObserverPipeline(event: ObserverHookEvent): void {
+  // FASE 3: Captura detalhada
+  const detail = captureDetailedPayload(event);
+
+  // FASE 4: Detecção experimental
+  const detection = detectSuspiciousMessage(
+    event.rawMsg,
+    detail.messageType,
+    event.senderJid,
+    event.pushName,
+    event.groupJid,
+  );
+
+  // FASE 6: Correlação com entrada (se houver join recente)
+  const joinCorrelation = recordMessageAfterJoin(
+    event.senderJid,
+    event.groupJid,
+    detail.serverTimestamp,
+  );
+
+  // Montar observação completa para log
+  const obs = {
+    ...detail,
+    signals: detection.signals,
+    detected: detection.detected,
+    reason: detection.reason,
+    joinCorrelation: joinCorrelation ? {
+      participant: event.senderJid,
+      joinTimestamp: 0,
+      firstMessageTimestamp: detail.serverTimestamp,
+      intervalMs: joinCorrelation.intervalMs,
+      messagesAfterJoin: joinCorrelation.count,
+    } : undefined,
+  };
+
+  // FASE 9: Log no arquivo isolado (sempre)
+  logObservation(obs);
+
+  // Console.debug somente para detecções (não polui produção com mensagens normais)
+  if (obs.detected) {
+    console.debug(
+      `[OBSERVATION] ${obs.observationId} ` +
+      `group=${obs.groupJid} sender=${obs.senderJid} ` +
+      `detected=${obs.detected} signals=${obs.signals.join(',')} ` +
+      `contentType=${obs.contentType} messageType=${obs.messageType.type}`
+    );
+  }
+}
+
+/**
+ * Inicializa o módulo de observação.
+ * Registra o pipeline padrão se nenhum hook customizado foi configurado.
+ */
 export function initializeObservation(): void {
   if (!OBSERVATION_MODE) {
     obsLog.info('[OBSERVATION] modo desativado (WPP_OBSERVATION_MODE != 1)');
@@ -583,7 +827,224 @@ export function initializeObservation(): void {
     return;
   }
   obsLog.info(`[OBSERVATION] inicializado. Grupos: ${[...ALLOWED_OBSERVATION_GROUPS].join(', ')}`);
+  if (!observerHook) {
+    setObserverHook(defaultObserverPipeline);
+  }
+}
+
+// ─── Ações experimentais de laboratório (FASE 5-6) ──────────────────────────
+
+/**
+ * FASE 5: Exclusão experimental de mensagem no grupo autorizado.
+ *
+ * REGRAS:
+ * - SOMENTE grupos em WPP_OBSERVATION_GROUPS
+ * - NÃO remove usuário
+ * - NÃO bane
+ * - NÃO responde no grupo
+ * - Verifica isProtectedTarget antes
+ * - Usa API existente de sendMessage com delete
+ *
+ * @param adapter BaileysAdapter com sendMessage()
+
+ * @returns { success, error, messageId, groupId, correlationId }
+ */
+export async function deleteTestMessage(
+  adapter: any,
+  groupJid: string,
+  messageId: string,
+  senderJid: string,
+): Promise<{ success: boolean; error?: string; messageId: string; groupId: string; correlationId: string }> {
+  // 1. Verificar grupo autorizado
+  if (!ALLOWED_OBSERVATION_GROUPS.has(groupJid)) {
+    return {
+      success: false,
+      error: `GRUPO_NAO_AUTORIZADO: ${groupJid}`,
+      messageId,
+      groupId: groupJid,
+      correlationId: randomUUID(),
+    };
+  }
+
+  // 2. Verificar isProtectedTarget (bot/dono NÃO podem ser alvo)
+  const { isProtectedTarget } = await import('../services/permissions.js');
+  if (isProtectedTarget(senderJid)) {
+    return {
+      success: false,
+      error: `ALVO_PROTEGIDO: ${senderJid}`,
+      messageId,
+      groupId: groupJid,
+      correlationId: randomUUID(),
+    };
+  }
+
+  // 3. Verificar que o adapter tem sendMessage
+  if (!adapter || typeof adapter.sendMessage !== 'function') {
+    return {
+      success: false,
+      error: 'ADAPTER_INVALIDO: sem sendMessage',
+      messageId,
+      groupId: groupJid,
+      correlationId: randomUUID(),
+    };
+  }
+
+  const correlationId = randomUUID();
+
+  try {
+    // 4. Usar API existente do Baileys para apagar mensagem
+    // sendMessage(jid, '', { delete: { id, fromMe, participant } })
+    await adapter.sendMessage(groupJid, '', {
+      delete: {
+        id: messageId,
+        fromMe: false, // mensagem de TERCEIRO
+        participant: senderJid,
+      },
+    });
+
+    obsLog.info(`[OBSERVATION][DELETE_TEST] sucesso: msg=${messageId} grupo=${groupJid} remetente=${senderJid} correlationId=${correlationId}`);
+
+    return {
+      success: true,
+      messageId,
+      groupId: groupJid,
+      correlationId,
+    };
+  } catch (err: any) {
+    const errorMsg = err?.message || String(err);
+    obsLog.error(`[OBSERVATION][DELETE_TEST] falha: msg=${messageId} grupo=${groupJid} remetente=${senderJid} error=${errorMsg} correlationId=${correlationId}`);
+
+    return {
+      success: false,
+      error: errorMsg,
+      messageId,
+      groupId: groupJid,
+      correlationId,
+    };
+  }
+}
+
+/**
+ * FASE 6: Remoção experimental de participante no grupo "Teste".
+ *
+ * REGRAS:
+ * - SOMENTE grupo "Teste" (configurado separadamente)
+ * - NÃO bane — apenas remove do grupo
+ * - Verifica isProtectedTarget antes
+ * - Usa API existente do Baileys
+ *
+ * @param adapter BaileysAdapter com removeParticipant()
+ * @param testGroupJid JID do grupo "Teste"
+ * @param targetJid JID do participante a remover
+ * @returns { success, error, targetJid, groupId, correlationId }
+ */
+export async function removeTestParticipant(
+  adapter: any,
+  testGroupJid: string,
+  targetJid: string,
+): Promise<{ success: boolean; error?: string; targetJid: string; groupId: string; correlationId: string }> {
+  // 1. Verificar grupo autorizado para testes destrutivos
+  // O grupo "Teste" deve estar separadamente configurado
+  const TEST_GROUP_CONFIGURED = process.env.WPP_TEST_GROUP_ID === testGroupJid;
+
+  if (!TEST_GROUP_CONFIGURED) {
+    return {
+      success: false,
+      error: `GRUPO_NAO_AUTORIZADO_PARA_REMOVAL: ${testGroupJid}`,
+      targetJid,
+      groupId: testGroupJid,
+      correlationId: randomUUID(),
+    };
+  }
+
+  // 2. Verificar isProtectedTarget (bot/dono NÃO podem ser alvo)
+  const { isProtectedTarget } = await import('../services/permissions.js');
+  if (isProtectedTarget(targetJid)) {
+    return {
+      success: false,
+      error: `ALVO_PROTEGIDO: ${targetJid}`,
+      targetJid,
+      groupId: testGroupJid,
+      correlationId: randomUUID(),
+    };
+  }
+
+  // 3. Verificar que o adapter tem removeParticipant
+  if (!adapter || typeof adapter.removeParticipant !== 'function') {
+    return {
+      success: false,
+      error: 'ADAPTER_INVALIDO: sem removeParticipant',
+      targetJid,
+      groupId: testGroupJid,
+      correlationId: randomUUID(),
+    };
+  }
+
+  const correlationId = randomUUID();
+
+  try {
+    // 4. Usar API existente do Baileys para remover participante
+    await adapter.removeParticipant(testGroupJid, targetJid);
+
+    obsLog.info(`[OBSERVATION][REMOVE_TEST] sucesso: alvo=${targetJid} grupo=${testGroupJid} correlationId=${correlationId}`);
+
+    return {
+      success: true,
+      targetJid,
+      groupId: testGroupJid,
+      correlationId,
+    };
+  } catch (err: any) {
+    const errorMsg = err?.message || String(err);
+    obsLog.error(`[OBSERVATION][REMOVE_TEST] falha: alvo=${targetJid} grupo=${testGroupJid} error=${errorMsg} correlationId=${correlationId}`);
+
+    return {
+      success: false,
+      error: errorMsg,
+      targetJid,
+      groupId: testGroupJid,
+      correlationId,
+    };
+  }
+}
+
+/**
+ * Verifica se um JID pertence aos grupos autorizados para observação.
+ */
+export function isObservationGroup(groupJid: string): boolean {
+  return ALLOWED_OBSERVATION_GROUPS.has(groupJid);
+}
+
+/**
+ * Retorna lista de grupos autorizados para observação.
+ */
+export function getObservationGroups(): string[] {
+  return [...ALLOWED_OBSERVATION_GROUPS];
+}
+
+/**
+ * Verifica se o modo de observação está ativo.
+ */
+export function isObservationModeActive(): boolean {
+  return OBSERVATION_MODE;
 }
 
 // Exportações
-export { callObserverHook, setObserverHook, initializeObservation };
+export {
+  captureDetailedPayload,
+  classifyMessagePayload,
+  callObserverHook,
+  setObserverHook,
+  initializeObservation,
+  logObservation,
+  recordJoinEvent,
+  recordMessageAfterJoin,
+  getJoinEventsForGroup,
+  compareMessages,
+  handleUnknownMessage,
+  deleteTestMessage,
+  removeTestParticipant,
+  isObservationGroup,
+  getObservationGroups,
+  isObservationModeActive,
+};
