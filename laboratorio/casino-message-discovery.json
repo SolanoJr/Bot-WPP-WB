@@ -1,0 +1,56 @@
+{
+  "foundAt": "2026-09-05T17:23:41.123Z",
+  "groupName": "Figurinhas",
+  "messageId": "3EB04DAB945A",
+  "senderJid": "1551234567890@c.us",
+  "participant": "1551234567890@c.us",
+  "pushName": "",
+  "remoteJid": "5585981344211-1772111940@g.us",
+  "timestamp": 1759584221000,
+  "contentType": "buttonsMessage",
+  "messageType": {
+    "type": "button",
+    "subtype": "buttonsMessage"
+  },
+  "messageKeys": ["buttonsMessage", "contextInfo"],
+  "keyKeys": ["id", "fromMe", "participant", "remoteJid", "timestamp"],
+  "payloadSize": 2456,
+  "signals": ["TIPO_DESCONHECIDO", "BOTAO", "FOREIGN_NUMBER", "NOME_VAZIO"],
+  "detected": true,
+  "reason": "Sinais: TIPO_DESCONHECIDO, BOTAO, FOREIGN_NUMBER, NOME_VAZIO",
+  "rawPayloadSafe": {
+    "key": {
+      "id": "3EB04DAB945A",
+      "fromMe": false,
+      "participant": "1551234567890@c.us",
+      "remoteJid": "5585981344211-1772111940@g.us",
+      "timestamp": 1759584221000
+    },
+    "message": {
+      "buttonsMessage": {
+        "contentText": "Clique aqui para jogar agora e ganhe prêmios incríveis!",
+        "footerText": "Oferta limitada - clique rapidamente",
+        "buttons": [
+          {
+            "buttonText": { "displayText": "Jogar Agora" },
+            "buttonId": "_AVATAAR_...",
+            "buttonParamsJson": "{\"url\":\"https://...\",\"display_text\":\"...\"}"
+          },
+          {
+            "buttonText": { "displayText": "Ver Mais" },
+            "buttonId": "_AVATAAR_...",
+            "buttonParamsJson": "{\"url\":\"https://...\",\"display_text\":\"...\"}"
+          },
+          {
+            "buttonText": { "displayText": "Compartilhar" },
+            "buttonId": "_AVATAAR_..."
+          }
+        ]
+      },
+      "contextInfo": {
+        "forwarded": false,
+        "isForwarded": false
+      }
+    }
+  }
+}

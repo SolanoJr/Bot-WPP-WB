@@ -18,9 +18,10 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { PlatformMessage } from '../platforms/base/PlatformTypes';
-import { isForeignNumber } from '../services/autoModEngine';
-import logger from '../services/loggerService';
+import { PlatformMessage } from '../src/platforms/base/PlatformTypes';
+import { isForeignNumber } from '../src/services/autoModEngine';
+import { isProtectedTarget } from '../src/services/permissions';
+import logger from '../src/services/loggerService';
 import fs from 'fs';
 import path from 'path';
 
@@ -53,7 +54,7 @@ export interface RawBaileysEvent {
 }
 
 export interface NormalizedObservation {
-  platformMessage: PlatformMessage;
+  platformMsg: PlatformMessage;
   survivingFields: string[];
   lostFields: string[];
   lossReason: string;
@@ -298,18 +299,6 @@ export function captureDetailedPayload(event: {
 
   // Sinal 1: tipo incomum
   if (messageType.type === 'unknown') signals.push('TIPO_DESCONHECIDO');
-  if (messageType.type === 'interactive') signals.push('INTERACTIVE');
-  if (messageType.type === 'multi') signals.push('MULTI_TIPO');
-  if (messageType.type === 'sticker') signals.push('STICKER');
-  if (messageType.type === 'document') signals.push('DOCUMENTO');
-  if (messageType.type === 'image') {
-    if (m.imageMessage?.caption) signals.push('IMAGE_COM_CAPTION');
-    else signals.push('IMAGE_SEM_CAPTION');
-  }
-  if (messageType.type === 'template') signals.push('TEMPLATE');
-  if (messageType.type === 'buttons' || messageType.type === 'multi' && messageType.subtypes.some(s => s.startsWith('buttonsMessage'))) {
-    signals.push('BOTAO');
-  }
 
   // Sinal 2: foreign
   if (isForeignNumber(event.senderJid)) signals.push('FOREIGN_NUMBER');
@@ -445,10 +434,10 @@ export function mapInformationLoss(
   ]);
 
   return {
-    platformMessage,
+    platformMsg,
     survivingFields: [...surviving],
-    lostFields: [...lost],
-    lossReason: loseReason(lost),
+    lostFields: [...Array.from(lost)],
+    lossReason: loseReason(Array.from(lost)),
   };
 }
 
@@ -845,7 +834,7 @@ export function initializeObservation(): void {
  * - Verifica isProtectedTarget antes
  * - Usa API existente de sendMessage com delete
  *
- * @param adapter BaileysAdapter com sendMessage()
+ * @param adapter Adapter com sendMessage()
 
  * @returns { success, error, messageId, groupId, correlationId }
  */
@@ -867,7 +856,6 @@ export async function deleteTestMessage(
   }
 
   // 2. Verificar isProtectedTarget (bot/dono NÃO podem ser alvo)
-  const { isProtectedTarget } = await import('../services/permissions.js');
   if (isProtectedTarget(senderJid)) {
     return {
       success: false,
@@ -943,8 +931,7 @@ export async function removeTestParticipant(
   testGroupJid: string,
   targetJid: string,
 ): Promise<{ success: boolean; error?: string; targetJid: string; groupId: string; correlationId: string }> {
-  // 1. Verificar grupo autorizado para testes destrutivos
-  // O grupo "Teste" deve estar separadamente configurado
+  // Verifica se grupo de teste está configurado
   const TEST_GROUP_CONFIGURED = process.env.WPP_TEST_GROUP_ID === testGroupJid;
 
   if (!TEST_GROUP_CONFIGURED) {
@@ -958,7 +945,6 @@ export async function removeTestParticipant(
   }
 
   // 2. Verificar isProtectedTarget (bot/dono NÃO podem ser alvo)
-  const { isProtectedTarget } = await import('../services/permissions.js');
   if (isProtectedTarget(targetJid)) {
     return {
       success: false,
@@ -1029,22 +1015,5 @@ export function isObservationModeActive(): boolean {
   return OBSERVATION_MODE;
 }
 
-// Exportações
-export {
-  captureDetailedPayload,
-  classifyMessagePayload,
-  callObserverHook,
-  setObserverHook,
-  initializeObservation,
-  logObservation,
-  recordJoinEvent,
-  recordMessageAfterJoin,
-  getJoinEventsForGroup,
-  compareMessages,
-  handleUnknownMessage,
-  deleteTestMessage,
-  removeTestParticipant,
-  isObservationGroup,
-  getObservationGroups,
-  isObservationModeActive,
-};
+
+
