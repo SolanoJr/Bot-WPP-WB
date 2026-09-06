@@ -270,7 +270,9 @@ async function main(): Promise<void> {
   }
 
   // 3. Obter adapter — safe cast para BaileysAdapter
-  const pm = PlatformManager.getInstance();
+  // Usar globalThis.__platformManager (padrao do testServer.ts) para acessar
+  // o singleton real quando executado como script standalone no servidor.
+  const pm = (globalThis as any).__platformManager || PlatformManager.getInstance();
   const rawAdapter = pm.getAdapter('whatsapp');
   if (!rawAdapter || typeof (rawAdapter as any).sendMessage !== 'function') {
     const error = 'adapter whatsapp não encontrado ou inválido (sem sendMessage)';

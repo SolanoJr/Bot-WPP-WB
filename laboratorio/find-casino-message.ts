@@ -389,7 +389,9 @@ function saveResult(analysis: ReturnType<typeof analyzeMessage>, rawMsg: any): v
 async function main(): Promise<void> {
   logger.info(`[FIND-CASINO] iniciando busca por mensagem de cassino em "${GROUP_NAME}"`);
 
-  const pm = PlatformManager.getInstance();
+  // Usar globalThis.__platformManager (padrao do testServer.ts) para acessar
+  // o singleton real quando executado como script standalone no servidor.
+  const pm = (globalThis as any).__platformManager || PlatformManager.getInstance();
   const rawAdapter = pm.getAdapter('whatsapp');
   if (!rawAdapter || typeof (rawAdapter as any).sendMessage !== 'function') {
     logger.error('[FIND-CASINO] adapter whatsapp não encontrado ou sem sendMessage. Bot não conectado?');
