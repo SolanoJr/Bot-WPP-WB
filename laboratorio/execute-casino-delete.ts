@@ -13,13 +13,11 @@
  * - Usa messageKey real extraído do discovery
  * - Registra resultado completo
  *
- * PRÊ-REQUISITOS:
- *   - laboratorio/casino-message-discovery.json existente (executado find-casino-message.ts)
- *   - Bot online e conectado
+ * ARQUITETURA: usa HTTP POST ao testServer (porta 3004) que tem acesso ao
+ * adapter do bot em execução. O delete é executado no processo do bot via
+ * adapter.sendMessage com opção delete.
  */
 
-import { BaileysAdapter } from '../src/platforms/whatsapp/BaileysAdapter';
-import { PlatformManager } from '../src/platforms/PlatformManager';
 import { isProtectedTarget } from '../src/services/permissions';
 import logger from '../src/services/loggerService';
 import fs from 'fs';
@@ -30,6 +28,7 @@ import path from 'path';
 const DISCOVERY_FILE = path.join(process.cwd(), 'laboratorio', 'casino-message-discovery.json');
 const OUTPUT_DIR = path.join(process.cwd(), 'laboratorio');
 const RESULT_FILE = path.join(OUTPUT_DIR, 'casino-delete-result.json');
+const TEST_SERVER = 'http://127.0.0.1:3004';
 
 interface DiscoveryData {
   foundAt: string;
@@ -49,6 +48,44 @@ interface DiscoveryData {
   detected: boolean;
   reason: string;
   rawPayloadSafe: Record<string, any>;
+}
+
+// ─── HTTP helper ────────────────────────────────────────────────────────────
+
+function httpPost(url: string, data: any): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const body = JSON.stringify(data);
+    const req = (parsed.protocol === 'https:' ? require('https') : require('http'))
+      .request({
+        hostname: parsed.hostname,
+        port: parsed.port,
+        path: parsed.pathname + parsed.search,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
+        },
+      }, (res: any) => {
+        let responseBody = '';
+        res.on('data', (chunk: any) => { responseBody += chunk; });
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(responseBody);
+            if (res.statusCode !== 200) {
+              reject(new Error(`HTTP ${res.statusCode}: ${parsed.error || 'unknown error'}`));
+            } else {
+              resolve(parsed);
+            }
+          } catch {
+            reject(new Error(`HTTP ${res.statusCode}: cannot parse response`));
+          }
+        });
+      });
+    req.on('error', (err: any) => reject(err));
+    req.write(body);
+    req.end();
+  });
 }
 
 // ─── Leitura do discovery ────────────────────────────────────────────────────
@@ -111,96 +148,24 @@ function validateTarget(data: DiscoveryData): { valid: boolean; error?: string }
   return { valid: true };
 }
 
-// ─── Execução do delete ─────────────────────────────────────────────────────
+// ─── Execução do delete via testServer ──────────────────────────────────────
 
-async function executeDelete(
-  adapter: any,
-  data: DiscoveryData,
-): Promise<{ success: boolean; error?: string; details: Record<string, any> }> {
-  const { messageId, participant, remoteJid, timestamp } = data;
-
-  const messageKey = {
-    id: messageId,
-    fromMe: false,
-    participant: participant || remoteJid,
-    remoteJid: remoteJid,
-  };
-
-  logger.info(`[CASINO-DELETE] iniciando delete de: ${JSON.stringify({ id: messageId, participant, remoteJid })}`);
-  logger.info(`[CASINO-DELETE] messageKey: ${JSON.stringify(messageKey)}`);
-  logger.info(`[CASINO-DELETE] timestamp da mensagem: ${new Date(timestamp).toISOString()}`);
-
-  const startTime = Date.now();
-
+async function executeDeleteViaApi(
+  groupJid: string,
+  messageId: string,
+  participant: string,
+): Promise<{ success: boolean; error?: string; result?: any }> {
   try {
-    // Usar a API existente do Baileys para delete
-    // sendMessage(jid, '', { delete: { id, fromMe, participant } })
-    const result = await adapter.sendMessage(remoteJid, '', {
-      delete: {
-        id: messageKey.id,
-        fromMe: messageKey.fromMe,
-        participant: messageKey.participant,
-      },
+    const response = await httpPost(`${TEST_SERVER}/lab/delete-message`, {
+      platform: 'whatsapp',
+      groupJid: groupJid,
+      messageId: messageId,
+      participant: participant,
+      fromMe: false,
     });
-
-    const duration = Date.now() - startTime;
-
-    logger.info(`[CASINO-DELETE] delete executado com sucesso`);
-    logger.info(`[CASINO-DELETE] duration: ${duration}ms`);
-    logger.info(`[CASINO-DELETE] result: ${JSON.stringify(result)}`);
-
-    return {
-      success: true,
-      details: {
-        messageId: data.messageId,
-        participant: data.participant,
-        remoteJid: data.remoteJid,
-        timestamp: data.timestamp,
-        method: 'adapter.sendMessage with delete option',
-        messageKey: {
-          id: messageKey.id,
-          fromMe: messageKey.fromMe,
-          participant: messageKey.participant,
-          remoteJid: messageKey.remoteJid,
-        },
-        result: result,
-        durationMs: duration,
-        timestampExecuted: Date.now(),
-        correlationId: Math.random().toString(36).slice(2),
-      },
-    };
+    return { success: true, result: response };
   } catch (err: any) {
-    const duration = Date.now() - startTime;
-    const errorMsg = err?.message || String(err);
-    const errorStack = err?.stack || '';
-
-    logger.error(`[CASINO-DELETE] delete FALHOU`);
-    logger.error(`[CASINO-DELETE] erro: ${errorMsg}`);
-    logger.error(`[CASINO-DELETE] duration: ${duration}ms`);
-    logger.error(`[CASINO-DELETE] stack: ${errorStack?.slice(0, 500)}`);
-
-    return {
-      success: false,
-      error: errorMsg,
-      details: {
-        messageId: data.messageId,
-        participant: data.participant,
-        remoteJid: data.remoteJid,
-        timestamp: data.timestamp,
-        method: 'adapter.sendMessage with delete option',
-        messageKey: {
-          id: messageKey.id,
-          fromMe: messageKey.fromMe,
-          participant: messageKey.participant,
-          remoteJid: messageKey.remoteJid,
-        },
-        error: errorMsg,
-        errorStack: errorStack?.slice(0, 2000),
-        durationMs: duration,
-        timestampExecuted: Date.now(),
-        correlationId: Math.random().toString(36).slice(2),
-      },
-    };
+    return { success: false, error: err.message };
   }
 }
 
@@ -208,7 +173,7 @@ async function executeDelete(
 
 function saveResult(
   discovery: DiscoveryData,
-  result: { success: boolean; error?: string; details: Record<string, any> },
+  result: { success: boolean; error?: string; result?: any },
 ): void {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
@@ -254,74 +219,44 @@ async function main(): Promise<void> {
   const validation = validateTarget(discovery);
   if (!validation.valid) {
     logger.error(`[CASINO-DELETE] ABORT: ${validation.error}`);
-    // Salva resultado mesmo em falha
     saveResult(discovery, {
       success: false,
       error: validation.error,
-      details: {
-        messageId: discovery.messageId,
-        participant: discovery.participant,
-        remoteJid: discovery.remoteJid,
-        error: validation.error,
-        timestampExecuted: Date.now(),
-      },
+      result: undefined,
     });
     process.exit(1);
   }
 
-  // 3. Obter adapter — safe cast para BaileysAdapter
-  // Usar globalThis.__platformManager (padrao do testServer.ts) para acessar
-  // o singleton real quando executado como script standalone no servidor.
-  const pm = (globalThis as any).__platformManager || PlatformManager.getInstance();
-  const rawAdapter = pm.getAdapter('whatsapp');
-  if (!rawAdapter || typeof (rawAdapter as any).sendMessage !== 'function') {
-    const error = 'adapter whatsapp não encontrado ou inválido (sem sendMessage)';
-    logger.error(`[CASINO-DELETE] ABORT: ${error}`);
-    saveResult(discovery, {
-      success: false,
-      error,
-      details: {
-        messageId: discovery.messageId,
-        participant: discovery.participant,
-        remoteJid: discovery.remoteJid,
-        error,
-        timestampExecuted: Date.now(),
-      },
-    });
-    process.exit(1);
-  }
-  const adapter = rawAdapter as any;
+  // 3. Executar delete via testServer API
+  const { messageId, participant, remoteJid } = discovery;
 
-  // 4. Executar delete
-  logger.info(`[CASINO-DELETE] ════════════════════════════════════════════════`);
-  logger.info(`[CASINO-DELETE] EXECUTANDO DELETE...`);
-  logger.info(`[CASINO-DELETE] ════════════════════════════════════════════════`);
+  logger.info('[CASINO-DELETE] ════════════════════════════════════════════════');
+  logger.info('[CASINO-DELETE] EXECUTANDO DELETE...');
+  logger.info('[CASINO-DELETE] ════════════════════════════════════════════════');
 
-  const result = await executeDelete(adapter, discovery);
+  const deleteResult = await executeDeleteViaApi(remoteJid, messageId, participant);
 
-  // 5. Salvar resultado
-  saveResult(discovery, result);
+  // 4. Salvar resultado
+  saveResult(discovery, deleteResult);
 
-  // 6. Exibir resultado final
-  logger.info(`[CASINO-DELETE] ════════════════════════════════════════════════`);
-  if (result.success) {
-    logger.info(`[CASINO-DELETE] ✅ DELETE SUCCESS`);
-    logger.info(`[CASINO-DELETE] Mensagem: ${discovery.messageId}`);
-    logger.info(`[CASINO-DELETE] Grupo: ${discovery.remoteJid}`);
-    logger.info(`[CASINO-DELETE] Alvo: ${discovery.participant}`);
-    logger.info(`[CASINO-DELETE] Método: ${result.details.method}`);
-    logger.info(`[CASINO-DELETE] Duração: ${result.details.durationMs}ms`);
+  // 5. Exibir resultado final
+  logger.info('[CASINO-DELETE] ════════════════════════════════════════════════');
+  if (deleteResult.success) {
+    logger.info('[CASINO-DELETE] ✅ DELETE SUCCESS');
+    logger.info(`[CASINO-DELETE] Mensagem: ${messageId}`);
+    logger.info(`[CASINO-DELETE] Grupo: ${remoteJid}`);
+    logger.info(`[CASINO-DELETE] Alvo: ${participant}`);
+    logger.info(`[CASINO-DELETE] Resultado: ${JSON.stringify(deleteResult.result)}`);
   } else {
-    logger.info(`[CASINO-DELETE] ❌ DELETE FAILED`);
-    logger.info(`[CASINO-DELETE] Mensagem: ${discovery.messageId}`);
-    logger.info(`[CASINO-DELETE] Grupo: ${discovery.remoteJid}`);
-    logger.info(`[CASINO-DELETE] Alvo: ${discovery.participant}`);
-    logger.info(`[CASINO-DELETE] Erro: ${result.error}`);
-    logger.info(`[CASINO-DELETE] Stack: ${result.details.errorStack?.slice(0, 200) || 'N/A'}`);
+    logger.info('[CASINO-DELETE] ❌ DELETE FAILED');
+    logger.info(`[CASINO-DELETE] Mensagem: ${messageId}`);
+    logger.info(`[CASINO-DELETE] Grupo: ${remoteJid}`);
+    logger.info(`[CASINO-DELETE] Alvo: ${participant}`);
+    logger.info(`[CASINO-DELETE] Erro: ${deleteResult.error}`);
   }
-  logger.info(`[CASINO-DELETE] ════════════════════════════════════════════════`);
+  logger.info('[CASINO-DELETE] ════════════════════════════════════════════════');
   logger.info(`[CASINO-DELETE] Resultado salvo: ${RESULT_FILE}`);
-  logger.info(`[CASINO-DELETE] ════════════════════════════════════════════════`);
+  logger.info('[CASINO-DELETE] ════════════════════════════════════════════════');
 }
 
 main().catch((err: any) => {

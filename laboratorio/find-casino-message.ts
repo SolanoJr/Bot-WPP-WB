@@ -5,10 +5,11 @@
  * do bot de cassino já existente no grupo "Figurinhas".
  *
  * NÃO altera nada. NÃO apaga nada. Apenas diagnostica e salva o resultado.
+ *
+ * Execução: node dist/laboratorio/find-casino-message.js
+ * (no servidor Linux, onde o bot e o testServer estão rodando)
  */
 
-import { BaileysAdapter } from '../src/platforms/whatsapp/BaileysAdapter';
-import { PlatformManager } from '../src/platforms/PlatformManager';
 import { classifyMessagePayload, detectSuspiciousMessage } from './observer';
 import { isProtectedTarget } from '../src/services/permissions';
 import logger from '../src/services/loggerService';
@@ -20,6 +21,7 @@ import path from 'path';
 const GROUP_NAME = 'Figurinhas';
 const OUTPUT_DIR = path.join(process.cwd(), 'laboratorio');
 const OUTPUT_FILE = path.join(OUTPUT_DIR, 'casino-message-discovery.json');
+const TEST_SERVER = 'http://127.0.0.1:3004';
 
 // ─── Sanitização de payload ─────────────────────────────────────────────────
 
@@ -50,84 +52,47 @@ function sanitizePayload(rawMsg: any): Record<string, any> {
   return safe;
 }
 
-// ─── Busca o JID do grupo pelo nome ────────────────────────────────────────
+// ─── HTTP helper ────────────────────────────────────────────────────────────
 
-async function findGroupJidByName(
-  adapter: BaileysAdapter,
-  groupName: string,
-): Promise<string | null> {
-  const chats = await adapter.getChats();
-  for (const chat of chats) {
-    if (chat.name === groupName || chat.name.toLowerCase() === groupName.toLowerCase()) {
-      logger.info(`[FIND-CASINO] grupo encontrado: ${chat.name} → ${chat.id}`);
-      return chat.id;
-    }
-  }
-  const sock = (adapter as any).sock;
-  if (sock?.store?.chats) {
-    for (const [jid, chat] of Object.entries(sock.store.chats as Record<string, any>)) {
-      if (chat.subject === groupName || chat.name === groupName ||
-          (typeof chat.subject === 'string' && chat.subject.toLowerCase() === groupName.toLowerCase())) {
-        logger.info(`[FIND-CASINO] grupo no store: ${chat.subject} → ${jid}`);
-        return jid;
-      }
-    }
-  }
-  logger.warn(`[FIND-CASINO] grupo "${groupName}" não encontrado`);
-  return null;
-}
-
-// ─── Busca mensagens do grupo no store do Baileys ──────────────────────────
-
-function findGroupMessages(
-  adapter: BaileysAdapter,
-  groupJid: string,
-  limit: number = 100,
-): Array<{ key: any; message: any; receivedAt: number }> {
-  const sock = (adapter as any).sock;
-  if (!sock?.store?.messages) {
-    logger.warn('[FIND-CASINO] store.messages indisponível');
-    return [];
-  }
-
-  const map = sock.store.messages[groupJid];
-  if (!map) {
-    logger.warn(`[FIND-CASINO] sem mensagens no store para ${groupJid}`);
-    return [];
-  }
-
-  const entries = map instanceof Map
-    ? Array.from(map.entries())
-    : Object.entries(map);
-
-  const results: Array<{ key: any; message: any; receivedAt: number }> = [];
-
-  for (const [msgId, msgData] of entries) {
-    if (!msgData) continue;
-    const msg = msgData instanceof Map ? msgData : msgData;
-    const key = msg.key || msgData?.key;
-    if (!key) continue;
-
-    // Verifica se é mensagem do grupo (remoteJid ou participant termina com @g.us)
-    const remoteJid = key.remoteJid || '';
-    const participant = key.participant || '';
-    if (!remoteJid.endsWith('@g.us') && !participant.endsWith('@g.us')) continue;
-
-    results.push({
-      key: key,
-      message: msg.message || msg,
-      receivedAt: msg.messageTimestamp ? Number(msg.messageTimestamp) * 1000 : Date.now(),
-    });
-
-    if (results.length >= limit) break;
-  }
-
-  return results;
+function httpPost(url: string, data: any): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const body = JSON.stringify(data);
+    const req = (parsed.protocol === 'https:' ? require('https') : require('http'))
+      .request({
+        hostname: parsed.hostname,
+        port: parsed.port,
+        path: parsed.pathname + parsed.search,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
+        },
+      }, (res: any) => {
+        let responseBody = '';
+        res.on('data', (chunk: any) => { responseBody += chunk; });
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(responseBody);
+            if (res.statusCode !== 200) {
+              reject(new Error(`HTTP ${res.statusCode}: ${parsed.error || 'unknown error'}`));
+            } else {
+              resolve(parsed);
+            }
+          } catch {
+            reject(new Error(`HTTP ${res.statusCode}: cannot parse response`));
+          }
+        });
+      });
+    req.on('error', (err: any) => reject(err));
+    req.write(body);
+    req.end();
+  });
 }
 
 // ─── Análise e classificação da mensagem ────────────────────────────────────
 
-function analyzeMessage(rawMsg: any, groupJid: string): {
+interface MessageAnalysis {
   messageId: string;
   senderJid: string;
   participant: string;
@@ -142,7 +107,9 @@ function analyzeMessage(rawMsg: any, groupJid: string): {
   signals: string[];
   detected: boolean;
   reason: string;
-} {
+}
+
+function analyzeMessage(rawMsg: any, groupJid: string): MessageAnalysis {
   const key = rawMsg?.key || {};
   const m = rawMsg?.message || {};
 
@@ -217,7 +184,7 @@ function analyzeMessage(rawMsg: any, groupJid: string): {
 
 // ─── Formata diagnóstico seguro ─────────────────────────────────────────────
 
-function formatDiagnosis(analysis: ReturnType<typeof analyzeMessage>, rawMsg: any): string {
+function formatDiagnosis(analysis: MessageAnalysis, rawMsg: any): string {
   const lines: string[] = [];
   const m = rawMsg?.message || {};
   const key = rawMsg?.key || {};
@@ -359,7 +326,7 @@ function formatDiagnosis(analysis: ReturnType<typeof analyzeMessage>, rawMsg: an
 
 // ─── Salva resultado no arquivo ─────────────────────────────────────────────
 
-function saveResult(analysis: ReturnType<typeof analyzeMessage>, rawMsg: any): void {
+function saveResult(analysis: MessageAnalysis, rawMsg: any): void {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   const entry = {
     foundAt: new Date().toISOString(),
@@ -389,42 +356,71 @@ function saveResult(analysis: ReturnType<typeof analyzeMessage>, rawMsg: any): v
 async function main(): Promise<void> {
   logger.info(`[FIND-CASINO] iniciando busca por mensagem de cassino em "${GROUP_NAME}"`);
 
-  // Usar globalThis.__platformManager (padrao do testServer.ts) para acessar
-  // o singleton real quando executado como script standalone no servidor.
-  const pm = (globalThis as any).__platformManager || PlatformManager.getInstance();
-  const rawAdapter = pm.getAdapter('whatsapp');
-  if (!rawAdapter || typeof (rawAdapter as any).sendMessage !== 'function') {
-    logger.error('[FIND-CASINO] adapter whatsapp não encontrado ou sem sendMessage. Bot não conectado?');
-    process.exit(1);
-  }
-  const adapter = rawAdapter as any;
-
-  const sock = (adapter as any).sock;
-  if (!sock || !sock.user) {
-    logger.error('[FIND-CASINO] sessão WhatsApp não disponível.');
-    process.exit(1);
-  }
-  logger.info(`[FIND-CASINO] conectado como ${sock.user.id}`);
-
-  const groupJid = await findGroupJidByName(adapter, GROUP_NAME);
-  if (!groupJid) {
-    logger.error(`[FIND-CASINO] grupo "${GROUP_NAME}" não encontrado.`);
+  // 1. Consultar grupo via testServer
+  logger.info(`[FIND-CASINO] consultando grupo via testServer...`);
+  let groupInfo: any;
+  try {
+    groupInfo = await httpPost(`${TEST_SERVER}/lab/find-message`, {
+      platform: 'whatsapp',
+      groupName: GROUP_NAME,
+    });
+    logger.info(`[FIND-CASINO] grupo encontrado: ${groupInfo.groupJid} (${groupInfo.chatInfo?.name || GROUP_NAME})`);
+    logger.info(`[FIND-CASINO] mensagens no store: ${groupInfo.messageCount}`);
+  } catch (err: any) {
+    logger.error(`[FIND-CASINO] erro ao consultar grupo: ${err.message}`);
     process.exit(1);
   }
 
-  const messages = findGroupMessages(adapter, groupJid, 100);
-  logger.info(`[FIND-CASINO] ${messages.length} mensagens encontradas no store para "${GROUP_NAME}" (${groupJid})`);
+  const groupJid = groupInfo.groupJid;
 
-  if (messages.length === 0) {
+  // 2. Buscar mensagens do grupo via testServer
+  logger.info(`[FIND-CASINO] buscando mensagens do grupo no store...`);
+
+  let messagesData: Array<{ key: any; message: any; receivedAt: number }> = [];
+  try {
+    // Usa o endpoint de busca de mensagens (precisa estar implementado no testServer)
+    const messagesResp = await httpPost(`${TEST_SERVER}/lab/messages`, {
+      platform: 'whatsapp',
+      groupJid: groupJid,
+      limit: 100,
+    });
+    messagesData = messagesResp.messages || [];
+    logger.info(`[FIND-CASINO] ${messagesData.length} mensagens obtidas`);
+  } catch (err: any) {
+    logger.error(`[FIND-CASINO] erro ao buscar mensagens: ${err.message}`);
+    logger.info('[FIND-CASINO] o endpoint /lab/messages pode não estar implementado no testServer');
+    logger.info('[FIND-CASINO] tentando usar discovery existente como fallback...');
+
+    // Fallback: usar discovery existente
+    const existingDiscovery = path.join(OUTPUT_DIR, 'casino-message-discovery.json');
+    if (fs.existsSync(existingDiscovery)) {
+      const existing = JSON.parse(fs.readFileSync(existingDiscovery, 'utf-8'));
+      if (existing.messageId && existing.participant) {
+        logger.info(`[FIND-CASINO] discovery existente carregado: ${existing.messageId}`);
+        console.log(formatDiagnosis(existing, existing.rawPayloadSafe || {}));
+        saveResult({
+          ...existing,
+          messageType: existing.messageType || { type: 'button', subtype: 'buttonsMessage' },
+        }, existing.rawPayloadSafe || {});
+        logger.info('[FIND-CASINO] análise concluída. NENHUMA ação de delete/remova/ban foi executada.');
+        return;
+      }
+    }
+
+    logger.error('[FIND-CASINO] sem mensagens e sem discovery anterior. Abortando.');
+    process.exit(1);
+  }
+
+  if (messagesData.length === 0) {
     logger.warn('[FIND-CASINO] nenhuma mensagem no store. O cache pode estar vazio.');
     process.exit(0);
   }
 
-  // Analisar e encontrar candidatos
-  const candidates: Array<{ analysis: ReturnType<typeof analyzeMessage>; rawMsg: any; index: number }> = [];
+  // 3. Analisar e encontrar candidatos
+  const candidates: Array<{ analysis: MessageAnalysis; rawMsg: any; index: number }> = [];
 
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
+  for (let i = 0; i < messagesData.length; i++) {
+    const msg = messagesData[i];
     const analysis = analyzeMessage(msg, groupJid);
     const isProtected = isProtectedTarget(analysis.senderJid);
 
@@ -441,12 +437,13 @@ async function main(): Promise<void> {
 
   candidates.sort((a, b) => b.analysis.timestamp - a.analysis.timestamp);
 
+  // 4. Exibir e salvar
   if (candidates.length === 0) {
     logger.info('[FIND-CASINO] nenhum candidato com os critérios atuais.');
     logger.info('[FIND-CASINO] Listando 10 mensagens mais recentes:');
 
-    for (let i = 0; i < Math.min(messages.length, 10); i++) {
-      const msg = messages[i];
+    for (let i = 0; i < Math.min(messagesData.length, 10); i++) {
+      const msg = messagesData[i];
       const analysis = analyzeMessage(msg, groupJid);
       console.log(formatDiagnosis(analysis, msg));
       console.log('');
@@ -460,11 +457,11 @@ async function main(): Promise<void> {
     }
   }
 
-  // Salvar primeiro candidato ou mensagem mais recente
+  // 5. Salvar primeiro candidato ou mensagem mais recente
   if (candidates.length > 0) {
     saveResult(candidates[0].analysis, candidates[0].rawMsg);
-  } else if (messages.length > 0) {
-    saveResult(analyzeMessage(messages[0], groupJid), messages[0]);
+  } else if (messagesData.length > 0) {
+    saveResult(analyzeMessage(messagesData[0], groupJid), messagesData[0]);
   }
 
   logger.info('[FIND-CASINO] análise concluída. NENHUMA ação de delete/remova/ban foi executada.');
