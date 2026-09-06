@@ -1,6 +1,22 @@
 import http from 'node:http';
 import { PlatformManager } from '../platforms/PlatformManager';
 import logger from './loggerService';
+import fs from 'node:fs';
+import path from 'node:path';
+
+/** Caminho do arquivo de capturas */
+const CAPTURE_FILE = path.join(process.cwd(), 'laboratorio', 'captured-messages.jsonl');
+
+function readCaptures(): Array<Record<string, any>> {
+  if (!fs.existsSync(CAPTURE_FILE)) return [];
+  try {
+    const text = fs.readFileSync(CAPTURE_FILE, 'utf-8').trim();
+    if (!text) return [];
+    return text.split('\n').filter(Boolean).map((line: string) => {
+      try { return JSON.parse(line); } catch { return null as any; }
+    }).filter((r: any): r is Record<string, any> => r != null);
+  } catch { return []; }
+}
 
 /**
  * Servidor de testes HTTP na porta 3004.
@@ -46,6 +62,7 @@ export function startTestServer(port: number = 3004): void {
           (globalThis as any).__platformManager || PlatformManager.getInstance();
 
         // ─── Endpoint de descoberta de grupo (para laboratório) ───
+        // Usa o JSONL de capturas em vez do store do Baileys (store não disponível em rc14).
         if (req.url === '/lab/find-message') {
           const { platform, groupName } = parsedBody;
           if (!platform || !groupName) {
@@ -53,45 +70,32 @@ export function startTestServer(port: number = 3004): void {
             res.end(JSON.stringify({ error: 'Missing platform or groupName' }));
             return;
           }
-          const adapter = pm.getAdapter(platform as any);
-          if (!adapter) {
+          // Para Figurinhas, usamos o JID conhecido (sem depender do store de chats)
+          const FIGURINHAS_GROUP = '5585981344211-1772111940@g.us';
+          const knownGroups: Record<string, string> = { 'Figurinhas': FIGURINHAS_GROUP };
+          const groupJid = knownGroups[groupName];
+          if (!groupJid) {
             res.writeHead(404, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: `Plataforma não encontrada: ${platform}` }));
+            res.end(JSON.stringify({ error: `Grupo desconhecido: ${groupName}` }));
             return;
           }
-          const sock = (adapter as any).sock;
-          if (!sock?.store?.chats) {
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Store indisponível', sockAvailable: !!sock }));
-            return;
-          }
-          const chats = Object.entries(sock.store.chats || {});
-          const targetChat = chats.find(([jid, chat]: [string, any]) =>
-            chat?.name === groupName || chat?.subject === groupName);
-          if (!targetChat) {
-            res.writeHead(404, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: `Grupo não encontrado: ${groupName}`, available: chats.length }));
-            return;
-          }
-          const [groupJid] = targetChat;
-          const messages = sock.store.messages?.[groupJid];
-          const msgCount = messages ? (messages instanceof Map ? messages.size : Object.keys(messages).length) : 0;
+          const entries = readCaptures().filter(
+            (c: any) => c.groupId === groupJid || c.remoteJid === groupJid || c.participant === groupJid
+          );
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({
             ok: true,
             platform,
             groupName,
             groupJid,
-            messageCount: msgCount,
-            chatInfo: {
-              id: groupJid,
-              name: sock.store.chats[groupJid]?.name || sock.store.chats[groupJid]?.subject || groupName,
-            }
+            messageCount: entries.length,
+            chatInfo: { id: groupJid, name: groupName },
           }));
           return;
         }
 
         // ─── Endpoint de busca de mensagens do grupo (para laboratório) ───
+        // Usa o JSONL de capturas em vez do store do Baileys (store não disponível em rc14).
         if (req.url === '/lab/messages') {
           const { platform, groupJid, limit } = parsedBody;
           if (!platform || !groupJid) {
@@ -99,33 +103,14 @@ export function startTestServer(port: number = 3004): void {
             res.end(JSON.stringify({ error: 'Missing platform or groupJid' }));
             return;
           }
-          const adapter = pm.getAdapter(platform as any);
-          if (!adapter) {
-            res.writeHead(404, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: `Plataforma não encontrada: ${platform}` }));
-            return;
-          }
-          const sock = (adapter as any).sock;
-          if (!sock?.store?.messages?.[groupJid]) {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok: true, messages: [], count: 0 }));
-            return;
-          }
-          const msgStore = sock.store.messages[groupJid];
-          const entries = msgStore instanceof Map ? Array.from(msgStore.entries()) : Object.entries(msgStore);
-          const limited = entries.slice(0, limit || 100);
-          const messages: Array<{ key: any; message: any; receivedAt: number }> = [];
-          for (const [msgId, msgData] of limited) {
-            if (!msgData) continue;
-            const msg = msgData instanceof Map ? msgData : msgData;
-            const key = msg.key || msgData?.key;
-            if (!key) continue;
-            messages.push({
-              key: key,
-              message: msg.message || msg,
-              receivedAt: msg.messageTimestamp ? Number(msg.messageTimestamp) * 1000 : Date.now(),
-            });
-          }
+          const entries = readCaptures()
+            .filter((c: any) => c.groupId === groupJid || c.remoteJid === groupJid || c.participant === groupJid)
+            .slice(0, limit || 200);
+          const messages: Array<{ key: any; message: any; receivedAt: number }> = entries.map((e: any) => ({
+            key: { id: e.messageId, remoteJid: e.remoteJid, participant: e.participant, fromMe: e.fromMe },
+            message: (e.rawPayloadSafe || {})['message'] || {},
+            receivedAt: e.timestamp,
+          }));
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: true, messages, count: messages.length, groupJid }));
           return;
@@ -180,6 +165,65 @@ export function startTestServer(port: number = 3004): void {
             userId: sock?.user?.id || null,
             storeAvailable: !!sock?.store,
           }));
+          return;
+        }
+
+        // ─── Endpoint de histórico via fetchMessageHistory ──────────────────
+        if (req.url === '/lab/history') {
+          const { platform, groupJid, oldestMsgId, oldestMsgTimestamp, count } = parsedBody;
+          if (!platform || !groupJid) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Missing platform or groupJid' }));
+            return;
+          }
+          const adapter = pm.getAdapter(platform as any);
+          if (!adapter) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Plataforma não encontrada: ${platform}` }));
+            return;
+          }
+          // O Baileys rc14 expõe fetchMessageHistory no socket
+          const sock = (adapter as any).sock;
+          if (!sock?.fetchMessageHistory) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'fetchMessageHistory não disponível neste socket' }));
+            return;
+          }
+          try {
+            const oldestKey = {
+              id: oldestMsgId || '__MOST_RECENT__',
+              remoteJid: groupJid,
+              fromMe: false,
+              participant: oldestMsgId ? '' : (sock?.user?.id || ''),
+            };
+            const historyResponse = await sock.fetchMessageHistory(
+              count || 200,
+              oldestKey,
+              oldestMsgTimestamp || Date.now()
+            );
+            // O servidor retorna um XML/String — tente parsear
+            let messages: any[] = [];
+            try {
+              // Pode vir como JSON string ou XML — tentamos ambos
+              if (typeof historyResponse === 'string') {
+                try {
+                  messages = JSON.parse(historyResponse);
+                } catch {
+                  // Se não for JSON, retornamos o raw para diagnóstico
+                  messages = [{ _raw: historyResponse }];
+                }
+              } else {
+                messages = [historyResponse];
+              }
+            } catch {
+              messages = [{ _raw: String(historyResponse) }];
+            }
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, messages, count: messages.length, groupJid }));
+          } catch (err: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+          }
           return;
         }
 

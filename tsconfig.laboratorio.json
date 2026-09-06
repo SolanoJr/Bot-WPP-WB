@@ -19,6 +19,6 @@
       "@bot/*": ["src/bot/*"]
     }
   },
-  "include": ["laboratorio/find-casino-message.ts", "laboratorio/execute-casino-delete.ts"],
+  "include": ["laboratorio/find-casino-message.ts", "laboratorio/execute-casino-delete.ts", "laboratorio/diagnose-store.ts", "laboratorio/capture-store.ts", "laboratorio/list-captures.ts", "laboratorio/casino-exclude.ts"],
   "exclude": ["node_modules"]
 }

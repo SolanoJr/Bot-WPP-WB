@@ -265,6 +265,24 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
         try {
           for (const msg of m.messages || []) {
             if (m.type === 'notify' || m.type === 'append') {
+              // ── FASE 1: Captura persistente do WAMessageKey COMPLETA antes da normalização ──
+              // Inserido aqui para preservar messageId, remoteJid, participant, fromMe,
+              // messageTimestamp e sinais classificatórios antes de qualquer transformação.
+              // Não depende de WPP_OBSERVATION_MODE — sempre captura no grupo Figurinhas.
+              {
+                const FIGURINHAS_GROUP = '5585981344211-1772111940@g.us';
+                const cap = (msg as any).key?.remoteJid === FIGURINHAS_GROUP
+                  || (msg as any).key?.participant === FIGURINHAS_GROUP;
+                if (cap) {
+                  try {
+                    const caps = require('../../laboratorio/capture-store.js');
+                    if (caps && typeof caps.capture === 'function') {
+                      caps.capture(msg, this.userId);
+                    }
+                  } catch { /* módulo não disponível */ }
+                }
+              }
+
               this.dispatchMessage(msg);
             }
           }
