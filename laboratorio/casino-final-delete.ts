@@ -10,20 +10,29 @@
  *   node dist/laboratorio/casino-final-delete.js <GROUP_JID>        # grupo customizado
  *   node dist/laboratorio/casino-final-delete.js <GROUP_JID> <SENDER>  # remetente alvo
  */
-
 import fs from 'fs';
 import path from 'path';
+import http from 'http';
 
 // ─── Configuração ──────────────────────────────────────────────────────────
-// Grupo e remetente alvo — sobrescreve via args ou usa valor padrão
-const TARGET_GROUP_JID = process.env.TARGET_GROUP_JID || process.argv[2] || '5585981344211-1772111940@g.us';
-const TARGET_SENDER = process.env.TARGET_SENDER || process.argv[3] || '';
+const DEFAULT_GROUP_JID = '5585981344211-1772111940@g.us';
+const DEFAULT_SUSPICIOUS_SENDER = '1551234567890@c.us';
+const TARGET_GROUP_JID = process.env.TARGET_GROUP_JID || process.argv[2] || DEFAULT_GROUP_JID;
+const TARGET_SENDER = process.env.TARGET_SENDER || process.argv[3] || DEFAULT_SUSPICIOUS_SENDER;
 
 const CAPTURE_FILE = path.join(process.cwd(), 'laboratorio', 'captured-messages.jsonl');
 const RESULT_FILE = path.join(process.cwd(), 'laboratorio', 'casino-final-delete-result.json');
 const TEST_SERVER = 'http://127.0.0.1:3004';
 
 // ─── Funções auxiliares ────────────────────────────────────────────────────
+function log(level: string, msg: string): void {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] [FINAL-DELETE][${level}] ${msg}`);
+}
+
+const loggerInfo = (msg: string) => log('INFO', msg);
+const loggerWarn = (msg: string) => log('WARN', msg);
+const loggerError = (msg: string) => log('ERROR', msg);
 
 function isGroupJid(jid: string): boolean {
   return jid.endsWith('@g.us') || jid.endsWith('@lid');
@@ -49,96 +58,8 @@ function safeSenderJid(msg: Record<string, any>): string {
   if (msg.key?.participant && msg.key.participant.endsWith('@g.us')) {
     return (msg.key?.remoteJid || '').replace(/^@/, '') || '';
   }
-  return (msg.key?.participant || '').replace(/^@/, '') || msg.senderJid || '';
+  return msg.key?.senderJid || msg.senderJid || '';
 }
-
-function safeContentType(msg: Record<string, any>): string {
-  const m = msg.message || msg;
-  if (m.buttonsMessage) return 'buttonsMessage';
-  if (m.interactiveMessage) return 'interactiveMessage';
-  if (m.templateMessage) return 'templateMessage';
-  if (m.productMessage) return 'productMessage';
-  if (m.orderMessage) return 'orderMessage';
-  if (m.listMessage) return 'listMessage';
-  if (m.listResponseMessage) return 'listResponseMessage';
-  if (m.imageMessage) return 'imageMessage';
-  if (m.videoMessage) return 'videoMessage';
-  if (m.audioMessage) return 'audioMessage';
-  if (m.documentMessage) return 'documentMessage';
-  if (m.stickerMessage) return 'stickerMessage';
-  if (m.locationMessage) return 'locationMessage';
-  if (m.contactMessage) return 'contactMessage';
-  if (m.poll) return 'poll';
-  if (m.groupInviteMessage) return 'groupInviteMessage';
-  if (m.messageShare) return 'messageShare';
-  if (m.reactionMessage) return 'reactionMessage';
-  if (m.liveLocationMessage) return 'liveLocationMessage';
-  if (m.extendedTextMessage) return 'extendedTextMessage';
-  if (typeof m.conversation === 'string' && m.conversation.trim()) return 'conversation';
-  if (Object.keys(m).length > 0) return `unknown:${Object.keys(m).slice(0,3).join(',')}`;
-  return 'empty';
-}
-
-function safePushName(msg: Record<string, any>): string {
-  return msg.pushName?.toString() || msg.pushName === true ? 'present' : '';
-}
-
-function safeTimestamp(msg: Record<string, any>): number {
-  if (msg.messageTimestamp) return Number(msg.messageTimestamp) * 1000;
-  return Date.now();
-}
-
-function captureAsEntry(msg: Record<string, any>): Record<string, any> {
-  const groupId = safeRemoteJid(msg) || safeParticipant(msg);
-  const senderJid = safeSenderJid(msg);
-  const participant = safeParticipant(msg);
-  const remoteJid = safeRemoteJid(msg);
-  const fromMe = safeFromMe(msg);
-  const messageId = safeMessageId(msg);
-  const timestamp = safeTimestamp(msg);
-  const contentType = safeContentType(msg);
-  const pushName = safePushName(msg);
-  const size = JSON.stringify(msg).length;
-  const isGroup = isGroupJid(groupId);
-
-  return {
-    captureId: `cap-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    capturedAt: new Date().toISOString(),
-    groupId,
-    messageId,
-    remoteJid,
-    participant,
-    fromMe,
-    timestamp,
-    messageType: contentType.includes('unknown') ? 'unknown' : 'detected',
-    contentType,
-    senderJid,
-    isGroup,
-    pushName,
-    size,
-    raw: JSON.parse(JSON.stringify(msg, (k, v) => {
-      const redacted = ['creds', 'keys', 'cookie', 'session', 'token', 'secret', 'routingInfo', 'noiseKey', 'signedIdentityKey', 'preKey', 'signedPreKey', 'identityKey', 'browser', 'userAgent', 'deviceList', 'lids', 'pn_map'];
-      if (redacted.includes(k)) return undefined;
-      return v;
-    }))
-  };
-}
-
-// Args via CLI
-const GROUP_JID = process.argv[2] || DEFAULT_GROUP_JID;
-const SUSPICIOUS_SENDER = process.argv[3] || DEFAULT_SUSPICIOUS_SENDER;
-
-// ─── Logger simples ────────────────────────────────────────────────────────
-
-function log(level: string, msg: string): void {
-  const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] [FINAL-DELETE][${level}] ${msg}`);
-}
-const loggerInfo = (msg: string) => log('INFO', msg);
-const loggerWarn = (msg: string) => log('WARN', msg);
-const loggerError = (msg: string) => log('ERROR', msg);
-
-// ─── Validação de segurança (inline — independente do projeto) ────────────
 
 function isProtectedTarget(jid: string): boolean {
   if (!jid || typeof jid !== 'string') return false;
@@ -158,8 +79,8 @@ function validateDeleteTarget(
   const protectedNumbers = ['558581344211', '5588998314322'];
 
   // 1. Grupo correto
-  if (remoteJid !== GROUP_JID && participant !== GROUP_JID) {
-    reasons.push(`grupo incorreto (esperado: ${GROUP_JID})`);
+  if (remoteJid !== TARGET_GROUP_JID && participant !== TARGET_GROUP_JID) {
+    reasons.push(`grupo incorreto (esperado: ${TARGET_GROUP_JID})`);
   }
 
   // 2. ID válido (não truncado)
@@ -169,7 +90,7 @@ function validateDeleteTarget(
 
   // 3. Não é do próprio bot
   if (fromMe) {
-    reasons.push(`fromMe=true — mensagem do próprio bot, não excluir`);
+    reasons.push('fromMe=true — mensagem do próprio bot, não excluir');
   }
 
   // 4. Não é WarriorBlack nem dono
@@ -182,7 +103,7 @@ function validateDeleteTarget(
 
   // 5. isProtectedTarget
   if (isProtectedTarget(participant) || isProtectedTarget(senderJid)) {
-    reasons.push(`isProtectedTarget bloqueou`);
+    reasons.push('isProtectedTarget bloqueou');
   }
 
   if (reasons.length > 0) {
@@ -192,7 +113,6 @@ function validateDeleteTarget(
 }
 
 // ─── HTTP helper ───────────────────────────────────────────────────────────
-
 function httpPost(url: string, data: any): Promise<any> {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
@@ -227,7 +147,6 @@ function httpPost(url: string, data: any): Promise<any> {
 }
 
 // ─── Leitura do JSONL ──────────────────────────────────────────────────────
-
 function readCaptures(): Array<Record<string, any>> {
   if (!fs.existsSync(CAPTURE_FILE)) return [];
   try {
@@ -240,15 +159,14 @@ function readCaptures(): Array<Record<string, any>> {
       })
       .filter((e: any): e is Record<string, any> => e != null)
       .filter((e: Record<string, any>) =>
-        e.groupId === GROUP_JID ||
-        e.remoteJid === GROUP_JID ||
-        e.participant === GROUP_JID
+        e.groupId === TARGET_GROUP_JID ||
+        e.remoteJid === TARGET_GROUP_JID ||
+        e.participant === TARGET_GROUP_JID
       );
   } catch { return []; }
 }
 
 // ─── Delete via testServer ─────────────────────────────────────────────────
-
 async function deleteMessage(
   messageId: string,
   participant: string,
@@ -257,7 +175,7 @@ async function deleteMessage(
   try {
     const resp = await httpPost(`${TEST_SERVER}/lab/delete-message`, {
       platform: 'whatsapp',
-      groupJid: GROUP_JID,
+      groupJid: TARGET_GROUP_JID,
       messageId,
       participant,
       fromMe,
@@ -269,23 +187,22 @@ async function deleteMessage(
 }
 
 // ─── Estratégia B: fetchHistory + captura ─────────────────────────────────
-
 async function executarEstrategiaB(): Promise<Array<any>> {
   const resultados: Array<any> = [];
 
   loggerInfo('═══ Estratégia B: fetchMessageHistory + captura ═══');
-  loggerInfo(`Grupo: ${GROUP_JID}`);
-  loggerInfo(`Remetente suspeito: ${SUSPICIOUS_SENDER}`);
+  loggerInfo(`Grupo: ${TARGET_GROUP_JID}`);
+  loggerInfo(`Remetente suspeito: ${TARGET_SENDER}`);
 
   const antes = readCaptures().length;
   loggerInfo(`Capturas antes do fetch: ${antes}`);
 
   // 1. Solicitamos o histórico
-  loggerInfo('Solicitando fetchMessageHistory via PDO...');
+  loggerInfo('Solicitando fetchMessageHistory via testServer...');
   try {
     await httpPost(`${TEST_SERVER}/lab/history`, {
       platform: 'whatsapp',
-      groupJid: GROUP_JID,
+      groupJid: TARGET_GROUP_JID,
       oldestMsgId: '__MOST_RECENT__',
       oldestMsgTimestamp: 0,
       count: 200,
@@ -311,7 +228,7 @@ async function executarEstrategiaB(): Promise<Array<any>> {
 
   // 4. Filtramos mensagens suspeitas
   const suspeitas = capturas.filter((c) =>
-    c.senderJid === SUSPICIOUS_SENDER ||
+    c.senderJid === TARGET_SENDER ||
     c.contentType === 'buttonsMessage' ||
     c.contentType === 'interactiveMessage' ||
     c.contentType === 'templateMessage' ||
@@ -364,7 +281,6 @@ async function executarEstrategiaB(): Promise<Array<any>> {
 }
 
 // ─── Estratégia A: Monitoramento até encontrar ─────────────────────────────
-
 async function executarEstrategiaA(): Promise<Array<any>> {
   const resultados: Array<any> = [];
   const start = Date.now();
@@ -422,7 +338,7 @@ async function executarEstrategiaA(): Promise<Array<any>> {
           loggerError(`❌ DELETE FAILED: ${cap.messageId} — ${del.error}`);
         }
 
-        if (del.success && cap.senderJid === SUSPICIOUS_SENDER) {
+        if (del.success && cap.senderJid === TARGET_SENDER) {
           loggerInfo('Mensagem do cassino deletada. Encerrando.');
           return resultados;
         }
@@ -439,19 +355,18 @@ async function executarEstrategiaA(): Promise<Array<any>> {
 }
 
 // ─── Fluxo principal ───────────────────────────────────────────────────────
-
-async function main(groupJid?: string): Promise<void> {
-  const targetGroup = groupJid || TARGET_GROUP_JID;
-  logger.info('[FINAL-DELETE] ═══════════════════════════════════════════════════════');
-  logger.info(`[FINAL-DELETE] INICIANDO EXCLUSÃO DA ÚLTIMA MENSAGEM DO GRUPO`);
-  logger.info(`[FINAL-DELETE] Grupo: ${targetGroup}`);
-  logger.info(`[FINAL-DELETE] CAPTURE_FILE: ${CAPTURE_FILE}`);
-  logger.info('[FINAL-DELETE] ═══════════════════════════════════════════════════════');
+async function main(): Promise<void> {
+  loggerInfo('═══════════════════════════════════════════════════════════════');
+  loggerInfo('INICIANDO EXCLUSÃO CONTROLADA DE MENSAGENS');
+  loggerInfo(`Grupo: ${TARGET_GROUP_JID}`);
+  loggerInfo(`Remetente suspeito: ${TARGET_SENDER}`);
+  loggerInfo(`Arquivo de capturas: ${CAPTURE_FILE}`);
+  loggerInfo('═══════════════════════════════════════════════════════════════');
 
   const todosResultados: Array<any> = [];
 
   // ── Estratégia B: tentativa imediata ────────────────────────────────────
-  const resultadosB = await executarEstrategiaB(targetGroup);
+  const resultadosB = await executarEstrategiaB();
   todosResultados.push(...resultadosB);
 
   // ── Estratégia A: monitoramento ──────────────────────────────────────────
@@ -498,8 +413,8 @@ async function main(groupJid?: string): Promise<void> {
   fs.writeFileSync(RESULT_FILE, JSON.stringify({
     executedAt: new Date().toISOString(),
     strategy: 'B (fetchHistory) + A (monitoramento)',
-    groupJid: GROUP_JID,
-    suspiciousSender: SUSPICIOUS_SENDER,
+    groupJid: TARGET_GROUP_JID,
+    suspiciousSender: TARGET_SENDER,
     captureFile: CAPTURE_FILE,
     summary: {
       totalCapturas: readCaptures().length,
