@@ -26,8 +26,8 @@
     "laboratorio/capture-store.ts",
     "laboratorio/list-captures.ts",
     "laboratorio/casino-exclude.ts",
-    "laboratorio/casino-catch-delete.ts",
-    "laboratorio/casino-final-delete.ts"
+    "laboratorio/casino-final-delete.ts",
+    "laboratorio/list-jids.ts"
   ],
   "exclude": ["node_modules"]
 }
