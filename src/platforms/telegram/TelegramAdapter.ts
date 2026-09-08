@@ -117,14 +117,17 @@ class TelegramClient implements PlatformClient {
   }
 
   private scheduleReconnect(): void {
-    if (this.shuttingDown || this.isReady || this.reconnectTimer || this.reconnectAttempts >= 5) return;
-    const delayMs = Math.min(120000, 5000 * 2 ** this.reconnectAttempts);
+    // Retry infinito com teto: derrubar o Telegram para sempre após 5 falhas
+    // matava a plataforma num blecaute de DNS no boot (EAI_AGAIN) sem volta
+    // até restart manual. Contador segue para o log; o atraso estaciona em 5min.
+    if (this.shuttingDown || this.isReady || this.reconnectTimer) return;
+    const delayMs = Math.min(300000, 5000 * 2 ** Math.min(this.reconnectAttempts, 6));
     this.reconnectAttempts += 1;
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.launch().catch(() => undefined);
     }, delayMs);
-    console.warn(`[Telegram] Reconexão agendada em ${Math.round(delayMs / 1000)}s (tentativa ${this.reconnectAttempts}/5)`);
+    console.warn(`[Telegram] Reconexão agendada em ${Math.round(delayMs / 1000)}s (tentativa ${this.reconnectAttempts})`);
   }
 
   private normalizeMessage(ctx: any): PlatformMessage {
