@@ -1,6 +1,7 @@
 import { ICommand } from './types';
 import { CommandContext } from '../../platforms/base/PlatformTypes';
 import { isMaster, isProtectedTarget } from '../../services/permissions';
+import { logInfo, logWarning, logError } from '../../services/loggerService';
 
 // Comando OCULTO (só dono/bot). Apaga a mensagem que foi marcada/comentada.
 // Uso: responda (quote) a uma mensagem e envie "$delete".
@@ -119,7 +120,7 @@ export const deleteMsgCommand: ICommand = {
         }
       }
     } catch (e: any) {
-      console.error('[delete] erro:', e?.message);
+      logError('[delete] erro:', e?.message);
       await ctx.reply(`⚠️ Erro ao apagar: ${e?.message || e}`);
     }
   },

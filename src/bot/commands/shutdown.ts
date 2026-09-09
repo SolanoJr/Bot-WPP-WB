@@ -1,5 +1,6 @@
 import { ICommand } from './types';
 import { isMaster } from '../../services/permissions';
+import { logInfo, logWarning, logError } from '../../services/loggerService';
 
 export const shutdownCommand: ICommand = {
     name: 'shutdown',
@@ -14,17 +15,17 @@ export const shutdownCommand: ICommand = {
         }
 
         try {
-            console.log(`🛑 [SHUTDOWN] Comando executado por: ${executorId}`);
+            logInfo(`🛑 [SHUTDOWN] Comando executado por: ${executorId}`);
             
             await ctx.reply('🛑 **DESLIGANDO BOT...**\n\nO bot será desligado em 3 segundos.\n\n⚠️ Use `pm2 restart bot-wpp` no servidor para reiniciar.');
             
             setTimeout(() => {
-                console.log('🛑 [SHUTDOWN] Encerrando processo...');
+                logInfo('🛑 [SHUTDOWN] Encerrando processo...');
                 process.exit(0);
             }, 3000);
             
         } catch (error) {
-            console.error('❌ [SHUTDOWN] Erro:', error);
+            logError('❌ [SHUTDOWN] Erro:', error);
             await ctx.reply('⚠️ Erro ao tentar desligar o bot.');
         }
     }

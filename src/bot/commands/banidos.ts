@@ -2,6 +2,7 @@ import { ICommand } from './types';
 import { isMaster } from '../../services/permissions';
 import { listBanned } from '../../services/databaseService';
 import { getTargetDisplayName } from './format';
+import { logInfo, logWarning, logError } from '../../services/loggerService';
 
 export const banidosCommand: ICommand = {
   name: 'banidos',
@@ -40,7 +41,7 @@ export const banidosCommand: ICommand = {
 
       await ctx.reply(list);
     } catch (error: any) {
-      console.error('❌ Erro ao buscar banidos:', error);
+      logError('❌ Erro ao buscar banidos:', error);
       await ctx.reply('⚠️ Falha ao consultar o banco de dados de banidos.');
     }
   },

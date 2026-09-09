@@ -2,6 +2,7 @@ import { ICommand } from './types';
 import { CommandContext } from '../../platforms/base/PlatformTypes';
 import { cleanId, isMaster } from '../../services/permissions';
 import { groupTag, getTargetDisplayName } from './format';
+import { logInfo, logWarning, logError } from '../../services/loggerService';
 
 export const banCommand: ICommand = {
   name: 'ban',
@@ -78,7 +79,7 @@ export const banCommand: ICommand = {
           }
         }
       } catch (delErr) {
-        console.warn('[ban] Falha ao apagar mensagem (não crítico):', delErr);
+        logWarning('[ban] Falha ao apagar mensagem (não crítico):', delErr);
       }
 
       await ctx.client.banParticipant(ctx.chatId, userToBan);
@@ -96,7 +97,7 @@ export const banCommand: ICommand = {
           reason: 'Banido por comando'
         });
       } catch (dbErr) {
-        console.warn('[ban] Falha ao salvar banido no DB (não crítico):', dbErr);
+        logWarning('[ban] Falha ao salvar banido no DB (não crítico):', dbErr);
       }
 
       const numeroBan = String(userToBan).replace('@c.us', '').replace('@lid', '');
@@ -115,7 +116,7 @@ export const banCommand: ICommand = {
         } as any
       );
     } catch (error: any) {
-      console.error('[ban] Erro:', error);
+      logError('[ban] Erro:', error);
       await ctx.reply(`❌ Erro ao banir usuário: ${error.message}`);
     }
   },

@@ -1,4 +1,5 @@
 import { WarriorKey } from '../shared/types.js';
+import { logError, logWarning } from '../services/loggerService';
 
 // Import adapters so they register themselves via side‑effects
 // Removed side-effect imports of adapters to avoid unnecessary initialization during config loading.
@@ -44,8 +45,9 @@ export function loadBotConfigOrExit(env: NodeJS.ProcessEnv = process.env): IBotC
         return loadBotConfig(env);
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        console.error(`[BOT-CONFIG] ${message}`);
-        console.error('[BOT-CONFIG] Corrija a WARRIOR_AUTH_KEY no ambiente/.env antes de iniciar o Bot.');
+        logError('BOT-CONFIG.init', error);
+        logWarning(`[BOT-CONFIG] ${message}`);
+        logWarning('[BOT-CONFIG] Corrija a WARRIOR_AUTH_KEY no ambiente/.env antes de iniciar o Bot.');
         process.exit(1);
     }
 }

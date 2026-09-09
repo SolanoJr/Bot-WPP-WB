@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { InMemoryRepository } from './repositories/storage.repository.js';
 import { IBotTelemetry, IGroupConfig, ILocationPayload, WarriorKey } from '../shared/types.js';
+import { logInfo, logWarning, logError } from '../services/loggerService';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -45,7 +46,7 @@ const checkApiKey = (req: Request, res: Response, next: NextFunction) => {
     const receivedKey = providedKey ? String(providedKey).trim() : '';
 
     if (receivedKey !== expectedKey) {
-        console.warn(`🔒 [SECURITY] Acesso negado em ${req.path}`);
+        logWarning(`🔒 [SECURITY] Acesso negado em ${req.path}`);
         return res.status(401).json({
             success: false,
             error: 'auth_failed',
@@ -78,7 +79,7 @@ app.post('/location', checkApiKey, async (req: Request, res: Response) => {
         const id = await repository.saveLocation(payload);
         await repository.updateClient(payload.chatId);
 
-        console.log(`✅ [RELAY-TS] Localização armazenada: ${payload.chatId}`);
+        logInfo(`✅ [RELAY-TS] Localização armazenada: ${payload.chatId}`);
         res.json({ success: true, locationId: id });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
@@ -90,7 +91,7 @@ app.post('/telemetry', checkApiKey, async (req: Request, res: Response) => {
         const telemetry = req.body as IBotTelemetry;
         await repository.saveTelemetry(telemetry);
 
-        console.log(`[RELAY-TS] Telemetria recebida: ${telemetry.botNumber || 'unknown'}`);
+        logInfo(`[RELAY-TS] Telemetria recebida: ${telemetry.botNumber || 'unknown'}`);
         res.json({ success: true, message: 'telemetry_saved' });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
@@ -121,7 +122,7 @@ app.post('/groups/:groupId/config', checkApiKey, async (req: Request, res: Respo
             isActive: typeof body.isActive === 'number' ? body.isActive === 1 : body.isActive
         });
 
-        console.log(`[RELAY-TS] Config de grupo salva: ${groupId}`);
+        logInfo(`[RELAY-TS] Config de grupo salva: ${groupId}`);
         res.json({
             success: true,
             data: config,
@@ -140,7 +141,7 @@ app.get('/pending/:chatId', checkApiKey, async (req: Request, res: Response) => 
         if (!location) return res.status(204).send();
 
         await repository.markAsProcessed(location.id);
-        console.log(`📤 [RELAY-TS] Enviando pendente para: ${chatId}`);
+        logInfo(`📤 [RELAY-TS] Enviando pendente para: ${chatId}`);
         res.json(location);
     } catch (error) {
         res.status(204).send();
@@ -148,6 +149,6 @@ app.get('/pending/:chatId', checkApiKey, async (req: Request, res: Response) => 
 });
 
 app.listen(PORT, () => {
-    console.log(`🚀 Relay Server (TS) ONLINE na porta ${PORT}`);
-    console.log(`🔐 Warrior Key configurada (comprimento: ${WARRIOR_AUTH_KEY.length})`);
+    logInfo(`🚀 Relay Server (TS) ONLINE na porta ${PORT}`);
+    logInfo(`🔐 Warrior Key configurada (comprimento: ${WARRIOR_AUTH_KEY.length})`);
 });

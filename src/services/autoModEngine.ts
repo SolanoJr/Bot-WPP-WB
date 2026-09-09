@@ -25,6 +25,7 @@ import {
 } from './databaseService.js';
 import { recordInfraction } from './infractions.js';
 import { isProtectedTarget } from '../services/permissions.js';
+import { logInfo, logWarning, logError } from './loggerService';
 
 // ─── Configurações editáveis ────────────────────────────────────────────────
 const SUSPICIOUS_DOMAINS = [
@@ -588,6 +589,6 @@ export async function runPeriodicCleanup(): Promise<void> {
     await cleanupOldFingerprintEntries(3600); // 1h
     await cleanupOldJoinEntries(2592000);   // 30d
   } catch (err: any) {
-    console.warn('[autoModEngine] runPeriodicCleanup falhou:', err?.message);
+    logWarning('[autoModEngine] runPeriodicCleanup falhou:', err?.message);
   }
 }

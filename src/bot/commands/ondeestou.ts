@@ -1,4 +1,5 @@
 import { ICommand } from './types';
+import { logInfo, logWarning, logError } from '../../services/loggerService';
 
 // Tipagem mínima para o registry global de chatIds em polling de localização.
 declare global {
@@ -24,7 +25,7 @@ export const ondeEstouCommand: ICommand = {
 
     if (global.pendingChatIds && typeof global.pendingChatIds.add === 'function') {
       global.pendingChatIds.add(chatId);
-      console.log(`📝 [ONDEESTOU] ChatId ${chatId} adicionado ao polling`);
+      logInfo(`📝 [ONDEESTOU] ChatId ${chatId} adicionado ao polling`);
     }
 
     const url = new URL(interfaceUrl);

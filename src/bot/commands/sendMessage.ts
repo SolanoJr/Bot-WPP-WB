@@ -1,5 +1,5 @@
 import { ICommand } from './types';
-import logger from '../../services/loggerService';
+import logger, { logInfo } from '../../services/loggerService';
 import { isMaster } from '../../services/permissions';
 
 /**
@@ -39,18 +39,18 @@ export const sendMessageCommand: ICommand = {
         const numberId = await ctx.client.getNumberId!(number);
         if (numberId) {
           chatId = numberId.serialized;
-          console.log('[SENDMSG] ID obtido via getNumberId:', chatId);
+          logInfo('[SENDMSG] ID obtido via getNumberId:', chatId);
         }
       } catch (e) {
-        console.log('[SENDMSG] Erro ao usar getNumberId, usando formato padrão:', e);
+        logInfo('[SENDMSG] Erro ao usar getNumberId, usando formato padrão:', e);
       }
 
       // Tentar obter contato para verificar se existe
       try {
         const contact = await ctx.client.getContactById!(chatId);
-        console.log('[SENDMSG] Contato encontrado:', contact?.id);
+        logInfo('[SENDMSG] Contato encontrado:', contact?.id);
       } catch (e) {
-        console.log('[SENDMSG] Contato não encontrado:', e);
+        logInfo('[SENDMSG] Contato não encontrado:', e);
       }
 
       await ctx.client.sendMessage(chatId, message);

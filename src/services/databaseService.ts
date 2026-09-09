@@ -180,7 +180,7 @@ export async function recordCommandUsage(entry: { commandName: string; userId: s
       [entry.commandName, entry.userId, entry.groupId, entry.groupName]
     );
   } catch (err: any) {
-    console.error('[databaseService] recordCommandUsage falhou:', err?.message);
+    logError('[databaseService] recordCommandUsage falhou:', err?.message);
   }
 }
 
@@ -266,6 +266,7 @@ export async function setGroupModAll(groupId: string, config: GroupModConfig): P
 }
 
 import { isProtectedTarget } from '../services/permissions.js';
+import { logInfo, logWarning, logError } from './loggerService';
 
 export async function banUser(entry: {
   groupId: string;
@@ -278,7 +279,7 @@ export async function banUser(entry: {
 
   // blindagem: nunca banir o BOT, o DONO ou ADMINS
   if (isProtectedTarget(uid)) {
-    console.warn(`[databaseService] banUser bloqueado: tentativa de banir ID protegido (${uid}) no grupo ${entry.groupId}.`);
+    logWarning(`[databaseService] banUser bloqueado: tentativa de banir ID protegido (${uid}) no grupo ${entry.groupId}.`);
     return;
   }
 
@@ -312,7 +313,7 @@ export async function recordMemberJoin(groupId: string, memberId: string): Promi
       [groupId, memberId, Date.now()]
     );
   } catch (err: any) {
-    console.warn('[mod_member_joins] recordMemberJoin falhou:', err?.message);
+    logWarning('[mod_member_joins] recordMemberJoin falhou:', err?.message);
   }
 }
 
@@ -325,7 +326,7 @@ export async function recordMemberRemove(groupId: string, memberId: string, reas
       [Date.now(), reason, groupId, memberId]
     );
   } catch (err: any) {
-    console.warn('[mod_member_joins] recordMemberRemove falhou:', err?.message);
+    logWarning('[mod_member_joins] recordMemberRemove falhou:', err?.message);
   }
 }
 
@@ -359,7 +360,7 @@ export async function recordMessageFingerprint(groupId: string, fingerprint: str
       [groupId, fingerprint, sourceJid, Date.now()]
     );
   } catch (err: any) {
-    console.warn('[mod_msg_fingerprints] recordMessageFingerprint falhou:', err?.message);
+    logWarning('[mod_msg_fingerprints] recordMessageFingerprint falhou:', err?.message);
   }
 }
 
@@ -382,7 +383,7 @@ export async function cleanupOldFingerprintEntries(maxAgeSeconds: number = 3600)
       [cutoff]
     );
   } catch (err: any) {
-    console.warn('[mod_msg_fingerprints] cleanupOldFingerprintEntries falhou:', err?.message);
+    logWarning('[mod_msg_fingerprints] cleanupOldFingerprintEntries falhou:', err?.message);
   }
 }
 
@@ -396,6 +397,6 @@ export async function cleanupOldJoinEntries(maxAgeSeconds: number = 2592000): Pr
       [cutoff]
     );
   } catch (err: any) {
-    console.warn('[mod_member_joins] cleanupOldJoinEntries falhou:', err?.message);
+    logWarning('[mod_member_joins] cleanupOldJoinEntries falhou:', err?.message);
   }
 }

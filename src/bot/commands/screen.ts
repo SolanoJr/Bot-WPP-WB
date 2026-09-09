@@ -1,6 +1,7 @@
 import { ICommand } from './types';
 import { CommandContext } from '../../platforms/base/PlatformTypes';
 import http from 'node:http';
+import { logInfo, logWarning, logError } from '../../services/loggerService';
 
 function postJson(hostname: string, port: number, path: string, body: any): Promise<any> {
   return new Promise((resolve, reject) => {
@@ -85,7 +86,7 @@ export const screenCommand: ICommand = {
         voice = null;
         voiceMotivo = `erro: ${err?.message ?? err}`;
       }
-      console.log(`[ScreenCommand] call de voz: ${voice ? `#${voice.channelName} (${voice.channelId})` : `não achada (${voiceMotivo || 'sem motivo'})`} — plataforma=${ctx.platform} autor=${userName}`);
+      logInfo(`[ScreenCommand] call de voz: ${voice ? `#${voice.channelName} (${voice.channelId})` : `não achada (${voiceMotivo || 'sem motivo'})`} — plataforma=${ctx.platform} autor=${userName}`);
 
       if (voice) {
         const room = await postJson('127.0.0.1', parseInt(screenPort, 10), '/api/rooms/call-link', {
@@ -122,7 +123,7 @@ export const screenCommand: ICommand = {
         await reply(`❌ Erro: ${JSON.stringify(room)}`);
       }
     } catch (error: any) {
-      console.error('[ScreenCommand] Erro:', error);
+      logError('[ScreenCommand] Erro:', error);
       await reply(`❌ Erro: ${error.message}`);
     }
   }

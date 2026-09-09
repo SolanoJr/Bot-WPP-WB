@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getDb } from './databaseService';
+import { logInfo, logWarning, logError } from './loggerService';
 
 /**
  * Envia uma pergunta para a IA do Gemini com suporte a memória de contexto
@@ -12,7 +13,7 @@ async function askAI(prompt: string, userId: string = 'unknown'): Promise<string
     // Ler aqui garante que process.env já foi populado em runtime.
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
     if (!GEMINI_API_KEY) {
-        console.error('❌ Erro: Chave da API (GEMINI_API_KEY ou GOOGLE_API_KEY) não encontrada.');
+        logWarning('❌ Erro: Chave da API (GEMINI_API_KEY ou GOOGLE_API_KEY) não encontrada.');
         return "⚠️ Erro: API_KEY não configurada. Verifique o arquivo .env.";
     }
 
@@ -77,13 +78,13 @@ ${context}`;
             return aiResponse;
         }
 
-        console.error('⚠️ Resposta inesperada da API Gemini:', JSON.stringify(response.data, null, 2));
+        logError('⚠️ Resposta inesperada da API Gemini:', JSON.stringify(response.data, null, 2));
         return "🤖 A IA recebeu a mensagem, mas não gerou uma resposta válida.";
     } catch (error: any) {
         if (error.response) {
             const errorData = error.response.data;
             const status = error.response.status;
-            console.error(`❌ Erro na API do Gemini (Status ${status}):`, JSON.stringify(errorData, null, 2));
+            logError(`❌ Erro na API do Gemini (Status ${status}):`, JSON.stringify(errorData, null, 2));
 
             if (status === 429 || (errorData.error && errorData.error.code === 429)) {
                 const isQuotaExceeded = errorData.error?.message?.toLowerCase().includes('quota exceeded');
@@ -101,7 +102,7 @@ ${context}`;
                 return "🚫 Erro de permissão (403). Verifique se sua API Key é válida e tem permissão para o modelo selecionado.";
             }
         } else {
-            console.error('❌ Erro na comunicação com Gemini:', error.message);
+            logError('❌ Erro na comunicação com Gemini:', error.message);
         }
         return "⚠️ Desculpe, ocorreu um erro ao processar sua pergunta na IA.";
     }

@@ -1,5 +1,6 @@
 import { ICommand } from './types';
 import { getDb, getCommandMetrics } from '../../services/databaseService';
+import { logInfo, logWarning, logError } from '../../services/loggerService';
 
 export const statsCommand: ICommand = {
   name: 'stats',
@@ -73,7 +74,7 @@ export const statsCommand: ICommand = {
 
       await ctx.reply(response);
     } catch (e) {
-      console.error('Erro no comando $stats:', e);
+      logError('Erro no comando $stats:', e);
       await ctx.reply('⚠️ Erro ao recuperar estatísticas.');
     }
   },

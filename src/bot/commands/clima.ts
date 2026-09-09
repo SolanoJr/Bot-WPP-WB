@@ -1,5 +1,6 @@
 import { ICommand } from './types';
 import axios from 'axios';
+import { logInfo, logWarning, logError } from '../../services/loggerService';
 
 export const climaCommand: ICommand = {
   name: 'clima',
@@ -66,7 +67,7 @@ export const climaCommand: ICommand = {
 
       await ctx.reply(response);
     } catch (error) {
-      console.error('Erro ao buscar clima:', error);
+      logError('Erro ao buscar clima:', error);
       await ctx.reply('⚠️ Erro ao consultar o clima. Tente novamente mais tarde.');
     }
   }

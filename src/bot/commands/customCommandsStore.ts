@@ -1,3 +1,4 @@
+import { logInfo, logWarning, logError } from '../../services/loggerService';
 /**
  * Armazenamento local de comandos customizados por grupo.
  * Substitui a dependência do astabot (database/comandos.json).
@@ -28,7 +29,7 @@ function saveCommands(commands: GroupCommands): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(commands));
   } catch (e) {
-    console.error('Erro ao salvar comandos customizados:', e);
+    logError('Erro ao salvar comandos customizados:', e);
   }
 }
 

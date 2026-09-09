@@ -4,6 +4,7 @@
 import { spawn, ChildProcess } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import { logInfo, logWarning, logError } from '../loggerService';
 
 export interface DiscordScreenConfig {
   port: number;
@@ -31,7 +32,7 @@ export class DiscordScreenService {
 
   async start(): Promise<void> {
     if (this.isRunning) {
-      console.log('[DiscordScreenService] Already running');
+      logInfo('[DiscordScreenService] Already running');
       return;
     }
     if (this.startPromise) {
@@ -64,12 +65,12 @@ export class DiscordScreenService {
       const hasClientBuild = fs.existsSync(path.join(clientDist, 'index.html'));
 
       if (!hasClientBuild && this.config.nodeEnv === 'production') {
-        console.warn('[DiscordScreenService] Client build not found at', clientDist);
-        console.warn('[DiscordScreenService] Run "npm run screen:build" to build the client');
+        logWarning('[DiscordScreenService] Client build not found at', clientDist);
+        logWarning('[DiscordScreenService] Run "npm run screen:build" to build the client');
       }
 
-      console.log('[DiscordScreenService] Starting server on port', this.config.port);
-      console.log('[DiscordScreenService] Public origin:', this.config.publicOrigin);
+      logInfo('[DiscordScreenService] Starting server on port', this.config.port);
+      logInfo('[DiscordScreenService] Public origin:', this.config.publicOrigin);
 
       const workingDir = path.join(projectRoot, 'discord-screen');
 
@@ -81,23 +82,23 @@ export class DiscordScreenService {
 
       this.process.stdout?.on('data', (data) => {
         const output = data.toString().trim();
-        if (output) console.log(`[DiscordScreen] ${output}`);
+        if (output) logInfo(`[DiscordScreen] ${output}`);
       });
 
       this.process.stderr?.on('data', (data) => {
         const output = data.toString().trim();
-        if (output) console.error(`[DiscordScreen] ${output}`);
+        if (output) logError('DiscordScreen.stderr', new Error(output));
       });
 
       this.process.on('error', (err) => {
-        console.error('[DiscordScreenService] Failed to start:', err);
+        logError('[DiscordScreenService] Failed to start:', err);
         this.isRunning = false;
         this.startPromise = null;
         reject(err);
       });
 
       this.process.on('exit', (code, signal) => {
-        console.log(`[DiscordScreenService] Process exited with code ${code}, signal ${signal}`);
+        logInfo(`[DiscordScreenService] Process exited with code ${code}, signal ${signal}`);
         this.isRunning = false;
         this.process = null;
         this.startPromise = null;
@@ -111,7 +112,7 @@ export class DiscordScreenService {
         try {
           const res = await fetch(`http://127.0.0.1:${this.config.port}/api/health`);
           if (res.ok) {
-            console.log('[DiscordScreenService] Server respondeu /api/health — pronto');
+            logInfo('[DiscordScreenService] Server respondeu /api/health — pronto');
             this.isRunning = true;
             resolve();
             return;
@@ -136,14 +137,14 @@ export class DiscordScreenService {
 
   async stop(): Promise<void> {
     if (!this.process || !this.isRunning) {
-      console.log('[DiscordScreenService] Not running');
+      logInfo('[DiscordScreenService] Not running');
       return;
     }
-    console.log('[DiscordScreenService] Stopping...');
+    logInfo('[DiscordScreenService] Stopping...');
     return new Promise((resolve) => {
       const forceKillTimeout = setTimeout(() => {
         if (this.process) {
-          console.log('[DiscordScreenService] Force killing...');
+          logInfo('[DiscordScreenService] Force killing...');
           this.process.kill('SIGKILL');
         }
         resolve();
@@ -154,7 +155,7 @@ export class DiscordScreenService {
         this.isRunning = false;
         this.process = null;
         this.startPromise = null;
-        console.log('[DiscordScreenService] Stopped');
+        logInfo('[DiscordScreenService] Stopped');
         resolve();
       });
 
@@ -202,12 +203,12 @@ export function createDiscordScreenServiceFromEnv(): DiscordScreenService | null
   // discord-screen, o bot NÃO deve gerar um segundo processo filho na mesma
   // porta — o filho morreria com EADDRINUSE e o "assuming ready" mascarava isso.
   if (DISCORD_SCREEN_EXTERNAL === '1' || DISCORD_SCREEN_EXTERNAL.toLowerCase() === 'true') {
-    console.log('[DiscordScreenService] Gerenciado externamente (DISCORD_SCREEN_EXTERNAL) — spawn interno desativado');
+    logInfo('[DiscordScreenService] Gerenciado externamente (DISCORD_SCREEN_EXTERNAL) — spawn interno desativado');
     return null;
   }
 
   if (!DISCORD_CLIENT_ID || !DISCORD_CLIENT_SECRET || !DISCORD_BOT_TOKEN) {
-    console.log('[DiscordScreenService] Missing required Discord credentials, screen sharing disabled');
+    logInfo('[DiscordScreenService] Missing required Discord credentials, screen sharing disabled');
     return null;
   }
 

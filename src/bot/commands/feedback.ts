@@ -1,5 +1,6 @@
 import { ICommand } from './types';
 import { getDb } from '../../services/databaseService';
+import { logInfo, logWarning, logError } from '../../services/loggerService';
 
 export const feedbackCommand: ICommand = {
   name: 'feedback',
@@ -13,9 +14,9 @@ export const feedbackCommand: ICommand = {
     }
 
     try {
-      console.log('[FEEDBACK] Tentando salvar feedback:', feedbackText);
+      logInfo('[FEEDBACK] Tentando salvar feedback:', feedbackText);
       const db = await getDb();
-      console.log('[FEEDBACK] Banco de dados obtido com sucesso');
+      logInfo('[FEEDBACK] Banco de dados obtido com sucesso');
       
       // Obter informações do contato
       let userName = 'Desconhecido';
@@ -28,7 +29,7 @@ export const feedbackCommand: ICommand = {
         userName = user.name || 'Desconhecido';
         userNumber = user.id || ctx.userId;
       } catch (e) {
-        console.log('[FEEDBACK] Erro ao obter contato:', e);
+        logInfo('[FEEDBACK] Erro ao obter contato:', e);
       }
 
       // Verificar se é grupo
@@ -38,7 +39,7 @@ export const feedbackCommand: ICommand = {
           const chat = await ctx.getChat();
           groupName = chat.name || 'Grupo sem nome';
         } catch (e) {
-          console.log('[FEEDBACK] Erro ao obter nome do grupo:', e);
+          logInfo('[FEEDBACK] Erro ao obter nome do grupo:', e);
         }
       }
       
@@ -46,11 +47,11 @@ export const feedbackCommand: ICommand = {
         'INSERT INTO feedbacks (user_id, user_name, user_number, group_id, group_name, message) VALUES (?, ?, ?, ?, ?, ?)',
         [ctx.userId, userName, userNumber, groupId, groupName, feedbackText]
       );
-      console.log('[FEEDBACK] Feedback salvo com sucesso');
+      logInfo('[FEEDBACK] Feedback salvo com sucesso');
       
       await ctx.reply('✅ Seu feedback foi enviado com sucesso! Obrigado por ajudar a melhorar o bot. ❤️');
     } catch (e) {
-      console.error('[FEEDBACK] Erro ao salvar feedback:', e);
+      logError('[FEEDBACK] Erro ao salvar feedback:', e);
       await ctx.reply('⚠️ Ocorreu um erro ao salvar seu feedback. Tente novamente mais tarde.');
     }
   },

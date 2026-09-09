@@ -2,6 +2,7 @@ import { ICommand } from './types';
 import axios from 'axios';
 import { isMaster, cleanId } from '../../services/permissions';
 import { groupTag } from './format';
+import { logInfo, logWarning, logError } from '../../services/loggerService';
 
 export const setwelcomeCommand: ICommand = {
     name: 'setwelcome',
@@ -26,11 +27,11 @@ export const setwelcomeCommand: ICommand = {
             const member = (chat.participants || []).find((m: any) => cleanId(m.id) === authorClean);
             isGroupAdmin = !!(member && (member.isAdmin || member.isSuperAdmin));
 
-            console.log(`🛡️ [ADMIN-CHECK] Usuário ${authorClean} é Admin? ${isGroupAdmin ? 'SIM' : 'NÃO'}`);
+            logInfo(`🛡️ [ADMIN-CHECK] Usuário ${authorClean} é Admin? ${isGroupAdmin ? 'SIM' : 'NÃO'}`);
         }
 
         if (!isUserMaster && !isGroupAdmin) {
-            console.log(`🚫 [AUTH-FAIL] $setwelcome negado para ${authorId}`);
+            logInfo(`🚫 [AUTH-FAIL] $setwelcome negado para ${authorId}`);
             await ctx.reply('❌ Apenas administradores do grupo ou o MASTER do bot podem usar este comando.');
             return;
         }
@@ -58,7 +59,7 @@ export const setwelcomeCommand: ICommand = {
                 throw new Error('Falha na resposta do Relay');
             }
         } catch (error) {
-            console.error('❌ Erro ao definir welcome:', error);
+            logError('❌ Erro ao definir welcome:', error);
             await ctx.reply('⚠️ Ocorreu um erro ao salvar a configuração. Tente novamente mais tarde.');
         }
     }

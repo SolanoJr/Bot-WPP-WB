@@ -2,6 +2,7 @@ import { ICommand } from './types';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
+import { logInfo, logWarning, logError } from '../../services/loggerService';
 
 export const gttsCommand: ICommand = {
     name: 'gtts',
@@ -62,7 +63,7 @@ export const gttsCommand: ICommand = {
             }, 5000);
 
         } catch (error) {
-            console.error('Erro ao converter texto para voz:', error);
+            logError('Erro ao converter texto para voz:', error);
             await ctx.reply('⚠️ Erro ao converter texto para voz. Tente novamente mais tarde.');
         }
     }

@@ -2,6 +2,7 @@ import { ICommand } from './types';
 import { CommandContext } from '../../platforms/base/PlatformTypes';
 import { cleanId, isMaster } from '../../services/permissions';
 import { groupTag, getTargetDisplayName } from './format';
+import { logInfo, logWarning, logError } from '../../services/loggerService';
 
 export const kickCommand: ICommand = {
   name: 'kick',
@@ -89,7 +90,7 @@ export const kickCommand: ICommand = {
         ...(ctx.platform === 'whatsapp' ? { mentions: [targetId] } : {}),
       } as any);
     } catch (error: any) {
-      console.error('[kick] Erro:', error);
+      logError('[kick] Erro:', error);
       await ctx.reply(`❌ Falha ao executar remoção: ${error.message}`);
     }
   },
