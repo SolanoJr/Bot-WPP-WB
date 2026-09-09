@@ -1,5 +1,35 @@
 # 📜 ChangeLog - WarriorBlack Bot
 
+## [v1.3.2] - 2026-09-09
+### 🧹 Auditoria + realocação de workspace (Windows dev)
+
+#### Mudado
+- **Local do clone Windows**: `C:\Users\SolanoJr\Bot-WPP-WB` → `D:\Desktop\Programas\bot-wpp`. Motivo: liberar espaço em `C:\` (unidade do sistema). O servidor Linux permanece em `/home/solanojr/bot-wpp` (sem mudança).
+- `.git` preservado, código-fonte íntegro (recuperado via `git clone` do GitHub após acidente no `mv` cross-volume — Windows MSYS `mv` faz copy+delete, e `robocopy /MOVE` com paths parciais causou perda transitória do working tree).
+
+#### Perdido e recuperado
+- `node_modules/` (488 pacotes) — recriado via `npm install` (2 min). Sem `npm audit fix` aplicado.
+- `dist/` — recriável com `npm run build` (não aplicado, build fica no servidor de produção).
+- `logs/` local — irrelevante (logs canônicos em `~/.pm2/logs/bot-wpp-stable.out.log` no Linux).
+- `.env` — recriado a partir de `.env.example`; **precisa reconfigurar chaves reais** (`GEMINI_API_KEY`, `WARRIOR_AUTH_KEY`, tokens Telegram/Discord) se o seu `.env` local tinha valores diferentes.
+
+#### Servidor (Linux)
+- ✅ PM2 `bot-wpp` + `discord-screen` online 64min, WhatsApp reconectado às 12:45 (`WarriorBlack 558581344211:72@s.whatsapp.net`).
+- 🔴 `bot-wpp-screen.service` (systemd legado) ainda em loop de restart — aponta para `dist/services/discord-screen/index.js` (deletado no v1.3.1). Não afeta o bot (que está sob PM2). Limpeza manual pendente:
+  ```bash
+  sudo systemctl stop bot-wpp-screen.service
+  sudo systemctl disable bot-wpp-screen.service
+  sudo rm /etc/systemd/system/bot-wpp-screen.service
+  sudo systemctl daemon-reload
+  ```
+- ⚠️ `~/.wwebjs_auth` (165MB) e `~/.wwebjs_cache` (568K) legados — podem ser removidos sem efeito (Baileys não usa).
+
+#### Pendente (continua em próximas sessões)
+- Aplicar `AUDITORIA_ARQUIVOS.md` (consolidação de docs em `docs/ARCHIVE/`).
+- Substituir 162 `console.log` legados por `loggerService`.
+- Refatorar `BaileysAdapter.ts` (202KB) em módulos menores.
+- Validar `npm audit fix` em janela de manutenção específica (10 vulnerabilidades: 5 high, 4 moderate, 1 low).
+
 ## [v1.3.1] - 2026-09-03
 ### 🖥️ Screen Share — consolidação, porta 3002, compat Express 5
 
