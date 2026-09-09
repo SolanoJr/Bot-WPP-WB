@@ -72,6 +72,11 @@ Crie um arquivo `.env` na raiz do projeto, baseado no `.env.example`, e preencha
 
 1.  **Clonar o repositório:**
     ```bash
+    # Bot WhatsApp (este repo)
+    git clone https://github.com/SolanoJr/Bot-WPP-WB.git
+    cd Bot-WPP-WB
+
+    # Frontend (Cloudflare Pages) — repositório separado
     git clone https://github.com/SolanoJr/Bot-WPP-WB-SC.git
     cd Bot-WPP-WB-SC
     ```
@@ -83,6 +88,8 @@ Crie um arquivo `.env` na raiz do projeto, baseado no `.env.example`, e preencha
     ```bash
     npm run build
     ```
+
+> 📁 **Local padrão recomendado:** clone em `D:\Desktop\Programas\bot-wpp` (Windows dev) ou `$HOME/bot-wpp` (Linux prod). Veja `CHANGELOG.md` v1.3.2 para histórico de realocação.
 
 ## Como Executar o Bot
 
