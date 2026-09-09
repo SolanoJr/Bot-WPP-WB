@@ -35,6 +35,7 @@ import path from 'path';
 import fs from 'fs';
 import { platformManager } from '../PlatformManager';
 import { setWppHealth } from '../../services/healthStore';
+import { logInfo, logWarning, logError } from '../../services/loggerService';
 
 // Tipos da interface unificada
 import {
@@ -118,7 +119,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
   // ============================================================
   private async connect(): Promise<void> {
     this.lastConnectAttemptTs = Date.now();
-    console.log(`[Baileys] 🚀 Iniciando conexão (authDir=${this.authDir})...`);
+    logInfo(`[Baileys] 🚀 Iniciando conexão (authDir=${this.authDir})...`);
     try {
       const { state, saveCreds } = await useMultiFileAuthState(this.authDir);
       const { version } = await fetchLatestBaileysVersion();
@@ -149,7 +150,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
         if (qr) {
           this.qrPending = true;
           this.getHealth();
-          console.log(`[Baileys] 📱 QR recebido — enviando ao dono...`);
+          logInfo(`[Baileys] 📱 QR recebido — enviando ao dono...`);
           this.sendQrToOwner(qr);
         }
         if (connection === 'open') {
@@ -158,7 +159,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
           this.lastActivityTs = Date.now();
           this.userId = this.sock.user?.id || '';
           this.userName = this.sock.user?.name || 'Bot-WPP';
-          console.log(`[Baileys] ✅ Conectado como ${this.userName} (${this.userId})`);
+          logInfo(`[Baileys] ✅ Conectado como ${this.userName} (${this.userId})`);
           this.notifyOwner(`✅ *WPP reconectado* (Baileys) como ${this.userName}. Bot operante.`).catch(() => {});
           this.getHealth();
           this.readyHandler?.();
@@ -176,11 +177,11 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
           this.isReady = false;
           this.getHealth();
           const reason = lastDisconnect?.error?.message || 'unknown';
-          console.log(`[Baileys] 🔌 Conexão fechada: ${reason}`);
+          logInfo(`[Baileys] 🔌 Conexão fechada: ${reason}`);
           this.disconnectedHandler?.(reason);
           const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
           if (statusCode === DisconnectReason.loggedOut) {
-            console.log(`[Baileys] 🚪 Deslogado — precisa escanear QR novamente.`);
+            logInfo(`[Baileys] 🚪 Deslogado — precisa escanear QR novamente.`);
             // Notifica o dono UMA vez e para de reconectar em loop.
             // O servidor WA invalidou a sessão — sem novo QR, reconectar não resolve.
             // printQRInTerminal=false, então o QR não aparece no terminal.
@@ -190,34 +191,34 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
               this.notifyOwner(`🚪 *Sessão WhatsApp encerrada*\nO servidor desconectou o bot (sessão expirada).\n\n⚠️ Novo QR code necessário. Reconnectando em 30s para gerar...`).catch(() => {});
               // Força re-init completo após 30s para gerar novo QR
               setTimeout(() => {
-                console.log(`[Baileys] 🔄 Reconectando (loggedOut - tentativa única)...`);
+                logInfo(`[Baileys] 🔄 Reconectando (loggedOut - tentativa única)...`);
                 this.connect();
               }, 30000);
             } else {
-              console.log(`[Baileys] ⏸️ loggedOut já notificado — aguardando QR manual. Não reconectando em loop.`);
+              logInfo(`[Baileys] ⏸️ loggedOut já notificado — aguardando QR manual. Não reconectando em loop.`);
             }
           } else if (reason.includes('Stream Errored') || reason.includes('conflict')) {
             // Sessão inválida no servidor — força re-init completo do socket
-            console.log(`[Baileys] 🔄 Stream Errored — forçando re-init completo...`);
+            logInfo(`[Baileys] 🔄 Stream Errored — forçando re-init completo...`);
             try { this.sock?.end?.(new Error('force-reinit')); } catch {}
             // Reconecta após breve delay
             setTimeout(() => {
-              console.log(`[Baileys] 🔄 Reconectando...`);
+              logInfo(`[Baileys] 🔄 Reconectando...`);
               this.connect();
             }, 2000);
           } else if (reason.includes('Connection Failure') || reason.includes('Timed Out') || reason.includes('socket hang up')) {
             // Falha de handshake/rede — reconecta com backoff
-            console.log(`[Baileys] 🔄 ${reason} — reconectando em 5s...`);
+            logInfo(`[Baileys] 🔄 ${reason} — reconectando em 5s...`);
             this.notifyOwner(`⚠️ *WhatsApp desconectado*: ${reason}\nReconectando automaticamente...`).catch(() => {});
             setTimeout(() => {
-              console.log(`[Baileys] 🔄 Reconectando (connection failure)...`);
+              logInfo(`[Baileys] 🔄 Reconectando (connection failure)...`);
               this.connect();
             }, 5000);
           } else {
             // Qualquer outro motivo não mapeado — tenta reconectar com backoff longo
-            console.log(`[Baileys] ⚠️ Desconhecido (${reason}) — reconectando em 10s...`);
+            logInfo(`[Baileys] ⚠️ Desconhecido (${reason}) — reconectando em 10s...`);
             setTimeout(() => {
-              console.log(`[Baileys] 🔄 Reconectando (unknown reason)...`);
+              logInfo(`[Baileys] 🔄 Reconectando (unknown reason)...`);
               this.connect();
             }, 10000);
           }
@@ -245,7 +246,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
             }
           );
         } catch (e: any) {
-          console.error('[Baileys] erro em group-participants.update:', e?.message);
+          logError('[Baileys] erro em group-participants.update:', e?.message);
         }
       });
 
@@ -255,7 +256,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
           const ctxInfo = u?.update?.message?.extendedTextMessage?.contextInfo
             || u?.message?.extendedTextMessage?.contextInfo;
           if (ctxInfo?.quotedMessage) {
-            console.log(`[DBG-update] CITACAO APLICADA id=${u?.key?.id} texto="${String(ctxInfo.quotedMessage?.conversation || ctxInfo.quotedMessage?.extendedTextMessage?.text || '').slice(0,20)}"`);
+            logInfo(`[DBG-update] CITACAO APLICADA id=${u?.key?.id} texto="${String(ctxInfo.quotedMessage?.conversation || ctxInfo.quotedMessage?.extendedTextMessage?.text || '').slice(0,20)}"`);
           }
         }
       });
@@ -279,11 +280,11 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
             }
           }
         } catch (e: any) {
-          console.error(`[Baileys] Erro no messages.upsert: ${e?.message}`);
+          logError('Baileys.messages.upsert', e);
         }
       });
     } catch (e: any) {
-      console.error(`[Baileys] ❌ Erro ao conectar: ${e?.message}`);
+      logError('Baileys.connect', e);
     }
   }
 
@@ -385,7 +386,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
       const quotedText = typeof quoted?.conversation === 'string'
         ? quoted.conversation
         : (typeof quoted?.extendedTextMessage?.text === 'string' ? quoted.extendedTextMessage.text : '');
-      console.log(`[DBG-disp] citação: existe=${!!quoted} texto="${quotedText}"`);
+      logInfo(`[DBG-disp] citação: existe=${!!quoted} texto="${quotedText}"`);
 
       const platformMsg: PlatformMessage = {
               id: `${this.platform}:${key.id}`,
@@ -461,16 +462,16 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
               senderName,
             );
           } catch (err: any) {
-            console.warn('[Baileys] autoModEngine.evaluate falhou:', err?.message);
+            logWarning('[Baileys] autoModEngine.evaluate falhou:', err?.message);
           }
         })();
       } catch (err: any) {
-        console.warn('[Baileys] não foi possível carregar autoModEngine:', err?.message);
+        logWarning('[Baileys] não foi possível carregar autoModEngine:', err?.message);
       }
       // ── fim autoMod ──────────────────────────────────────────────────────
       this.getHealth();
     } catch (e: any) {
-      console.error(`[Baileys] ❌ erro ao normalizar msg: ${e?.message}`);
+      logError('Baileys.normalizeMsg', e);
     }
   }
 
@@ -494,7 +495,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
         }
       }
     } catch (e: any) {
-      console.error(`[Baileys] ❌ erro ao reagir: ${e?.message}`);
+      logError('Baileys.react', e);
     }
   }
   async sendMessage(chatId: string, text: string, options?: any): Promise<PlatformMessage> {
@@ -557,7 +558,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
         key: { id: quotedId, remoteJid: jid, fromMe: quotedFromMe, participant: quotedFromMe ? undefined : quotedParticipant },
         message: { conversation: quotedText, extendedTextMessage: { text: quotedText } },
       };
-      console.log(`[DBG-quoted] enviando quoted: ${JSON.stringify(msgOpts.quoted.key)} fromMe=${quotedFromMe} text="${quotedText.slice(0,20)}" recoverStore=${!options.quotedText && !!quotedText}`);
+      logInfo(`[DBG-quoted] enviando quoted: ${JSON.stringify(msgOpts.quoted.key)} fromMe=${quotedFromMe} text="${quotedText.slice(0,20)}" recoverStore=${!options.quotedText && !!quotedText}`);
     }
     // Suporte a citar mensagem arbitrária (usado pelo selftest e por comandos):
     // sendMessage(jid, text, { quoteMessage: { id, remoteJid, participant, fromMe } })
@@ -673,7 +674,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
       if (res && res.exists) return { serialized: normId(res.jid), lid: res.lid };
       return null;
     } catch (err: any) {
-      console.warn(`[Baileys] getNumberId falhou para ${phone}: ${err?.message}`);
+      logWarning(`[Baileys] getNumberId falhou para ${phone}: ${err?.message}`);
       return null;
     }
   }
@@ -690,7 +691,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
         raw: res,
       } as PlatformUser;
     } catch (err: any) {
-      console.warn(`[Baileys] getContactById falhou para ${id}: ${err?.message}`);
+      logWarning(`[Baileys] getContactById falhou para ${id}: ${err?.message}`);
       return null;
     }
   }
@@ -750,7 +751,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
   async notifyOwner(text: string): Promise<void> {
     const ownerId = getOwnerNotifyTarget();
     if (!ownerId) {
-      console.error('[Baileys][notifyOwner] ❌ destino do dono não resolvido (configure MASTER_USER/MASTER_LID) — alerta descartado');
+      logInfo('[Baileys][notifyOwner] ⚠️ destino do dono não resolvido (configure MASTER_USER/MASTER_LID) — alerta descartado');
       return;
     }
     try {
@@ -758,9 +759,9 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
         this.sock.sendMessage(toJid(ownerId), { text }),
         new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 5s')), 5000)),
       ]);
-      console.log(`[Baileys][notifyOwner] ✅ alerta enviado ao dono (${ownerId})`);
+      logInfo(`[Baileys][notifyOwner] ✅ alerta enviado ao dono (${ownerId})`);
     } catch (e: any) {
-      console.error(`[Baileys][notifyOwner] ❌ falha: ${e?.message}`);
+      logError('Baileys.notifyOwner', e);
     }
   }
 
@@ -770,8 +771,8 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
     import('qrcode').then(async (QR: any) => {
       try {
         await QR.toFile(qrPath, qr, { width: 512, margin: 2 });
-        console.log(`\n\n[Baileys] 📱 QR SALVO EM: ${qrPath}`);
-        console.log('[Baileys] 📱 QR salvo no diretório de autenticação; não é exibido em logs.');
+        logInfo(`\n\n[Baileys] 📱 QR SALVO EM: ${qrPath}`);
+        logInfo('[Baileys] 📱 QR salvo no diretório de autenticação; não é exibido em logs.');
         // Tenta enviar ao dono (pode falhar se WPP ainda não abriu)
         const ownerTarget = getOwnerNotifyTarget();
         try {
@@ -780,12 +781,12 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
             image: fs.readFileSync(qrPath),
             caption: '📱 Escaneie para conectar o WPP (Baileys, sem Chromium)',
           });
-          console.log(`[Baileys] ✅ QR enviado ao dono`);
+          logInfo(`[Baileys] ✅ QR enviado ao dono`);
         } catch {
-          console.log(`[Baileys] ⚠️ QR salvo localmente — escanie do arquivo: ${qrPath}`);
+          logInfo(`[Baileys] ⚠️ QR salvo localmente — escanie do arquivo: ${qrPath}`);
         }
       } catch (e: any) {
-        console.log(`[Baileys] 📱 QR (texto para escanear):\n${qr}`);
+        logInfo(`[Baileys] 📱 QR (texto para escanear):\n${qr}`);
       }
     });
   }

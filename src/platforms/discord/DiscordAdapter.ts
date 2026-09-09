@@ -12,6 +12,7 @@ import {
   MediaPayload,
   MessageHandler,
 } from '../base/PlatformTypes';
+import { logInfo, logWarning, logError } from '../../services/loggerService';
 
 class DiscordClient implements PlatformClient {
   readonly platform: PlatformType = 'discord';
@@ -45,12 +46,12 @@ class DiscordClient implements PlatformClient {
         activities: [{ name: 'Bot-WPP Multi-Platform', type: 0 }],
       },
     });
-    console.log('[Discord] Cliente v14 inicializado com intents, partials e presence');
+    logInfo('[Discord] Cliente v14 inicializado com intents, partials e presence');
     this.setupEventHandlers();
   }
 
   async login(): Promise<void> {
-    console.log('[Discord] Iniciando login...');
+    logInfo('[Discord] Iniciando login...');
     try {
       await this.client.login(this.token);
       if (!this.isReady) {
@@ -62,17 +63,17 @@ class DiscordClient implements PlatformClient {
           });
         });
       }
-      console.log('[Discord] Chamada de login concluída');
+      logInfo('[Discord] Chamada de login concluída');
     } catch (err: any) {
-      console.error('[Discord] ❌ Falha no login (possível rate limit):', err?.message || err);
+      logError('[Discord] ❌ Falha no login (possível rate limit):', err?.message || err);
       if (this.disconnectedHandler) this.disconnectedHandler(err.message);
-      console.log('[Discord] Tentando novamente após 30s...');
+      logInfo('[Discord] Tentando novamente após 30s...');
       await new Promise(r => setTimeout(r, 30000));
       try {
         await this.client.login(this.token);
-        console.log('[Discord] Login retry concluído');
+        logInfo('[Discord] Login retry concluído');
       } catch (retryErr: any) {
-        console.error('[Discord] ❌ Falha persistiu após retry:', retryErr?.message || retryErr);
+        logError('[Discord] ❌ Falha persistiu após retry:', retryErr?.message || retryErr);
         throw retryErr;
       }
     }
@@ -84,50 +85,50 @@ class DiscordClient implements PlatformClient {
       this.isReady = true;
       this.userId = this.client.user?.id ?? '';
       this.userName = this.client.user?.username ?? 'DiscordBot';
-      console.log(`[Discord] ✅ Pronto como ${this.userName} (${this.userId})`);
+      logInfo(`[Discord] ✅ Pronto como ${this.userName} (${this.userId})`);
       
       try {
         this.client.user?.setPresence({
           status: 'online',
           activities: [{ name: 'Bot-WPP Multi-Platform', type: 0 }]
         });
-        console.log('[Discord] Presença definida como online');
+        logInfo('[Discord] Presença definida como online');
       } catch (err: any) {
-        console.error('[Discord] Erro ao definir presença:', err.message);
+        logError('[Discord] Erro ao definir presença:', err.message);
       }
       
       if (this.readyHandler) this.readyHandler();
     });
 
     this.client.on('messageCreate', async (msg) => {
-      console.log(`[Discord] messageCreate recebido - autor: ${msg.author.username} (bot: ${msg.author.bot}), conteúdo: "${msg.content}", canal: ${msg.channel.id}, tipo: ${msg.channel.type}`);
+      logInfo(`[Discord] messageCreate recebido - autor: ${msg.author.username} (bot: ${msg.author.bot}), conteúdo: "${msg.content}", canal: ${msg.channel.id}, tipo: ${msg.channel.type}`);
       
       // Ignorar mensagens do próprio bot
       if (msg.author.id === this.client.user?.id) {
-        console.log('[Discord] Mensagem ignorada (do próprio bot)');
+        logInfo('[Discord] Mensagem ignorada (do próprio bot)');
         return;
       }
       
       if (this.messageHandler) {
-        console.log('[Discord] messageHandler definido, chamando normalizeMessage...');
+        logInfo('[Discord] messageHandler definido, chamando normalizeMessage...');
         const platformMsg = this.normalizeMessage(msg);
-        console.log('[Discord] PlatformMessage normalizado:', JSON.stringify({
+        logInfo('[Discord] PlatformMessage normalizado:', JSON.stringify({
           id: platformMsg.id,
           chatId: platformMsg.chatId,
           userId: platformMsg.userId,
           text: platformMsg.text,
           isCommand: platformMsg.isCommand
         }));
-        console.log('[Discord] Chamando messageHandler...');
+        logInfo('[Discord] Chamando messageHandler...');
         await this.messageHandler(platformMsg);
-        console.log('[Discord] messageHandler concluído');
+        logInfo('[Discord] messageHandler concluído');
       } else {
-        console.log('[Discord] ⚠️ messageHandler NÃO definido!');
+        logInfo('[Discord] ⚠️ messageHandler NÃO definido!');
       }
     });
 
     this.client.on('error', (err) => {
-      console.error('[DiscordAdapter] Erro:', err);
+      logError('[DiscordAdapter] Erro:', err);
       this.isReady = false;
       if (this.disconnectedHandler) this.disconnectedHandler(err.message);
     });
@@ -255,7 +256,7 @@ class DiscordClient implements PlatformClient {
       }
       return null;
     } catch (e: any) {
-      console.error(`[Discord] ❌ erro ao buscar call de voz: ${e?.message}`);
+      logError('Discord.fetchVoiceCall', e);
       return null;
     }
   }
@@ -307,7 +308,7 @@ class DiscordClient implements PlatformClient {
       const msg = await (this.client as any).messages.fetch(msgId);
       if (msg) await msg.react(emoji);
     } catch (e: any) {
-      console.error(`[Discord] ❌ erro ao reagir: ${e?.message}`);
+      logError('Discord.react', e);
     }
   }
 

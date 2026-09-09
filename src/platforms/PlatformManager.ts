@@ -20,7 +20,7 @@ import {
 import { rateLimiter } from '../services/rateLimiter';
 import metricsService from '../services/metricsService';
 import { isMaster } from '../services/permissions';
-import logger, { logError, logWarning } from '../services/loggerService';
+import logger, { logInfo, logError, logWarning } from '../services/loggerService';
 
 type AdapterFactory = () => Promise<PlatformAdapter>;
 
@@ -567,7 +567,7 @@ export class PlatformManager {
       hasMedia: false,
     };
 
-    console.log(`[TestCommand] Executando ${command} em ${platform}`);
+    logInfo(`[TestCommand] Executando ${command} em ${platform}`);
 
     // Enviar diretamente para o handleIncomingMessage
     await this.handleIncomingMessage(testMessage);

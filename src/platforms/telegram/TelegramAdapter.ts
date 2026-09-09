@@ -21,7 +21,7 @@ import {
   MediaPayload,
   MessageHandler,
 } from '../base/PlatformTypes';
-
+import { logInfo, logWarning, logError } from '../../services/loggerService';
 class TelegramClient implements PlatformClient {
   readonly platform: PlatformType = 'telegram';
   private bot: Telegraf<TgMessage>;
@@ -46,7 +46,7 @@ class TelegramClient implements PlatformClient {
 
   private setupEventHandlers() {
     this.bot.on('message', async (ctx: any) => {
-      console.log('[Telegram] Mensagem recebida:', JSON.stringify({
+      logInfo('[Telegram] Mensagem recebida:', JSON.stringify({
         from: ctx.from?.username,
         text: ctx.message?.text,
         chatId: ctx.chat?.id
@@ -58,15 +58,15 @@ class TelegramClient implements PlatformClient {
     });
 
     this.bot.catch?.((err: any) => {
-      console.error('[Telegram] ❌ Erro no bot:', err);
-      console.error('[Telegram] Stack trace:', err.stack);
+      logError('[Telegram] ❌ Erro no bot:', err);
+      logError('[Telegram] Stack trace:', err.stack);
       if (err.response) {
-        console.error('[Telegram] Response status:', err.response?.status);
-        console.error('[Telegram] Response data:', err.response?.data);
+        logError('[Telegram] Response status:', err.response?.status);
+        logError('[Telegram] Response data:', err.response?.data);
       }
       if (err.request) {
-        console.error('[Telegram] Request URL:', err.request?.path || err.config?.url);
-        console.error('[Telegram] Request method:', err.config?.method);
+        logError('[Telegram] Request URL:', err.request?.path || err.config?.url);
+        logError('[Telegram] Request method:', err.config?.method);
       }
       this.isReady = false;
       if (this.disconnectedHandler) this.disconnectedHandler(err.message);
@@ -80,7 +80,7 @@ class TelegramClient implements PlatformClient {
    */
   async launch(): Promise<void> {
     if (this.launchStarted || this.shuttingDown) return;
-    console.log('[Telegram] Iniciando launch()...');
+    logInfo('[Telegram] Iniciando launch()...');
     try {
       const getMe = (this.bot.telegram as any).getMe;
       if (typeof getMe === 'function') {
@@ -90,7 +90,7 @@ class TelegramClient implements PlatformClient {
       }
       this.isReady = true;
       this.reconnectAttempts = 0;
-      console.log(`[Telegram] ✅ Pronto como ${this.userName} (${this.userId})`);
+      logInfo(`[Telegram] ✅ Pronto como ${this.userName} (${this.userId})`);
       if (this.readyHandler) this.readyHandler();
       this.launchStarted = true;
       void this.bot.launch().catch((error: any) => {
@@ -98,18 +98,18 @@ class TelegramClient implements PlatformClient {
         this.isReady = false;
         this.disconnectedHandler?.(error?.message || String(error));
         this.scheduleReconnect();
-        console.error('[Telegram] ❌ Erro no polling:', error?.message || error);
+        logError('[Telegram] ❌ Erro no polling:', error?.message || error);
       });
     } catch (err: any) {
-      console.error('[Telegram] ❌ Erro no launch():', err.message);
-      console.error('[Telegram] Stack trace:', err.stack);
+      logError('[Telegram] ❌ Erro no launch():', err.message);
+      logError('[Telegram] Stack trace:', err.stack);
       if (err.response) {
-        console.error('[Telegram] Response status:', err.response?.status);
-        console.error('[Telegram] Response data:', err.response?.data);
+        logError('[Telegram] Response status:', err.response?.status);
+        logError('[Telegram] Response data:', err.response?.data);
       }
       if (err.request) {
-        console.error('[Telegram] Request URL:', err.request?.path || err.config?.url);
-        console.error('[Telegram] Request method:', err.config?.method);
+        logError('[Telegram] Request URL:', err.request?.path || err.config?.url);
+        logError('[Telegram] Request method:', err.config?.method);
       }
       this.scheduleReconnect();
       throw err;
@@ -127,7 +127,7 @@ class TelegramClient implements PlatformClient {
       this.reconnectTimer = null;
       this.launch().catch(() => undefined);
     }, delayMs);
-    console.warn(`[Telegram] Reconexão agendada em ${Math.round(delayMs / 1000)}s (tentativa ${this.reconnectAttempts})`);
+    logWarning(`[Telegram] Reconexão agendada em ${Math.round(delayMs / 1000)}s (tentativa ${this.reconnectAttempts})`);
   }
 
   private normalizeMessage(ctx: any): PlatformMessage {
@@ -261,7 +261,7 @@ class TelegramClient implements PlatformClient {
         reaction: [{ type: 'emoji', emoji: emoji as any }],
       });
     } catch (e: any) {
-      console.error(`[Telegram] ❌ erro ao reagir: ${e?.message}`);
+      logError('Telegram.react', e);
     }
   }
 
@@ -286,9 +286,9 @@ export class TelegramAdapter implements PlatformAdapter {
   }
 
   async initialize(): Promise<void> {
-    console.log('[TelegramAdapter] Inicializando...');
+    logInfo('[TelegramAdapter] Inicializando...');
     if ((this.client as any).isReady) {
-      console.log('[TelegramAdapter] Já estava pronto');
+      logInfo('[TelegramAdapter] Já estava pronto');
       return;
     }
     // NÃO aguardar launch() bloqueante: o Telegraf só resolve a Promise ao
@@ -296,7 +296,7 @@ export class TelegramAdapter implements PlatformAdapter {
     // PlatformManager nunca registraria o messageHandler (setupAdapterHandlers),
     // deixando o comando sem despacho. Disparamos em background e retornamos.
     (this.client as any).launch().catch((err: any) => {
-      console.error('[Telegram] ❌ Erro no launch():', err?.message);
+      logError('[Telegram] ❌ Erro no launch():', err?.message);
     });
   }
 
