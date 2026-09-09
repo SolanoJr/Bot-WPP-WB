@@ -1,6 +1,32 @@
 # 📜 ChangeLog - WarriorBlack Bot
 
 ## [v1.3.2] - 2026-09-09
+
+### 🔒 Segurança — `npm audit fix` (9 de 10 vulnerabilidades resolvidas)
+
+#### Resolvido (9 vulnerabilidades, via `npm audit fix --legacy-peer-deps`)
+- **postcss** (high) — sourceMappingURL path traversal em `from` ausente
+- **js-yaml** (high) — `maxTotalMergeKeys` CPU DoS em fontes vazias
+- **nanoid** (high) — geradores não-seguros em loop com size ≤ 0
+- **qs** (moderate) — array-limit bypass via bracket-key comma parsing
+- **brace-expansion** (high) — ReDoS
+- **browserslist** (high) — ReDoS
+- **baseline-browser-mapping** (moderate) — outdated
+- **@vitest/mocker** (moderate) — outdated
+- **vitest** (moderate) — outdated
+
+#### Pendente (1 vulnerabilidade low — não-bloqueante)
+- **esbuild 0.27.3–0.28.0** (low, dev-only) — leitura arbitrária de arquivo no dev server Windows (GHSA-g7r4-m6w7-qqqr). Não afeta produção (dev-only); upgrade para >=0.28.1 requer `package.json` manual.
+
+#### Workaround aplicado
+- `--legacy-peer-deps`: bug conhecido do npm 10.9.8 com peer deps bleeding-edge (vitest@4.x). Track upstream: https://github.com/npm/cli/issues
+
+#### Validado
+- Typecheck 0 erros
+- 160/160 testes verdes
+- `npm run build` EXIT=0
+- PM2 reiniciado, 3 plataformas online (WhatsApp + Telegram + Discord) às 15:08
+
 ### 🧹 Auditoria + realocação de workspace (Windows dev)
 
 #### Mudado
