@@ -1,4 +1,3 @@
-import { isProtectedTarget } from '../../services/permissions';
 // src/platforms/telegram/TelegramAdapter.ts
 /***
  * Telegram Adapter using Telegraf.
@@ -10,27 +9,81 @@ import { isProtectedTarget } from '../../services/permissions';
 
 import dns from 'dns';
 import https from 'https';
+import { isProtectedTarget } from '../../services/permissions';
 
 // DNS fixo GLOBAL no Node (contorna /etc/resolv.conf quebrado — BUG 36)
 try { dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']); } catch { /* ignore */ }
 
 /**
- * Agent HTTPS que usa systemd-resolved stub (127.0.0.53) para DNS lookups.
- * O node-fetch (usado pelo Telegraf) usa getaddrinfo do sistema, que
- * segue /etc/resolv.conf e falha quando o DNS do PVE/Tailscale (100.100.100.100) cai.
- * Esse agente substitui o lookup default pelo stub systemd-resolved que funciona.
+ * Monkey-patch dns.lookup para usar dns.resolve4(resolve6) em vez de getaddrinfo do sistema.
+ *
+ * MOTIVO: O Node.js chama dns.lookup com options.all=true às vezes (ver Node.js net module),
+ * e nslookup.getaddrinfo do sistema falha com EAI_AGAIN quando /etc/resolv.conf aponta para
+ * 100.100.100.100 que responde SERVFAIL. O dns.resolve4 com 127.0.0.53 (systemd-resolved stub)
+ * funciona corretamente.
+ *
+ * O patch substitui dns.lookup.global por uma versão que:
+ * - Quando options.all=true: retorna Array<{address: string, family: number}>
+ * - Quando options.all=false/undefined: retorna (null, address: string, family: number)
+ */
+function patchDnsLookup(): void {
+  const originalLookup = (dns.lookup as any);
+  // Força todos os lookups Subsequentes via systemd-resolved stub (que funciona).
+  dns.setServers(['127.0.0.53']);
+
+  (dns as any).lookup = function(hostname: string, options: dns.LookupOptions | undefined, callback: (err: NodeJS.ErrnoException | null, address: string | dns.LookupAddress[], family: number) => void): void {
+    if (typeof options === 'function') { callback = options; options = {}; }
+
+    // Se for IPv6 explícito, usar resolve6 (usa any para evitar problemas de tipo com RecordWithTtl)
+    if (options && (options as any).family === 6) {
+      dns.resolve6(hostname, options as any, (err, addrs) => {
+        if (err) {
+          // Fallback para lookup original (usa getaddrinfo do sistema)
+          return (originalLookup as any).call(dns, hostname, options, callback);
+        }
+        if (options && options.all) {
+          // addrs é RecordWithTtl[] — cada item tem .address
+          const result = (addrs as any[]).map((ip: any) => ({ address: ip.address || ip, family: 6 }));
+          callback(null, result, 6);
+        } else {
+          const addr = addrs && addrs[0] ? (addrs[0] as any).address || addrs[0] : null;
+          callback(null, addr, 6);
+        }
+      });
+      return;
+    }
+
+    // Para IPv4 (familia 4 ou não especificada), usar resolve4 (usa any para evitar problemas de tipo com RecordWithTtl)
+    dns.resolve4(hostname, options as any, (err, addrs) => {
+      if (err) {
+        // Fallback para lookup original (usa getaddrinfo do sistema)
+        console.log(`[dns.lookup patch] resolve4 falhou para ${hostname} — usando fallback`);
+        return (originalLookup as any).call(dns, hostname, options, callback);
+      }
+      if (options && options.all) {
+        // addrs é RecordWithTtl[] — cada item tem .address
+        const result = (addrs as any[]).map((ip: any) => ({ address: ip.address || ip, family: 4 }));
+        callback(null, result, 4);
+      } else {
+        const addr = addrs && addrs[0] ? (addrs[0] as any).address || addrs[0] : null;
+        callback(null, addr, 4);
+      }
+    });
+  };
+}
+
+// Aplica o patch ANTES de qualquer import do Telegraf
+patchDnsLookup();
+
+/**
+ * Agent HTTPS — o dns.lookup já está patchado globalmente acima.
  */
 function createDNSSafeAgent(): https.Agent {
-  const agent = new https.Agent({
+  return new https.Agent({
     keepAlive: true,
     keepAliveMsecs: 10000,
     scheduling: 'lifo',
-    // Todo lookup de hostname usa 127.0.0.53 (systemd-resolved stub).
-    lookup: (hostname: string, options: any, callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void) => {
-      dns.lookup(hostname, { servers: ['127.0.0.53'], ...options }, callback);
-    },
   });
-  return agent;
 }
 
 import { Telegraf } from 'telegraf';
