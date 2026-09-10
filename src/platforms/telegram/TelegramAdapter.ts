@@ -1,6 +1,6 @@
 import { isProtectedTarget } from '../../services/permissions';
 // src/platforms/telegram/TelegramAdapter.ts
-/**
+/***
  * Telegram Adapter using Telegraf.
  * Implements the PlatformAdapter interface defined in src/platforms/base/PlatformTypes.ts.
  *
@@ -8,13 +8,30 @@ import { isProtectedTarget } from '../../services/permissions';
  * Isso elimina a race condition onde initialize() esperava um evento que já havia disparado.
  */
 
-// Silencia traces e aplica DNS fixo GLOBALMENTE antes de qualquer import do Telegraf.
-// CONTORNA /etc/resolv.conf quebrado do servidor (BUG 36 / infra do host).
-// O node-fetch que o Telegraf usa para getMe() não usa dns.resolve — resolve via
-// getaddrinfo do sistema, que aqui falha (EAI_AGAIN) quando o DNS do PVE/Tailscale cai.
-// Solução: forçar os Nameservers aqui antes do Telegraf iniciar qualquer requisição.
 import dns from 'dns';
+import https from 'https';
+
+// DNS fixo GLOBAL no Node (contorna /etc/resolv.conf quebrado — BUG 36)
 try { dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']); } catch { /* ignore */ }
+
+/**
+ * Agent HTTPS que usa systemd-resolved stub (127.0.0.53) para DNS lookups.
+ * O node-fetch (usado pelo Telegraf) usa getaddrinfo do sistema, que
+ * segue /etc/resolv.conf e falha quando o DNS do PVE/Tailscale (100.100.100.100) cai.
+ * Esse agente substitui o lookup default pelo stub systemd-resolved que funciona.
+ */
+function createDNSSafeAgent(): https.Agent {
+  const agent = new https.Agent({
+    keepAlive: true,
+    keepAliveMsecs: 10000,
+    scheduling: 'lifo',
+    // Todo lookup de hostname usa 127.0.0.53 (systemd-resolved stub).
+    lookup: (hostname: string, options: any, callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void) => {
+      dns.lookup(hostname, { servers: ['127.0.0.53'], ...options }, callback);
+    },
+  });
+  return agent;
+}
 
 import { Telegraf } from 'telegraf';
 type TgMessage = any;
@@ -30,6 +47,7 @@ import {
   MessageHandler,
 } from '../base/PlatformTypes';
 import { logInfo, logWarning, logError } from '../../services/loggerService';
+
 class TelegramClient implements PlatformClient {
   readonly platform: PlatformType = 'telegram';
   private bot: Telegraf<TgMessage>;
@@ -48,7 +66,13 @@ class TelegramClient implements PlatformClient {
 
   constructor(token: string) {
     this.token = token;
-    this.bot = new Telegraf(token);
+    // Injetar agente DNS-safe no Telegraf para que todas as requisições HTTPS
+    // (getMe, polls, envio de mensagens) usem systemd-resolved para DNS.
+    const dnsAgent = createDNSSafeAgent();
+    this.bot = new Telegraf(token, {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      telegram: { agent: dnsAgent } as any,
+    });
     this.setupEventHandlers();
   }
 

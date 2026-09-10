@@ -2,12 +2,6 @@
 .env
 .env.local
 .env.production
-data/
-logs/
-*.log
-audit.log
-usage.json
-test-report.json
 
 # 🔐 CHAVES E SEGREDO
 *.key
@@ -36,7 +30,7 @@ src/services/discord-screen/client/package-lock.json
 .whatsapp-instance.lock
 scripts/logs/
 
-# �📊 RELATÓRIOS E TEMP
+# 📊 RELATÓRIOS E TEMP
 *.tmp
 *.temp
 .DS_Store
@@ -57,5 +51,10 @@ build/
 backups/
 config/local.json
 config/production.json
+
 # 🗑️ RUNTIME STATE ORFÃO (não versionar)
 src/.pending-messages.json
+
+# 🧪 DIAGNÓSTICOS LOCAIS (descartáveis)
+diag_*.cjs
+temp_*.cjs
