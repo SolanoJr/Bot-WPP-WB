@@ -132,6 +132,9 @@ describe('command-signature — regressão da padronização execute(ctx)', () =
   });
 
   it('shutdown e admin NÃO crasham com ctx.isMaster=true', async () => {
+    const origExit = process.exit;
+    process.exit = vi.fn();
+
     const { loadCommands } = await import('../../src/bot/commands/index');
     const commands = loadCommands();
 
@@ -143,6 +146,8 @@ describe('command-signature — regressão da padronização execute(ctx)', () =
       const ctx = makeCtx({ isMaster: true });
       await expect(cmd?.execute(ctx as any)).resolves.toBeUndefined();
     }
+
+    process.exit = origExit;
   });
 
   it('mute, kick, ban, promover aceitam ctx sem menção (não crasham — recebem resposta)', async () => {

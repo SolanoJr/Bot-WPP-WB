@@ -26,9 +26,19 @@ function makeBaileysAdapter() {
 
   // Injeta um sock mockável sem conectar.
   const mockSock = {
-    store: {
-      messages: {},
-    },
+    waitForMessage: vi.fn(async (jid: string, msgId: string) => {
+      // Fallback do store: quando quotedText não vem, o Baileys v7 usa waitForMessage('', msgId) para
+      // recuperar a mensagem original. Aqui simulamos a recuperação.
+      if (msgId === '123') {
+        return {
+          key: { id: 'original:123', remoteJid: '120363410094452673@g.us', fromMe: true, participant: undefined },
+          message: {
+            extendedTextMessage: { text: 'mensagem do próprio bot (sem quotedText)' },
+          },
+        } as any;
+      }
+      return undefined;
+    }),
     sendMessage: vi.fn(async (jid: string, msg: any) => {
       calls.push({ chatId: jid, text: msg.text || '', options: msg.quoted ? undefined : undefined, ret: undefined });
       return {
@@ -117,13 +127,6 @@ describe('BaileysAdapter — linha de reply (citação de mensagem)', () => {
     // Preenche o store com a mensagem original (para o fallback encontrar).
     // O código extrai quotedId via options.replyToMessageId.split(':').pop() → '123'.
     // Indexamos a store pelo ID puro '123' para o fallback encontrar.
-    const storeMessages = new Map();
-    storeMessages.set('123', {
-      message: {
-        extendedTextMessage: { text: 'mensagem do próprio bot (sem quotedText)' },
-      },
-    });
-    (adapter as any).sock.store = { messages: { '120363410094452673@g.us': storeMessages } };
 
     const chatId = '120363410094452673@g.us';
     const text = 'resposta';

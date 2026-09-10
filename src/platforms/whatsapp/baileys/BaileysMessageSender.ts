@@ -2,7 +2,7 @@
  * Extraído de BaileysAdapter.
  */
 
-import { logInfo, logError } from '../../../services/loggerService';
+import { logInfo, logError, logWarning } from '../../../services/loggerService';
 import { normId, toJid } from './util';
 import type { WAMessageKey } from '@whiskeysockets/baileys';
 import type { MediaPayload, SendOptions, PlatformMessage } from '../../base/PlatformTypes';
@@ -71,24 +71,17 @@ export class BaileysMessageSender {
       const quotedParticipant = options.quotedParticipant ? toJid(options.quotedParticipant) : undefined;
       let quotedText = options.quotedText || '';
 
-      if (!quotedText && this.sock?.store) {
+      if (!quotedText && this.sock) {
         try {
-          const store = this.sock.store as any;
-          const chatMsgs = store.messages?.[jid] || store.messages?.[`${jid}`];
-          const candidates = [
-            chatMsgs?.get?.(quotedId),
-            chatMsgs?.get?.(`${jid}:${quotedId}`),
-            chatMsgs?.[quotedId],
-            chatMsgs?.[`${jid}:${quotedId}`],
-          ];
-          for (const msg of candidates) {
-            if (!msg) continue;
-            const mm = msg.message || msg;
+          // Baileys v7: store.messages não existe; usa waitForMessage para recuperar a mensagem original
+          const foundMsg = await this.sock.waitForMessage(jid, quotedId);
+          if (foundMsg) {
+            const mm = foundMsg.message || foundMsg;
             const t = typeof mm?.conversation === 'string' ? mm.conversation
               : (typeof mm?.extendedTextMessage?.text === 'string' ? mm.extendedTextMessage.text : '');
-            if (t) { quotedText = t; break; }
+            if (t) { quotedText = t; }
           }
-        } catch { /* ignora */ }
+        } catch { /* ignora falha na recuperação */ }
       }
 
       msgOpts.quoted = {
@@ -172,16 +165,14 @@ export class BaileysMessageSender {
     if (!this.sock) return;
     try {
       const msgId = messageId.split(':').pop() || '';
-      const store = this.sock.store as any;
-      const messages = Object.values(store.messages || {});
-      for (const chat of messages as any[]) {
-        const msg = chat?.get?.(msgId) || chat?.[msgId];
-        if (msg) {
-          await this.sock.sendMessage(msg.key.remoteJid, {
-            react: { text: emoji, key: msg.key },
-          });
-          return;
-        }
+      // Baileys v7: sock.store não existe; usa waitForMessage para localizar a mensagem
+      const foundMsg: any = await this.sock.waitForMessage('', msgId);
+      if (foundMsg && foundMsg.key) {
+        await this.sock.sendMessage(foundMsg.key.remoteJid, {
+          react: { text: emoji, key: foundMsg.key },
+        });
+      } else {
+        logWarning('Baileys.react', `mensagem não encontrada para reagir: ${messageId}`);
       }
     } catch (e: any) {
       logError('Baileys.react', e);

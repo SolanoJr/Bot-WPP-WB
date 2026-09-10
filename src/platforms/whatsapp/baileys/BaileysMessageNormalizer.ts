@@ -6,6 +6,7 @@
 import { logInfo, logWarning, logError } from '../../../services/loggerService';
 import { normId, toJid } from './util';
 import type { WAMessage, WAMessageKey } from '@whiskeysockets/baileys';
+import { capture } from '../../../../laboratorio/capture-store';
 
 export interface NormalizedMessage {
   id: string;
@@ -64,6 +65,8 @@ export class BaileysMessageNormalizer {
 
   async dispatchMessage(rawMsg: any): Promise<void> {
     try {
+      capture(rawMsg, this.userId);
+
       // Observação opcional
       await this.runObservation(rawMsg);
 
@@ -219,11 +222,16 @@ export class BaileysMessageNormalizer {
         try {
           // display name do remetente
           let senderName = '';
-          if (this.sock?.store) {
+          // Baileys v7: sock.store não existe; obtém via getChat ou waitForMessage
+          try {
+            const chat = await this.getChat(sender);
+            senderName = chat?.name || chat?.subject || '';
+          } catch { /* ignorar */ }
+          if (!senderName) {
             try {
-              const cts = this.sock.store.contacts || {};
-              const profile = cts[sender] || cts[`${sender}`] || {};
-              senderName = profile.formattedName || profile.notify || profile.verifiedName || '';
+              // Fallback: tenta buscar a mensagem mais recente do remetente
+              const recent = await this.sock.waitForMessage(from, '');
+              if (recent?.pushName) senderName = recent.pushName;
             } catch { /* ignorar */ }
           }
 

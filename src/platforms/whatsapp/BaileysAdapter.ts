@@ -75,6 +75,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
         onClose: (reason, statusCode) => this.handleClose(reason, statusCode),
         onCredsUpdate: () => this.handleCredsUpdate(),
         onDisconnected: (reason) => this.handleDisconnected(reason),
+        onMessagesUpsert: (messages) => this.handleMessagesUpsert(messages),
       },
       this.platform
     );
@@ -350,6 +351,12 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
     this.disconnectedHandler?.(reason);
   }
 
+  private async handleMessagesUpsert(messages: any[]): Promise<void> {
+    for (const message of messages) {
+      await this.normalizer?.dispatchMessage(message);
+    }
+  }
+
   private async handleMutedCheck(normMsg: any) {
     const muted = await handleMutedMessage({
       chatId: normMsg.chatId,
@@ -369,11 +376,15 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
       void (async () => {
         try {
           let senderName = '';
-          if (this.connection.getSock()?.store) {
+          // Baileys v7: sock.store não existe; obtém display name via getChat/getContactById
+          try {
+            const u = await this.getContactById(normMsg.userId);
+            senderName = u?.formattedName || u?.notify || u?.verifiedName || u?.name || '';
+          } catch { /* ignorar */ }
+          if (!senderName) {
             try {
-              const cts = this.connection.getSock()?.store?.contacts || {};
-              const profile = cts[normMsg.userId] || cts[`${normMsg.userId}`] || {};
-              senderName = profile.formattedName || profile.notify || profile.verifiedName || '';
+              const recent = await this.connection.getSock()?.waitForMessage(normMsg.chatId, '');
+              if (recent?.pushName) senderName = recent.pushName;
             } catch { /* ignorar */ }
           }
           await evaluate(
@@ -382,7 +393,9 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
               sock: this.connection.getSock(),
               userId: this.userId,
               groupName: normMsg.chatId.endsWith('@g.us')
-                ? (this.connection.getSock()?.store?.chats?.[normMsg.chatId]?.subject || normMsg.chatId)
+                ? (await this.getChat(normMsg.chatId))?.name
+                  || (await this.getChat(normMsg.chatId))?.subject
+                  || normMsg.chatId
                 : normMsg.chatId,
               getChat: async (jid: string) => {
                 try {
