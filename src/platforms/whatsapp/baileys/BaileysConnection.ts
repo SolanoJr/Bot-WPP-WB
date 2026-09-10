@@ -86,7 +86,11 @@ export class BaileysConnection {
     // múltiplos arquivos de auth (creds, keys, etc.) dentro desse diretório.
     const authDir = this.authDir;
 
+    logInfo(`[Baileys DEBUG] authDir=${authDir} (exists=${fs.existsSync(authDir)})`);
+
     const { state: driverState, saveCreds } = await useMultiFileAuthState(authDir);
+
+    logInfo(`[Baileys DEBUG] driverState=${driverState ? 'EXISTS' : 'UNDEFINED'} creds=${driverState?.creds ? 'OK' : 'MISSING'}`);
 
     const baileysLogger = {
       debug: () => {},
