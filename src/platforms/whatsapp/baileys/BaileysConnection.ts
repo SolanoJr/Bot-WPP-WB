@@ -94,13 +94,20 @@ export class BaileysConnection {
 
     const { state: driverState, saveCreds } = await useMultiFileAuthState(credsPath);
 
+    const baileysLogger = {
+      debug: () => {},
+      info: () => {},
+      warn: (m: string) => logWarning(`[Baileys] ${m}`),
+      error: (m: string) => logError('Baileys.auth', new Error(m)),
+      child: (props: any) => {
+        // Baileys v7 chama logger.child({ ...props }) e usa o retorno.
+        // Retorna o mesmo logger (nossos logs já estão categorizados via prefixo).
+        return baileysLogger;
+      },
+    };
+
     const driver = makeWASocket({
-      logger: {
-        debug: () => {},
-        info: () => {},
-        warn: (m: string) => logWarning(`[Baileys] ${m}`),
-        error: (m: string) => logError('Baileys.auth', new Error(m)),
-      } as any,
+      logger: baileysLogger,
       trustProxy: true,
       qrTimeout: 120000,
     } as any) as any;
