@@ -8,6 +8,14 @@ import { isProtectedTarget } from '../../services/permissions';
  * Isso elimina a race condition onde initialize() esperava um evento que já havia disparado.
  */
 
+// Silencia traces e aplica DNS fixo GLOBALMENTE antes de qualquer import do Telegraf.
+// CONTORNA /etc/resolv.conf quebrado do servidor (BUG 36 / infra do host).
+// O node-fetch que o Telegraf usa para getMe() não usa dns.resolve — resolve via
+// getaddrinfo do sistema, que aqui falha (EAI_AGAIN) quando o DNS do PVE/Tailscale cai.
+// Solução: forçar os Nameservers aqui antes do Telegraf iniciar qualquer requisição.
+import dns from 'dns';
+try { dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']); } catch { /* ignore */ }
+
 import { Telegraf } from 'telegraf';
 type TgMessage = any;
 import {
