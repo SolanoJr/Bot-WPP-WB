@@ -16,6 +16,7 @@ module.exports = {
     env_file: '/home/solanojr/bot-wpp/.env',
     env: {
       NODE_ENV: 'production',
+      WPP_AUTH_DIR: 'sessions/558581344211',
       // O PM2 já sobe o discord-screen como processo próprio — o bot não deve
       // gerar um segundo server filho na mesma porta (ver DiscordScreenService).
       DISCORD_SCREEN_EXTERNAL: 'true'
