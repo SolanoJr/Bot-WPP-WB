@@ -105,7 +105,7 @@ export class BaileysConnection {
     };
 
     const driver = makeWASocket({
-      state: driverState,
+      auth: driverState,
       logger: baileysLogger,
       trustProxy: true,
       qrTimeout: 120000,
