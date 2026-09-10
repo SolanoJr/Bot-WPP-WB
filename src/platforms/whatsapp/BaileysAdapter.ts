@@ -3,6 +3,9 @@
  *
  * Força DNS confiável (8.8.8.8/1.1.1.1) no processo Node para contornar
  * /etc/resolv.conf quebrado do sistema (BUG 36 / infra do host).
+ *
+ * Adapter refatorado: orquestra módulos especializados (Connection, Normalizer, Sender, Chat, Member, Health).
+ * O arquivo original de 779 linhas foi dividido em 6 módulos coesos + este orquestrador (~100 linhas).
  */
 
 import dns from 'dns';
@@ -13,7 +16,6 @@ try {
 // Silencia Baileys traces GLOBALMENTE (antes de qualquer import do Baileys)
 const originalTrace = console.trace;
 console.trace = (...args: any[]) => {
-  // Ignora traces do Baileys (contém "loading from store" ou "updated cache")
   const msg = args.join(' ');
   if (msg.includes('loading from store') || msg.includes('updated cache')) {
     return;
@@ -21,68 +23,19 @@ console.trace = (...args: any[]) => {
   originalTrace.apply(console, args);
 };
 
-import makeWASocket, {
-  DisconnectReason,
-  useMultiFileAuthState,
-  fetchLatestBaileysVersion,
-  makeCacheableSignalKeyStore,
-  type WAMessageKey,
-  type WAMessage,
-} from '@whiskeysockets/baileys';
-import pino from 'pino';
-import { Boom } from '@hapi/boom';
-import path from 'path';
-import fs from 'fs';
-import { platformManager } from '../PlatformManager';
-import { setWppHealth } from '../../services/healthStore';
+import { PlatformClient, PlatformAdapter, PlatformMessage, PlatformChat, PlatformUser, PlatformType, SendOptions, MediaPayload, MessageHandler } from '../base/PlatformTypes';
 import { logInfo, logWarning, logError } from '../../services/loggerService';
-
-// Tipos da interface unificada
-import {
-  PlatformClient,
-  PlatformAdapter,
-  PlatformMessage,
-  PlatformChat,
-  PlatformUser,
-  PlatformType,
-  SendOptions,
-  MediaPayload,
-  MessageHandler,
-} from '../base/PlatformTypes';
-
-// ⚠️ NÃO defina MASTER_LID aqui com fallback hardcoded: '2592935567439@lid' é o
-// LID do PRÓPRIO BOT (provado no log: myPN=558581344211 / myLID=2592935567439).
-// O destino do dono é resolvido por getOwnerNotifyTarget(), que blinda esse caso
-// e nunca devolve o identificador do bot.
-import { getOwnerNotifyTarget } from '../../services/permissions';
-import { isProtectedTarget } from '../../services/permissions';
+import { setWppHealth, WppHealth } from '../../services/healthStore';
+import { getOwnerNotifyTarget, isProtectedTarget } from '../../services/permissions';
 import { handleMutedMessage } from '../../bot/commands/mute';
+import { normId, toJid } from './baileys/util';
 
-// Converte ID do Baileys para formato interno.
-// ⚠️ A versão anterior fazia `.replace(/:/, '@')`, o que transformava
-// '558581344211:60@s.whatsapp.net' em '558581344211@60@s.whatsapp.net' (ID
-// inválido). O correto é DESCARTAR o sufixo de device e preservar o domínio.
-export function normId(id: string): string {
-  if (!id) return '';
-  // Remove prefixo de plataforma (wpp:, tg:, dc:) antes de processar
-  const clean = String(id).replace(/^(wpp:|tg:|dc:)/, '');
-  const s = clean;
-  const at = s.indexOf('@');
-  if (at === -1) return s.split(':')[0];
-  const user = s.slice(0, at).split(':')[0];
-  const domain = s.slice(at);
-  // @s.whatsapp.net é o domínio interno do Baileys; o resto do sistema usa @c.us.
-  return `${user}${domain === '@s.whatsapp.net' ? '@c.us' : domain}`;
-}
-
-export function toJid(id: string): string {
-  // Remove prefixo de plataforma (wpp:, tg:, dc:) antes de processar
-  const clean = String(id).replace(/^(wpp:|tg:|dc:)/, '');
-  // PlatformMessage usa @c.us / @g.us / @lid; Baileys quer @s.whatsapp.net / @g.us / @lid
-  if (clean.includes('@g.us')) return clean;
-  if (clean.includes('@lid')) return clean; // Baileys v7 entende @lid diretamente
-  return clean.replace('@c.us', '@s.whatsapp.net');
-}
+import { BaileysConnection } from './baileys/BaileysConnection';
+import { BaileysMessageNormalizer } from './baileys/BaileysMessageNormalizer';
+import { BaileysMessageSender } from './baileys/BaileysMessageSender';
+import { BaileysChatManager } from './baileys/BaileysChatManager';
+import { BaileysMemberManager } from './baileys/BaileysMemberManager';
+import { BaileysHealth } from './baileys/BaileysHealth';
 
 export class BaileysAdapter implements PlatformAdapter, PlatformClient {
   platform: PlatformType = 'whatsapp';
@@ -91,663 +44,198 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
   isReady = false;
   readonly client: PlatformClient = this;
 
-  private sock: any = null;
+  // Submodules
+  private connection!: BaileysConnection;
+  private normalizer!: BaileysMessageNormalizer;
+  private sender!: BaileysMessageSender;
+  private chatManager!: BaileysChatManager;
+  private memberManager!: BaileysMemberManager;
+  private health!: BaileysHealth;
+
+  // State (delegated to connection)
+  private _sock: any = null;
   private authDir: string;
   private msgHandler: MessageHandler | null = null;
   private readyHandler: (() => void) | null = null;
   private disconnectedHandler: ((reason: string) => void) | null = null;
-  private lastActivityTs = Date.now();
-  private lastConnectAttemptTs = Date.now();
-  private qrPending = false;
-  private reconnectTimer: any = null;
-  private _loggedOutNotified = false;
 
   constructor(opts: { authDir?: string; platform?: string } = {}) {
     this.authDir = opts.authDir
-      ? path.join(process.cwd(), opts.authDir)
-      : path.join(process.cwd(), process.env.WPP_AUTH_DIR || 'sessions');
+      ? require('path').join(process.cwd(), opts.authDir)
+      : require('path').join(process.cwd(), process.env.WPP_AUTH_DIR || 'sessions');
+
     if (opts.platform) this.platform = opts.platform as PlatformType;
-    if (!fs.existsSync(this.authDir)) fs.mkdirSync(this.authDir, { recursive: true });
-  }
 
-  async initialize(): Promise<void> {
-    return this.connect();
-  }
-
-  // ============================================================
-  // CONEXÃO
-  // ============================================================
-  private async connect(): Promise<void> {
-    this.lastConnectAttemptTs = Date.now();
-    logInfo(`[Baileys] 🚀 Iniciando conexão (authDir=${this.authDir})...`);
-    try {
-      const { state, saveCreds } = await useMultiFileAuthState(this.authDir);
-      const { version } = await fetchLatestBaileysVersion();
-
-      // Logger silencioso para Baileys (evita poluição de logs com traces)
-      const pino = (await import('pino')).default;
-      const baileysLogger = pino({ level: process.env.BAILEYS_LOG_LEVEL || 'silent' });
-
-      this.sock = makeWASocket({
-        version,
-        auth: {
-          creds: state.creds,
-          keys: makeCacheableSignalKeyStore(state.keys, baileysLogger),
-        },
-        logger: baileysLogger, // P0: Silencia traces "loading from store", "updated cache"
-        printQRInTerminal: true,
-        connectTimeoutMs: 120000,
-        keepAliveIntervalMs: 30000,
-        // ⚠️ NÃO definir `browser` custom: o user-agent ['Ubuntu','Chrome','20.0.0']
-        // fazia o servidor WA tratar a sessão como companion "mudo" (não entregava
-        // messages.upsert de terceiros). Com config mínima, o bot recebe msgs normalmente.
-        emitOwnEvents: true,
-      });
-
-      // ---- handlers de evento ----
-      this.sock.ev.on('connection.update', async (update: any) => {
-        const { connection, qr, lastDisconnect, isNewLogin } = update;
-        if (qr) {
-          this.qrPending = true;
-          this.getHealth();
-          logInfo(`[Baileys] 📱 QR recebido — enviando ao dono...`);
-          this.sendQrToOwner(qr);
-        }
-        if (connection === 'open') {
-          this.isReady = true;
-          this.qrPending = false;
-          this.lastActivityTs = Date.now();
-          this.userId = this.sock.user?.id || '';
-          this.userName = this.sock.user?.name || 'Bot-WPP';
-          logInfo(`[Baileys] ✅ Conectado como ${this.userName} (${this.userId})`);
-          this.notifyOwner(`✅ *WPP reconectado* (Baileys) como ${this.userName}. Bot operante.`).catch(() => {});
-          this.getHealth();
-          this.readyHandler?.();
-          // AUTO-TESTE sob demanda: só dispara se WPP_AUTOSELFTEST=1 (evita encher grupo no boot).
-          if (process.env.WPP_AUTOSELFTEST === '1') {
-            const alvoTesteBaileys = process.env.WPP_TEST_GROUP_ID || '';
-            if (alvoTesteBaileys) {
-              import('../../../laboratorio/selftest.js').then((mod) => {
-                setTimeout(() => mod.runSelfTestMod(this as any, alvoTesteBaileys).catch(() => {}), 6000);
-              }).catch(() => {});
-            }
-          }
-        }
-        if (connection === 'close') {
-          this.isReady = false;
-          this.getHealth();
-          const reason = lastDisconnect?.error?.message || 'unknown';
-          logInfo(`[Baileys] 🔌 Conexão fechada: ${reason}`);
-          this.disconnectedHandler?.(reason);
-          const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
-          if (statusCode === DisconnectReason.loggedOut) {
-            logInfo(`[Baileys] 🚪 Deslogado — precisa escanear QR novamente.`);
-            // Notifica o dono UMA vez e para de reconectar em loop.
-            // O servidor WA invalidou a sessão — sem novo QR, reconectar não resolve.
-            // printQRInTerminal=false, então o QR não aparece no terminal.
-            // O dono precisa escanear o QR que será enviado via sendQrToOwner().
-            if (!this._loggedOutNotified) {
-              this._loggedOutNotified = true;
-              this.notifyOwner(`🚪 *Sessão WhatsApp encerrada*\nO servidor desconectou o bot (sessão expirada).\n\n⚠️ Novo QR code necessário. Reconnectando em 30s para gerar...`).catch(() => {});
-              // Força re-init completo após 30s para gerar novo QR
-              setTimeout(() => {
-                logInfo(`[Baileys] 🔄 Reconectando (loggedOut - tentativa única)...`);
-                this.connect();
-              }, 30000);
-            } else {
-              logInfo(`[Baileys] ⏸️ loggedOut já notificado — aguardando QR manual. Não reconectando em loop.`);
-            }
-          } else if (reason.includes('Stream Errored') || reason.includes('conflict')) {
-            // Sessão inválida no servidor — força re-init completo do socket
-            logInfo(`[Baileys] 🔄 Stream Errored — forçando re-init completo...`);
-            try { this.sock?.end?.(new Error('force-reinit')); } catch {}
-            // Reconecta após breve delay
-            setTimeout(() => {
-              logInfo(`[Baileys] 🔄 Reconectando...`);
-              this.connect();
-            }, 2000);
-          } else if (reason.includes('Connection Failure') || reason.includes('Timed Out') || reason.includes('socket hang up')) {
-            // Falha de handshake/rede — reconecta com backoff
-            logInfo(`[Baileys] 🔄 ${reason} — reconectando em 5s...`);
-            this.notifyOwner(`⚠️ *WhatsApp desconectado*: ${reason}\nReconectando automaticamente...`).catch(() => {});
-            setTimeout(() => {
-              logInfo(`[Baileys] 🔄 Reconectando (connection failure)...`);
-              this.connect();
-            }, 5000);
-          } else {
-            // Qualquer outro motivo não mapeado — tenta reconectar com backoff longo
-            logInfo(`[Baileys] ⚠️ Desconhecido (${reason}) — reconectando em 10s...`);
-            setTimeout(() => {
-              logInfo(`[Baileys] 🔄 Reconectando (unknown reason)...`);
-              this.connect();
-            }, 10000);
-          }
-        }
-      });
-
-      this.sock.ev.on('creds.update', saveCreds);
-
-      // MODERAÇÃO DE ENTRADA (ban persistente, antibots, boas-vindas).
-      // Antes isso existia SÓ no WhatsAppAdapter (WWebJS/legado), então com
-      // o engine Baileys nada disso rodava em produção. Agora o Baileys cobre tudo.
-      this.sock.ev.on('group-participants.update', async (ev: any) => {
-        try {
-          if (ev?.action !== 'add') return;
-          const { handleMemberJoin } = await import('../../services/memberJoinService.js');
-          await handleMemberJoin(
-            {
-              removeParticipant: (groupId: string, userId: string) => this.removeParticipant(groupId, userId),
-              sendMessage: ((groupId: string, text: string) =>
-                this.sendMessage(groupId, text)) as any,
-            },
-            {
-              groupId: normId(ev.id),
-              members: (ev.participants || []).map((p: string) => normId(p)),
-            }
-          );
-        } catch (e: any) {
-          logError('[Baileys] erro em group-participants.update:', e?.message);
-        }
-      });
-
-      // TEMP: verifica se a citacao foi aplicada pelo servidor WA
-      this.sock.ev.on('messages.update', (updates: any) => {
-        for (const u of updates || []) {
-          const ctxInfo = u?.update?.message?.extendedTextMessage?.contextInfo
-            || u?.message?.extendedTextMessage?.contextInfo;
-          if (ctxInfo?.quotedMessage) {
-            logInfo(`[DBG-update] CITACAO APLICADA id=${u?.key?.id} texto="${String(ctxInfo.quotedMessage?.conversation || ctxInfo.quotedMessage?.extendedTextMessage?.text || '').slice(0,20)}"`);
-          }
-        }
-      });
-
-      this.sock.ev.on('messages.upsert', (m: any) => {
-        this.lastActivityTs = Date.now();
-        try {
-          for (const msg of m.messages || []) {
-            if (m.type === 'notify' || m.type === 'append') {
-              // ── FASE 1: Captura persistente do WAMessageKey COMPLETA antes da normalização ──
-              // Captura TODAS as mensagens que chegarem via messages.upsert
-              // (não depende de WPP_OBSERVATION_MODE — é sempre ativo para diagnóstico)
-              try {
-                  const caps = require('../../laboratorio/capture-store.js');
-                  if (caps && typeof caps.capture === 'function') {
-                    caps.capture(msg, this.userId);
-                  }
-              } catch { /* módulo não disponível */ }
-
-              this.dispatchMessage(msg);
-            }
-          }
-        } catch (e: any) {
-          logError('Baileys.messages.upsert', e);
-        }
-      });
-    } catch (e: any) {
-      logError('Baileys.connect', e);
-    }
-  }
-
-  // ============================================================
-  // NORMALIZAÇÃO DE MENSAGEM
-  // ============================================================
-  private async dispatchMessage(msg: any): Promise<void> {
-    try {
-      // ── Laboratório de observação: captura evento bruto ANTES da normalização ──
+    // Initialize submodules
+    this.connection = new BaileysConnection(
+      this.authDir,
       {
-        const OBSERVATION_MODE = process.env.WPP_OBSERVATION_MODE === '1';
-        if (OBSERVATION_MODE) {
-          try {
-            const obs = require('../../laboratorio/observer.js');
-            if (obs && typeof obs.callObserverHook === 'function') {
-              let groupForObs = '';
-              let isGroupMsg = false;
-              const remoteJid = msg.key?.remoteJid || '';
-              const isRemoteGroup = remoteJid.endsWith('@g.us');
-              if (isRemoteGroup) {
-                // Grupo padrão: remoteJid é o grupo, participant é o remetente
-                groupForObs = remoteJid;
-                isGroupMsg = true;
-              } else if (msg.key?.participant && msg.key.participant.endsWith('@g.us')) {
-                // Grupo LID: remoteJid = LID do remetente, participant = grupo
-                groupForObs = msg.key.participant;
-                isGroupMsg = true;
-              }
-              if (isGroupMsg && groupForObs) {
-                obs.callObserverHook({
-                  rawMsg: msg,
-                  groupJid: groupForObs,
-                  senderJid: msg.key?.participant || remoteJid,
-                  fromMe: !!msg.key?.fromMe,
-                  pushName: msg.pushName || '',
-                  messageTimestamp: msg.messageTimestamp,
-                  eventType: 'messages.upsert',
-                });
-              }
-            }
-          } catch { /* observação opcional — não falha se módulo não existir */ }
-        }
-      }
+        onQR: (qr) => this.handleQR(qr),
+        onOpen: () => this.handleOpen(),
+        onClose: (reason, statusCode) => this.handleClose(reason, statusCode),
+        onCredsUpdate: () => this.handleCredsUpdate(),
+        onDisconnected: (reason) => this.handleDisconnected(reason),
+      },
+      this.platform
+    );
 
-      const hasStub = msg.messageStubType || (Array.isArray(msg.messageStubParameters) && msg.messageStubParameters.length > 0);
-      if (hasStub) { return; }
-      const m = msg.message || {};
-      const key: WAMessageKey = msg.key;
-      const remoteJid = key.remoteJid || '';
-      const isGroup = remoteJid.endsWith('@g.us');
-      const fromMe = !!key.fromMe;
-      // No Baileys rc14 com sessao LID, mensagens de grupo podem chegar com
-      // key.remoteJid = LID do usuario e key.participant = JID do grupo.
-      // O chat real é: grupo se remoteJid é @g.us, senao o participant (se for @g.us), senao o remoteJid.
-      let chatJid: string;
-      let senderJid: string;
-      if (isGroup) {
-        chatJid = remoteJid;
-        senderJid = key.participant || remoteJid;
-      } else if (key.participant && key.participant.endsWith('@g.us')) {
-        // Mensagem de grupo entregue com remoteJid = LID e participant = grupo
-        chatJid = key.participant;
-        senderJid = remoteJid;
-      } else {
-        chatJid = remoteJid;
-        senderJid = fromMe ? this.userId : (key.participant || remoteJid);
-      }
-      const from = chatJid;
-      const participant = senderJid;
-      const sender = senderJid;
-
-      // Extrai texto (suporta text, extendedText, conversation, caption)
-      let body = '';
-      if (typeof m.conversation === 'string') body = m.conversation;
-      else if (typeof m.extendedTextMessage?.text === 'string') body = m.extendedTextMessage.text;
-      else if (typeof m.imageMessage?.caption === 'string') body = m.imageMessage.caption;
-      else if (typeof m.videoMessage?.caption === 'string') body = m.videoMessage.caption;
-      else if (typeof m.buttonsMessage?.contentText === 'string') body = m.buttonsMessage.contentText;
-      else if (typeof m.listResponseMessage?.title === 'string') body = m.listResponseMessage.title;
-      else if (typeof m.templateButtonReplyMessage?.selectedDisplayText === 'string')
-        body = m.templateButtonReplyMessage.selectedDisplayText;
-
-      // Mensagem sem texto extraível (ex: histórico criptografado, áudio, sticker) → ignora
-      if (!body || !body.trim()) return;
-
-      const mentioned = m.extendedTextMessage?.contextInfo?.mentionedJidList ||
-        m.imageMessage?.contextInfo?.mentionedJidList || [];
-      const cinfo = m.extendedTextMessage?.contextInfo || m.imageMessage?.contextInfo || {};
-      const quoted = cinfo.quotedMessage;
-      const quotedKey = quoted ? cinfo.stanzaId : undefined;
-      // Metadados da mensagem citada (quem a enviou) — essenciais para o reply
-      // re-citar corretamente no Baileys.
-      const quotedFromMe = !!(quoted && (fromMe || cinfo.participant === undefined || cinfo.participant === this.userId || cinfo.participant === normId(this.userId)));
-      const quotedParticipant = cinfo.participant
-        ? normId(cinfo.participant)
-        : (quotedFromMe ? normId(this.userId) : undefined);
-      // Texto da mensagem citada — o Baileys PRECISA do conteúdo real da msg
-      // original para montar a citação (senão manda solto).
-      const quotedText = typeof quoted?.conversation === 'string'
-        ? quoted.conversation
-        : (typeof quoted?.extendedTextMessage?.text === 'string' ? quoted.extendedTextMessage.text : '');
-      logInfo(`[DBG-disp] citação: existe=${!!quoted} texto="${quotedText}"`);
-
-      const platformMsg: PlatformMessage = {
-              id: `${this.platform}:${key.id}`,
-              platform: this.platform,
-              chatId: normId(from),
-              userId: normId(sender),
-              userName: '',
-              text: body,
-              timestamp: msg.messageTimestamp ? new Date(Number(msg.messageTimestamp) * 1000) : new Date(),
-              isFromMe: fromMe,
-              isCommand: body.startsWith('$'),
-              mentions: mentioned.map((x: string) => ({ id: normId(x), name: '', isBot: false, platform: this.platform, raw: {} })),
-              replyToMessageId: quotedKey ? `${this.platform}:${quotedKey}` : undefined,
-              quotedFromMe,
-              quotedParticipant,
-              quotedText,
-              hasMedia: false,
-              raw: msg,
-              correlationId: `msg-${key.id}-${Date.now()}`,
-            };
-      const muted = await handleMutedMessage({
-        chatId: normId(from),
-        userId: normId(sender),
-        raw: {
-          delete: async () => {
-            await this.sock?.sendMessage(from, { delete: key });
-          },
-        },
-      });
-      if (muted) return;
-      this.msgHandler?.(platformMsg);
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      // MODERAÇÃO AUTOMÁTICA (tempo real) — fire-and-forget, não bloqueia
-      // o caminho crítico de despacho de comandos.
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      try {
-        const { evaluate } = await import('../../services/autoModEngine.js');
-        void (async () => {
-          try {
-            // display name do remetente (do store local do Baileys)
-            let senderName = '';
-            if (this.sock?.store) {
-              try {
-                const cts = this.sock.store.contacts || {};
-                const profile = cts[sender] || cts[`${sender}`] || {};
-                senderName = profile.formattedName || profile.notify || profile.verifiedName || '';
-              } catch { /* ignorar */ }
-            }
-            await evaluate(
-              msg,
-              {
-                sock: this.sock,
-                userId: this.userId,
-                groupName: from.endsWith('@g.us') ? (this.sock?.store?.chats?.[from]?.subject || from) : from,
-                getChat: async (jid) => {
-                  try {
-                    const res = await this.getChat(jid);
-                    return { participants: (res?.participants || []).map((p: any) => p?.id || p), id: res?.id || jid, subject: res?.name };
-                  } catch { return null; }
-                },
-                sendMessage: async (jid, text, opts) => {
-                  try { await this.sendMessage(jid, text, opts); return {} as any; } catch { return null as any; }
-                },
-                removeParticipant: async (g, u) => {
-                  try { await this.removeParticipant(g, u); } catch { /* ignorar */ }
-                },
-                log: console.log.bind(console),
-                warn: console.warn.bind(console),
-                error: console.error.bind(console),
-              },
-              from,
-              sender,
-              senderName,
-            );
-          } catch (err: any) {
-            logWarning('[Baileys] autoModEngine.evaluate falhou:', err?.message);
-          }
-        })();
-      } catch (err: any) {
-        logWarning('[Baileys] não foi possível carregar autoModEngine:', err?.message);
-      }
-      // ── fim autoMod ──────────────────────────────────────────────────────
-      this.getHealth();
-    } catch (e: any) {
-      logError('Baileys.normalizeMsg', e);
-    }
-  }
-
-  // ============================================================
-  // REAÇÃO
-  // ============================================================
-  async react(messageId: string, emoji: string): Promise<void> {
-    if (!this.sock) return;
-    try {
-      const msgId = messageId.split(':').pop() || '';
-      // Buscar a mensagem no store para obter a key
-      const store = this.sock.store as any;
-      const messages = Object.values(store.messages || {});
-      for (const chat of messages as any[]) {
-        const msg = chat?.get?.(msgId) || chat?.[msgId];
-        if (msg) {
-          await this.sock.sendMessage(msg.key.remoteJid, {
-            react: { text: emoji, key: msg.key },
-          });
-          return;
-        }
-      }
-    } catch (e: any) {
-      logError('Baileys.react', e);
-    }
-  }
-  async sendMessage(chatId: string, text: string, options?: any): Promise<PlatformMessage> {
-    if (!this.sock) throw new Error('Baileys não conectado');
-    const jid = toJid(chatId);
-    const msgOpts: any = { text };
-
-    // Suporte a exclusão de mensagem (usado pelo $delete e pelo autoMod silencioso):
-    // sendMessage(jid, '', { delete: { id, fromMe, participant } })
-    if (options?.delete) {
-      const del = options.delete;
-      const deleteMsg: any = { id: del.id, fromMe: !!del.fromMe };
-      if (del.participant) deleteMsg.participant = toJid(del.participant);
-      const res = await this.sock.sendMessage(jid, { delete: deleteMsg });
-      return {
-        id: `${this.platform}:${res.key?.id || del.id}`,
-        platform: this.platform,
-        chatId: normId(jid),
-        userId: this.userId,
-        userName: '',
-        text: '',
-        isFromMe: true,
-        isCommand: false,
-        hasMedia: false,
-        timestamp: new Date(),
-        raw: res,
-      };
-    }
-
-    if (options?.replyToMessageId) {
-      const quotedId = options.replyToMessageId.split(':').pop();
-      // fromMe/participant da mensagem ORIGINAL citada (não do bot). Quando o
-      // humano marca uma msg de OUTRO e o bot responde, o quoted.key.fromMe deve
-      // refletir a msg original — senão o WA rejeita a citação e a resposta some.
-      const quotedFromMe = options.quotedFromMe ?? false;
-      const quotedParticipant = options.quotedParticipant ? toJid(options.quotedParticipant) : undefined;
-      let quotedText = options.quotedText || '';
-      // Se o quotedText não veio (ex: echo do próprio bot não traz quotedMessage),
-      // tenta recuperar a msg citada do store local do Baileys pelo id.
-      if (!quotedText && this.sock?.store) {
-        try {
-          const store = this.sock.store as any;
-          const chatMsgs = store.messages?.[jid] || store.messages?.[`${jid}`];
-          const candidates = [
-            chatMsgs?.get?.(quotedId),
-            chatMsgs?.get?.(`${jid}:${quotedId}`),
-            chatMsgs?.[quotedId],
-            chatMsgs?.[`${jid}:${quotedId}`],
-          ];
-          for (const msg of candidates) {
-            if (!msg) continue;
-            const mm = msg.message || msg;
-            const t = typeof mm?.conversation === 'string' ? mm.conversation
-              : (typeof mm?.extendedTextMessage?.text === 'string' ? mm.extendedTextMessage.text : '');
-            if (t) { quotedText = t; break; }
-          }
-        } catch { /* ignora */ }
-      }
-      msgOpts.quoted = {
-        key: { id: quotedId, remoteJid: jid, fromMe: quotedFromMe, participant: quotedFromMe ? undefined : quotedParticipant },
-        message: { conversation: quotedText, extendedTextMessage: { text: quotedText } },
-      };
-      logInfo(`[DBG-quoted] enviando quoted: ${JSON.stringify(msgOpts.quoted.key)} fromMe=${quotedFromMe} text="${quotedText.slice(0,20)}" recoverStore=${!options.quotedText && !!quotedText}`);
-    }
-    // Suporte a citar mensagem arbitrária (usado pelo selftest e por comandos):
-    // sendMessage(jid, text, { quoteMessage: { id, remoteJid, participant, fromMe } })
-    if (options?.quoteMessage) {
-      const q = options.quoteMessage;
-      const quotedParticipant = q.participant ? toJid(q.participant) : (q.fromMe ? toJid(this.userId) : undefined);
-      msgOpts.quoted = {
-        key: {
-          id: q.id,
-          remoteJid: q.remoteJid ? toJid(q.remoteJid) : jid,
-          participant: quotedParticipant,
-          fromMe: !!q.fromMe,
-        },
-        message: q.message || { conversation: '' },
-        participant: quotedParticipant,
-      };
-    }
-    if (options?.mentionedIds?.length) {
-      msgOpts.mentions = (options.mentionedIds as string[]).map((x: string) => toJid(x));
-    }
-    const sendTs = Date.now();
-    const res = await this.sock.sendMessage(jid, msgOpts);
-    const sentTs = Date.now();
-    return {
-      id: `${this.platform}:${res.key.id}`,
+    this.normalizer = new BaileysMessageNormalizer({
+      sock: null, // set after connect
       platform: this.platform,
-      chatId: normId(jid),
       userId: this.userId,
-      userName: '',
-      text,
-      isFromMe: true,
-      isCommand: false,
-      hasMedia: false,
-      timestamp: new Date(),
-      raw: res,
-    };
-  }
+      getChat: (jid) => this.getChat(jid),
+      sendMessage: (jid, text, opts) => this.sendMessage(jid, text, opts),
+      removeParticipant: (g, u) => this.removeParticipant(g, u),
+    });
 
-  async sendMedia(chatId: string, media: MediaPayload, caption?: string, options?: SendOptions): Promise<PlatformMessage> {
-    if (!this.sock) throw new Error('Baileys não conectado');
-    const jid = toJid(chatId);
-    const msgOpts: any = { caption: caption || '' };
-    if (options?.sendAudioAsVoice && media.type === 'audio') msgOpts.ptt = true;
-    if (typeof media.data === 'string' && fs.existsSync(media.data)) {
-      msgOpts[media.type] = fs.readFileSync(media.data);
-      if (media.filename) msgOpts.mimetype = media.mimetype;
-    } else if (Buffer.isBuffer(media.data)) {
-      msgOpts[media.type] = media.data;
-    } else {
-      msgOpts[media.type] = { url: media.data as string };
-    }
-    const res = await this.sock.sendMessage(jid, msgOpts);
-    return {
-      id: `${this.platform}:${res.key.id}`,
+    this.sender = new BaileysMessageSender({
+      sock: null, // set after connect
       platform: this.platform,
-      chatId: normId(jid),
       userId: this.userId,
-      userName: '',
-      text: caption || '',
-      isFromMe: true,
-      isCommand: false,
-      hasMedia: true,
-      timestamp: new Date(),
-      raw: res,
-    };
-  }
+      userName: this.userName,
+      getNumberId: (phone) => this.getNumberId(phone),
+      getContactById: (id) => this.getContactById(id),
+    });
 
-  // ============================================================
-  // CHATS / USUÁRIOS
-  // ============================================================
-  async getChat(chatId: string): Promise<PlatformChat> {
-    const jid = toJid(chatId);
-    // Timeout: o groupMetadata vai no servidor WA que pode estar lento.
-    // Se não responder em 5s, segue sem metadados (não trava o comando).
-    const withTimeout = <T>(p: Promise<T>, ms: number): Promise<T | null> =>
-      Promise.race([
-        p,
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
-      ]);
-    const metadata = await withTimeout<any>(this.sock.groupMetadata(jid).catch(() => null), 5000);
-    return {
-      id: normId(jid),
+    this.chatManager = new BaileysChatManager({
+      sock: null,
       platform: this.platform,
-      name: metadata?.subject || '',
-      isGroup: jid.endsWith('@g.us'),
-      participants: metadata?.participants?.map((p: any) => normId(p.id)) || [],
-      raw: metadata || {},
-    };
-  }
+      userId: this.userId,
+    });
 
-  async getUser(userId: string): Promise<PlatformUser> {
-    const jid = toJid(userId);
-    const contact = await this.sock.contactFetch?.(jid).catch(() => null);
-    return {
-      id: normId(jid),
+    this.memberManager = new BaileysMemberManager({
+      sock: null,
+    });
+
+    this.health = new BaileysHealth({
+      sock: null,
       platform: this.platform,
-      name: contact?.name || contact?.notify || '',
-      isBot: false,
-      raw: contact || {},
-    };
-  }
+      userId: this.userId,
+      userName: this.userName,
+      authDir: this.authDir,
+      ready: false,
+      qrPending: false,
+      lastActivityTs: Date.now(),
+      lastConnectAttemptTs: Date.now(),
+    });
 
-  /**
-   * Resolve um número de telefone para o JID do WhatsApp (fallback do WWebJS,
-   * agora nativo no Baileys). Usado por $sendmsg e validationService.
-   */
-  async getNumberId(phone: string): Promise<{ serialized: string; lid?: string } | null> {
-    const clean = String(phone).replace(/[^0-9]/g, '');
-    if (!clean) return null;
-    const jid = `${clean}@s.whatsapp.net`;
-    try {
-      const [res] = await this.sock.onWhatsApp(jid);
-      if (res && res.exists) return { serialized: normId(res.jid), lid: res.lid };
-      return null;
-    } catch (err: any) {
-      logWarning(`[Baileys] getNumberId falhou para ${phone}: ${err?.message}`);
-      return null;
+    if (!require('fs').existsSync(this.authDir)) {
+      require('fs').mkdirSync(this.authDir, { recursive: true });
     }
   }
 
-  async getContactById(id: string): Promise<PlatformUser | null> {
-    const jid = id.includes('@') ? id : `${id}@s.whatsapp.net`;
-    try {
-      const [res] = await this.sock.onWhatsApp(jid);
-      if (!res || !res.exists) return null;
-      return {
-        id: normId(res.jid),
-        name: '',
-        platform: this.platform,
-        raw: res,
-      } as PlatformUser;
-    } catch (err: any) {
-      logWarning(`[Baileys] getContactById falhou para ${id}: ${err?.message}`);
-      return null;
-    }
-  }
-
-  async getChats(): Promise<PlatformChat[]> {
-    const chats = await this.sock.groupFetchAllParticipating?.().catch(() => ({}));
-    return Object.values(chats || {}).map((c: any) => ({
-      id: normId(c.id ?? ''),
+  // ---- PlatformAdapter implementation ----
+  async initialize(): Promise<void> {
+    await this.connection.connect();
+    // Wire up submodules with the connected socket
+    const sock = this.connection.getSock();
+    this.normalizer = new BaileysMessageNormalizer({
+      sock,
       platform: this.platform,
-      name: c.subject || c.name || '',
-      isGroup: true,
-      participants: (c.participants || []).map((p: any) => normId(p.id ?? p)),
-      raw: c,
-    }));
+      userId: this.userId,
+      getChat: (jid) => this.getChat(jid),
+      sendMessage: (jid, text, opts) => this.sendMessage(jid, text, opts),
+      removeParticipant: (g, u) => this.removeParticipant(g, u),
+    });
+    this.sender = new BaileysMessageSender({
+      sock,
+      platform: this.platform,
+      userId: this.userId,
+      userName: this.userName,
+      getNumberId: (phone) => this.getNumberId(phone),
+      getContactById: (id) => this.getContactById(id),
+    });
+    this.chatManager = new BaileysChatManager({
+      sock: this.connection.getSock(),
+      platform: this.platform,
+      userId: this.userId,
+    });
+    this.memberManager = new BaileysMemberManager({
+      sock: this.connection.getSock(),
+    });
+    this.health = new BaileysHealth({
+      sock: this.connection.getSock(),
+      platform: this.platform,
+      userId: this.userId,
+      userName: this.userName,
+      authDir: this.authDir,
+      ready: this.connection.ready,
+      qrPending: this.connection.pendingQR,
+      lastActivityTs: this.connection.lastActivityTs,
+      lastConnectAttemptTs: this.connection.lastConnectAttemptTs,
+    });
+    // Attach message handler
+    this.normalizer.setMessageHandler(this.msgHandler!);
   }
 
-  // ============================================================
-  // GESTÃO DE MEMBROS
-  // ============================================================
-  async removeParticipant(chatId: string, userId: string): Promise<void> {
-    if (isProtectedTarget(userId)) throw new Error('alvo protegido: operação bloqueada');
-    const jid = toJid(chatId);
-    const userJid = toJid(userId);
-    await this.sock.groupParticipantsUpdate(jid, [userJid], 'remove');
-  }
-
-  async banParticipant(chatId: string, userId: string): Promise<void> {
-    if (isProtectedTarget(userId)) throw new Error('alvo protegido: operação bloqueada');
-    const jid = toJid(chatId);
-    const userJid = toJid(userId);
-    // Baileys não tem "ban" nativo; remove + bloqueia
-    await this.sock.groupParticipantsUpdate(jid, [userJid], 'remove');
-    await this.sock.updateBlockStatus(userJid, 'block').catch(() => {});
-  }
-
-  // ============================================================
-  // HANDLERS
-  // ============================================================
-  onMessage(handler: MessageHandler): void {
+  // ---- PlatformClient implementation ----
+  onMessage(handler: any): void {
     this.msgHandler = handler;
+    this.normalizer.setMessageHandler(handler);
   }
+
   onReady(handler: () => void): void {
     this.readyHandler = handler;
   }
+
   onDisconnected(handler: (reason: string) => void): void {
     this.disconnectedHandler = handler;
   }
 
   async shutdown(): Promise<void> {
-    try { this.sock?.end?.(new Error('shutdown')); } catch {}
-    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    await this.connection.shutdown();
   }
 
-  // ============================================================
-  // ALERTA / HEALTH (compatível com o watchdog anterior)
-  // ============================================================
+  // ---- Message handling ----
+  async sendMessage(chatId: string, text: string, options?: any) {
+    return this.sender.sendMessage(chatId, text, options);
+  }
+
+  async sendMedia(chatId: string, media: any, caption?: string, options?: any) {
+    return this.sender.sendMedia(chatId, media, caption, options);
+  }
+
+  async react(messageId: string, emoji: string): Promise<void> {
+    await this.sender.react(messageId, emoji);
+  }
+
+  // ---- Chat / User ----
+  async getChat(chatId: string) {
+    return this.chatManager.getChat(chatId);
+  }
+
+  async getUser(userId: string) {
+    return this.chatManager.getUser(userId);
+  }
+
+  async getNumberId(phone: string) {
+    return this.chatManager.getNumberId(phone);
+  }
+
+  async getContactById(id: string) {
+    return this.chatManager.getContactById(id);
+  }
+
+  async getChats() {
+    return this.chatManager.getChats();
+  }
+
+  // ---- Member management ----
+  async removeParticipant(chatId: string, userId: string): Promise<void> {
+    return this.memberManager.removeParticipant(chatId, userId);
+  }
+
+  async banParticipant(chatId: string, userId: string): Promise<void> {
+    return this.memberManager.banParticipant(chatId, userId);
+  }
+
+  // ---- Health / QR / Notify ----
+  getHealth(): WppHealth {
+    const h = this.health.getHealth() as WppHealth;
+    setWppHealth(h);
+    return h;
+  }
+
   async notifyOwner(text: string): Promise<void> {
     const ownerId = getOwnerNotifyTarget();
     if (!ownerId) {
@@ -755,8 +243,9 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
       return;
     }
     try {
+      const sock = this.connection.getSock();
       await Promise.race([
-        this.sock.sendMessage(toJid(ownerId), { text }),
+        sock.sendMessage(toJid(ownerId), { text }),
         new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 5s')), 5000)),
       ]);
       logInfo(`[Baileys][notifyOwner] ✅ alerta enviado ao dono (${ownerId})`);
@@ -765,20 +254,21 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
     }
   }
 
-  private sendQrToOwner(qr: string): void {
-    const qrPath = path.join(this.authDir, 'qr.png');
-    // @ts-ignore - qrcode não possui declarações de tipo
+  private handleQR(qr: string): void {
+    // QR handling is done by connection; we just notify
+    const qrPath = require('path').join(this.authDir, 'qr.png');
     import('qrcode').then(async (QR: any) => {
       try {
         await QR.toFile(qrPath, qr, { width: 512, margin: 2 });
         logInfo(`\n\n[Baileys] 📱 QR SALVO EM: ${qrPath}`);
         logInfo('[Baileys] 📱 QR salvo no diretório de autenticação; não é exibido em logs.');
-        // Tenta enviar ao dono (pode falhar se WPP ainda não abriu)
+
         const ownerTarget = getOwnerNotifyTarget();
         try {
           if (!ownerTarget) throw new Error('destino do dono não resolvido');
-          await this.sock.sendMessage(toJid(ownerTarget), {
-            image: fs.readFileSync(qrPath),
+          const sock = this.connection.getSock();
+          await sock.sendMessage(toJid(ownerTarget), {
+            image: require('fs').readFileSync(qrPath),
             caption: '📱 Escaneie para conectar o WPP (Baileys, sem Chromium)',
           });
           logInfo(`[Baileys] ✅ QR enviado ao dono`);
@@ -791,15 +281,152 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
     });
   }
 
-  getHealth(): Record<string, any> {
-    const h = {
-      pm2: 'online' as const,
-      wpp: this.isReady ? ('connected' as const) : (this.qrPending ? ('awaiting-qr' as const) : ('disconnected' as const)),
-      sinceActivitySec: Math.round((Date.now() - this.lastActivityTs) / 1000),
-      sinceConnectSec: Math.round((Date.now() - this.lastConnectAttemptTs) / 1000),
-      qrPending: this.qrPending,
-    };
-    setWppHealth(h);
-    return h;
+  private handleOpen(): void {
+    this.isReady = true;
+    this.userId = this.connection.getUserId();
+    this.userName = this.connection.getUserName();
+    logInfo(`[Baileys] ✅ Conectado como ${this.userName} (${this.userId})`);
+
+    this.notifyOwner(`✅ *WPP reconectado* (Baileys) como ${this.userName}. Bot operante.`).catch(() => {});
+
+    this.getHealth();
+    this.readyHandler?.();
+
+    if (process.env.WPP_AUTOSELFTEST === '1') {
+      const alvoTeste = process.env.WPP_TEST_GROUP_ID || '';
+      if (alvoTeste) {
+        import('../../../laboratorio/selftest.js').then((mod) => {
+          setTimeout(() => mod.runSelfTestMod(this as any, alvoTeste).catch(() => {}), 6000);
+        }).catch(() => {});
+      }
+    }
+
+    // Update health module
+    this.health.setReady(true);
+    this.health.setQrPending(false);
+    this.health.setUserInfo(this.userId, this.userName);
+  }
+
+  private handleClose(reason: string, statusCode?: number): void {
+    this.isReady = false;
+    this.getHealth();
+    this.disconnectedHandler?.(reason);
+
+    if (statusCode === 401) { // DisconnectReason.loggedOut = 401
+      logInfo(`[Baileys] 🚪 Deslogado — precisa escanear QR novamente.`);
+      this.notifyOwner(`🚪 *Sessão WhatsApp encerrada*\nO servidor desconectou o bot (sessão expirada).\n\n⚠️ Novo QR code necessário. Reconnectando em 30s para gerar...`).catch(() => {});
+      setTimeout(() => {
+        logInfo(`[Baileys] 🔄 Reconectando (loggedOut - tentativa única)...`);
+        this.connection.connect();
+      }, 30000);
+    } else if (reason.includes('Stream Errored') || reason.includes('conflict')) {
+      logInfo(`[Baileys] 🔄 Stream Errored — forçando re-init completo...`);
+      try { this.connection.getSock()?.end?.(new Error('force-reinit')); } catch {}
+      setTimeout(() => {
+        logInfo(`[Baileys] 🔄 Reconectando...`);
+        this.connection.connect();
+      }, 2000);
+    } else if (reason.includes('Connection Failure') || reason.includes('Timed Out') || reason.includes('socket hang up')) {
+      logInfo(`[Baileys] 🔄 ${reason} — reconectando em 5s...`);
+      this.notifyOwner(`⚠️ *WhatsApp desconectado*: ${reason}\nReconectando automaticamente...`).catch(() => {});
+      setTimeout(() => {
+        logInfo(`[Baileys] 🔄 Reconectando (connection failure)...`);
+        this.connection.connect();
+      }, 5000);
+    } else {
+      logInfo(`[Baileys] ⚠️ Desconhecido (${reason}) — reconectando em 10s...`);
+      setTimeout(() => {
+        logInfo(`[Baileys] 🔄 Reconectando (unknown reason)...`);
+        this.connection.connect();
+      }, 10000);
+    }
+  }
+
+  private handleCredsUpdate(): void {
+    // handled by connection
+  }
+
+  private handleDisconnected(reason: string): void {
+    this.disconnectedHandler?.(reason);
+  }
+
+  private async handleMutedCheck(normMsg: any) {
+    const muted = await handleMutedMessage({
+      chatId: normMsg.chatId,
+      userId: normMsg.userId,
+      raw: {
+        delete: async () => {
+          await this.connection.getSock()?.sendMessage(normMsg.chatId, { delete: normMsg.raw?.key });
+        },
+      },
+    });
+    return muted;
+  }
+
+  private async handleAutoMod(normMsg: any) {
+    try {
+      const { evaluate } = await import('../../services/autoModEngine.js');
+      void (async () => {
+        try {
+          let senderName = '';
+          if (this.connection.getSock()?.store) {
+            try {
+              const cts = this.connection.getSock()?.store?.contacts || {};
+              const profile = cts[normMsg.userId] || cts[`${normMsg.userId}`] || {};
+              senderName = profile.formattedName || profile.notify || profile.verifiedName || '';
+            } catch { /* ignorar */ }
+          }
+          await evaluate(
+            normMsg.raw,
+            {
+              sock: this.connection.getSock(),
+              userId: this.userId,
+              groupName: normMsg.chatId.endsWith('@g.us')
+                ? (this.connection.getSock()?.store?.chats?.[normMsg.chatId]?.subject || normMsg.chatId)
+                : normMsg.chatId,
+              getChat: async (jid: string) => {
+                try {
+                  const res = await this.getChat(jid);
+                  return {
+                    participants: (res?.participants || []).map((p: any) => p?.id || p),
+                    id: res?.id || jid,
+                    subject: res?.name,
+                  };
+                } catch { return null; }
+              },
+              sendMessage: async (jid: string, text: string, opts?: any) => {
+                try { await this.sendMessage(jid, text, opts); return {} as any; } catch { return null as any; }
+              },
+              removeParticipant: async (g: string, u: string) => {
+                try { await this.removeParticipant(g, u); } catch { /* ignorar */ }
+              },
+              log: console.log.bind(console),
+              warn: console.warn.bind(console),
+              error: console.error.bind(console),
+            },
+            normMsg.chatId,
+            normMsg.userId,
+            senderName,
+          );
+        } catch (err: any) {
+          logWarning('[Baileys] autoModEngine.evaluate falhou:', err?.message);
+        }
+      })();
+    } catch (err: any) {
+      logWarning('[Baileys] não foi possível carregar autoModEngine:', err?.message);
+    }
   }
 }
+
+// Re-export types from PlatformTypes for convenience
+export type {
+  PlatformClient,
+  PlatformAdapter,
+  PlatformMessage,
+  PlatformChat,
+  PlatformUser,
+  PlatformType,
+  SendOptions,
+  MediaPayload,
+  MessageHandler,
+} from '../base/PlatformTypes';

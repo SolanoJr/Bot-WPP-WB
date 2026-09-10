@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { BaileysAdapter, normId, toJid } from '../../src/platforms/whatsapp/BaileysAdapter';
+import { BaileysAdapter } from '../../src/platforms/whatsapp/BaileysAdapter';
+import { normId, toJid } from '../../src/platforms/whatsapp/baileys/util';
 import { PlatformMessage, SendOptions } from '../../src/platforms/base/PlatformTypes';
 
 /**
@@ -24,7 +25,7 @@ function makeBaileysAdapter() {
   const calls: Array<{ chatId: string; text: string; options?: SendOptions; ret?: PlatformMessage }> = [];
 
   // Injeta um sock mockável sem conectar.
-  (adapter as any).sock = {
+  const mockSock = {
     store: {
       messages: {},
     },
@@ -39,6 +40,16 @@ function makeBaileysAdapter() {
         } as any;
     }),
   };
+
+  // Injeta o sock na connection e nos submodules
+  (adapter as any).connection.setSock(mockSock);
+  (adapter as any).sender.setSock(mockSock);
+  (adapter as any).normalizer.setSock(mockSock);
+  (adapter as any).chatManager.setSock(mockSock);
+  (adapter as any).memberManager.setSock(mockSock);
+  (adapter as any).health.setSock(mockSock);
+  // Expõe o mock no próprio adapter para os asserts dos testes
+  (adapter as any).sock = mockSock;
 
   // Sobrescreve userId para os testes.
   adapter['userId'] = '558581344211@s.whatsapp.net';
