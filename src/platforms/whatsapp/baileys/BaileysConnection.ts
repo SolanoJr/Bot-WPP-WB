@@ -82,17 +82,11 @@ export class BaileysConnection {
     this.setQrPending(true);
     this._loggedOut = false;
 
-    const credsPath = path.join(this.authDir, 'session.json');
+    // useMultiFileAuthState espera um DIRS, não um arquivo — Baileys v7 gerencia
+    // múltiplos arquivos de auth (creds, keys, etc.) dentro desse diretório.
+    const authDir = this.authDir;
 
-    let creds: any = {};
-    try {
-      if (fs.existsSync(credsPath)) {
-        creds = JSON.parse(fs.readFileSync(credsPath, 'utf-8'));
-        logInfo(`[Baileys] 🔑 Carregando sessão de: ${credsPath}`);
-      }
-    } catch { /* sessão inválida — gera nova */ }
-
-    const { state: driverState, saveCreds } = await useMultiFileAuthState(credsPath);
+    const { state: driverState, saveCreds } = await useMultiFileAuthState(authDir);
 
     const baileysLogger = {
       debug: () => {},
@@ -107,6 +101,7 @@ export class BaileysConnection {
     };
 
     const driver = makeWASocket({
+      state: driverState,
       logger: baileysLogger,
       trustProxy: true,
       qrTimeout: 120000,
