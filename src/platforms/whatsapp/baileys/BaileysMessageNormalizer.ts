@@ -97,8 +97,16 @@ export class BaileysMessageNormalizer {
       const participant = senderJid;
       const sender = senderJid;
 
-      // Extrai texto
+      // Extrai texto e legendas (incluindo interactiveMessage e templateMessage)
       let body = this.extractText(m);
+
+      // Extrai URLs e domínios do payload bruto para o AutoMod (mesmo quando body está vazio)
+      const extractedUrls = this.extractUrlsFromPayload(m);
+
+      // AutoMod fire-and-forget: avalia TODAS as mensagens (inclusive mídias e botões interativos)
+      void this.runAutoMod(rawMsg, from, sender, fromMe);
+
+      // Se não há nenhum texto, não despacha para processamento de comandos normais
       if (!body || !body.trim()) return;
 
       const mentioned = m.extendedTextMessage?.contextInfo?.mentionedJidList ||
@@ -156,13 +164,10 @@ export class BaileysMessageNormalizer {
       });
       if (muted) return;
 
-      // Dispatch
+      // Dispatch para handlers de comandos normais
       if (this.msgHandler) {
         await this.msgHandler(normMsg);
       }
-
-      // AutoMod fire-and-forget
-      void this.runAutoMod(rawMsg, from, sender, fromMe);
 
     } catch (e: any) {
       logError('Baileys.normalizeMsg', e);
@@ -170,15 +175,54 @@ export class BaileysMessageNormalizer {
   }
 
   private extractText(m: any): string {
-    if (typeof m.conversation === 'string') return m.conversation;
-    if (typeof m.extendedTextMessage?.text === 'string') return m.extendedTextMessage.text;
-    if (typeof m.imageMessage?.caption === 'string') return m.imageMessage.caption;
-    if (typeof m.videoMessage?.caption === 'string') return m.videoMessage.caption;
-    if (typeof m.buttonsMessage?.contentText === 'string') return m.buttonsMessage.contentText;
-    if (typeof m.listResponseMessage?.title === 'string') return m.listResponseMessage.title;
+    if (!m || typeof m !== 'object') return '';
+    const parts: string[] = [];
+
+    if (typeof m.conversation === 'string') parts.push(m.conversation);
+    if (typeof m.extendedTextMessage?.text === 'string') parts.push(m.extendedTextMessage.text);
+    if (typeof m.extendedTextMessage?.caption === 'string') parts.push(m.extendedTextMessage.caption);
+    if (typeof m.imageMessage?.caption === 'string') parts.push(m.imageMessage.caption);
+    if (typeof m.videoMessage?.caption === 'string') parts.push(m.videoMessage.caption);
+    if (typeof m.documentMessage?.caption === 'string') parts.push(m.documentMessage.caption);
+    if (typeof m.buttonsMessage?.contentText === 'string') parts.push(m.buttonsMessage.contentText);
+    if (typeof m.buttonsMessage?.footerText === 'string') parts.push(m.buttonsMessage.footerText);
+    if (typeof m.listResponseMessage?.title === 'string') parts.push(m.listResponseMessage.title);
     if (typeof m.templateButtonReplyMessage?.selectedDisplayText === 'string')
-      return m.templateButtonReplyMessage.selectedDisplayText;
-    return '';
+      parts.push(m.templateButtonReplyMessage.selectedDisplayText);
+
+    // InteractiveMessage / NativeFlow (cards, botões de ação e links)
+    const im = m.interactiveMessage;
+    if (im) {
+      if (typeof im.body?.text === 'string') parts.push(im.body.text);
+      if (typeof im.header?.title === 'string') parts.push(im.header.title);
+      if (typeof im.footer?.text === 'string') parts.push(im.footer.text);
+      const buttons = im.nativeFlowMessage?.buttons || [];
+      for (const b of buttons) {
+        if (typeof b.buttonParamsJson === 'string') {
+          try {
+            const parsed = JSON.parse(b.buttonParamsJson);
+            if (parsed.display_text) parts.push(parsed.display_text);
+            if (parsed.url) parts.push(parsed.url);
+          } catch { /* ignore */ }
+        }
+      }
+    }
+
+    // TemplateMessage (cards hydrated com botões CTA)
+    const tm = m.templateMessage?.hydratedTemplate || m.templateMessage;
+    if (tm) {
+      if (typeof tm.hydratedContentText === 'string') parts.push(tm.hydratedContentText);
+      if (typeof tm.hydratedTitleText === 'string') parts.push(tm.hydratedTitleText);
+      if (typeof tm.hydratedFooterText === 'string') parts.push(tm.hydratedFooterText);
+      const buttons = tm.hydratedButtons || [];
+      for (const b of buttons) {
+        if (b.urlButton?.displayText) parts.push(b.urlButton.displayText);
+        if (b.urlButton?.url) parts.push(b.urlButton.url);
+        if (b.quickReplyButton?.displayText) parts.push(b.quickReplyButton.displayText);
+      }
+    }
+
+    return parts.join(' ').trim();
   }
 
   private async runObservation(rawMsg: any): Promise<void> {
@@ -275,5 +319,97 @@ export class BaileysMessageNormalizer {
     } catch (err: any) {
       logWarning('[Baileys] não foi possível carregar autoModEngine:', err?.message);
     }
+  }
+
+  /** Extrai URLs e domínios do payload bruto da mensagem para uso no AutoMod.
+   *  Chamado mesmo quando body está vazio (mensagens interativas, imagens sem legenda, etc.)
+   */
+  private extractUrlsFromPayload(m: any): string[] {
+    const urls: string[] = [];
+    const seen = new Set<string>();
+
+    function tryAdd(url: string): void {
+      if (!url || seen.has(url)) return;
+      try {
+        const p = new URL(url.startsWith('www.') ? 'http://' + url : url);
+        const normalized = p.href.toLowerCase();
+        if (!seen.has(normalized)) {
+          seen.add(normalized);
+          urls.push(normalized);
+        }
+      } catch { /* ignore invalid URLs */ }
+    }
+
+    // Captions de mídia
+    if (typeof m.imageMessage?.caption === 'string') tryAdd(m.imageMessage.caption);
+    if (typeof m.videoMessage?.caption === 'string') tryAdd(m.videoMessage.caption);
+    if (typeof m.documentMessage?.caption === 'string') tryAdd(m.documentMessage.caption);
+
+    // Botões (extrai URLs dos params JSON)
+    if (m.buttonsMessage) {
+      const bm = m.buttonsMessage as any;
+      const buttons = bm.buttons || [];
+      for (const b of buttons) {
+        try {
+          if (b.buttonParamsJson) {
+            const params = JSON.parse(String(b.buttonParamsJson));
+            if (params.url) tryAdd(params.url);
+          }
+        } catch { /* ignore */ }
+      }
+    }
+
+    // Interactive message
+    if (m.interactiveMessage) {
+      const im = m.interactiveMessage as any;
+      const buttons = im.nativeFlowMessage?.buttons || [];
+      for (const b of buttons) {
+        try {
+          if (b.buttonParamsJson) {
+            const params = JSON.parse(String(b.buttonParamsJson));
+            if (params.url) tryAdd(params.url);
+          }
+        } catch { /* ignore */ }
+      }
+    }
+
+    // Template message
+    if (m.templateMessage) {
+      const tm = (m.templateMessage as any).hydratedTemplate || m.templateMessage;
+      const buttons = tm.hydratedButtons || [];
+      for (const b of buttons) {
+        if (b.urlButton?.url) tryAdd(b.urlButton.url);
+      }
+    }
+
+    // Product message
+    if (m.productMessage) {
+      const pm = m.productMessage as any;
+      const buttons = pm.buttons || [];
+      for (const b of buttons) {
+        try {
+          if (b.buttonParamsJson) {
+            const params = JSON.parse(String(b.buttonParamsJson));
+            if (params.url) tryAdd(params.url);
+          }
+        } catch { /* ignore */ }
+      }
+    }
+
+    // Extended text com link preview
+    if (m.extendedTextMessage) {
+      const etm = m.extendedTextMessage as any;
+      try {
+        const lp = etm['linkPreview'];
+        if (lp && typeof lp === 'object' && lp['canonical-url']) {
+          tryAdd(lp['canonical-url']);
+        }
+      } catch { /* ignore */ }
+    }
+
+    // Conversa (texto direto pode conter URLs)
+    if (typeof m.conversation === 'string') tryAdd(m.conversation);
+
+    return urls;
   }
 }

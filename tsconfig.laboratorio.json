@@ -27,7 +27,12 @@
     "laboratorio/list-captures.ts",
     "laboratorio/casino-exclude.ts",
     "laboratorio/casino-final-delete.ts",
-    "laboratorio/list-jids.ts"
+    "laboratorio/list-jids.ts",
+    "laboratorio/apagar-spam-cassino.ts",
+    "laboratorio/captura-msg.ts",
+    "laboratorio/apagar-spam.ts",
+    "laboratorio/simular-spam.ts",
+    "laboratorio/ativar-grupo.ts"
   ],
   "exclude": ["node_modules"]
 }

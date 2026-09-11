@@ -29,15 +29,28 @@ import { logInfo, logWarning, logError } from './loggerService';
 
 // ─── Configurações editáveis ────────────────────────────────────────────────
 const SUSPICIOUS_DOMAINS = [
-  'wtf', 'bet', 'game', 'win', 'xyz', 'top', 'click',
-  'casino', 'bonus', 'aposta', 'vareja', 'sport', 'jackpot',
-  'slots', 'poker', 'bing', 'lucky', 'vip', 'gratuito',
+  'wtf', 'bet', 'game', 'games', 'win', 'xyz', 'top', 'click',
+  'casino', 'bonus', 'aposta', 'apostas', 'vareja', 'sport', 'jackpot',
+  'slots', 'poker', 'bing', 'lucky', 'vip', 'gratuito', 'fun', 'pk', 'sh',
+  'play', 'fortune', 'tiger', 'rabbit', 'ox', 'mouse', 'pgsoft', '777',
+  'ck7', 'kl7', 'score', 'result', 'draw', 'match', 'live', 'stream', 'tv',
+  'betano', 'betfair', 'betsafe', 'mariobet', 'sportingbet', ' Bet365',
+  'blaze', 'chilli', 'pragmatic', 'pgsoft', 'jdb', 'jcm', 'spadegaming',
+  'microgaming', 'playtech', 'evolution', 'netent', 'novomatic',
 ];
 
 const SPAM_KEYWORDS = [
-  'ganhe dinheiro', 'lucro fácil', 'recolha', 'bônus',
-  'taxa de vitórias', 'jogue e ganhe', 'dinheiro fácil',
-  'coloque agora', 'ptsu mae', 'ganhar', 'sorte', 'acumulado',
+  'ganhe dinheiro', 'lucro fácil', 'recolha', 'recolha contínua', 'bónus', 'bônus',
+  'taxa de vitórias', 'jogue e ganhe', 'dinheiro fácil', 'recolhidos à vontade',
+  'coloque agora', 'ptsu mae', 'ganhar', 'sorte', 'acumulado', 'presentes 777',
+  '777-7777', 'ck7', 'ck7bet', 'plataforma nova', 'rodadas grátis', 'giros grátis',
+  'pagando muito', 'deposite', 'saque rápido', 'link de cadastro', 'kl7.games',
+  'ck7bet.com', 'ck7bet.com.br', 'jogos grátis', 'promoção', 'bônus de boas-vindas',
+  'jogue e ganhe dinheiro', 'ganhe enquanto joga', 'lucre', 'retirar', 'saque',
+  'dinheiro real', 'pagamento', 'cashout', 'parlay', 'apostando', 'assistir',
+  'jogadores', 'vitórias', 'regras', 'o que você precisa', 'já está pronto',
+  '50%', '100%', 'isenção', 'absolutamente', 'sem risco', 'gratuito',
+  'apps', 'baixe', 'instale', 'jogue online', 'apostas esportivas',
 ];
 
 const SUSPICIOUS_DISPLAY_NAMES: RegExp[] = [
@@ -81,7 +94,7 @@ export function extractTextFromWAMessage(msg: WAMessage): string {
   // Texto simples / extended text
   if (m.conversation) parts.push(String(m.conversation));
   if (m.extendedTextMessage) {
-  const etm = m.extendedTextMessage;
+    const etm = m.extendedTextMessage;
     if (etm.text) parts.push(String(etm.text));
     if (etm.caption) parts.push(String(etm.caption));
     // link preview (campo com hífen precisa de index signature)
@@ -97,6 +110,11 @@ export function extractTextFromWAMessage(msg: WAMessage): string {
       }
     } catch { /* ignorar */ }
   }
+
+  // Legendas de mídia (imagem, vídeo, documento)
+  if (m.imageMessage?.caption) parts.push(String(m.imageMessage.caption));
+  if (m.videoMessage?.caption) parts.push(String(m.videoMessage.caption));
+  if (m.documentMessage?.caption) parts.push(String(m.documentMessage.caption));
 
   // Botões
   if (m.buttonsMessage) {
@@ -161,6 +179,16 @@ export function extractTextFromWAMessage(msg: WAMessage): string {
     if (im.body && typeof im.body === 'object' && im.body.text) parts.push(String(im.body.text));
     if (im.footer && typeof im.footer === 'object' && im.footer.text) parts.push(String(im.footer.text));
     if (im.header && typeof im.header === 'object' && im.header.title) parts.push(String(im.header.title));
+    const buttons = im.nativeFlowMessage?.buttons || [];
+    for (const b of buttons) {
+      if (typeof b.buttonParamsJson === 'string') {
+        try {
+          const parsed = JSON.parse(b.buttonParamsJson);
+          if (parsed.display_text) parts.push(String(parsed.display_text));
+          if (parsed.url) parts.push(String(parsed.url));
+        } catch { /* ignorar */ }
+      }
+    }
   }
 
   // Resposta de interactive
@@ -215,18 +243,21 @@ export function extractUrls(text: string): string[] {
   return urls;
 }
 
-/** Extrai domínios das URLs para checagem. */
+/** Extrai domínios das URLs para checagem (hostname completo, TLD e subpartes). */
 export function extractDomains(urls: string[]): string[] {
   const domains: string[] = [];
   for (const u of urls) {
     try {
       const p = new URL(u);
-      const hostname = p.hostname || '';
+      const hostname = (p.hostname || '').toLowerCase();
+      if (hostname && !domains.includes(hostname)) {
+        domains.push(hostname);
+      }
       const dparts = hostname.split('.');
-      // domínio de 2º nível: penúltima parte antes do TLD
-      const domain = dparts.length >= 2 ? dparts[dparts.length - 2] : hostname;
-      if (domain && !domains.includes(domain.toLowerCase())) {
-        domains.push(domain.toLowerCase());
+      for (const part of dparts) {
+        if (part && !domains.includes(part)) {
+          domains.push(part);
+        }
       }
     } catch { /* ignorar URL inválida */ }
   }
@@ -423,13 +454,79 @@ export async function evaluate(
 
   // REGRA 2: anti-bot (remover) — foreign + conteúdo suspeito + nome suspeito + repetido
   // Threshold: >=2 sinais → ban+remove+delete+announce
+  // REGRA 2b: anti-bot cassino (alta probabilidade) — foreign + link recente + interativo → BANIR, REMOVER, DELETAR, ANUNCIAR
   const botSignals: string[] = [];
   if (isForeignNumber(senderJid)) botSignals.push('foreign');
   if (isSuspiciousDomain(domains)) botSignals.push('link-suspeito');
   if (msgType.buttonsMessage || msgType.listMessage || msgType.templateMessage || msgType.interactiveMessage) botSignals.push('mensagem-interativa');
   if (suspiciousName) botSignals.push('nome-suspeito');
+  if (hasSpamKeyword) botSignals.push('spam-keyword');
   if (hasSpamKeyword && spamContext) botSignals.push('spam-com-contexto');
 
+  // REGRA 2b: Cassino de alta probabilidade — foreign + link suspeito + mensagem interativa/botão/template
+  // Isso captura o padrão exato da mensagem da imagem: +62 823-6400-7211 + kl7.games + botão [↗ GO]
+  const isHighProbabilityCasino =
+    config.remover &&
+    isForeignNumber(senderJid) &&
+    isSuspiciousDomain(domains) &&
+    (msgType.buttonsMessage || msgType.interactiveMessage || msgType.templateMessage || msgType.productMessage);
+
+  if (isHighProbabilityCasino) {
+    const reasonText = `${senderName || senderJid} — CASSINO/BETANO ALTA PROBABILIDADE: estrangeiro + domínio suspeito + mensagem interativa/template.`;
+    reportedActions.push(`ANTIBOT-CASINO: ${reasonText}`);
+    ctx.log(`[AutoMod] ⚠️ CASSINO ALTA PROBABILIDADE detectado: ${reasonText}`);
+
+    if (isProtectedTarget(senderJid)) {
+      ctx.log(`[AutoMod] cassino ignorado — ID protegido: ${senderJid}`);
+      return { acted: false, reason: 'cassino: ID protegido', action: 'none' };
+    }
+
+    if (isAuditOnly) {
+      ctx.log(`[AutoMod] AUDIT-ONLY cassino: ${senderJid} seria banido/removido/deletado`);
+      return { acted: false, reason: 'cassino: audit-only', action: 'none' };
+    }
+
+    // Ban persistente
+    try {
+      await banUser({ groupId, userId: senderJid, reason: 'banido-cassino-alta-probabilidade' });
+      ctx.log(`[AutoMod] ban persistente (cassino) registrado para ${senderJid}`);
+    } catch (err: any) { ctx.warn('[AutoMod] erro ao banir (cassino):', err?.message); }
+
+    // Remove do grupo
+    try {
+      await ctx.removeParticipant(groupId, senderJid);
+      ctx.log(`[AutoMod] removido do grupo (cassino): ${senderJid}`);
+      reportedActions.push(`REMOVIDO`);
+    } catch (err: any) {
+      ctx.warn(`[AutoMod] erro ao remover ${senderJid}:`, err?.message);
+      reportedActions.push(`FALHA AO REMOVER (${err?.message || 'erro'})`);
+    }
+
+    // Delete mensagem
+    try {
+      await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
+      ctx.log(`[AutoMod] mensagem deletada (cassino): ${senderJid}`);
+      reportedActions.push(`MSGUPDELETE`);
+    } catch (err: any) { ctx.warn('[AutoMod] erro ao deletar (cassino):', err?.message); }
+
+    // Registrar infração
+    await recordInfraction(groupId, senderJid).catch(err => ctx.warn('[AutoMod] erro ao registrar infração (cassino):', err?.message));
+
+    // Anunciar
+    if (config.detectar === true) {
+      try {
+        await ctx.sendMessage(groupId, `🚫 [AUTOMOD-CASINO] Removido/banido/deletado: ${senderName || senderJid} (${senderJid}) — domínios: ${domains.join(', ')}`);
+      } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar (cassino):', err?.message); }
+    }
+
+    return {
+      acted: true,
+      reason: `cassino-alta-probabilidade: ${botSignals.join(', ')} → ${reportedActions.join('; ')}`,
+      action: 'ban+remove+delete+announce',
+    };
+  }
+
+  // REGRA 2c: anti-bot padrão (>=2 sinais)
   if (config.remover && botSignals.length >= 2) {
         const reasonText = `${senderName || senderJid} — bot detectado (${botSignals.join(', ')}).`;
         reportedActions.push(`ANTIBOT: ${reasonText}`);

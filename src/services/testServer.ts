@@ -7,6 +7,10 @@ import path from 'node:path';
 /** Caminho do arquivo de capturas */
 const CAPTURE_FILE = path.join(process.cwd(), 'laboratorio', 'captured-messages.jsonl');
 
+// ─── Contadores de estatísticas ─────────────────────────────────────────────
+let totalAttempts = 0;
+let totalSuccess = 0;
+
 function readCaptures(): Array<Record<string, any>> {
   if (!fs.existsSync(CAPTURE_FILE)) return [];
   try {
@@ -29,6 +33,8 @@ function readCaptures(): Array<Record<string, any>> {
  *   POST /lab/messages     - busca mensagens do grupo
  *   POST /lab/delete-message - deleta mensagem
  *   POST /lab/adapter      - status do adapter
+ *   POST /lab/groups       - lista todos os grupos ativos
+ *   GET  /lab/stats        - retorna estatísticas de uso (total_attempts, total_success)
  *
  * Nota de arquitetura: o PlatformManager é um singleton, mas o bundler (tsup)
  * pode instanciar escopos de módulo separados por bundle. A instância "viva"
@@ -39,10 +45,10 @@ function readCaptures(): Array<Record<string, any>> {
  */
 export function startTestServer(port: number = 3004): void {
   const server = http.createServer((req, res) => {
-    // Somente POST
-    if (req.method !== 'POST') {
+    // Somente POST e GET
+    if (req.method !== 'POST' && req.method !== 'GET') {
       res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Only POST allowed' }));
+      res.end(JSON.stringify({ error: 'Only POST/GET allowed' }));
       return;
     }
 
@@ -61,6 +67,60 @@ export function startTestServer(port: number = 3004): void {
         const pm: PlatformManager =
           (globalThis as any).__platformManager || PlatformManager.getInstance();
 
+        // Helper para obter adapter e socket Baileys com suporte a multi-sessão
+        function getAdapterAndSock(plat: string): { adapter: any; sock: any } {
+          let adapter = pm.getAdapter(plat as any);
+          if (!adapter && (plat === 'whatsapp' || plat.startsWith('whatsapp'))) {
+            // Tenta prefixo
+            const active = pm.getActivePlatforms ? pm.getActivePlatforms() : [];
+            for (const p of active) {
+              if (p.startsWith('whatsapp')) {
+                adapter = pm.getAdapter(p as any);
+                break;
+              }
+            }
+          }
+          const anyAdapter = adapter as any;
+          const sock = anyAdapter ? (anyAdapter.connection?.getSock?.() || anyAdapter.sock || null) : null;
+          return { adapter, sock };
+        }
+
+        // ─── Endpoint para listar todos os grupos ativos (para laboratório) ───
+        if (req.url === '/lab/groups') {
+          const platform = parsedBody.platform || 'whatsapp';
+          const { adapter } = getAdapterAndSock(platform);
+          if (!adapter) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Plataforma não encontrada: ${platform}` }));
+            return;
+          }
+          try {
+            const chats = await (adapter as any).getChats?.() || [];
+            const groups = chats.filter((c: any) =>
+              c.isGroup || (c.id && (c.id.endsWith('@g.us') || c.id.startsWith('tg:') || c.id.startsWith('dc:')))
+            );
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, count: groups.length, groups }));
+          } catch (err: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err?.message || String(err) }));
+          }
+          return;
+        }
+
+        // ─── Endpoint para retornar estatísticas de uso ───
+        if (req.url === '/lab/stats') {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            ok: true,
+            stats: {
+              total_attempts: totalAttempts,
+              total_success: totalSuccess,
+            },
+          }));
+          return;
+        }
+
         // ─── Endpoint de descoberta de grupo (para laboratório) ───
         // Usa o JSONL de capturas em vez do store do Baileys (store não disponível em rc14).
         if (req.url === '/lab/find-message') {
@@ -70,14 +130,25 @@ export function startTestServer(port: number = 3004): void {
             res.end(JSON.stringify({ error: 'Missing platform or groupName' }));
             return;
           }
-          // Para Figurinhas, usamos o JID conhecido (sem depender do store de chats)
-          const FIGURINHAS_GROUP = '5585981344211-1772111940@g.us';
-          const knownGroups: Record<string, string> = { 'Figurinhas': FIGURINHAS_GROUP };
-          const groupJid = knownGroups[groupName];
+          // Tenta descobrir o JID dinamicamente via getChats primeiro
+          let groupJid = '';
+          const { adapter } = getAdapterAndSock(platform);
+          if (adapter) {
+            try {
+              const chats = await (adapter as any).getChats?.() || [];
+              const found = chats.find((c: any) =>
+                (c.name && c.name.toLowerCase().includes(groupName.toLowerCase())) ||
+                (c.raw?.subject && c.raw.subject.toLowerCase().includes(groupName.toLowerCase()))
+              );
+              if (found) groupJid = found.id;
+            } catch { /* fallback */ }
+          }
           if (!groupJid) {
-            res.writeHead(404, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: `Grupo desconhecido: ${groupName}` }));
-            return;
+            const knownGroups: Record<string, string> = {
+              'Figurinhas': '120363419033272638@g.us',
+              'Figurinhas/Stickers': '120363419033272638@g.us',
+            };
+            groupJid = knownGroups[groupName] || '5585981344211-1772111940@g.us';
           }
           const entries = readCaptures().filter(
             (c: any) => c.groupId === groupJid || c.remoteJid === groupJid || c.participant === groupJid
@@ -124,20 +195,25 @@ export function startTestServer(port: number = 3004): void {
             res.end(JSON.stringify({ error: 'Missing required fields: platform, groupJid, messageId' }));
             return;
           }
-          const adapter = pm.getAdapter(platform as any);
+          totalAttempts++;
+          const { adapter } = getAdapterAndSock(platform);
           if (!adapter) {
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: `Plataforma não encontrada: ${platform}` }));
             return;
           }
-          // Cast para any — o PlatformAdapter interface não tem sendMessage,
-          // mas os adapters concretos (BaileysAdapter) possuem.
           const baileysAdapter = adapter as any;
           const deleteMsg: any = { id: messageId, fromMe: !!fromMe };
           if (participant) deleteMsg.participant = participant;
-          const result = await baileysAdapter.sendMessage(groupJid, '', { delete: deleteMsg });
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true, result, messageId, groupJid }));
+          try {
+            const result = await baileysAdapter.sendMessage(groupJid, '', { delete: deleteMsg });
+            totalSuccess++;
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, result, messageId, groupJid }));
+          } catch (err: any) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: err?.message || String(err), messageId, groupJid }));
+          }
           return;
         }
 
@@ -149,13 +225,12 @@ export function startTestServer(port: number = 3004): void {
             res.end(JSON.stringify({ error: 'Missing platform' }));
             return;
           }
-          const adapter = pm.getAdapter(platform as any);
+          const { adapter, sock } = getAdapterAndSock(platform);
           if (!adapter) {
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: `Plataforma não encontrada: ${platform}` }));
             return;
           }
-          const sock = (adapter as any).sock;
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({
             ok: true,
@@ -176,14 +251,12 @@ export function startTestServer(port: number = 3004): void {
             res.end(JSON.stringify({ error: 'Missing platform or groupJid' }));
             return;
           }
-          const adapter = pm.getAdapter(platform as any);
+          const { adapter, sock } = getAdapterAndSock(platform);
           if (!adapter) {
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: `Plataforma não encontrada: ${platform}` }));
             return;
           }
-          // O Baileys rc14 expõe fetchMessageHistory no socket
-          const sock = (adapter as any).sock;
           if (!sock?.fetchMessageHistory) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'fetchMessageHistory não disponível neste socket' }));
@@ -258,6 +331,6 @@ export function startTestServer(port: number = 3004): void {
 
   server.listen(port, '127.0.0.1', () => {
     logger.info(`[TestServer] Servidor de testes iniciado`, { port });
-    logger.info(`[TestServer] endpoints: /test, /lab/find-message, /lab/messages, /lab/delete-message, /lab/adapter`);
+    logger.info(`[TestServer] endpoints: /test, /lab/find-message, /lab/messages, /lab/delete-message, /lab/adapter, /lab/groups, /lab/stats`);
   });
 }

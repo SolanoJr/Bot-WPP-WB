@@ -265,6 +265,61 @@ export async function setGroupModAll(groupId: string, config: GroupModConfig): P
   );
 }
 
+/**
+ * Garante que um grupo exista no group_mod com as configurações especificadas.
+ * Se o grupo não existir, cria com as flags padrão (todas ligadas exceto detectar).
+ * Se já existir, atualiza ONLY os campos fornecidos (campos undefined são ignorados).
+ */
+export async function ensureGroupMod(
+  groupId: string,
+  config?: Partial<GroupModConfig>,
+): Promise<void> {
+  const db = await getDb();
+  const existing = await db.get(
+    `SELECT * FROM group_mod WHERE group_id = ?`,
+    [groupId]
+  );
+  if (!existing) {
+    // Cria com defaults: tudo ligado
+    const defaults: GroupModConfig = {
+      antispam: true,
+      antiestrangeiro: true,
+      autolink: true,
+      bemvindo: false,
+      detectar: true,
+      remover: true,
+      audit_only: false,
+    };
+    const merged = config ? { ...defaults, ...config } : defaults;
+    await db.run(
+      `INSERT INTO group_mod (group_id, antispam, antiestrangeiro, autolink, bemvindo, detectar, remover)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        groupId,
+        merged.antispam !== false ? 1 : 0,
+        merged.antiestrangeiro !== false ? 1 : 0,
+        merged.autolink !== false ? 1 : 0,
+        merged.bemvindo === true ? 1 : 0,
+        merged.detectar === true ? 1 : 0,
+        merged.remover !== false ? 1 : 0,
+      ]
+    );
+    logInfo(`[databaseService] Grupo ${groupId} criado no group_mod com configurações ativas.`);
+  } else {
+    if (config) {
+      for (const [field, value] of Object.entries(config)) {
+        if (value === undefined) continue;
+        const f = field as keyof GroupModConfig;
+        await db.run(
+          `UPDATE group_mod SET ${f} = ? WHERE group_id = ?`,
+          [value ? 1 : 0, groupId]
+        );
+      }
+      logInfo(`[databaseService] Grupo ${groupId} atualizado no group_mod.`);
+    }
+  }
+}
+
 import { isProtectedTarget } from '../services/permissions.js';
 import { logInfo, logWarning, logError } from './loggerService';
 
@@ -303,14 +358,19 @@ export async function isUserBanned(groupId: string, userId: string): Promise<boo
 
 // ─── AUDIT TRAIL: member joins / leaves ───
 
-export async function recordMemberJoin(groupId: string, memberId: string): Promise<void> {
+export async function recordMemberJoin(groupId: string, memberId: any): Promise<void> {
+  const cleanMemberId = typeof memberId === 'string'
+    ? memberId
+    : (memberId?.id || memberId?.jid || memberId?.user || String(memberId || ''));
+  if (!cleanMemberId || cleanMemberId === '[object Object]') return;
+
   const db = await getDb();
   try {
     await db.run(
       `INSERT INTO mod_member_joins (group_id, member_id, joined_at, left_at, reason)
        VALUES (?, ?, ?, NULL, 'not_set')
        ON CONFLICT(group_id, member_id, joined_at) DO NOTHING`,
-      [groupId, memberId, Date.now()]
+      [groupId, cleanMemberId, Date.now()]
     );
   } catch (err: any) {
     logWarning('[mod_member_joins] recordMemberJoin falhou:', err?.message);

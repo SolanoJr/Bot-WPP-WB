@@ -100,6 +100,179 @@ import {
   MessageHandler,
 } from '../base/PlatformTypes';
 import { logInfo, logWarning, logError } from '../../services/loggerService';
+import fs from 'node:fs';
+import path from 'node:path';
+
+/**
+ * Captura mensagem do Telegram e persiste no JSONL de capturas.
+ * Formato compatível com laboratorio/capture-store.ts (WAMessageKey-like).
+ */
+async function captureTelegramMessage(ctx: any): Promise<void> {
+  const tg = ctx.message || (ctx.update as any)?.message;
+  if (!tg) return;
+
+  const chatId = `tg:${tg.chat.id}`;
+  const isGroup = tg.chat.type === 'group' || tg.chat.type === 'supergroup';
+  const senderId = `tg:${tg.from?.id ?? 0}`;
+  const senderName = tg.from?.first_name ?? tg.from?.username ?? 'unknown';
+  const messageId = tg.message_id?.toString() ?? '';
+  const timestamp = tg.date ? Number(tg.date) * 1000 : Date.now();
+  const fromMe = !!(tg.from?.is_bot);
+
+  // Extrai texto de todos os campos possíveis
+  const textParts: string[] = [];
+  if (typeof tg.text === 'string' && tg.text.trim()) textParts.push(tg.text.trim());
+  if (typeof tg.caption === 'string' && tg.caption.trim()) textParts.push(tg.caption.trim());
+  if (typeof tg.entities === 'string') textParts.push(tg.entities);
+
+  // Extrai URLs de botões/cards (Telegram não tem buttonsMessage nativo, mas check)
+  try {
+    const entities = tg.entities || [];
+    if (Array.isArray(entities)) {
+      for (const ent of entities) {
+        if (ent.type === 'url' && ent.url) {
+          textParts.push(ent.url);
+        }
+      }
+    }
+  } catch { /* ignore */ }
+
+  const textPreview = textParts.join('\n').trim().slice(0, 1000);
+
+  // Monta payload compatível com capture-store (WAMessageKey-like)
+  const key = {
+    id: messageId,
+    remoteJid: chatId,
+    participant: senderId,
+    fromMe,
+    messageTimestamp: timestamp / 1000,
+  };
+
+  const message = {
+    conversation: tg.text || '',
+    caption: tg.caption || '',
+    chat_id: tg.chat.id,
+    chat_type: tg.chat.type,
+    from: {
+      id: tg.from?.id,
+      first_name: tg.from?.first_name,
+      username: tg.from?.username,
+      is_bot: tg.from?.is_bot,
+    },
+    date: tg.date,
+    message_id: tg.message_id,
+    photo: tg.photo ? true : undefined,
+    document: tg.document ? true : undefined,
+    video: tg.video ? true : undefined,
+    sticker: tg.sticker ? true : undefined,
+    audio: tg.audio ? true : undefined,
+    voice: tg.voice ? true : undefined,
+    video_note: tg.video_note ? true : undefined,
+    entities: tg.entities ? JSON.parse(JSON.stringify(tg.entities)) : undefined,
+    text: tg.text || '',
+  };
+
+  const rawPayload = {
+    key,
+    message,
+    pushName: senderName,
+    messageTimestamp: timestamp / 1000,
+  };
+
+  // Persiste no JSONL
+  const CAPTURE_DIR = path.join(process.cwd(), 'laboratorio');
+  const CAPTURE_FILE = path.join(CAPTURE_DIR, 'captured-messages.jsonl');
+
+  try {
+    fs.mkdirSync(CAPTURE_DIR, { recursive: true });
+    const entry = {
+      captureId: `tgcap-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      capturedAt: new Date().toISOString(),
+      groupId: chatId,
+      messageId,
+      remoteJid: chatId,
+      participant: senderId,
+      fromMe,
+      timestamp,
+      messageType: isGroup ? 'group' : 'private',
+      contentType: hasMedia(tg) ? getMediaType(tg) : 'text',
+      senderJid: senderId,
+      isGroup,
+      pushName: senderName,
+      size: JSON.stringify(rawPayload).length,
+      platform: 'telegram',
+      textPreview,
+      rawPayloadSafe: sanitizePayload(rawPayload),
+    };
+    const line = JSON.stringify(entry, null, 0).slice(0, 50000) + '\n';
+    fs.appendFileSync(CAPTURE_FILE, line, 'utf-8');
+    logInfo(`[TelegramCapture] Mensagem capturada: ${messageId} em ${chatId} (${isGroup ? 'grupo' : 'privado'})`);
+  } catch (err: any) {
+    logWarning(`[TelegramCapture] Erro ao persistir: ${err?.message}`);
+  }
+}
+
+function hasMedia(tg: any): boolean {
+  return !!(tg.photo || tg.document || tg.video || tg.sticker || tg.audio || tg.voice || tg.video_note);
+}
+
+function getMediaType(tg: any): string {
+  if (tg.photo) return 'image';
+  if (tg.video) return 'video';
+  if (tg.document) return 'document';
+  if (tg.sticker) return 'sticker';
+  if (tg.audio || tg.voice) return 'audio';
+  if (tg.video_note) return 'video_note';
+  return 'text';
+}
+
+function sanitizePayload(raw: any): any {
+  if (!raw || typeof raw !== 'object') return raw;
+  const safe: any = {};
+  const keys = Object.keys(raw);
+  const redactedKeys = new Set([
+    'creds', 'keys', 'cookie', 'session', 'token', 'secret',
+    'routingInfo', 'noiseKey', 'signedIdentityKey', 'preKey',
+    'signedPreKey', 'identityKey', 'browser', 'userAgent',
+    'deviceList', 'lids', 'pn_map',
+  ]);
+  for (const k of keys) {
+    if (redactedKeys.has(k)) {
+      safe[k] = '[REDACTED]';
+      continue;
+    }
+    const v = raw[k];
+    if (typeof v === 'object' && v !== null) {
+      if (Array.isArray(v)) {
+        safe[k] = v.filter((x: any) => x != null).slice(0, 20).map((x: any) =>
+          typeof x === 'object' ? sanitizePayload(x) : x
+        );
+      } else {
+        safe[k] = sanitizePayload(v);
+      }
+    } else if (typeof v === 'string') {
+      safe[k] = v.length > 500 ? v.slice(0, 500) + '...' : v;
+    } else {
+      safe[k] = v;
+    }
+  }
+  if (safe.message && typeof safe.message === 'object') {
+    const msg = safe.message as any;
+    const msgKeys = Object.keys(msg).slice(0, 30);
+    safe.message = {};
+    for (const mk of msgKeys) {
+      if (redactedKeys.has(mk)) continue;
+      const mv = msg[mk];
+      safe.message[mk] = typeof mv === 'object' && mv !== null
+        ? JSON.parse(JSON.stringify(mv, (kp: string, vv: any) => {
+            if (kp.startsWith('secret') || kp.startsWith('cookie') || kp.startsWith('token')) return undefined;
+            return vv;
+          }))
+        : mv;
+    }
+  }
+  return safe;
+}
 
 class TelegramClient implements PlatformClient {
   readonly platform: PlatformType = 'telegram';
@@ -136,6 +309,14 @@ class TelegramClient implements PlatformClient {
         text: ctx.message?.text,
         chatId: ctx.chat?.id
       }));
+
+      // ─── CAPTURA DE MENSAGEM (persistência) ─────────────────────────────
+      try {
+        await captureTelegramMessage(ctx);
+      } catch (capErr: any) {
+        logWarning('[Telegram] Erro na captura da mensagem:', capErr?.message);
+      }
+
       if (this.messageHandler) {
         const platformMsg = this.normalizeMessage(ctx);
         await this.messageHandler(platformMsg);
