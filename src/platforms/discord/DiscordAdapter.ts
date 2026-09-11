@@ -1,4 +1,5 @@
 import { isProtectedTarget } from '../../services/permissions';
+import { evaluate, extractTextFromWAMessage } from '../../services/autoModEngine';
 // src/platforms/discord/DiscordAdapter.ts
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import {
@@ -106,34 +107,46 @@ class DiscordClient implements PlatformClient {
       logInfo(`[Discord] messageCreate recebido - autor: ${msg.author.username} (bot: ${msg.author.bot}), conteúdo: "${msg.content}", canal: ${msg.channel.id}, tipo: ${msg.channel.type}`);
 
       // Ignorar mensagens do próprio bot
-      if (msg.author.id === this.client.user?.id) {
+      if (msg.author.id === this.client?.user?.id) {
         logInfo('[Discord] Mensagem ignorada (do próprio bot)');
         return;
       }
 
-      // ─── CAPTURA DE MENSAGEM (persistência) ─────────────────────────────
-      try {
-        await captureDiscordMessage(msg);
-      } catch (capErr: any) {
-        logWarning('[Discord] Erro na captura da mensagem:', capErr?.message);
+      // ─── CAPTURA DE MENSAGEM ──────────────────────────────────────────────
+      try { await captureDiscordMessage(msg); } catch (capErr: any) {
+        logWarning('[Discord] Erro na captura:', capErr?.message);
       }
 
-      if (this.messageHandler) {
-        logInfo('[Discord] messageHandler definido, chamando normalizeMessage...');
-        const platformMsg = this.normalizeMessage(msg);
-        logInfo('[Discord] PlatformMessage normalizado:', JSON.stringify({
-          id: platformMsg.id,
-          chatId: platformMsg.chatId,
-          userId: platformMsg.userId,
-          text: platformMsg.text,
-          isCommand: platformMsg.isCommand
-        }));
-        logInfo('[Discord] Chamando messageHandler...');
-        await this.messageHandler(platformMsg);
-        logInfo('[Discord] messageHandler concluído');
-      } else {
-        logInfo('[Discord] ⚠️ messageHandler NÃO definido!');
-      }
+      // ─── AUTO-ANÁLISE: materiais de cassino/bot ─────────────────────────
+      const rawDiscordMsg: any = {
+        message: {
+          content: msg.content || '',
+          author: { id: msg.author.id, username: msg.author.username },
+          date: msg.createdAt?.getTime(),
+          chat: { id: msg.channel.id, type: msg.channel.type },
+        },
+      };
+
+      const autoModResult = await evaluate(
+        rawDiscordMsg as any,
+        {
+          sock: null,
+          userId: `dc:${msg.author.id}`,
+          groupName: msg.channel.name || msg.channel.id,
+          getChat: async () => null,
+          sendMessage: async (_jid: any, _text: any) => { logInfo('[Discord] autoMod sendMessage stub'); },
+          removeParticipant: async (_g: any, _u: any) => { logInfo('[Discord] autoMod removeParticipant stub'); },
+          log: (...args: any[]) => logInfo('[Discord][AutoMod]', ...args),
+          warn: (...args: any[]) => logWarning('[Discord][AutoMod]', ...args),
+          error: (...args: any[]) => logError('[Discord][AutoMod]', ...args),
+        },
+        msg.channel.id,
+        msg.author.id,
+        msg.author.username || 'unknown',
+      );
+      logInfo(`[Discord][AutoMod] avaliação: atuou=${autoModResult.acted}, motivo=${autoModResult.reason}, ação=${autoModResult.action}`);
+
+      // ─── DISPATCH PARA HANDLER DE COMANDOS ────────────────────────────────
     });
 
     this.client.on('error', (err) => {

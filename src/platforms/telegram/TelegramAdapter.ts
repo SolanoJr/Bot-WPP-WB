@@ -9,6 +9,7 @@
 
 import dns from 'dns';
 import https from 'https';
+import { evaluate } from '../../services/autoModEngine';
 import { isProtectedTarget } from '../../services/permissions';
 
 // DNS fixo GLOBAL no Node (contorna /etc/resolv.conf quebrado — BUG 36)
@@ -311,11 +312,35 @@ class TelegramClient implements PlatformClient {
       }));
 
       // ─── CAPTURA DE MENSAGEM (persistência) ─────────────────────────────
-      try {
-        await captureTelegramMessage(ctx);
-      } catch (capErr: any) {
+      try { await captureTelegramMessage(ctx); } catch (capErr: any) {
         logWarning('[Telegram] Erro na captura da mensagem:', capErr?.message);
       }
+
+      // ─── AUTO-ANÁLISE: anti-bot / cassino ────────────────────────────────
+      const tg = ctx.message || (ctx.update as any)?.message;
+      const textParts2: string[] = [];
+      if (tg?.text) textParts2.push(tg.text);
+      const autoModText2 = textParts2.join(' ').trim();
+
+      const autoModResult2 = await evaluate(
+        { key: { id: tg?.message_id ?? 0 }, message: {} } as any,
+        {
+          sock: null,
+          userId: this.userId,
+          groupName: tg?.chat?.title ?? tg?.chat?.first_name ?? 'unknown',
+          getChat: async () => null,
+          sendMessage: async (_jid: any, _text: any) => { logInfo('[Telegram] autoMod sendMessage stub'); },
+          removeParticipant: async (_g: any, _u: any) => { logInfo('[Telegram] autoMod removeParticipant stub'); },
+          log: (...a: any[]) => logInfo('[Telegram][AutoMod]', ...a),
+          warn: (...a: any[]) => logWarning('[Telegram][AutoMod]', ...a),
+          error: (...a: any[]) => logError('[Telegram][AutoMod]', ...a),
+        },
+        tg?.chat?.id ?? 0,
+        tg?.from?.id ?? 0,
+        tg?.from?.first_name ?? 'unknown',
+        autoModText2,
+      );
+      logInfo(`[Telegram][AutoMod] avaliação: atuou=${autoModResult2.acted}, motivo=${autoModResult2.reason}, ação=${autoModResult2.action}`);
 
       if (this.messageHandler) {
         const platformMsg = this.normalizeMessage(ctx);

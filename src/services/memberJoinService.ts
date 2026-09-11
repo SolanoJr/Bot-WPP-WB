@@ -21,8 +21,14 @@ interface MemberJoinEvent {
 }
 
 /** Helper: extrai o ID do membro (string ou objeto). */
-function idOf(member: string | { id: string; name?: string }): string {
-  return typeof member === 'string' ? member : member.id;
+function idOf(member: any): string {
+  if (!member) return '';
+  if (typeof member === 'string') return member;
+  if (typeof member.id === 'string') return member.id;
+  if (typeof member.jid === 'string') return member.jid;
+  if (typeof member.user === 'string') return member.user;
+  if (typeof member.phoneNumber === 'string') return member.phoneNumber;
+  return String(member.id || member.jid || '');
 }
 
 /** Helper: extrai o nome display do membro. */
