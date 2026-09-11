@@ -321,6 +321,13 @@ export async function evaluate(
   senderJid: string,
   senderName: string,
 ): Promise<AutoModResult> {
+  // Pular mensagens do próprio bot (evita loop de autoMod)
+  const botId = (ctx.userId || '').replace(/:.*/, '');
+  const senderId = (senderJid || '').replace(/:.*/, '');
+  if (senderId === botId || senderJid.toLowerCase().includes('558581344211')) {
+    return { acted:false, reason:'mensagem do próprio bot — ignorada', action:'none' };
+  }
+
   // 1. Extração de conteúdo
   const text = extractTextFromWAMessage(msg);
   const urls = extractUrls(text);
@@ -426,10 +433,12 @@ export async function evaluate(
       }
 
       // Delete mensagem (se bot for admin) — antiestrangeiro sempre deleta
+      let deleteSuccess = false;
             try { 
                 await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
                 ctx.log(`[AutoMod] mensagem deletada de ${senderJid}`);
                 reportedActions.push(`MSGMENSAGEMAPAGADA`);
+                deleteSuccess = true;
               } catch (err: any) {
                 ctx.warn(`[AutoMod] erro ao deletar mensagem:`, err?.message);
             }
@@ -437,12 +446,15 @@ export async function evaluate(
             // Registrar infração
             await recordInfraction(groupId, senderJid).catch(err => ctx.warn('[AutoMod] erro ao registrar infração:', err?.message));
 
-            // Anunciar se detectar on
+            // Anunciar se detectar on — só se houve ação real
             if (config.detectar === true) {
-              const ann = reportedActions.join(' | ');
-              try {
-                await ctx.sendMessage(groupId, `🚫 [AUTOMOD] ${ann}: ${senderName || senderJid} (${senderJid})`);
-              } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar:', err?.message); }
+              const hasRealAction = reportedActions.some(a => a === 'REMOVIDO' || a === 'MSGMENSAGEMAPAGADA');
+              if (hasRealAction) {
+                const ann = reportedActions.join(' | ');
+                try {
+                  await ctx.sendMessage(groupId, `🚫 [AUTOMOD] ${ann}: ${senderName || senderJid} (${senderJid})`);
+                } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar:', err?.message); }
+              }
             }
 
             return {
@@ -503,20 +515,25 @@ export async function evaluate(
     }
 
     // Delete mensagem
+    let casinoDeleteSuccess = false;
     try {
       await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
       ctx.log(`[AutoMod] mensagem deletada (cassino): ${senderJid}`);
-      reportedActions.push(`MSGUPDELETE`);
+      reportedActions.push(`MSGMENSAGEMAPAGADA`);
+      casinoDeleteSuccess = true;
     } catch (err: any) { ctx.warn('[AutoMod] erro ao deletar (cassino):', err?.message); }
 
     // Registrar infração
     await recordInfraction(groupId, senderJid).catch(err => ctx.warn('[AutoMod] erro ao registrar infração (cassino):', err?.message));
 
-    // Anunciar
+    // Anunciar — só se houve ação real
     if (config.detectar === true) {
-      try {
-        await ctx.sendMessage(groupId, `🚫 [AUTOMOD-CASINO] Removido/banido/deletado: ${senderName || senderJid} (${senderJid}) — domínios: ${domains.join(', ')}`);
-      } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar (cassino):', err?.message); }
+      const hasRealAction = reportedActions.some(a => a === 'REMOVIDO' || a === 'MSGMENSAGEMAPAGADA');
+      if (hasRealAction) {
+        try {
+          await ctx.sendMessage(groupId, `🚫 [AUTOMOD-CASINO] Removido/banido/deletado: ${senderName || senderJid} (${senderJid}) — domínios: ${domains.join(', ')}`);
+        } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar (cassino):', err?.message); }
+      }
     }
 
     return {
@@ -561,21 +578,26 @@ export async function evaluate(
       }
 
       // Delete mensagem
+      let antibotDeleteSuccess = false;
             try {
               await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
               ctx.log(`[AutoMod] mensagem deletada de ${senderJid}`);
-              reportedActions.push(`MSGUPDELETE`);
+              reportedActions.push(`MSGMENSAGEMAPAGADA`);
+              antibotDeleteSuccess = true;
             } catch (err: any) { ctx.warn('[AutoMod] erro ao deletar:', err?.message); }
 
             // Registrar infração
             await recordInfraction(groupId, senderJid).catch(err => ctx.warn('[AutoMod] erro ao registrar infração:', err?.message));
 
-            // Anunciar se detectar on
+            // Anunciar se detectar on — só se houve ação real
             if (config.detectar === true) {
-              const ann = reportedActions.join(' | ');
-              try {
-                await ctx.sendMessage(groupId, `🤖 [AUTOMOD] ${ann}: ${senderName || senderJid} (${senderJid})`);
-              } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar:', err?.message); }
+              const hasRealAction = reportedActions.some(a => a === 'REMOVIDO' || a === 'MSGMENSAGEMAPAGADA');
+              if (hasRealAction) {
+                const ann = reportedActions.join(' | ');
+                try {
+                  await ctx.sendMessage(groupId, `🤖 [AUTOMOD] ${ann}: ${senderName || senderJid} (${senderJid})`);
+                } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar:', err?.message); }
+              }
             }
 
             return {
@@ -605,14 +627,16 @@ export async function evaluate(
       ctx.log(`[AutoMod] antilink ativado: domínios ${urlList} de ${senderJid}`);
 
       // Delete mensagem
+      let antilinkDeleteSuccess = false;
       try {
         await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
         ctx.log(`[AutoMod] mensagem deletada por antilink: ${senderJid}`);
-        reportedActions.push(`MSGUPDELETE`);
+        reportedActions.push(`MSGMENSAGEMAPAGADA`);
+        antilinkDeleteSuccess = true;
       } catch (err: any) { ctx.warn('[AutoMod] erro ao deletar mensagem:', err?.message); }
 
-      // Anunciar se detectar on
-      if (config.detectar === true) {
+      // Anunciar se detectar on — só se deletou com sucesso
+      if (config.detectar === true && antilinkDeleteSuccess) {
         try {
           await ctx.sendMessage(
             groupId,
