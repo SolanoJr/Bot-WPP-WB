@@ -305,7 +305,7 @@ class TelegramClient implements PlatformClient {
 
   private setupEventHandlers() {
     this.bot.on('message', async (ctx: any) => {
-      logInfo('[Telegram] Mensagem recebida:', JSON.stringify({
+      logInfo(`[Telegram] Mensagem recebida:`, JSON.stringify({
         from: ctx.from?.username,
         text: ctx.message?.text,
         chatId: ctx.chat?.id
@@ -329,16 +329,36 @@ class TelegramClient implements PlatformClient {
           userId: this.userId,
           groupName: tg?.chat?.title ?? tg?.chat?.first_name ?? 'unknown',
           getChat: async () => null,
-          sendMessage: async (_jid: any, _text: any) => { logInfo('[Telegram] autoMod sendMessage stub'); },
-          removeParticipant: async (_g: any, _u: any) => { logInfo('[Telegram] autoMod removeParticipant stub'); },
+          sendMessage: async (jid: any, text: any, opts: any) => {
+            try {
+              if (opts?.delete) {
+                await this.deleteMessage(jid, opts.delete.id?.toString() || '');
+              } else {
+                await this.sendMessage(jid, text, opts);
+              }
+            } catch (e: any) {
+              logError('[Telegram][AutoMod] erro ao executar ação:', e?.message);
+            }
+          },
+          removeParticipant: async (g: any, u: any) => {
+            try {
+              if (isProtectedTarget(u)) {
+                logInfo(`[Telegram][AutoMod] removeParticipant bloqueado — alvo protegido: ${u}`);
+                return;
+              }
+              await this.removeParticipant(g, u);
+              logInfo(`[Telegram][AutoMod] participante removido: ${u}`);
+            } catch (e: any) {
+              logError('[Telegram][AutoMod] erro ao remover participante:', e?.message);
+            }
+          },
           log: (...a: any[]) => logInfo('[Telegram][AutoMod]', ...a),
           warn: (...a: any[]) => logWarning('[Telegram][AutoMod]', ...a),
-          error: (...a: any[]) => logError('[Telegram][AutoMod]', ...a),
+          error: (msg: string, ...args: any[]) => logError('[Telegram][AutoMod]', msg, ...args),
         },
         tg?.chat?.id ?? 0,
         tg?.from?.id ?? 0,
         tg?.from?.first_name ?? 'unknown',
-        autoModText2,
       );
       logInfo(`[Telegram][AutoMod] avaliação: atuou=${autoModResult2.acted}, motivo=${autoModResult2.reason}, ação=${autoModResult2.action}`);
 
@@ -457,8 +477,13 @@ class TelegramClient implements PlatformClient {
   }
 
   async sendMessage(chatId: string, text: string, options?: SendOptions): Promise<PlatformMessage> {
-    const thisHash = Math.random().toString(36).substring(7);
     const cleanChatId = chatId.replace(/^tg:/, '');
+    // Delete message (moderação automática)
+    if (options?.delete) {
+      const msgId = options.delete.id?.toString?.() || String(options.delete.id);
+      await this.deleteMessage(chatId, msgId);
+      return { id: msgId, chatId, platform: 'telegram' } as any;
+    }
     const sent = await this.bot.telegram.sendMessage(Number(cleanChatId), text, {
       parse_mode: options?.parseMode as any,
       disable_web_page_preview: options?.disablePreview as any,
@@ -537,6 +562,12 @@ class TelegramClient implements PlatformClient {
     const cleanUserId = Number(userId.replace(/^tg:/, ''));
     // banChatMember bane permanentemente (até revogar)
     await this.bot.telegram.banChatMember(cleanChatId, cleanUserId);
+  }
+
+  async deleteMessage(chatId: string, messageId: string): Promise<void> {
+    const cleanChatId = Number(chatId.replace(/^tg:/, ''));
+    const cleanMessageId = Number(messageId.split(':').pop() || messageId);
+    await this.bot.telegram.deleteMessage(cleanChatId, cleanMessageId);
   }
 
   onMessage(handler: MessageHandler): void { this.messageHandler = handler; }

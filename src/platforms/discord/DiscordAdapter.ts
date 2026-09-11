@@ -1,7 +1,7 @@
 import { isProtectedTarget } from '../../services/permissions';
 import { evaluate, extractTextFromWAMessage } from '../../services/autoModEngine';
 // src/platforms/discord/DiscordAdapter.ts
-import { Client, GatewayIntentBits, Partials } from 'discord.js';
+import { Client, GatewayIntentBits, Partials, TextChannel } from 'discord.js';
 import {
   PlatformType,
   PlatformAdapter,
@@ -132,13 +132,34 @@ class DiscordClient implements PlatformClient {
         {
           sock: null,
           userId: `dc:${msg.author.id}`,
-          groupName: msg.channel.name || msg.channel.id,
+          groupName: (msg.channel as any).name ?? msg.channel.id,
           getChat: async () => null,
-          sendMessage: async (_jid: any, _text: any) => { logInfo('[Discord] autoMod sendMessage stub'); },
-          removeParticipant: async (_g: any, _u: any) => { logInfo('[Discord] autoMod removeParticipant stub'); },
+          sendMessage: async (jid: any, text: any, opts: any) => {
+            try {
+              if (opts?.delete) {
+                await this.deleteMessage(jid, opts.delete.id?.toString() || '');
+              } else {
+                await this.sendMessage(jid, text, opts);
+              }
+            } catch (e: any) {
+              logError('[Discord][AutoMod] erro ao executar ação:', e?.message);
+            }
+          },
+          removeParticipant: async (g: any, u: any) => {
+            try {
+              if (isProtectedTarget(u)) {
+                logInfo(`[Discord][AutoMod] removeParticipant bloqueado — alvo protegido: ${u}`);
+                return;
+              }
+              await this.removeParticipant(g, u);
+              logInfo(`[Discord][AutoMod] participante removido: ${u}`);
+            } catch (e: any) {
+              logError('[Discord][AutoMod] erro ao remover participante:', e?.message);
+            }
+          },
           log: (...args: any[]) => logInfo('[Discord][AutoMod]', ...args),
           warn: (...args: any[]) => logWarning('[Discord][AutoMod]', ...args),
-          error: (...args: any[]) => logError('[Discord][AutoMod]', ...args),
+          error: (msg: string, ...args: any[]) => logError('[Discord][AutoMod]', msg, ...args),
         },
         msg.channel.id,
         msg.author.id,
@@ -193,19 +214,24 @@ class DiscordClient implements PlatformClient {
   async sendMessage(chatId: string, text: string, options?: SendOptions): Promise<PlatformMessage> {
     const cleanChatId = chatId.replace(/^dc:/, '');
     let channel: any;
-    
     try {
       channel = await this.client.channels.fetch(cleanChatId);
     } catch {
       channel = null;
     }
-    
     if (!channel) {
       channel = this.client.channels.cache.get(cleanChatId);
     }
-    
     if (!channel || typeof channel.send !== 'function') {
       throw new Error(`Discord: Canal não encontrado: ${chatId}`);
+    }
+
+    // Delete message (moderação automática)
+    if (options?.delete) {
+      const msgId = options.delete.id?.toString?.() || String(options.delete.id);
+      const msg = await channel.messages.fetch(msgId).catch(() => null);
+      if (msg) await msg.delete();
+      return { id: msgId, chatId, platform: 'discord' } as any;
     }
 
     // Montar mensagem com suporte a reply (citação)
@@ -323,18 +349,27 @@ class DiscordClient implements PlatformClient {
     await guild.members.ban(cleanUserId, { reason: 'Banido por comando do bot' });
   }
 
-  async react(messageId: string, emoji: string): Promise<void> {
-    try {
-      const msgId = messageId.split(':').pop();
-      if (!msgId) return;
-      const msg = await (this.client as any).messages.fetch(msgId);
-      if (msg) await msg.react(emoji);
-    } catch (e: any) {
-      logError('Discord.react', e);
-    }
+  async deleteMessage(chatId: string, messageId: string): Promise<void> {
+    if (!messageId) throw new Error('messageId vazio para deleteMessage');
+    const cleanChatId = chatId.replace(/^dc:/, '');
+    const cleanMessageId = messageId.split(':').pop() || messageId;
+    const channel = await this.client.channels.fetch(cleanChatId).catch(() => null);
+    if (!channel) throw new Error(`Discord: canal não encontrado: ${chatId}`);
+    const msg = await (channel as TextChannel).messages.fetch(cleanMessageId).catch(() => null);
+    if (!msg) throw new Error(`Discord: mensagem não encontrada: ${messageId}`);
+    await msg.delete();
   }
 
-  onMessage(handler: MessageHandler): void {
+  async react(messageId: string, emoji: string): Promise<void> {
+    const cleanMessageId = messageId.split(':').pop() || messageId;
+    const channel = await this.client.channels.fetch(cleanMessageId).catch(() => null) as TextChannel | null;
+    if (!channel) return;
+    const msg = await channel.messages.fetch(cleanMessageId).catch(() => null);
+    if (!msg) return;
+    await msg.react(emoji);
+  }
+
+  async onMessage(handler: MessageHandler): Promise<void> {
     this.messageHandler = handler;
   }
 

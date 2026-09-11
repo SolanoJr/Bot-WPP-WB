@@ -112,6 +112,7 @@ export interface SendOptions {
   buttons?: ButtonOptions[];
   sendAudioAsVoice?: boolean;       // Enviar áudio como mensagem de voz (PTT)
   mentionedIds?: string[];          // IDs de usuários a mencionar
+  delete?: { id: string | number; fromMe?: boolean; participant?: string };
 }
 
 export interface ButtonOptions {
