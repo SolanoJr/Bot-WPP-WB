@@ -32,7 +32,10 @@ export async function initDatabase() {
   });
 
   await db.exec("PRAGMA journal_mode=WAL;");
-  await db.exec("PRAGMA busy_timeout=5000;");
+  await db.exec("PRAGMA synchronous=NORMAL;");
+  await db.exec("PRAGMA busy_timeout=10000;");
+  await db.exec("PRAGMA foreign_keys=ON;");
+  await db.exec("PRAGMA wal_autocheckpoint=1000;");
 
   // ─── Logs de comandos ───
   await db.exec(`

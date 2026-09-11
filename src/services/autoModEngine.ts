@@ -328,6 +328,16 @@ export async function evaluate(
     return { acted:false, reason:'mensagem do próprio bot — ignorada', action:'none' };
   }
 
+  // Validação: senderJid não pode ser o JID do próprio grupo (evita false positive de foreign)
+  if (senderJid && groupId && senderJid === groupId) {
+    return { acted:false, reason:'senderJid igual ao groupId — ignorando', action:'none' };
+  }
+
+  // Validação: senderJid deve ter participant/remoteJid válido (não pode ser só o grupo)
+  if (senderJid && !senderJid.includes('@')) {
+    return { acted:false, reason:'senderJid inválido (sem @) — ignorando', action:'none' };
+  }
+
   // 1. Extração de conteúdo
   const text = extractTextFromWAMessage(msg);
   const urls = extractUrls(text);

@@ -84,7 +84,12 @@ export class BaileysMessageNormalizer {
       let senderJid: string;
       if (isGroup) {
         chatJid = remoteJid;
-        senderJid = key.participant || remoteJid;
+        senderJid = key.participant || '';
+        // Se não há participante, é uma mensagem interna do sistema — ignora
+        if (!senderJid) {
+          logInfo(`[DBG-disp] mensagem sem participante (interno?) — ignorando. key=${JSON.stringify(key)}`);
+          return;
+        }
       } else if (key.participant && key.participant.endsWith('@g.us')) {
         chatJid = key.participant;
         senderJid = remoteJid;
