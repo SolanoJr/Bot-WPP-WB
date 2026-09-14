@@ -76,6 +76,9 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
         onCredsUpdate: () => this.handleCredsUpdate(),
         onDisconnected: (reason) => this.handleDisconnected(reason),
         onMessagesUpsert: (messages) => this.handleMessagesUpsert(messages),
+        onMessagesDelete: (keys) => this.handleMessagesDelete(keys),
+        onMessagesDeleteAll: (jid, all) => this.handleMessagesDeleteAll(jid, all),
+        onMessagesUpdate: (updates) => this.handleMessagesUpdate(updates),
       },
       this.platform
     );
@@ -94,8 +97,8 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
       platform: this.platform,
       userId: this.userId,
       userName: this.userName,
-      getNumberId: (phone) => this.getNumberId(phone),
-      getContactById: (id) => this.getContactById(id),
+      getNumberId: (phone: string) => this.getNumberId(phone),
+      getContactById: (id: string) => this.getContactById(id),
     });
 
     this.chatManager = new BaileysChatManager({
@@ -143,8 +146,8 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
       platform: this.platform,
       userId: this.userId,
       userName: this.userName,
-      getNumberId: (phone) => this.getNumberId(phone),
-      getContactById: (id) => this.getContactById(id),
+      getNumberId: (phone: string) => this.getNumberId(phone),
+      getContactById: (id: string) => this.getContactById(id),
     });
     this.chatManager = new BaileysChatManager({
       sock: this.connection.getSock(),
@@ -357,6 +360,34 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
     }
   }
 
+  private async handleMessagesDelete(keys: any[]): Promise<void> {
+    logInfo('[BaileysAdapter] MENSAGENS_DELETADAS (confirmacao do servidor)', {
+      count: keys.length,
+      keys: keys.map((k: any) => ({ id: k.id, remoteJid: k.remoteJid, participant: k.participant })),
+    });
+    // Re-dispatch para normalizer/observer se houver hook registrado
+    for (const key of keys) {
+      await this.normalizer?.dispatchKeyDeleted?.(key);
+    }
+  }
+
+  private async handleMessagesDeleteAll(jid: string, all: boolean): Promise<void> {
+    logInfo('[BaileysAdapter] MENSAGENS_DELETADAS_TODAS', { jid, all });
+  }
+
+  private async handleMessagesUpdate(updates: any[]): Promise<void> {
+    logInfo('[BaileysAdapter] MENSAGENS_ATUALIZADAS', {
+      count: updates.length,
+      updates: updates.slice(0, 5).map((u: any) => ({
+        id: u.id, remoteJid: u.remoteJid,
+        hasProtocol: !!(u?.message as any)?.protocolMessage,
+      })),
+    });
+    for (const update of updates) {
+      await this.normalizer?.dispatchMessageUpdate?.(update);
+    }
+  }
+
   private async handleMutedCheck(normMsg: any) {
     const muted = await handleMutedMessage({
       chatId: normMsg.chatId,
@@ -392,6 +423,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
             {
               sock: this.connection.getSock(),
               userId: this.userId,
+              fromMe: normMsg.isFromMe,
               groupName: normMsg.chatId.endsWith('@g.us')
                 ? (await this.getChat(normMsg.chatId))?.name
                   || (await this.getChat(normMsg.chatId))?.subject

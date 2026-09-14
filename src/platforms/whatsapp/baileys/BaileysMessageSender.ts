@@ -1,8 +1,12 @@
 /** BaileysMessageSender — Envio de mensagens, mídia, reações e lógica de quoting.
  * Extraído de BaileysAdapter.
+ *
+ * CORREÇÃO (2026-09-14): o bloco de delete agora preserva a WAMessageKey completa
+ * em vez de reconstruir uma chave truncada. Campos como participantAlt e
+ * addressingMode chegam ao sock.sendMessage() intactos.
  */
 
-import { logInfo, logError, logWarning } from '../../../services/loggerService';
+import { logInfo, logWarning, logError } from '../../../services/loggerService';
 import { normId, toJid } from './util';
 import type { WAMessageKey } from '@whiskeysockets/baileys';
 import type { MediaPayload, SendOptions, PlatformMessage } from '../../base/PlatformTypes';
@@ -43,12 +47,42 @@ export class BaileysMessageSender {
     const jid = toJid(chatId);
     const msgOpts: any = { text };
 
-    // Delete message support
+    // ─── Delete message support ───
+    // Preserve the COMPLETE WAMessageKey — do NOT reconstruct a truncated key.
     if (options?.delete) {
       const del = options.delete;
-      const deleteMsg: any = { id: del.id, fromMe: !!del.fromMe };
-      if (del.participant) deleteMsg.participant = toJid(del.participant);
-      const res = await this.sock.sendMessage(jid, { delete: deleteMsg });
+
+      // Log completo da chave antes de enviar — para auditoria do experimento.
+      logInfo('[BaileysSender] delete request — complete key (antes de sock.sendMessage)', {
+        id: del.id,
+        remoteJid: del.remoteJid,
+        fromMe: del.fromMe,
+        participant: del.participant,
+        participantAlt: del.participantAlt,
+        addressingMode: del.addressingMode,
+      });
+
+      // validaremoteJid obrigatório para grupos
+      if (!del.remoteJid) {
+        logWarning('[BaileysSender] delete key SEM remoteJid — o revoke pode ser rejeitado pelo servidor');
+      }
+
+      // WARN: não converter participant LID→PN; usar del.participant como está.
+      // O Baileys v7 rc14 aceita participant no formato LID para grupos.
+      const deletePayload: any = { delete: del };
+
+      const res = await this.sock.sendMessage(jid, deletePayload);
+
+      logInfo('[BaileysSender] delete response', {
+        key: res?.key,
+        protocolMessage: res?.message?.protocolMessage
+          ? {
+              type: res.message.protocolMessage.type,
+            }
+          : null,
+        status: res?.status,
+      });
+
       return {
         id: `${this.platform}:${res.key?.id || del.id}`,
         platform: this.platform,
@@ -88,8 +122,8 @@ export class BaileysMessageSender {
         key: {
           id: quotedId,
           remoteJid: jid,
-          fromMe: quotedFromMe,
           participant: quotedFromMe ? undefined : quotedParticipant,
+          fromMe: !!quotedFromMe,
         },
         message: { conversation: quotedText, extendedTextMessage: { text: quotedText } },
       };

@@ -1,6 +1,6 @@
 import http from 'node:http';
 import { PlatformManager } from '../platforms/PlatformManager';
-import logger from './loggerService';
+import { logInfo, logWarning, logError } from './loggerService';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -188,6 +188,11 @@ export function startTestServer(port: number = 3004): void {
         }
 
         // ─── Endpoint de delete de mensagem (para laboratório) ───
+        // Usa o JSONL de capturas para obter a WAMessageKey completa (com participantAlt, addressingMode, etc.)
+        // e executa UMA ÚNICA tentativa de delete com a chave completa.
+        // CORREÇÃO 2026-09-14: a chave de delete agora preserva todos os campos: id, remoteJid,
+        // fromMe, participant, participantAlt, addressingMode, e outros campos opcionais presentes
+        // na entrada do JSONL, em vez de reconstruir uma chave truncada.
         if (req.url === '/lab/delete-message') {
           const { platform, groupJid, messageId, participant, fromMe } = parsedBody;
           if (!platform || !groupJid || !messageId) {
@@ -203,16 +208,156 @@ export function startTestServer(port: number = 3004): void {
             return;
           }
           const baileysAdapter = adapter as any;
-          const deleteMsg: any = { id: messageId, fromMe: !!fromMe };
-          if (participant) deleteMsg.participant = participant;
+          const sock = baileysAdapter.connection?.getSock?.() || (baileysAdapter as any).sock || null;
+          if (!sock) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Socket não disponível', platform, groupJid, messageId }));
+            return;
+          }
+
+          // Busca a mensagem no JSONL para obter a chave completa
+          const entries = readCaptures().filter(
+            (c: any) => c.messageId === messageId && (c.groupId === groupJid || c.remoteJid === groupJid)
+          );
+          const targetEntry = entries[0] || null;
+
+          // Constrói o WAMessageKey completo a partir do JSONL (se disponível) ou dos parâmetros
+          const deleteKey: any = {
+            id: messageId,
+            remoteJid: groupJid,
+            fromMe: !!fromMe,
+          };
+          if (targetEntry) {
+            // Usa os campos completos do JSONL
+            deleteKey.participant = targetEntry.participant || participant || '';
+            deleteKey.participantAlt = targetEntry.rawPayloadSafe?.key?.participantAlt;
+            deleteKey.addressingMode = targetEntry.rawPayloadSafe?.key?.addressingMode;
+            deleteKey.server_id = targetEntry.rawPayloadSafe?.key?.server_id;
+            // Campos additional do WAMessageKey
+            if (targetEntry.rawPayloadSafe?.key?.remoteJidAlt) deleteKey.remoteJidAlt = targetEntry.rawPayloadSafe.key.remoteJidAlt;
+            if (targetEntry.rawPayloadSafe?.key?.participantUsername) deleteKey.participantUsername = targetEntry.rawPayloadSafe.key.participantUsername;
+          } else if (participant) {
+            deleteKey.participant = participant;
+          }
+
+          logInfo('[TestServer] /lab/delete-message: construída WAMessageKey completa para envio', {
+            messageId, groupJid, deleteKey,
+          });
+
+          // Validações de proteção
+          const isFromBot = !!(deleteKey.fromMe);
+          if (isFromBot) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              attempted: true,
+              requestSent: false,
+              messageKey: deleteKey,
+              confirmation: 'blocked',
+              reason: 'Proteção: não deletar mensagem do próprio bot (fromMe=true)',
+            }));
+            return;
+          }
+
+          // Confirmação de que está no grupo correto
+          if (deleteKey.remoteJid !== groupJid) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              attempted: true,
+              requestSent: false,
+              messageKey: deleteKey,
+              confirmation: 'blocked',
+              reason: `remoteJid (${deleteKey.remoteJid}) não corresponde ao groupJid (${groupJid})`,
+            }));
+            return;
+          }
+
           try {
-            const result = await baileysAdapter.sendMessage(groupJid, '', { delete: deleteMsg });
+            // Evento de confirmação: ouvir messages.update logo antes do delete
+            let confirmationEvent: any = null;
+            let sendResult: any = null;
+            if (sock.ev) {
+              const unload = () => {
+                try { sock.ev.off('messages.update', updateListener); } catch {}
+                try { sock.ev.off('messages.delete', deleteListener); } catch {}
+              };
+              const updateListener = (data: any) => {
+                if (Array.isArray(data) && data.length > 0) {
+                  for (const update of data) {
+                    if (update?.key?.id === messageId) {
+                      confirmationEvent = { type: 'messages.update', data: update };
+                      logInfo('[TestServer] MESSAGES_UPDATE_EVENT', { messageId, update: update });
+                    }
+                  }
+                }
+              };
+              const deleteListener = (data: any) => {
+                if (data?.keys?.some((k: any) => k?.id === messageId)) {
+                  confirmationEvent = { type: 'messages.delete', data };
+                  logInfo('[TestServer] MESSAGES_DELETE_EVENT', { messageId, keys: data.keys });
+                }
+              };
+              sock.ev.on('messages.update', updateListener);
+              sock.ev.on('messages.delete', deleteListener);
+              
+              // Aguarda evento por até 8s após o delete
+              const waitForConfirmation = new Promise<any>((resolve) => {
+                const timeout = setTimeout(() => resolve(null), 8000);
+                const check = setInterval(() => {
+                  if (confirmationEvent) {
+                    clearTimeout(timeout);
+                    clearInterval(check);
+                    resolve(confirmationEvent);
+                  }
+                }, 100);
+              });
+
+              const deletePromise = baileysAdapter.sendMessage(groupJid, '', { delete: deleteKey });
+              const [sr, evt] = await Promise.all([deletePromise, waitForConfirmation]);
+              sendResult = sr;
+              unload();
+              confirmationEvent = evt;
+            } else {
+              sendResult = await baileysAdapter.sendMessage(groupJid, '', { delete: deleteKey });
+              confirmationEvent = null;
+            }
+
             totalSuccess++;
+            logInfo('[TestServer] /lab/delete-message: delete enviado — registrando resultado', {
+              messageId, groupJid,
+              deleteKey,
+              sendResult: sendResult ? {
+                key: sendResult.key,
+                protocolMessage: sendResult.message?.protocolMessage || null,
+                status: sendResult.status,
+              } : null,
+              confirmationEvent,
+              conclusion: confirmationEvent ? 'confirmed' : 'not_confirmed',
+            });
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok: true, result, messageId, groupJid }));
+            res.end(JSON.stringify({
+              attempted: true, 
+              requestSent: true, 
+              messageKey: deleteKey,
+              confirmation: confirmationEvent ? 'confirmed' : 'not_confirmed',
+              reason: confirmationEvent 
+                ? `Evento ${confirmationEvent.type} recebido para ${messageId}`
+                : 'sendMessage retornou sem erro, mas nenhum evento de confirmação (messages.update/messages.delete) foi recebido no período de espera. Isso NÃO confirma que a mensagem foi apagada visualmente.',
+              sendMessageResult: sendResult ? {
+                key: sendResult.key,
+                protocolMessage: sendResult.message?.protocolMessage || null,
+                status: sendResult.status,
+              } : null,
+              confirmationEvent: confirmationEvent || null,
+            }));
           } catch (err: any) {
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok: false, error: err?.message || String(err), messageId, groupJid }));
+            res.end(JSON.stringify({ 
+              attempted: true, 
+              requestSent: false, 
+              messageKey: deleteKey,
+              confirmation: 'error',
+              reason: err?.message || String(err),
+            }));
           }
           return;
         }
@@ -330,7 +475,7 @@ export function startTestServer(port: number = 3004): void {
   });
 
   server.listen(port, '127.0.0.1', () => {
-    logger.info(`[TestServer] Servidor de testes iniciado`, { port });
-    logger.info(`[TestServer] endpoints: /test, /lab/find-message, /lab/messages, /lab/delete-message, /lab/adapter, /lab/groups, /lab/stats`);
+    logInfo(`[TestServer] Servidor de testes iniciado`, { port });
+    logInfo(`[TestServer] endpoints: /test, /lab/find-message, /lab/messages, /lab/delete-message, /lab/adapter, /lab/groups, /lab/stats`);
   });
 }

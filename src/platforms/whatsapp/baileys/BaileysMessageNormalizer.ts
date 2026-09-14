@@ -45,6 +45,7 @@ export class BaileysMessageNormalizer {
   private sendMessage: (jid: string, text: string, opts?: any) => Promise<any>;
   private removeParticipant: (g: string, u: string) => Promise<void>;
   private msgHandler: ((msg: NormalizedMessage) => Promise<void>) | null = null;
+  private bootTimestamp: number = Date.now(); // timestamp de inicialização para filtrar histórico antigo
 
   constructor(deps: BaileysMessageNormalizerDeps) {
     this.sock = deps.sock;
@@ -79,6 +80,19 @@ export class BaileysMessageNormalizer {
       const isGroup = remoteJid.endsWith('@g.us');
       const fromMe = !!key.fromMe;
 
+      // Pular mensagens do próprio bot (fromMe: true) — o anúncio do autoMod é uma nova mensagem
+      // que o Baileys buffer reprocessa durante o initial sync, gerando loop infinito
+      if (fromMe) {
+        return;
+      }
+
+      // Pular mensagens antigas do histórico (initial sync do Baileys) — apenas processar mensagens recebidas após o boot
+      const msgTimestamp = rawMsg.messageTimestamp ? Number(rawMsg.messageTimestamp) * 1000 : 0;
+      if (msgTimestamp > 0 && msgTimestamp < this.bootTimestamp - 5000) {
+        // Mensagem do histórico anterior ao boot — ignorar para não reprocessar loop antigo
+        return;
+      }
+
       // Resolve chatJid e senderJid (lógica de LID/@g.us)
       let chatJid: string;
       let senderJid: string;
@@ -88,6 +102,11 @@ export class BaileysMessageNormalizer {
         // Se não há participante, é uma mensagem interna do sistema — ignora
         if (!senderJid) {
           logInfo(`[DBG-disp] mensagem sem participante (interno?) — ignorando. key=${JSON.stringify(key)}`);
+          return;
+        }
+        // Se o participante é o próprio grupo, é um protocol message (revoke/delete) — ignora
+        if (senderJid === remoteJid) {
+          logInfo(`[DBG-disp] mensagem com senderJid == groupId (protocol message) — ignorando. key=${JSON.stringify(key)}`);
           return;
         }
       } else if (key.participant && key.participant.endsWith('@g.us')) {
@@ -109,7 +128,12 @@ export class BaileysMessageNormalizer {
       const extractedUrls = this.extractUrlsFromPayload(m);
 
       // AutoMod fire-and-forget: avalia TODAS as mensagens (inclusive mídias e botões interativos)
-      void this.runAutoMod(rawMsg, from, sender, fromMe);
+      // Pula mensagens do próprio bot para evitar loop (o anúncio do autoMod é uma nova mensagem)
+      // Dupla defesa: fromMe false E não é um anúncio do autoMod (evita reprocessar o anúncio que o bot enviou)
+      const isAutoModAnnouncement = body && (body.startsWith('🚫 [AUTOMOD]') || body.startsWith('🤖 [AUTOMOD]') || body.startsWith('📢 [AUTOMOD]') || body.startsWith('[AUTOMOD]'));
+      if (!fromMe && !isAutoModAnnouncement) {
+        void this.runAutoMod(rawMsg, from, sender, fromMe);
+      }
 
       // Se não há nenhum texto, não despacha para processamento de comandos normais
       if (!body || !body.trim()) return;
@@ -176,6 +200,97 @@ export class BaileysMessageNormalizer {
 
     } catch (e: any) {
       logError('Baileys.normalizeMsg', e);
+    }
+  }
+
+  /** Chamado quando o servidor Baileys confirma deleção de uma mensagem (messages.delete event).
+   *  Registra no capture-store para auditoria do experimento de delete.
+   */
+  async dispatchKeyDeleted(key: any): Promise<void> {
+    try {
+      logInfo('[BaileysNormalizer] dispatchKeyDeleted', {
+        id: key.id,
+        remoteJid: key.remoteJid,
+        participant: key.participant,
+        participantAlt: key.participantAlt,
+        addressingMode: key.addressingMode,
+      });
+      // Registra a deleção no JSONL para rastreamento do experimento
+      if (key.id && key.remoteJid) {
+        const captureEntry = {
+          captureId: `del-${key.id}-${Date.now()}`,
+          capturedAt: new Date().toISOString(),
+          groupId: key.remoteJid.endsWith('@g.us') ? key.remoteJid : '',
+          messageId: key.id,
+          remoteJid: key.remoteJid,
+          participant: key.participant || '',
+          fromMe: !!key.fromMe,
+          timestamp: Date.now(),
+          messageType: 'revoked_deleted',
+          contentType: 'delete_confirmation',
+          senderJid: key.participant || key.remoteJid,
+          isGroup: key.remoteJid?.endsWith('@g.us') || false,
+          pushName: '',
+          size: 0,
+          event: 'key_deleted',
+          key: key,
+        };
+        const { appendCapture } = require('../../../../laboratorio/capture-store.js');
+        if (typeof appendCapture === 'function') {
+          appendCapture(captureEntry);
+        }
+      }
+    } catch (e: any) {
+      logWarning('[BaileysNormalizer] dispatchKeyDeleted falhou:', e?.message);
+    }
+  }
+
+  /** Chamado quando o servidor Baileys envia um evento de atualização de mensagem (messages.update).
+   *  Pode conter protocolMessage (ex: revoke recebido do servidor).
+   */
+  async dispatchMessageUpdate(update: any): Promise<void> {
+    try {
+      const key = update?.key;
+      const message = update?.message;
+      const hasProtocol = !!(message && (message as any).protocolMessage);
+
+      logInfo('[BaileysNormalizer] dispatchMessageUpdate', {
+        id: key?.id,
+        remoteJid: key?.remoteJid,
+        participant: key?.participant,
+        hasProtocol,
+        protocolType: hasProtocol ? (message as any).protocolMessage?.type : null,
+      });
+
+      // Se é um protocol message de revoke, captura para o experimento
+      if (hasProtocol && (message as any).protocolMessage?.type === 'REVOKE') {
+        if (key?.id && key?.remoteJid) {
+          const { appendCapture } = require('../../../../laboratorio/capture-store.js');
+          if (typeof appendCapture === 'function') {
+            appendCapture({
+              captureId: `proto-revoke-${key.id}-${Date.now()}`,
+              capturedAt: new Date().toISOString(),
+              groupId: key.remoteJid.endsWith('@g.us') ? key.remoteJid : '',
+              messageId: key.id,
+              remoteJid: key.remoteJid,
+              participant: key.participant || '',
+              fromMe: !!key.fromMe,
+              timestamp: Date.now(),
+              messageType: 'protocol_revoke',
+              contentType: 'protocolMessage',
+              senderJid: key.participant || key.remoteJid,
+              isGroup: key.remoteJid?.endsWith('@g.us') || false,
+              pushName: '',
+              size: 0,
+              event: 'protocol_revoke',
+              key: key,
+              protocolMessage: (message as any).protocolMessage,
+            });
+          }
+        }
+      }
+    } catch (e: any) {
+      logWarning('[BaileysNormalizer] dispatchMessageUpdate falhou:', e?.message);
     }
   }
 
@@ -289,6 +404,7 @@ export class BaileysMessageNormalizer {
             {
               sock: this.sock,
               userId: this.userId,
+              fromMe: fromMe,  // passa para o evaluate saber se é mensagem do bot
               groupName: from.endsWith('@g.us')
                 ? (this.sock?.store?.chats?.[from]?.subject || from)
                 : from,
@@ -309,7 +425,7 @@ export class BaileysMessageNormalizer {
               removeParticipant: async (g: string, u: string) => {
                 try { await this.removeParticipant(g, u); } catch { /* ignorar */ }
               },
-              log: console.log.bind(console), // autoModEngine ainda usa console; será migrado depois
+              log: console.log.bind(console),
               warn: console.warn.bind(console),
               error: console.error.bind(console),
             },

@@ -1,4 +1,5 @@
-/** BaileysConnection — conexão, QR, reconnection, loggedOut, health básico.
+/**
+ * BaileysConnection — conexão, QR, reconnection, loggedOut, health básico.
  * Extraído de BaileysAdapter.ts.
  *
  * API Baileys v7 rc14 (investigada no servidor):
@@ -31,6 +32,9 @@ export interface BaileysConnectionOpts {
   onCredsUpdate?: () => void;
   onDisconnected?: (reason: string) => void;
   onMessagesUpsert?: (messages: any[]) => void | Promise<void>;
+  onMessagesDelete?: (keys: any[]) => void | Promise<void>;
+  onMessagesDeleteAll?: (jid: string, all: boolean) => void | Promise<void>;
+  onMessagesUpdate?: (updates: any[]) => void | Promise<void>;
 }
 
 export class BaileysConnection {
@@ -43,6 +47,9 @@ export class BaileysConnection {
   private onCredsUpdate?: () => void;
   private onDisconnected?: (reason: string) => void;
   private onMessagesUpsert?: (messages: any[]) => void | Promise<void>;
+  private onMessagesDelete?: (keys: any[]) => void | Promise<void>;
+  private onMessagesDeleteAll?: (jid: string, all: boolean) => void | Promise<void>;
+  private onMessagesUpdate?: (updates: any[]) => void | Promise<void>;
 
   // Health/state
   private _ready = false;
@@ -62,6 +69,9 @@ export class BaileysConnection {
     this.onCredsUpdate = opts.onCredsUpdate;
     this.onDisconnected = opts.onDisconnected;
     this.onMessagesUpsert = opts.onMessagesUpsert;
+    this.onMessagesDelete = opts.onMessagesDelete;
+    this.onMessagesDeleteAll = opts.onMessagesDeleteAll;
+    this.onMessagesUpdate = opts.onMessagesUpdate;
   }
 
   // ---- Getters / setters usados pela adapter ----
@@ -198,6 +208,47 @@ export class BaileysConnection {
     driver.ev.on('messages.upsert', async (event: { messages?: any[] }) => {
       if (event?.messages?.length) {
         await this.onMessagesUpsert?.(event.messages);
+      }
+    });
+
+    // ─── Confirmação de deletes (para laboratório/observação) ───
+    // messages.delete: emitido pelo Baileys quando o servidor confirma remoção
+    // messages.update: emitido quando uma mensagem é atualizada (ex: revoke, edit)
+    driver.ev.on('messages.delete', async (event: any) => {
+      if (event?.keys?.length) {
+        logInfo('[BaileysConnection] MESSAGES_DELETE_EVENT', {
+          count: event.keys.length,
+          keys: event.keys.map((k: any) => ({
+            id: k.id,
+            remoteJid: k.remoteJid,
+            fromMe: k.fromMe,
+            participant: k.participant,
+            participantAlt: k.participantAlt,
+            addressingMode: k?.addressingMode,
+          })),
+        });
+        await this.onMessagesDelete?.(event.keys);
+      } else if (event?.all) {
+        logInfo('[BaileysConnection] MESSAGES_DELETE_EVENT (all)', { jid: event.jid });
+        await this.onMessagesDeleteAll?.(event.jid, event.all);
+      }
+    });
+
+    driver.ev.on('messages.update', async (event: any) => {
+      if (event?.length) {
+        logInfo('[BaileysConnection] MESSAGES_UPDATE_EVENT', {
+          count: event.length,
+          updates: event.slice(0, 50).map((u: any) => ({
+            id: u.id,
+            remoteJid: u.remoteJid,
+            fromMe: u.fromMe,
+            participant: u.participant,
+            participantAlt: u.participantAlt,
+            addressingMode: u?.addressingMode,
+            hasProtocol: !!(u?.message as any)?.protocolMessage,
+          })),
+        });
+        await this.onMessagesUpdate?.(event);
       }
     });
 

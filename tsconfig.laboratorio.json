@@ -32,7 +32,8 @@
     "laboratorio/captura-msg.ts",
     "laboratorio/apagar-spam.ts",
     "laboratorio/simular-spam.ts",
-    "laboratorio/ativar-grupo.ts"
+    "laboratorio/ativar-grupo.ts",
+    "laboratorio/delete-test.ts"
   ],
   "exclude": ["node_modules"]
 }
