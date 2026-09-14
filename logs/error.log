@@ -1,0 +1,1302 @@
+2026-08-21 14:54:24 [ERROR]: Erro no comando $pergunta: TypeError: msg.reply is not a function
+2026-09-01 12:55:53 [ERROR]: ❌ [StartAll:discord] getaddrinfo EAI_AGAIN discord.com
+2026-09-01 12:55:53 [ERROR]:    Stack: at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+2026-09-01 13:42:35 [ERROR]: ❌ [Shutdown:telegram] Bot is not running!
+2026-09-01 13:43:07 [ERROR]: ❌ [StartAll:discord] getaddrinfo EAI_AGAIN discord.com
+2026-09-01 13:43:07 [ERROR]:    Stack: at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+2026-09-01 14:22:40 [ERROR]: ❌ [Shutdown:telegram] Bot is not running!
+2026-09-01 14:23:15 [ERROR]: ❌ [StartAll:discord] getaddrinfo EAI_AGAIN discord.com
+2026-09-01 14:23:15 [ERROR]:    Stack: at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+2026-09-01 16:11:29 [ERROR]: ❌ [Shutdown:telegram] Bot is not running!
+2026-09-01 16:12:15 [ERROR]: ❌ [StartAll:discord] getaddrinfo EAI_AGAIN discord.com
+2026-09-01 16:12:15 [ERROR]:    Stack: at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+2026-09-01 16:36:19 [ERROR]: ❌ [Shutdown:telegram] Bot is not running!
+2026-09-01 16:36:53 [ERROR]: ❌ [StartAll:discord] getaddrinfo EAI_AGAIN discord.com
+2026-09-01 16:36:53 [ERROR]:    Stack: at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+2026-09-01 16:39:39 [ERROR]: ❌ [Shutdown:telegram] Bot is not running!
+2026-09-01 16:40:12 [ERROR]: ❌ [StartAll:discord] getaddrinfo EAI_AGAIN discord.com
+2026-09-01 16:40:12 [ERROR]:    Stack: at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+2026-09-01 16:47:09 [ERROR]: ❌ [StartAll:discord] getaddrinfo EAI_AGAIN discord.com
+2026-09-01 16:47:09 [ERROR]:    Stack: at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+2026-09-01 16:56:36 [ERROR]: ❌ [Shutdown:telegram] Bot is not running!
+2026-09-01 16:57:33 [ERROR]: ❌ [StartAll:discord] getaddrinfo EAI_AGAIN discord.com
+2026-09-01 16:57:33 [ERROR]:    Stack: at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+2026-09-01 16:58:13 [ERROR]: ❌ [Shutdown:telegram] Bot is not running!
+2026-09-01 16:58:13 [ERROR]:    Stack: at Telegraf.stop (/home/solanojr/bot-wpp/node_modules/telegraf/lib/telegraf.js:218:19)
+2026-09-01 16:58:45 [ERROR]: ❌ [StartAll:discord] getaddrinfo EAI_AGAIN discord.com
+2026-09-01 16:58:45 [ERROR]:    Stack: at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+2026-09-01 17:04:57 [ERROR]: ❌ [Shutdown:telegram] Bot is not running!
+2026-09-01 17:04:57 [ERROR]:    Stack: at Telegraf.stop (/home/solanojr/bot-wpp/node_modules/telegraf/lib/telegraf.js:218:19)
+2026-09-01 17:05:04 [ERROR]: 🚨 Heap CRÍTICO: 94.77%
+2026-09-01 17:05:24 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:05:26 [ERROR]: 🚨 Heap CRÍTICO: 94.46%
+2026-09-01 17:05:26 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:06:26 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:07:26 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:07:42 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:07:45 [ERROR]: 🚨 Heap CRÍTICO: 92.07%
+2026-09-01 17:08:45 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:09:45 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:10:45 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:10:47 [ERROR]: 🚨 Heap CRÍTICO: 95.50%
+2026-09-01 17:11:47 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:11:53 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:11:55 [ERROR]: 🚨 Heap CRÍTICO: 94.40%
+2026-09-01 17:11:55 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:12:55 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:13:55 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:14:30 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:14:32 [ERROR]: 🚨 Heap CRÍTICO: 94.39%
+2026-09-01 17:15:33 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:16:33 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:17:33 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:18:33 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:19:32 [ERROR]: 🚨 Heap CRÍTICO: 96.26%
+2026-09-01 17:19:33 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:20:33 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:21:33 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:22:33 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:23:33 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:24:32 [ERROR]: 🚨 Heap CRÍTICO: 95.40%
+2026-09-01 17:24:33 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:25:33 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:26:33 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:27:33 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:28:33 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:29:32 [ERROR]: 🚨 Heap CRÍTICO: 96.18%
+2026-09-01 17:29:33 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:30:33 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:31:33 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:32:25 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:32:28 [ERROR]: 🚨 Heap CRÍTICO: 94.16%
+2026-09-01 17:33:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:34:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:35:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:36:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:37:28 [ERROR]: 🚨 Heap CRÍTICO: 95.97%
+2026-09-01 17:37:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:38:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:39:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:40:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:41:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:42:28 [ERROR]: 🚨 Heap CRÍTICO: 96.07%
+2026-09-01 17:42:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:43:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:44:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:45:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:46:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:47:28 [ERROR]: 🚨 Heap CRÍTICO: 96.41%
+2026-09-01 17:47:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:48:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:49:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:50:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:51:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:52:28 [ERROR]: 🚨 Heap CRÍTICO: 95.86%
+2026-09-01 17:52:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:53:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:54:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:55:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:56:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:57:28 [ERROR]: 🚨 Heap CRÍTICO: 95.76%
+2026-09-01 17:57:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:58:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 17:59:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:00:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:01:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:02:28 [ERROR]: 🚨 Heap CRÍTICO: 96.78%
+2026-09-01 18:02:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:03:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:04:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:05:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:06:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:07:28 [ERROR]: 🚨 Heap CRÍTICO: 95.33%
+2026-09-01 18:07:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:08:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:09:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:10:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:11:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:12:28 [ERROR]: 🚨 Heap CRÍTICO: 95.79%
+2026-09-01 18:12:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:13:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:14:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:15:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:16:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:17:28 [ERROR]: 🚨 Heap CRÍTICO: 95.84%
+2026-09-01 18:17:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:18:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:19:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:20:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:21:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:22:28 [ERROR]: 🚨 Heap CRÍTICO: 96.20%
+2026-09-01 18:22:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:23:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:24:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:25:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:26:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:27:28 [ERROR]: 🚨 Heap CRÍTICO: 95.79%
+2026-09-01 18:27:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:28:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:29:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:30:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:31:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:32:28 [ERROR]: 🚨 Heap CRÍTICO: 96.43%
+2026-09-01 18:32:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:33:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:34:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:35:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:36:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:37:28 [ERROR]: 🚨 Heap CRÍTICO: 96.18%
+2026-09-01 18:37:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:38:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:39:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:40:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:41:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:42:28 [ERROR]: 🚨 Heap CRÍTICO: 96.23%
+2026-09-01 18:42:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:43:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:44:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:45:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:46:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:47:28 [ERROR]: 🚨 Heap CRÍTICO: 96.43%
+2026-09-01 18:47:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:48:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:49:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:50:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:51:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:52:28 [ERROR]: 🚨 Heap CRÍTICO: 93.84%
+2026-09-01 18:52:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:53:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:54:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:55:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:56:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:57:28 [ERROR]: 🚨 Heap CRÍTICO: 95.94%
+2026-09-01 18:57:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:58:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 18:59:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:00:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:01:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:02:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:03:28 [ERROR]: 🚨 Heap CRÍTICO: 95.93%
+2026-09-01 19:03:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:04:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:05:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:06:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:07:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:08:28 [ERROR]: 🚨 Heap CRÍTICO: 95.29%
+2026-09-01 19:08:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:09:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:10:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:11:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:12:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:13:28 [ERROR]: 🚨 Heap CRÍTICO: 95.15%
+2026-09-01 19:13:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:14:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:15:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:16:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:17:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:18:28 [ERROR]: 🚨 Heap CRÍTICO: 95.96%
+2026-09-01 19:18:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:19:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:20:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:21:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:22:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:23:28 [ERROR]: 🚨 Heap CRÍTICO: 95.25%
+2026-09-01 19:23:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:24:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:25:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:26:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:27:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:28:28 [ERROR]: 🚨 Heap CRÍTICO: 96.06%
+2026-09-01 19:28:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:29:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:30:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:31:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:32:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:33:28 [ERROR]: 🚨 Heap CRÍTICO: 95.24%
+2026-09-01 19:33:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:34:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:35:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:36:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:37:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:38:28 [ERROR]: 🚨 Heap CRÍTICO: 96.07%
+2026-09-01 19:38:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:39:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:40:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:41:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-01 19:41:59 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-02 10:32:28 [ERROR]: 🚨 Heap CRÍTICO: 95.80%
+2026-09-02 10:32:28 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-02 10:42:27 [ERROR]: 🚨 Heap CRÍTICO: 97.48%
+2026-09-02 10:42:27 [ERROR]: [MemoryMonitor] 💀 Heap continua crítico após GC. Considere restart.
+2026-09-03 17:48:34 [ERROR]: ❌ [DiscordScreenService] Process exited with code 1
+2026-09-03 17:48:34 [ERROR]:    Stack: at ChildProcess.<anonymous> (/home/solanojr/bot-wpp/dist/core/multiPlatform.js:10300:18)
+2026-09-03 23:42:11 [ERROR]: [PlatformManager] Adapter não encontrado para whatsapp
+2026-09-05 16:12:30 [ERROR]: [PlatformManager] Adapter não encontrado para whatsapp
+2026-09-08 09:48:06 [ERROR]: ❌ [StartAll:discord] getaddrinfo EAI_AGAIN discord.com
+2026-09-08 09:48:06 [ERROR]:    Stack: at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+2026-09-08 10:07:03 [ERROR]: ❌ [StartAll:discord] getaddrinfo EAI_AGAIN discord.com
+2026-09-08 10:07:03 [ERROR]:    Stack: at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+2026-09-08 12:58:39 [ERROR]: [PlatformManager] Adapter não encontrado para whatsapp
+2026-09-10 13:04:59 [ERROR]: ❌ [StartAll:whatsapp:558581344211] logger.child is not a function
+2026-09-10 13:04:59 [ERROR]:    Stack: at makeNoiseHandler (/home/solanojr/bot-wpp/node_modules/@whiskeysockets/baileys/src/Utils/noise-handler.ts:63:18)
+2026-09-10 13:08:53 [ERROR]: ❌ [StartAll:whatsapp:558581344211] Cannot destructure property 'creds' of 'authState' as it is undefined.
+2026-09-10 13:08:53 [ERROR]:    Stack: at makeSocket (/home/solanojr/bot-wpp/node_modules/@whiskeysockets/baileys/src/Socket/socket.ts:384:10)
+2026-09-10 13:21:27 [ERROR]: ❌ [StartAll:whatsapp:558581344211] Cannot destructure property 'creds' of 'authState' as it is undefined.
+2026-09-10 13:21:27 [ERROR]:    Stack: at makeSocket (/home/solanojr/bot-wpp/node_modules/@whiskeysockets/baileys/src/Socket/socket.ts:384:10)
+2026-09-10 13:21:54 [ERROR]: ❌ [StartAll:whatsapp:558581344211] Cannot destructure property 'creds' of 'authState' as it is undefined.
+2026-09-10 13:21:54 [ERROR]:    Stack: at makeSocket (/home/solanojr/bot-wpp/node_modules/@whiskeysockets/baileys/src/Socket/socket.ts:384:10)
+2026-09-10 13:24:18 [ERROR]: ❌ [StartAll:whatsapp:558581344211] Cannot destructure property 'creds' of 'authState' as it is undefined.
+2026-09-10 13:24:18 [ERROR]:    Stack: at makeSocket (/home/solanojr/bot-wpp/node_modules/@whiskeysockets/baileys/src/Socket/socket.ts:384:10)
+2026-09-10 13:28:18 [ERROR]: ❌ [StartAll:whatsapp:558581344211] Cannot destructure property 'creds' of 'authState' as it is undefined.
+2026-09-10 13:28:18 [ERROR]:    Stack: at makeSocket (/home/solanojr/bot-wpp/node_modules/@whiskeysockets/baileys/src/Socket/socket.ts:384:10)
+2026-09-10 13:33:53 [ERROR]: ❌ [StartAll:whatsapp:558581344211] Cannot destructure property 'creds' of 'authState' as it is undefined.
+2026-09-10 13:33:53 [ERROR]:    Stack: at makeSocket (/home/solanojr/bot-wpp/node_modules/@whiskeysockets/baileys/src/Socket/socket.ts:384:10)
+2026-09-10 13:43:37 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:43:37 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 13:43:37 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:43:37 [ERROR]: ❌ [[Discord] ❌ Falha no login (possível rate limit):] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 13:43:37 [ERROR]: ❌ [StartAll:whatsapp:558581344211] Cannot destructure property 'creds' of 'authState' as it is undefined.
+2026-09-10 13:43:37 [ERROR]:    Stack: at makeSocket (/home/solanojr/bot-wpp/node_modules/@whiskeysockets/baileys/src/Socket/socket.ts:384:10)
+2026-09-10 13:43:42 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:43:42 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 13:43:52 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:43:52 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 13:44:07 [ERROR]: ❌ [[Discord] ❌ Falha persistiu após retry:] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 13:44:07 [ERROR]: ❌ [StartAll:discord] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 13:44:07 [ERROR]:    Stack: at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+2026-09-10 13:44:12 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:44:12 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 13:44:21 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:44:21 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 13:44:21 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:44:21 [ERROR]: ❌ [[Discord] ❌ Falha no login (possível rate limit):] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 13:44:21 [ERROR]: ❌ [StartAll:whatsapp:558581344211] Cannot destructure property 'creds' of 'authState' as it is undefined.
+2026-09-10 13:44:21 [ERROR]:    Stack: at makeSocket (/home/solanojr/bot-wpp/node_modules/@whiskeysockets/baileys/src/Socket/socket.ts:384:10)
+2026-09-10 13:44:26 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:44:26 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 13:44:36 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:44:36 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 13:44:51 [ERROR]: ❌ [[Discord] ❌ Falha persistiu após retry:] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 13:44:51 [ERROR]: ❌ [StartAll:discord] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 13:44:51 [ERROR]:    Stack: at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+2026-09-10 13:44:56 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:44:56 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 13:45:36 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:45:36 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 13:46:20 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:46:20 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 13:46:20 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:46:20 [ERROR]: ❌ [[Discord] ❌ Falha no login (possível rate limit):] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 13:46:20 [ERROR]: ❌ [StartAll:whatsapp:558581344211] Cannot destructure property 'creds' of 'authState' as it is undefined.
+2026-09-10 13:46:20 [ERROR]:    Stack: at makeSocket (/home/solanojr/bot-wpp/node_modules/@whiskeysockets/baileys/src/Socket/socket.ts:384:10)
+2026-09-10 13:46:25 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:46:25 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 13:46:35 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:46:35 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 13:46:50 [ERROR]: ❌ [[Discord] ❌ Falha persistiu após retry:] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 13:46:50 [ERROR]: ❌ [StartAll:discord] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 13:46:50 [ERROR]:    Stack: at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+2026-09-10 13:46:55 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:46:55 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 13:47:35 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:47:35 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 13:48:55 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:48:55 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 13:51:35 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:51:35 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 13:53:06 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:53:06 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 13:53:06 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:53:06 [ERROR]: ❌ [[Discord] ❌ Falha no login (possível rate limit):] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 13:53:06 [ERROR]: ❌ [StartAll:whatsapp:558581344211] driver.on is not a function
+2026-09-10 13:53:06 [ERROR]:    Stack: at BaileysConnection.connect (/home/solanojr/bot-wpp/dist/core/multiPlatform.js:830:16)
+2026-09-10 13:53:06 [ERROR]: ❌ [Baileys.auth] [object Object]
+2026-09-10 13:53:06 [ERROR]:    Stack: at Object.error (/home/solanojr/bot-wpp/dist/core/multiPlatform.js:817:50)
+2026-09-10 13:53:11 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:53:11 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 13:53:21 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:53:21 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 13:53:36 [ERROR]: ❌ [[Discord] ❌ Falha persistiu após retry:] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 13:53:36 [ERROR]: ❌ [StartAll:discord] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 13:53:36 [ERROR]:    Stack: at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+2026-09-10 13:53:41 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:53:41 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 13:54:21 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:54:21 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 13:55:41 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:55:41 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 13:58:21 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 13:58:21 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:03:21 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:03:21 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:08:21 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:08:21 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:11:50 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:11:50 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:11:50 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:11:50 [ERROR]: ❌ [[Discord] ❌ Falha no login (possível rate limit):] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 14:11:50 [ERROR]: ❌ [StartAll:whatsapp:558581344211] driver.on is not a function
+2026-09-10 14:11:50 [ERROR]:    Stack: at BaileysConnection.connect (/home/solanojr/bot-wpp/dist/core/multiPlatform.js:830:16)
+2026-09-10 14:11:50 [ERROR]: ❌ [Baileys.auth] [object Object]
+2026-09-10 14:11:50 [ERROR]:    Stack: at Object.error (/home/solanojr/bot-wpp/dist/core/multiPlatform.js:817:50)
+2026-09-10 14:11:55 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:11:55 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:12:05 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:12:05 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:12:20 [ERROR]: ❌ [[Discord] ❌ Falha persistiu após retry:] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 14:12:20 [ERROR]: ❌ [StartAll:discord] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 14:12:20 [ERROR]:    Stack: at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+2026-09-10 14:12:25 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:12:25 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:12:30 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:12:30 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:12:30 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:12:30 [ERROR]: ❌ [[Discord] ❌ Falha no login (possível rate limit):] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 14:12:35 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:12:35 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:12:45 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:12:45 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:13:00 [ERROR]: ❌ [[Discord] ❌ Falha persistiu após retry:] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 14:13:00 [ERROR]: ❌ [StartAll:discord] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 14:13:00 [ERROR]:    Stack: at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+2026-09-10 14:13:05 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:13:05 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:13:45 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:13:45 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:15:05 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:15:05 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:17:45 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:17:45 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:22:45 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:22:45 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:23:30 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:23:30 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:23:30 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:23:30 [ERROR]: ❌ [[Discord] ❌ Falha no login (possível rate limit):] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 14:23:35 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:23:35 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:23:45 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:23:45 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:24:00 [ERROR]: ❌ [[Discord] ❌ Falha persistiu após retry:] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 14:24:00 [ERROR]: ❌ [StartAll:discord] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 14:24:00 [ERROR]:    Stack: at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+2026-09-10 14:24:05 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:24:05 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:24:13 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:24:13 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:24:13 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:24:13 [ERROR]: ❌ [[Discord] ❌ Falha no login (possível rate limit):] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 14:24:18 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:24:18 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:24:28 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:24:28 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:24:43 [ERROR]: ❌ [[Discord] ❌ Falha persistiu após retry:] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 14:24:43 [ERROR]: ❌ [StartAll:discord] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 14:24:43 [ERROR]:    Stack: at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+2026-09-10 14:24:48 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:24:48 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:25:28 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:25:28 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:26:48 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:26:48 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:29:28 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:29:28 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:34:28 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:34:28 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:39:28 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:39:28 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:44:28 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:44:28 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:49:28 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:49:28 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:51:05 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:51:05 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:51:05 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:51:05 [ERROR]: ❌ [[Discord] ❌ Falha no login (possível rate limit):] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 14:51:10 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:51:10 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:51:20 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:51:20 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:51:35 [ERROR]: ❌ [[Discord] ❌ Falha persistiu após retry:] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 14:51:35 [ERROR]: ❌ [StartAll:discord] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 14:51:35 [ERROR]:    Stack: at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+2026-09-10 14:51:40 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:51:40 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:52:20 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:52:20 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:53:40 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:53:40 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 14:56:20 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 14:56:20 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 15:01:20 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:01:20 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 15:04:30 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:04:30 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 15:04:30 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:04:30 [ERROR]: ❌ [[Discord] ❌ Falha no login (possível rate limit):] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 15:04:35 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:04:35 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 15:04:45 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:04:45 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 15:05:00 [ERROR]: ❌ [[Discord] ❌ Falha persistiu após retry:] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 15:05:00 [ERROR]: ❌ [StartAll:discord] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 15:05:00 [ERROR]:    Stack: at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+2026-09-10 15:05:05 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:05:05 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 15:05:45 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:05:45 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 15:07:05 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:07:05 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 15:09:45 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:09:45 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 15:14:45 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:14:45 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 15:15:21 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:15:21 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 15:15:21 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:15:21 [ERROR]: ❌ [[Discord] ❌ Falha no login (possível rate limit):] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 15:15:26 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:15:26 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 15:15:36 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:15:36 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 15:15:51 [ERROR]: ❌ [[Discord] ❌ Falha persistiu após retry:] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 15:15:51 [ERROR]: ❌ [StartAll:discord] getaddrinfo EAI_AGAIN discord.com
+2026-09-10 15:15:51 [ERROR]:    Stack: at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+2026-09-10 15:15:56 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:15:56 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 15:16:36 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:16:36 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 15:17:56 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:17:56 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 15:20:36 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:20:36 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 15:25:36 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:25:36 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 15:30:36 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:30:36 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 15:35:36 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:35:36 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 15:40:36 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:40:36 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 15:45:36 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:45:36 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 15:50:36 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:50:36 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 15:55:36 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 15:55:36 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 16:00:36 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 16:00:36 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 16:05:36 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 16:05:36 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 16:10:36 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 16:10:36 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 16:15:36 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 16:15:36 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 16:20:36 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 16:20:36 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 16:25:36 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 16:25:36 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 16:30:36 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 16:30:36 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 16:35:36 [ERROR]: ❌ [[Telegram] ❌ Erro no launch():] request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+2026-09-10 16:35:36 [ERROR]: ❌ [[Telegram] Stack trace:] FetchError: request to https://api.telegram.org/bot8980550439:[REDACTED]/getMe failed, reason: getaddrinfo EAI_AGAIN api.telegram.org
+    at ClientRequest.<anonymous> (/home/solanojr/bot-wpp/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at TLSSocket.socketErrorListener (node:_http_client:504:5)
+    at TLSSocket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+2026-09-10 16:52:07 [ERROR]: [PlatformManager] Adapter não encontrado para whatsapp
+2026-09-10 16:53:01 [ERROR]: [PlatformManager] Adapter não encontrado para whatsapp
+2026-09-11 14:36:13 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 14:36:13 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 14:36:14 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 14:37:15 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 14:37:17 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 14:37:18 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 14:38:16 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 14:38:17 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:10:20 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:11:22 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:11:23 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:11:24 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:11:24 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:11:25 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:12:23 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:13:27 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:14:25 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:14:28 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:14:30 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:15:28 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:15:30 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:15:31 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:16:27 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:16:30 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:16:32 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:16:34 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:16:34 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:17:31 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:17:33 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:18:30 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:18:33 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:18:34 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:19:33 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:19:36 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:20:33 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:20:37 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:21:36 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:21:38 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:22:36 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:22:40 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:23:40 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:23:40 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:23:41 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:24:40 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:24:42 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:24:44 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:25:40 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:25:42 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:25:42 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:26:41 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:26:43 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:26:43 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:26:45 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:27:43 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:27:44 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:27:46 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:28:47 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:28:48 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:28:50 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:29:45 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:29:49 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:29:50 [ERROR]: [DB] Falha ao registrar infração
+2026-09-11 16:29:51 [ERROR]: [DB] Falha ao registrar infração
+2026-09-14 12:01:02 [ERROR]: [DB] Falha ao registrar infração
+2026-09-14 12:01:03 [ERROR]: [DB] Falha ao registrar infração
+2026-09-14 12:01:03 [ERROR]: [DB] Falha ao registrar infração
+2026-09-14 12:01:03 [ERROR]: [DB] Falha ao registrar infração
+2026-09-14 12:01:03 [ERROR]: [DB] Falha ao registrar infração
+2026-09-14 12:01:03 [ERROR]: [DB] Falha ao registrar infração
+2026-09-14 12:01:03 [ERROR]: [DB] Falha ao registrar infração
+2026-09-14 12:01:03 [ERROR]: [DB] Falha ao registrar infração
+2026-09-14 12:01:03 [ERROR]: [DB] Falha ao registrar infração
+2026-09-14 12:01:04 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-09-14 12:01:04 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-09-14 12:01:04 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-09-14 12:01:05 [ERROR]: ❌ [❌ Erro no $grupos:] ctx.client.getChats is not a function
+2026-09-14 12:01:05 [ERROR]:    Stack: at Object.execute (/home/solanojr/bot-wpp/src/bot/commands/grupos.ts:17:44)
+2026-09-14 12:01:07 [ERROR]: [memberJoinService] Erro ao processar entrada
