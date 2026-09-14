@@ -1,0 +1,480 @@
+[ter 23 jun 2026 13:21:44 -03] === Iniciando rotina de manutenção e diagnóstico ===
+[ter 23 jun 2026 13:21:44 -03] Atualizando código do repositório (git pull)…
+Already up to date.
+[ter 23 jun 2026 13:21:45 -03] Código atualizado com sucesso.
+[ter 23 jun 2026 13:21:45 -03] Instalando dependências (npm ci)…
+
+added 693 packages, and audited 694 packages in 24s
+
+118 packages are looking for funding
+  run `npm fund` for details
+
+18 vulnerabilities (1 low, 17 moderate)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+[ter 23 jun 2026 13:22:09 -03] Dependências instaladas/atualizadas com sucesso.
+[ter 23 jun 2026 13:22:09 -03] Compilando projeto (npm run build)…
+
+> bot-wpp@1.0.0 build
+> npm run build:relay && npm run build:services && npm run build:bot && npm run build:main && npm run build:core
+
+
+> bot-wpp@1.0.0 build:relay
+> tsup src/relay/server.ts --out-dir dist/relay --format cjs
+
+CLI Building entry: src/relay/server.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Target: esnext
+CJS Build start
+CJS dist/relay/server.js 7.51 KB
+CJS ⚡️ Build success in 79ms
+
+> bot-wpp@1.0.0 build:services
+> tsup src/services/*.ts --out-dir dist/services --format cjs
+
+CLI Building entry: src/services/aiService.ts, src/services/commandExecutor.ts, src/services/databaseService.ts, src/services/keywordHandler.ts, src/services/loggerService.ts, src/services/messageHandler.ts, src/services/moderationService.ts, src/services/permissions.test.ts, src/services/permissions.ts, src/services/queueService.ts, src/services/replyService.ts, src/services/usageService.ts, src/services/validationService.ts, src/services/whatsappSingleton.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Target: esnext
+CJS Build start
+CJS dist/services/databaseService.js   3.29 KB
+CJS dist/services/aiService.js         5.90 KB
+CJS dist/services/loggerService.js     2.63 KB
+CJS dist/services/messageHandler.js    10.71 KB
+CJS dist/services/moderationService.js 6.79 KB
+CJS dist/services/queueService.js      7.29 KB
+CJS dist/services/replyService.js      3.53 KB
+CJS dist/services/usageService.js      2.23 KB
+CJS dist/services/permissions.js       3.85 KB
+CJS dist/services/keywordHandler.js    3.39 KB
+CJS dist/services/validationService.js 2.99 KB
+CJS dist/services/whatsappSingleton.js 10.16 KB
+CJS dist/services/commandExecutor.js   4.70 KB
+CJS dist/services/permissions.test.js  604.34 KB
+CJS ⚡️ Build success in 239ms
+
+> bot-wpp@1.0.0 build:bot
+> tsup src/bot/index.ts src/bot/config.ts src/bot/customCommands.ts src/bot/relayClient.ts src/bot/commands/*.ts --out-dir dist/bot --format cjs
+
+CLI Building entry: src/bot/config.ts, src/bot/customCommands.ts, src/bot/index.ts, src/bot/relayClient.ts, src/bot/commands/addcmd.ts, src/bot/commands/admin.ts, src/bot/commands/alarme.ts, src/bot/commands/aleatoria.ts, src/bot/commands/aleatoriaData.ts, src/bot/commands/alive.ts, src/bot/commands/antispam.ts, src/bot/commands/antispamStore.ts, src/bot/commands/ban.ts, src/bot/commands/banidos.ts, src/bot/commands/bemvindo.ts, src/bot/commands/clima.ts, src/bot/commands/conselho.ts, src/bot/commands/conselhob.ts, src/bot/commands/conselhobData.ts, src/bot/commands/conselhos.ts, src/bot/commands/customCommandsStore.ts, src/bot/commands/feedback.ts, src/bot/commands/forca.ts, src/bot/commands/gameState.ts, src/bot/commands/grupos.ts, src/bot/commands/gtts.ts, src/bot/commands/help.ts, src/bot/commands/index.ts, src/bot/commands/info.ts, src/bot/commands/interacao.ts, src/bot/commands/jogos.ts, src/bot/commands/jokes.ts, src/bot/commands/kick.ts, src/bot/commands/lembrete.ts, src/bot/commands/menu.ts, src/bot/commands/mute.ts, src/bot/commands/nick.ts, src/bot/commands/noticias.ts, src/bot/commands/ondeestou.ts, src/bot/commands/pergunta.ts, src/bot/commands/piadas.ts, src/bot/commands/ping.ts, src/bot/commands/promover.ts, src/bot/commands/sendMessage.ts, src/bot/commands/setwelcome.ts, src/bot/commands/shutdown.ts, src/bot/commands/sorteio.ts, src/bot/commands/stats.ts, src/bot/commands/types.ts, src/bot/commands/velha.ts, src/bot/commands/vote.ts, src/bot/commands/voteSystem.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Target: esnext
+CJS Build start
+CJS dist/bot/relayClient.js                  2.85 KB
+CJS dist/bot/commands/addcmd.js              3.97 KB
+CJS dist/bot/commands/admin.js               1.89 KB
+CJS dist/bot/commands/alarme.js              1.30 KB
+CJS dist/bot/commands/aleatoria.js           2.37 KB
+CJS dist/bot/commands/aleatoriaData.js       1.87 KB
+CJS dist/bot/index.js                        61.19 KB
+CJS dist/bot/commands/alive.js               1.38 KB
+CJS dist/bot/commands/antispam.js            2.30 KB
+CJS dist/bot/config.js                       2.38 KB
+CJS dist/bot/customCommands.js               1.33 KB
+CJS dist/bot/commands/antispamStore.js       2.40 KB
+CJS dist/bot/commands/ban.js                 5.77 KB
+CJS dist/bot/commands/bemvindo.js            1.36 KB
+CJS dist/bot/commands/banidos.js             3.78 KB
+CJS dist/bot/commands/conselho.js            2.41 KB
+CJS dist/bot/commands/clima.js               4.56 KB
+CJS dist/bot/commands/conselhob.js           2.44 KB
+CJS dist/bot/commands/conselhobData.js       2.08 KB
+CJS dist/bot/commands/conselhos.js           2.06 KB
+CJS dist/bot/commands/customCommandsStore.js 4.31 KB
+CJS dist/bot/commands/forca.js               3.30 KB
+CJS dist/bot/commands/gameState.js           1.19 KB
+CJS dist/bot/commands/grupos.js              3.44 KB
+CJS dist/bot/commands/gtts.js                3.48 KB
+CJS dist/bot/commands/help.js                1.74 KB
+CJS dist/bot/commands/info.js                1.58 KB
+CJS dist/bot/commands/interacao.js           6.38 KB
+CJS dist/bot/commands/jogos.js               1.75 KB
+CJS dist/bot/commands/jokes.js               2.62 KB
+CJS dist/bot/commands/kick.js                1.62 KB
+CJS dist/bot/commands/lembrete.js            1.32 KB
+CJS dist/bot/commands/index.js               62.78 KB
+CJS dist/bot/commands/menu.js                3.64 KB
+CJS dist/bot/commands/mute.js                1.64 KB
+CJS dist/bot/commands/nick.js                1.26 KB
+CJS dist/bot/commands/noticias.js            6.11 KB
+CJS dist/bot/commands/ondeestou.js           2.46 KB
+CJS dist/bot/commands/piadas.js              2.29 KB
+CJS dist/bot/commands/pergunta.js            7.72 KB
+CJS dist/bot/commands/ping.js                1.42 KB
+CJS dist/bot/commands/promover.js            1.68 KB
+CJS dist/bot/commands/sendMessage.js         5.50 KB
+CJS dist/bot/commands/stats.js               4.92 KB
+CJS dist/bot/commands/types.js               771.00 B
+CJS dist/bot/commands/setwelcome.js          4.52 KB
+CJS dist/bot/commands/velha.js               3.53 KB
+CJS dist/bot/commands/vote.js                4.81 KB
+CJS dist/bot/commands/voteSystem.js          3.15 KB
+CJS dist/bot/commands/feedback.js            5.17 KB
+CJS dist/bot/commands/shutdown.js            2.65 KB
+CJS dist/bot/commands/sorteio.js             1.28 KB
+CJS ⚡️ Build success in 89ms
+
+> bot-wpp@1.0.0 build:main
+> tsup src/whatsapp.ts --out-dir dist --format cjs
+
+CLI Building entry: src/whatsapp.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Target: esnext
+CJS Build start
+CJS dist/whatsapp.js 100.06 KB
+CJS ⚡️ Build success in 50ms
+
+> bot-wpp@1.0.0 build:core
+> tsup src/core/index.ts --out-dir dist/core --format cjs
+
+CLI Building entry: src/core/index.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Target: esnext
+CJS Build start
+CJS dist/core/index.js 99.86 KB
+CJS ⚡️ Build success in 54ms
+[ter 23 jun 2026 13:22:12 -03] Projeto compilado com sucesso.
+[ter 23 jun 2026 13:22:12 -03] Verificando e reiniciando o bot via PM2…
+[ter 23 jun 2026 13:22:14 -03] Processo 'bot-wpp' encontrado. Reiniciando…
+[ter 23 jun 2026 13:22:14 -03] Bot-wpp gerenciado pelo PM2 com sucesso.
+[ter 23 jun 2026 13:22:14 -03] Realizando verificações de saúde do sistema…
+[ter 23 jun 2026 13:22:14 -03] - Uso de Disco:
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/loop0       32G   24G  6,1G  80% /
+[ter 23 jun 2026 13:22:14 -03] - Uso de Memória:
+               total        used        free      shared  buff/cache   available
+Mem:           2,0Gi       155Mi       393Mi       140Ki       1,5Gi       1,8Gi
+Swap:          512Mi       174Mi       337Mi
+[ter 23 jun 2026 13:22:14 -03] - Carga da CPU:
+ 13:22:14 up 20 days,  5:07,  6 users,  load average: 3,16, 1,34, 0,74
+[ter 23 jun 2026 13:22:14 -03] Verificando variáveis de ambiente críticas…
+[Tue Jun 23 13:26:11 -03 2026] === Iniciando rotina de manutenção e diagnóstico ===
+[Tue Jun 23 13:26:11 -03 2026] Atualizando código do repositório (git pull)…
+Already up to date.
+[Tue Jun 23 13:26:12 -03 2026] Código atualizado com sucesso.
+[Tue Jun 23 13:26:12 -03 2026] Instalando dependências (npm ci)…
+
+added 693 packages, and audited 694 packages in 18s
+
+118 packages are looking for funding
+  run `npm fund` for details
+
+18 vulnerabilities (1 low, 17 moderate)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+[Tue Jun 23 13:26:31 -03 2026] Dependências instaladas/atualizadas com sucesso.
+[Tue Jun 23 13:26:31 -03 2026] Compilando projeto (npm run build)…
+
+> bot-wpp@1.0.0 build
+> npm run build:relay && npm run build:services && npm run build:bot && npm run build:main && npm run build:core
+
+
+> bot-wpp@1.0.0 build:relay
+> tsup src/relay/server.ts --out-dir dist/relay --format cjs
+
+CLI Building entry: src/relay/server.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Target: esnext
+CJS Build start
+CJS dist/relay/server.js 7.51 KB
+CJS ⚡️ Build success in 46ms
+
+> bot-wpp@1.0.0 build:services
+> tsup src/services/*.ts --out-dir dist/services --format cjs
+
+CLI Building entry: src/services/aiService.ts, src/services/commandExecutor.ts, src/services/databaseService.ts, src/services/keywordHandler.ts, src/services/loggerService.ts, src/services/messageHandler.ts, src/services/moderationService.ts, src/services/permissions.test.ts, src/services/permissions.ts, src/services/queueService.ts, src/services/replyService.ts, src/services/usageService.ts, src/services/validationService.ts, src/services/whatsappSingleton.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Target: esnext
+CJS Build start
+CJS dist/services/commandExecutor.js   4.70 KB
+CJS dist/services/loggerService.js     2.63 KB
+CJS dist/services/messageHandler.js    10.70 KB
+CJS dist/services/moderationService.js 6.78 KB
+CJS dist/services/permissions.js       3.85 KB
+CJS dist/services/queueService.js      7.29 KB
+CJS dist/services/databaseService.js   3.29 KB
+CJS dist/services/replyService.js      3.53 KB
+CJS dist/services/validationService.js 2.99 KB
+CJS dist/services/usageService.js      2.23 KB
+CJS dist/services/whatsappSingleton.js 10.16 KB
+CJS dist/services/aiService.js         6.17 KB
+CJS dist/services/keywordHandler.js    3.39 KB
+CJS dist/services/permissions.test.js  604.34 KB
+CJS ⚡️ Build success in 348ms
+
+> bot-wpp@1.0.0 build:bot
+> tsup src/bot/index.ts src/bot/config.ts src/bot/customCommands.ts src/bot/relayClient.ts src/bot/commands/*.ts --out-dir dist/bot --format cjs
+
+CLI Building entry: src/bot/config.ts, src/bot/customCommands.ts, src/bot/index.ts, src/bot/relayClient.ts, src/bot/commands/addcmd.ts, src/bot/commands/admin.ts, src/bot/commands/alarme.ts, src/bot/commands/aleatoria.ts, src/bot/commands/aleatoriaData.ts, src/bot/commands/alive.ts, src/bot/commands/antispam.ts, src/bot/commands/antispamStore.ts, src/bot/commands/ban.ts, src/bot/commands/banidos.ts, src/bot/commands/bemvindo.ts, src/bot/commands/clima.ts, src/bot/commands/conselho.ts, src/bot/commands/conselhob.ts, src/bot/commands/conselhobData.ts, src/bot/commands/conselhos.ts, src/bot/commands/customCommandsStore.ts, src/bot/commands/feedback.ts, src/bot/commands/forca.ts, src/bot/commands/gameState.ts, src/bot/commands/grupos.ts, src/bot/commands/gtts.ts, src/bot/commands/help.ts, src/bot/commands/index.ts, src/bot/commands/info.ts, src/bot/commands/interacao.ts, src/bot/commands/jogos.ts, src/bot/commands/jokes.ts, src/bot/commands/kick.ts, src/bot/commands/lembrete.ts, src/bot/commands/menu.ts, src/bot/commands/mute.ts, src/bot/commands/nick.ts, src/bot/commands/noticias.ts, src/bot/commands/ondeestou.ts, src/bot/commands/pergunta.ts, src/bot/commands/piadas.ts, src/bot/commands/ping.ts, src/bot/commands/promover.ts, src/bot/commands/sendMessage.ts, src/bot/commands/setwelcome.ts, src/bot/commands/shutdown.ts, src/bot/commands/sorteio.ts, src/bot/commands/stats.ts, src/bot/commands/types.ts, src/bot/commands/velha.ts, src/bot/commands/vote.ts, src/bot/commands/voteSystem.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Target: esnext
+CJS Build start
+CJS dist/bot/customCommands.js               1.33 KB
+CJS dist/bot/config.js                       2.38 KB
+CJS dist/bot/commands/admin.js               1.89 KB
+CJS dist/bot/commands/alarme.js              1.30 KB
+CJS dist/bot/relayClient.js                  2.85 KB
+CJS dist/bot/commands/addcmd.js              3.97 KB
+CJS dist/bot/index.js                        61.45 KB
+CJS dist/bot/commands/aleatoria.js           2.37 KB
+CJS dist/bot/commands/aleatoriaData.js       1.87 KB
+CJS dist/bot/commands/antispamStore.js       2.40 KB
+CJS dist/bot/commands/alive.js               1.38 KB
+CJS dist/bot/commands/antispam.js            2.30 KB
+CJS dist/bot/commands/ban.js                 5.77 KB
+CJS dist/bot/commands/banidos.js             3.78 KB
+CJS dist/bot/commands/conselho.js            2.41 KB
+CJS dist/bot/commands/conselhobData.js       2.08 KB
+CJS dist/bot/commands/bemvindo.js            1.36 KB
+CJS dist/bot/commands/conselhos.js           2.06 KB
+CJS dist/bot/commands/customCommandsStore.js 4.31 KB
+CJS dist/bot/commands/feedback.js            5.17 KB
+CJS dist/bot/commands/forca.js               3.30 KB
+CJS dist/bot/commands/gameState.js           1.19 KB
+CJS dist/bot/commands/grupos.js              3.44 KB
+CJS dist/bot/commands/gtts.js                3.48 KB
+CJS dist/bot/commands/help.js                1.74 KB
+CJS dist/bot/commands/info.js                1.58 KB
+CJS dist/bot/commands/jogos.js               1.75 KB
+CJS dist/bot/commands/interacao.js           6.65 KB
+CJS dist/bot/commands/jokes.js               2.62 KB
+CJS dist/bot/commands/kick.js                1.62 KB
+CJS dist/bot/commands/index.js               63.05 KB
+CJS dist/bot/commands/menu.js                3.64 KB
+CJS dist/bot/commands/lembrete.js            1.32 KB
+CJS dist/bot/commands/mute.js                1.64 KB
+CJS dist/bot/commands/nick.js                1.26 KB
+CJS dist/bot/commands/noticias.js            6.38 KB
+CJS dist/bot/commands/ondeestou.js           2.46 KB
+CJS dist/bot/commands/pergunta.js            7.99 KB
+CJS dist/bot/commands/conselhob.js           2.44 KB
+CJS dist/bot/commands/clima.js               4.56 KB
+CJS dist/bot/commands/piadas.js              2.29 KB
+CJS dist/bot/commands/ping.js                1.42 KB
+CJS dist/bot/commands/promover.js            1.68 KB
+CJS dist/bot/commands/sendMessage.js         5.50 KB
+CJS dist/bot/commands/sorteio.js             1.28 KB
+CJS dist/bot/commands/stats.js               4.92 KB
+CJS dist/bot/commands/velha.js               3.53 KB
+CJS dist/bot/commands/types.js               771.00 B
+CJS dist/bot/commands/vote.js                4.81 KB
+CJS dist/bot/commands/voteSystem.js          3.15 KB
+CJS dist/bot/commands/setwelcome.js          4.52 KB
+CJS dist/bot/commands/shutdown.js            2.65 KB
+CJS ⚡️ Build success in 88ms
+
+> bot-wpp@1.0.0 build:main
+> tsup src/whatsapp.ts --out-dir dist --format cjs
+
+CLI Building entry: src/whatsapp.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Target: esnext
+CJS Build start
+CJS dist/whatsapp.js 100.31 KB
+CJS ⚡️ Build success in 59ms
+
+> bot-wpp@1.0.0 build:core
+> tsup src/core/index.ts --out-dir dist/core --format cjs
+
+CLI Building entry: src/core/index.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Target: esnext
+CJS Build start
+CJS dist/core/index.js 100.11 KB
+CJS ⚡️ Build success in 60ms
+[Tue Jun 23 13:26:34 -03 2026] Projeto compilado com sucesso.
+[Tue Jun 23 13:26:34 -03 2026] Verificando e reiniciando o bot via PM2…
+[Tue Jun 23 13:26:34 -03 2026] Processo 'bot-wpp' encontrado. Reiniciando…
+[Tue Jun 23 13:26:35 -03 2026] Bot-wpp gerenciado pelo PM2 com sucesso.
+[Tue Jun 23 13:26:35 -03 2026] Realizando verificações de saúde do sistema…
+[Tue Jun 23 13:26:35 -03 2026] - Uso de Disco:
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/loop0       32G   24G  6.1G  80% /
+[Tue Jun 23 13:26:35 -03 2026] - Uso de Memória:
+               total        used        free      shared  buff/cache   available
+Mem:           2.0Gi       171Mi       422Mi       156Ki       1.4Gi       1.8Gi
+Swap:          512Mi       174Mi       337Mi
+[Tue Jun 23 13:26:35 -03 2026] - Carga da CPU:
+ 13:26:35 up 20 days,  5:11,  8 users,  load average: 2.45, 1.22, 0.78
+[Tue Jun 23 13:26:35 -03 2026] Verificando variáveis de ambiente críticas…
+[Tue Jun 23 13:34:19 -03 2026] === Iniciando rotina de manutenção e diagnóstico ===
+[Tue Jun 23 13:34:19 -03 2026] Atualizando código do repositório (git pull)…
+Already up to date.
+[Tue Jun 23 13:34:20 -03 2026] Código atualizado com sucesso.
+[Tue Jun 23 13:34:20 -03 2026] Instalando dependências (npm ci)…
+
+added 693 packages, and audited 694 packages in 20s
+
+118 packages are looking for funding
+  run `npm fund` for details
+
+18 vulnerabilities (1 low, 17 moderate)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+[Tue Jun 23 13:34:40 -03 2026] Dependências instaladas/atualizadas com sucesso.
+[Tue Jun 23 13:34:40 -03 2026] Compilando projeto (npm run build)…
+
+> bot-wpp@1.0.0 build
+> npm run build:relay && npm run build:services && npm run build:bot && npm run build:main && npm run build:core
+
+
+> bot-wpp@1.0.0 build:relay
+> tsup src/relay/server.ts --out-dir dist/relay --format cjs
+
+CLI Building entry: src/relay/server.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Target: esnext
+CJS Build start
+CJS dist/relay/server.js 7.51 KB
+CJS ⚡️ Build success in 41ms
+
+> bot-wpp@1.0.0 build:services
+> tsup src/services/*.ts --out-dir dist/services --format cjs
+
+CLI Building entry: src/services/aiService.ts, src/services/commandExecutor.ts, src/services/databaseService.ts, src/services/keywordHandler.ts, src/services/loggerService.ts, src/services/messageHandler.ts, src/services/moderationService.ts, src/services/permissions.test.ts, src/services/permissions.ts, src/services/queueService.ts, src/services/replyService.ts, src/services/usageService.ts, src/services/validationService.ts, src/services/whatsappSingleton.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Target: esnext
+CJS Build start
+CJS dist/services/aiService.js         6.17 KB
+CJS dist/services/databaseService.js   3.29 KB
+CJS dist/services/loggerService.js     2.63 KB
+CJS dist/services/keywordHandler.js    3.39 KB
+CJS dist/services/messageHandler.js    10.70 KB
+CJS dist/services/moderationService.js 6.78 KB
+CJS dist/services/permissions.js       3.85 KB
+CJS dist/services/replyService.js      3.53 KB
+CJS dist/services/queueService.js      7.29 KB
+CJS dist/services/usageService.js      2.23 KB
+CJS dist/services/validationService.js 2.99 KB
+CJS dist/services/whatsappSingleton.js 10.16 KB
+CJS dist/services/commandExecutor.js   4.70 KB
+CJS dist/services/permissions.test.js  604.34 KB
+CJS ⚡️ Build success in 431ms
+
+> bot-wpp@1.0.0 build:bot
+> tsup src/bot/index.ts src/bot/config.ts src/bot/customCommands.ts src/bot/relayClient.ts src/bot/commands/*.ts --out-dir dist/bot --format cjs
+
+CLI Building entry: src/bot/config.ts, src/bot/customCommands.ts, src/bot/index.ts, src/bot/relayClient.ts, src/bot/commands/addcmd.ts, src/bot/commands/admin.ts, src/bot/commands/alarme.ts, src/bot/commands/aleatoria.ts, src/bot/commands/aleatoriaData.ts, src/bot/commands/alive.ts, src/bot/commands/antispam.ts, src/bot/commands/antispamStore.ts, src/bot/commands/ban.ts, src/bot/commands/banidos.ts, src/bot/commands/bemvindo.ts, src/bot/commands/clima.ts, src/bot/commands/conselho.ts, src/bot/commands/conselhob.ts, src/bot/commands/conselhobData.ts, src/bot/commands/conselhos.ts, src/bot/commands/customCommandsStore.ts, src/bot/commands/feedback.ts, src/bot/commands/forca.ts, src/bot/commands/gameState.ts, src/bot/commands/grupos.ts, src/bot/commands/gtts.ts, src/bot/commands/help.ts, src/bot/commands/index.ts, src/bot/commands/info.ts, src/bot/commands/interacao.ts, src/bot/commands/jogos.ts, src/bot/commands/jokes.ts, src/bot/commands/kick.ts, src/bot/commands/lembrete.ts, src/bot/commands/menu.ts, src/bot/commands/mute.ts, src/bot/commands/nick.ts, src/bot/commands/noticias.ts, src/bot/commands/ondeestou.ts, src/bot/commands/pergunta.ts, src/bot/commands/piadas.ts, src/bot/commands/ping.ts, src/bot/commands/promover.ts, src/bot/commands/sendMessage.ts, src/bot/commands/setwelcome.ts, src/bot/commands/shutdown.ts, src/bot/commands/sorteio.ts, src/bot/commands/stats.ts, src/bot/commands/types.ts, src/bot/commands/velha.ts, src/bot/commands/vote.ts, src/bot/commands/voteSystem.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Target: esnext
+CJS Build start
+CJS dist/bot/config.js                       2.38 KB
+CJS dist/bot/customCommands.js               1.33 KB
+CJS dist/bot/relayClient.js                  2.85 KB
+CJS dist/bot/commands/addcmd.js              3.97 KB
+CJS dist/bot/commands/alarme.js              1.30 KB
+CJS dist/bot/commands/aleatoria.js           2.37 KB
+CJS dist/bot/commands/admin.js               1.89 KB
+CJS dist/bot/commands/aleatoriaData.js       1.87 KB
+CJS dist/bot/commands/alive.js               1.38 KB
+CJS dist/bot/commands/antispamStore.js       2.40 KB
+CJS dist/bot/commands/banidos.js             3.78 KB
+CJS dist/bot/index.js                        61.45 KB
+CJS dist/bot/commands/antispam.js            2.30 KB
+CJS dist/bot/commands/ban.js                 5.77 KB
+CJS dist/bot/commands/bemvindo.js            1.36 KB
+CJS dist/bot/commands/clima.js               4.56 KB
+CJS dist/bot/commands/conselho.js            2.41 KB
+CJS dist/bot/commands/conselhob.js           2.44 KB
+CJS dist/bot/commands/conselhobData.js       2.08 KB
+CJS dist/bot/commands/conselhos.js           2.06 KB
+CJS dist/bot/commands/customCommandsStore.js 4.31 KB
+CJS dist/bot/commands/feedback.js            5.17 KB
+CJS dist/bot/commands/forca.js               3.30 KB
+CJS dist/bot/commands/gameState.js           1.19 KB
+CJS dist/bot/commands/grupos.js              3.44 KB
+CJS dist/bot/commands/gtts.js                3.48 KB
+CJS dist/bot/commands/help.js                1.74 KB
+CJS dist/bot/commands/info.js                1.58 KB
+CJS dist/bot/commands/interacao.js           6.65 KB
+CJS dist/bot/commands/jogos.js               1.75 KB
+CJS dist/bot/commands/jokes.js               2.62 KB
+CJS dist/bot/commands/index.js               63.05 KB
+CJS dist/bot/commands/lembrete.js            1.32 KB
+CJS dist/bot/commands/kick.js                1.62 KB
+CJS dist/bot/commands/mute.js                1.64 KB
+CJS dist/bot/commands/nick.js                1.26 KB
+CJS dist/bot/commands/noticias.js            6.38 KB
+CJS dist/bot/commands/ondeestou.js           2.46 KB
+CJS dist/bot/commands/piadas.js              2.29 KB
+CJS dist/bot/commands/pergunta.js            7.99 KB
+CJS dist/bot/commands/ping.js                1.42 KB
+CJS dist/bot/commands/sendMessage.js         5.50 KB
+CJS dist/bot/commands/setwelcome.js          4.52 KB
+CJS dist/bot/commands/promover.js            1.68 KB
+CJS dist/bot/commands/shutdown.js            2.65 KB
+CJS dist/bot/commands/types.js               771.00 B
+CJS dist/bot/commands/vote.js                4.81 KB
+CJS dist/bot/commands/velha.js               3.53 KB
+CJS dist/bot/commands/voteSystem.js          3.15 KB
+CJS dist/bot/commands/menu.js                3.64 KB
+CJS dist/bot/commands/stats.js               4.92 KB
+CJS dist/bot/commands/sorteio.js             1.28 KB
+CJS ⚡️ Build success in 85ms
+
+> bot-wpp@1.0.0 build:main
+> tsup src/whatsapp.ts --out-dir dist --format cjs
+
+CLI Building entry: src/whatsapp.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Target: esnext
+CJS Build start
+CJS dist/whatsapp.js 100.64 KB
+CJS ⚡️ Build success in 81ms
+
+> bot-wpp@1.0.0 build:core
+> tsup src/core/index.ts --out-dir dist/core --format cjs
+
+CLI Building entry: src/core/index.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Target: esnext
+CJS Build start
+CJS dist/core/index.js 100.44 KB
+CJS ⚡️ Build success in 49ms
+[Tue Jun 23 13:34:44 -03 2026] Projeto compilado com sucesso.
+[Tue Jun 23 13:34:44 -03 2026] Verificando e reiniciando o bot via PM2…
+[Tue Jun 23 13:34:44 -03 2026] Processo 'bot-wpp' encontrado. Reiniciando…
+[Tue Jun 23 13:34:45 -03 2026] Bot-wpp gerenciado pelo PM2 com sucesso.
+[Tue Jun 23 13:34:45 -03 2026] Realizando verificações de saúde do sistema…
+[Tue Jun 23 13:34:45 -03 2026] - Uso de Disco:
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/loop0       32G   24G  6.1G  80% /
+[Tue Jun 23 13:34:45 -03 2026] - Uso de Memória:
+               total        used        free      shared  buff/cache   available
+Mem:           2.0Gi       261Mi       399Mi       192Ki       1.4Gi       1.7Gi
+Swap:          512Mi       168Mi       343Mi
+[Tue Jun 23 13:34:45 -03 2026] - Carga da CPU:
+ 13:34:45 up 20 days,  5:20, 13 users,  load average: 1.71, 0.80, 0.68
+[Tue Jun 23 13:34:45 -03 2026] Verificando variáveis de ambiente críticas…
