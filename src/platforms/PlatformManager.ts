@@ -527,6 +527,44 @@ export class PlatformManager {
   }
 
   /**
+   * Envia mensagem para o chat e processa comandos (se houver)
+   * Faz o bot "digitar" a mensagem e responder
+   */
+  async sendMessageAndProcess(platform: string, chatId: string, text: string): Promise<any> {
+    const adapter = this.adapters.get(platform);
+    if (!adapter) {
+      throw new Error(`Plataforma não encontrada: ${platform}`);
+    }
+
+    // Enviar a mensagem para o chat (bot "digita")
+    await adapter.client.sendMessage(chatId, text);
+
+    // Criar PlatformMessage para processamento
+    const message: PlatformMessage = {
+      id: `sent-${Date.now()}`,
+      platform,
+      chatId,
+      userId: chatId,
+      userName: 'Bot',
+      text,
+      timestamp: new Date(),
+      isFromMe: true,
+      isCommand: text.startsWith('$'),
+      commandName: text.replace('$', '').split(' ')[0],
+      args: text.split(' ').slice(1),
+      raw: {},
+      hasMedia: false,
+    };
+
+    // Processar (executar comando se for o caso)
+    if (message.isCommand) {
+      await this.handleIncomingMessage(message);
+    }
+
+    return { success: true, sent: text, platform, chatId };
+  }
+
+  /**
    * Executa um comando de teste diretamente (sem depender de mensagens externas)
    * Útil para testes automatizados e para contornar limitações de bots não receberem suas próprias mensagens
    */
