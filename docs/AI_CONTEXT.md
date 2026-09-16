@@ -3,6 +3,9 @@
 > **LEIA ANTES DE ALTERAR QUALQUER CÓDIGO**
 > Este documento é a fonte primária de verdade sobre o projeto.
 
+**Última atualização**: 2026-09-16 13:45 BRT
+**Commit**: b9be3fb
+
 ---
 
 ## 1. O Que É o Projeto
