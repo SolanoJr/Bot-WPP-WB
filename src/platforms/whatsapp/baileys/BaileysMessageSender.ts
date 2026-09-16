@@ -199,8 +199,24 @@ export class BaileysMessageSender {
     if (!this.sock) return;
     try {
       const msgId = messageId.split(':').pop() || '';
-      // Baileys v7: sock.store não existe; usa waitForMessage para localizar a mensagem
-      const foundMsg: any = await this.sock.waitForMessage('', msgId);
+      // Baileys v7: usar fetchMessageHistory ou encontrar a mensagem no store
+      const messages = await this.sock.fetchMessageHistory(50, { 
+        id: msgId, 
+        remoteJid: '', 
+        fromMe: false, 
+        participant: ''
+      } as any, Date.now());
+      let foundMsg: any = null;
+      if (messages) {
+        try {
+          const parsed = typeof messages === 'string' ? JSON.parse(messages) : messages;
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            foundMsg = parsed[0];
+          } else if (parsed && typeof parsed === 'object') {
+            foundMsg = parsed;
+          }
+        } catch { /* ignore parse error */ }
+      }
       if (foundMsg && foundMsg.key) {
         await this.sock.sendMessage(foundMsg.key.remoteJid, {
           react: { text: emoji, key: foundMsg.key },

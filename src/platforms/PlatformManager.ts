@@ -558,12 +558,26 @@ export class PlatformManager {
 
     // Enviar a mensagem para o chat
     logInfo(`[sendMessageAndProcess] Enviando "${text}" para ${chatId} via ${adapter.platform}`);
+    let sentMessageId: string | undefined;
     try {
-      await adapter.client.sendMessage(chatId, text);
-      logInfo(`[sendMessageAndProcess] Mensagem enviada com sucesso`);
+      const result = await adapter.client.sendMessage(chatId, text);
+      sentMessageId = result?.id || result?.key?.id || `sent-${Date.now()}`;
+      logInfo(`[sendMessageAndProcess] Mensagem enviada com sucesso (id: ${sentMessageId})`);
     } catch (err: any) {
       logError(`[sendMessageAndProcess] Erro ao enviar: ${err?.message || err}`);
       throw err;
+    }
+
+    // Reagir com 👍 na mensagem enviada (feedback visual)
+    if (text.startsWith('$')) {
+      try {
+        if (typeof adapter.client.react === 'function') {
+          await adapter.client.react(sentMessageId, '👍');
+          logInfo(`[sendMessageAndProcess] Reagiu com 👍 em ${sentMessageId}`);
+        }
+      } catch (reactErr: any) {
+        logWarning(`[sendMessageAndProcess] erro ao reagir: ${reactErr?.message}`);
+      }
     }
 
     // Se não é comando, parar por aqui
