@@ -2,8 +2,8 @@
 
 > Estado atual e próximos passos do desenvolvimento.
 
-**Última atualização**: 2026-09-16 15:50 BRT
-**Commit**: 805aaf7
+**Última atualização**: 2026-09-16 17:15 BRT
+**Commit**: a5d0419
 
 ---
 
@@ -76,11 +76,28 @@
 - [x] npm audit: 0 vulnerabilidades
 
 ### Sincronização
-- [x] Windows ↔ GitHub ↔ Linux sincronizados (commit 805aaf7)
+- [x] Windows ↔ GitHub ↔ Linux sincronizados (commit a5d0419)
+
+### Correção de Bugs (Sessão 2026-09-16 Auditoria)
+- [x] BUG-010: SQLITE_BUSY no AutoMod — implementado singleton de conexão e retry
+- [x] BUG-011: Logs de debug [DBG-disp] poluindo produção
+- [x] BUG-012: 33 restarts do bot-wpp por memory limit — ajustado limites PM2
+- [x] BUG-013: 11 restarts do discord-screen por memory limit — ajustado limites PM2
+- [x] BUG-014: Typecheck erros — removido import de capture-store e ajustado WARRIOR_AUTH_KEY
+- [x] BUG-015: tsconfig compatibilidade com TypeScript 6.0 — ajustado paths relativos
 
 ---
 
 ## 🔄 EM ANDAMENTO
+
+### Auditoria e Otimização (Sessão 2026-09-16)
+- [x] Auditoria completa de sincronização Windows/GitHub/Linux
+- [x] Correção de SQLITE_BUSY no AutoMod (singleton + retry)
+- [x] Remoção de logs de debug de produção
+- [x] Ajuste de limites de memória PM2 (redução de restarts)
+- [x] Correção de typecheck (compatibilidade TypeScript 6.0)
+- [x] Limpeza de laboratório (captured-messages.jsonl)
+- [x] Validação de timeouts do Baileys (normal após correções)
 
 ### AutoMod Cassino
 - [ ] Validar detecção de cassino em produção
@@ -133,5 +150,5 @@
 
 ---
 
-**Última atualização**: 2026-09-16 15:50 BRT
-**Commit**: 805aaf7
+**Última atualização**: 2026-09-16 17:15 BRT
+**Commit**: a5d0419

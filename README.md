@@ -2,8 +2,8 @@
 
 > Bot multi-plataforma (WhatsApp, Telegram, Discord, Discord Screen Share).
 
-**Última atualização**: 2026-09-16 15:20 BRT
-**Commit**: 8371ae8
+**Última atualização**: 2026-09-16 17:15 BRT
+**Commit**: a5d0419
 
 ---
 
@@ -198,5 +198,5 @@ O bot **NUNCA** executa ações contra:
 
 ---
 
-**Última atualização**: 2026-09-16 15:20 BRT
-**Commit**: 8371ae8
+**Última atualização**: 2026-09-16 17:15 BRT
+**Commit**: a5d0419
