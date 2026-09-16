@@ -1,5 +1,5 @@
 // Infrações por (grupo, usuário). 3 strikes = remoção (nunca ban, exceto bot).
-import { getDb } from './databaseService';
+import { getDb, dbExecWithRetry } from './databaseService';
 import logger from './loggerService';
 
 export const MAX_INFRACTIONS = 3;
@@ -15,12 +15,12 @@ export async function recordInfraction(groupId: string, userId: string): Promise
   const [g, u] = norm(groupId, userId);
   try {
     const db = await getDb();
-    await db.run(
+    await dbExecWithRetry(db,
       `INSERT INTO infractions (group_id, user_id, count, last_infraction)
        VALUES (?, ?, 1, ?)
        ON CONFLICT(group_id, user_id) DO UPDATE SET
          count = count + 1, last_infraction = ?`,
-      g, u, Date.now(), Date.now()
+      [g, u, Date.now(), Date.now()]
     );
     const row: any = await db.get ? db.get(`SELECT count FROM infractions WHERE group_id = ? AND user_id = ?`, g, u) : null;
     return row?.count || 1;

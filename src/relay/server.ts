@@ -8,7 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // 🛡️ Configuração Warrior
-const WARRIOR_AUTH_KEY: WarriorKey = process.env.WARRIOR_AUTH_KEY;
+const WARRIOR_AUTH_KEY: WarriorKey = process.env.WARRIOR_AUTH_KEY || '';
 const repository = new InMemoryRepository();
 
 const allowedOrigins = [

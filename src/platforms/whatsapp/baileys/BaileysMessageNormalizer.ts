@@ -6,7 +6,7 @@
 import { logInfo, logWarning, logError } from '../../../services/loggerService';
 import { normId, toJid } from './util';
 import type { WAMessage, WAMessageKey } from '@whiskeysockets/baileys';
-import { capture } from '../../../../laboratorio/capture-store';
+// import { capture } from '../../../../laboratorio/capture-store'; // Movido para ARCHIVE
 
 export interface NormalizedMessage {
   id: string;
@@ -66,7 +66,7 @@ export class BaileysMessageNormalizer {
 
   async dispatchMessage(rawMsg: any): Promise<void> {
     try {
-      capture(rawMsg, this.userId);
+      // capture(rawMsg, this.userId); // Movido para ARCHIVE
 
       // Observação opcional
       await this.runObservation(rawMsg);
@@ -101,12 +101,10 @@ export class BaileysMessageNormalizer {
         senderJid = key.participant || '';
         // Se não há participante, é uma mensagem interna do sistema — ignora
         if (!senderJid) {
-          logInfo(`[DBG-disp] mensagem sem participante (interno?) — ignorando. key=${JSON.stringify(key)}`);
           return;
         }
         // Se o participante é o próprio grupo, é um protocol message (revoke/delete) — ignora
         if (senderJid === remoteJid) {
-          logInfo(`[DBG-disp] mensagem com senderJid == groupId (protocol message) — ignorando. key=${JSON.stringify(key)}`);
           return;
         }
       } else if (key.participant && key.participant.endsWith('@g.us')) {
@@ -153,8 +151,6 @@ export class BaileysMessageNormalizer {
       const quotedText = typeof quoted?.conversation === 'string'
         ? quoted.conversation
         : (typeof quoted?.extendedTextMessage?.text === 'string' ? quoted.extendedTextMessage.text : '');
-
-      logInfo(`[DBG-disp] citação: existe=${!!quoted} texto="${quotedText}"`);
 
       const normMsg: NormalizedMessage = {
         id: `${this.platform}:${key.id}`,

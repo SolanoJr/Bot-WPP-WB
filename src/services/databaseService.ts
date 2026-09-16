@@ -154,10 +154,22 @@ export async function initDatabase() {
   `);
 }
 
+// Singleton de conexão para evitar SQLITE_BUSY
+let dbInstance: Database | null = null;
+let dbInitPromise: Promise<Database> | null = null;
+
 export async function getDb(): Promise<Database> {
-  return initDatabase().then(() => {
-    return open({ filename: dbPath, driver: sqlite3.Database });
+  if (dbInstance) return dbInstance;
+  if (dbInitPromise) return dbInitPromise;
+
+  dbInitPromise = initDatabase().then(async () => {
+    const db = await open({ filename: dbPath, driver: sqlite3.Database });
+    dbInstance = db;
+    dbInitPromise = null;
+    return db;
   });
+
+  return dbInitPromise;
 }
 
 export async function dbExecWithRetry(db: Database, sql: string, params: any[] = []): Promise<void> {
@@ -342,7 +354,7 @@ export async function banUser(entry: {
   }
 
   const db = await getDb();
-  await db.run(
+  await dbExecWithRetry(db,
     `INSERT INTO banned_users (group_id, user_id, reason, banned_at)
      VALUES (?, ?, ?, ?)
      ON CONFLICT(group_id, user_id) DO UPDATE SET reason = excluded.reason, banned_at = excluded.banned_at`,
@@ -369,7 +381,7 @@ export async function recordMemberJoin(groupId: string, memberId: any): Promise<
 
   const db = await getDb();
   try {
-    await db.run(
+    await dbExecWithRetry(db,
       `INSERT INTO mod_member_joins (group_id, member_id, joined_at, left_at, reason)
        VALUES (?, ?, ?, NULL, 'not_set')
        ON CONFLICT(group_id, member_id, joined_at) DO NOTHING`,
@@ -416,7 +428,7 @@ export async function getMemberJoinHistory(groupId: string, memberId: string): P
 export async function recordMessageFingerprint(groupId: string, fingerprint: string, sourceJid: string): Promise<void> {
   const db = await getDb();
   try {
-    await db.run(
+    await dbExecWithRetry(db,
       `INSERT INTO mod_msg_fingerprints (group_id, fingerprint, source_jid, first_seen, count)
        VALUES (?, ?, ?, ?, 1)
        ON CONFLICT(group_id, fingerprint, source_jid) DO UPDATE SET count = count + 1, first_seen = excluded.first_seen`,
