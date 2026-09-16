@@ -5,8 +5,11 @@ import {
   cleanId,
   extractLid,
   getOwnerNotifyTarget,
-  getBotIdentifiers,
 } from '../../src/services/permissions';
+
+// Identificadores do bot para testes (isBotTarget usa process.env.BOT_LID)
+const TEST_BOT_NUMBER = '558581344211';
+const TEST_BOT_LID_BASE = '2592935567439';
 
 // Identificadores reais em uso (26/08/2026), provados pelo log do Baileys:
 //   myPN  = 558581344211  -> telefone do BOT
@@ -101,16 +104,15 @@ describe('getOwnerNotifyTarget — alerta nunca vai para o próprio bot', () => 
 
   it('NUNCA devolve o identificador do bot', () => {
     const target = getOwnerNotifyTarget();
-    const { number, lid } = getBotIdentifiers();
-    expect(target).not.toContain(lid);
-    expect(target).not.toContain(number);
+    expect(target).not.toContain(TEST_BOT_LID_BASE);
+    expect(target).not.toContain(TEST_BOT_NUMBER);
   });
 
   it('o destino resolvido não é ele mesmo um alvo protegido-como-bot', () => {
     // Deve ser o dono (protegido) e não o bot.
     const target = getOwnerNotifyTarget();
     expect(isProtectedTarget(target)).toBe(true);
-    expect(extractLid(target)).not.toBe(getBotIdentifiers().lid);
+    expect(extractLid(target)).not.toBe(TEST_BOT_LID_BASE);
   });
 });
 
