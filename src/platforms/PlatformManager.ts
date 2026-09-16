@@ -270,6 +270,19 @@ export class PlatformManager {
       return;
     }
 
+    // ─── Reagir com 👍 na mensagem de comando (feedback visual) ───
+    // Só reagir se NÃO for mensagem do próprio bot (evita loop em self-test)
+    if (!message.isFromMe) {
+      try {
+        if (typeof adapter.client.react === 'function') {
+          await adapter.client.react(message.id, '👍', message.chatId);
+          logInfo(`[executeCommand] Reagiu com 👍 em ${message.id} (${message.commandName})`);
+        }
+      } catch (reactErr: any) {
+        logWarning(`[executeCommand] erro ao reagir: ${reactErr?.message}`);
+      }
+    }
+
     // Verificar se comando está disponível nesta plataforma
     if (command.platforms && !command.platforms.includes(adapter.platform)) {
       await adapter.client.sendMessage(message.chatId, `⚠️ Comando \`${message.commandName}\` não disponível no ${adapter.platform}.`);
@@ -381,16 +394,19 @@ export class PlatformManager {
         // Fallback: se o quote falhar (ex: ID inválido em ambiente de teste),
         // reenvia sem quote para não quebrar o comando.
         const isFromBot = message.isFromMe === true;
+        logInfo(`[reply] isFromBot=${isFromBot}, msgId=${message.id}, chatId=${message.chatId}`);
         try {
           if (isFromBot) {
             // Mensagem do próprio bot - enviar sem quote
             await client.sendMessage(message.chatId, text, options);
           } else {
             // Mensagem de outro usuário - responder com quote
-            await client.sendMessage(message.chatId, text, {
+            const replyOpts = {
               ...options,
               replyToMessageId: message.id,
-            });
+            };
+            logInfo(`[reply] Enviando COM quote: replyToMessageId=${message.id}`);
+            await client.sendMessage(message.chatId, text, replyOpts);
           }
         } catch (quoteErr: any) {
           logWarning(`[reply] quote falhou, reenviando sem quote: ${quoteErr?.message}`);
@@ -561,7 +577,7 @@ export class PlatformManager {
       throw new Error(`Plataforma não encontrada: ${platform} (disponíveis: ${availableAdapters.join(', ')})`);
     }
 
-    // Enviar a mensagem para o chat e obter o ID real
+    // Enviar a mensagem para o chat e obter a key real
     logInfo(`[sendMessageAndProcess] Enviando "${text}" para ${chatId} via ${adapter.platform}`);
     let sentMessage: any;
     let sentMessageId: string | undefined;
@@ -575,7 +591,7 @@ export class PlatformManager {
     }
 
     // Reagir com 👍 na mensagem enviada (feedback visual)
-    if (text.startsWith('$')) {
+    if (text.startsWith('$') && sentMessage?.key) {
       try {
         if (typeof adapter.client.react === 'function') {
           await adapter.client.react(sentMessageId, '👍', chatId);
