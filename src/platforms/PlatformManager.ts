@@ -566,7 +566,7 @@ export class PlatformManager {
       throw err;
     }
 
-    // Criar PlatformMessage para processamento
+    // Criar PlatformMessage para processamento (usar platform do adapter, não o solicitado)
     const message: PlatformMessage = {
       id: `sent-${Date.now()}`,
       platform: adapter.platform,

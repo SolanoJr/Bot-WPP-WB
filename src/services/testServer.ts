@@ -446,7 +446,7 @@ export function startTestServer(port: number = 3004): void {
         }
 
         // ─── Endpoint de comando de teste (existente) ───
-        const { platform, command, chatId } = parsedBody;
+        const { platform, command } = parsedBody;
         if (!platform || !command) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Missing platform or command' }));
@@ -458,26 +458,12 @@ export function startTestServer(port: number = 3004): void {
           res.end(JSON.stringify({ error: 'Command must start with $' }));
           return;
         }
-  
-        // Aguardar bot estar pronto (timeout 30s)
-        const waitForReady = (timeoutMs: number) => new Promise<boolean>((resolve) => {
-          const start = Date.now();
-          const check = () => {
-            if (pm.getActivePlatforms().length > 0) return resolve(true);
-            if (Date.now() - start > timeoutMs) return resolve(false);
-            setTimeout(check, 500);
-          };
-          check();
-        });
-  
-        logInfo(`[TestServer] Aguardando bot ficar pronto...`);
-        const ready = await waitForReady(30000);
-        if (!ready) {
-          res.writeHead(503, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Bot not ready (timeout)' }));
+        const adapter = pm.getAdapter(platform as any);
+        if (!adapter) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: `Plataforma não encontrada: ${platform}` }));
           return;
         }
-        logInfo(`[TestServer] Bot pronto, enviando ${command} para ${platform}`);
         const result = await pm.sendMessageAndProcess(platform, parsedBody.chatId, command, true);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, platform, command, result }));
