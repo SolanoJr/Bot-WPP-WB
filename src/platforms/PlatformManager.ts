@@ -531,9 +531,18 @@ export class PlatformManager {
    * Faz o bot "digitar" a mensagem e responder
    */
   async sendMessageAndProcess(platform: string, chatId: string, text: string, forceProcess = false): Promise<any> {
-    const adapter = this.adapters.get(platform);
+    // Log detalhado para debug
+    const availableAdapters = Array.from(this.adapters.keys());
+    logInfo(`[sendMessageAndProcess] Plataforma solicitada: "${platform}"`);
+    logInfo(`[sendMessageAndProcess] Adapters disponíveis: [${availableAdapters.join(', ')}]`);
+    logInfo(`[sendMessageAndProcess] this.adapters.size: ${this.adapters.size}`);
+    
+    // Buscar adapter
+    const adapter = this.getAdapter(platform);
+    logInfo(`[sendMessageAndProcess] Adapter encontrado: ${adapter ? 'SIM' : 'NÃO'}`);
+    
     if (!adapter) {
-      throw new Error(`Plataforma não encontrada: ${platform}`);
+      throw new Error(`Plataforma não encontrada: ${platform} (disponíveis: ${availableAdapters.join(', ')})`);
     }
 
     // Enviar a mensagem para o chat (bot "digita")
