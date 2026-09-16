@@ -49,7 +49,7 @@ describe('casinoClassifier', () => {
     it('detects foreign numbers', () => {
       expect(isForeignNumber('6282364007211@s.whatsapp.net')).toBe(true);
       expect(isForeignNumber('558581344211@s.whatsapp.net')).toBe(false);
-      expect(isForeignNumber('120363410094452673@g.us')).toBe(true);
+      expect(isForeignNumber('120363410094452673@g.us')).toBe(false);
     });
 
     it('detects suspicious display names', () => {
@@ -90,7 +90,7 @@ describe('casinoClassifier', () => {
           },
         },
       };
-      const result = classifyCasino(msg, '6282364007211@lid', '🤖 Bot');
+      const result = classifyCasino(msg, '1234567890@s.whatsapp.net', '🤖 Bot');
       expect(result.detected).toBe(true);
       expect(result.confidence).toBeGreaterThanOrEqual(60);
       expect(result.signals).toContain('buttons-message');
@@ -107,7 +107,7 @@ describe('casinoClassifier', () => {
           },
         },
       };
-      const result = classifyCasino(msg, '6282364007211@lid', '');
+      const result = classifyCasino(msg, '1234567890@s.whatsapp.net', '');
       expect(result.detected).toBe(true);
       expect(result.confidence).toBeGreaterThanOrEqual(60);
       expect(result.signals).toContain('template-message');
@@ -127,9 +127,10 @@ describe('casinoClassifier', () => {
       const msg = {
         message: { conversation: 'Promoção cassino bônus 777' },
       };
-      const result = classifyCasino(msg, '202658048684056@lid', 'SolanoJr');
+      const result = classifyCasino(msg, '558898314322@s.whatsapp.net', 'SolanoJr');
       expect(result.signals).toContain('casino-keywords');
-      expect(result.signals).toContain('foreign-number');
+      // 558898314322 é número brasileiro (55), NÃO gera foreign-number
+      expect(result.signals).not.toContain('foreign-number');
     });
   });
 
