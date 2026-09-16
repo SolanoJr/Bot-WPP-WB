@@ -2,8 +2,8 @@
 
 > Estado atual e próximos passos do desenvolvimento.
 
-**Última atualização**: 2026-09-16 13:30 BRT
-**Commit**: ee622b5
+**Última atualização**: 2026-09-16 15:50 BRT
+**Commit**: 805aaf7
 
 ---
 
@@ -31,6 +31,7 @@
 - [x] Keyframe/config transmission
 - [x] Tailscale Funnel para acesso externo
 - [x] Telemetria: close codes, watch/unwatch, erros
+- [x] Endpoint `/lab/screen-stats` para diagnóstico
 - [ ] Discord Desktop — validação pendente (SS-004, SS-005, SS-006, SS-007)
 
 ### Infraestrutura
@@ -38,6 +39,44 @@
 - [x] PM2 (bot-wpp + discord-screen)
 - [x] Tailscale Funnel para Screen Share
 - [x] Variáveis de ambiente documentadas
+
+### Correção de Bugs (Sessão 2026-09-16)
+- [x] BUG-006: isForeignNumber falso positivo para JID de grupo
+- [x] BUG-007: Typecheck — adicionado `fromMe?: boolean` em AutoModContext
+- [x] BUG-008: 8 funções dead code removidas
+- [x] BUG-009: Fallback hardcoded `WARRIOR_AUTH_KEY` removido
+
+### Documentação
+- [x] AI_CONTEXT.md — Manual de entrada para LLMs/IDEs
+- [x] KNOWN_ISSUES.md — Bugs conhecidos e resolvidos
+- [x] ROADMAP.md — Planejamento do projeto
+- [x] CHANGELOG.md — Linha do tempo temporal
+- [x] ENDPOINTS.md — Documentação dos endpoints HTTP
+- [x] TELEMETRY.md — Métricas do Screen Share
+- [x] PENDING_TESTS.md — Testes pendentes (Discord Web vs Desktop)
+- [x] SECURITY.md — Política de segurança
+- [x] README.md — Atualizado com estado atual
+- [x] DIAGNOSIS_INCONSISTENCIAS.md — Auditoria de consistência
+
+### Limpeza de Código
+- [x] 8 funções dead code removidas (permissions, loggerService, index, format)
+- [x] console.log residual substituído por loggerService (7 ocorrências)
+- [x] 17 scripts de laboratório arquivados para `laboratorio/ARCHIVE/`
+- [x] Documentação obsoleta arquivada para `docs/ARCHIVE/`
+- [x] .gitignore atualizado (data/, logs/, laboratorio/*.json, nul)
+- [x] .editorconfig criado
+
+### Dependências e Segurança
+- [x] axios 1.18.1 → 1.20.0
+- [x] dotenv 16.4.5 → 16.6.1
+- [x] tsx 4.22.4 → 4.23.13
+- [x] ws 8.21.0 → 8.21.3
+- [x] @types/node 25.9.4 → 25.9.7
+- [x] esbuild 0.27.x → 0.28.1 (resolve GHSA-g7r4-m6w7-qqqr)
+- [x] npm audit: 0 vulnerabilidades
+
+### Sincronização
+- [x] Windows ↔ GitHub ↔ Linux sincronizados (commit 805aaf7)
 
 ---
 
@@ -47,9 +86,6 @@
 - [ ] Validar detecção de cassino em produção
 - [ ] Testar falsos positivos/negativos
 - [ ] Ajustar limiar de confiança se necessário
-
-### Typecheck
-- [ ] Adicionar `fromMe?: boolean` em AutoModContext para limpar 2 erros
 
 ---
 
@@ -62,14 +98,15 @@
 - [ ] SS-007 Desktop → Desktop
 - [ ] SS-008 2+ espectadores
 
-### Documentação
-- [ ] Consolidar documentação existente
-- [ ] Remover arquivos duplicados
+### Testes de Código
+- [ ] testServer.test.ts — Testes dos endpoints HTTP (problemas de mock)
+- [ ] Cobertura de testes para autoModEngine.ts
+- [ ] Cobertura de testes para BaileysAdapter.ts
 
-### Limpeza
-- [ ] Remover endpoints temporários do testServer
-- [ ] Arquivar scripts de laboratório antigos
-- [ ] Remover dependências não utilizadas
+### Melhorias
+- [ ] Substituir `X-Frame-Options: ALLOWALL` por configuração mais segura
+- [ ] Adicionar rate limiting ao TestServer
+- [ ] Adicionar testes de integração para Screen Share
 
 ---
 
@@ -96,5 +133,5 @@
 
 ---
 
-**Última atualização**: 2026-09-16 13:30 BRT
-**Commit**: ee622b5
+**Última atualização**: 2026-09-16 15:50 BRT
+**Commit**: 805aaf7
