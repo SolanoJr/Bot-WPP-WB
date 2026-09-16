@@ -11,12 +11,11 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "types": ["node"],
-    "baseUrl": ".",
     "ignoreDeprecations": "6.0",
     "paths": {
-      "@shared/*": ["src/shared/*"],
-      "@relay/*": ["src/relay/*"],
-      "@bot/*": ["src/bot/*"]
+      "@shared/*": ["./src/shared/*"],
+      "@relay/*": ["./src/relay/*"],
+      "@bot/*": ["./src/bot/*"]
     }
   },
   "include": ["src/**/*", "laboratorio/selftest.ts"],
