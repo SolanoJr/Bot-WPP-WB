@@ -2,6 +2,9 @@
 
 > Estado atual e próximos passos do desenvolvimento.
 
+**Última atualização**: 2026-09-16 13:30 BRT
+**Commit**: ee622b5
+
 ---
 
 ## ✅ CONCLUÍDO
@@ -21,6 +24,15 @@
 - [x] Telegram (Telegraf)
 - [x] Discord (discord.js)
 
+### Discord Screen Share
+- [x] Arquitetura broadcaster → servidor → viewer
+- [x] Codec avc1.64001f (H.264 High Profile)
+- [x] WebCodecs VideoDecoder no player
+- [x] Keyframe/config transmission
+- [x] Tailscale Funnel para acesso externo
+- [x] Telemetria: close codes, watch/unwatch, erros
+- [ ] Discord Desktop — validação pendente (SS-004, SS-005, SS-006, SS-007)
+
 ### Infraestrutura
 - [x] DNS fix (systemd-resolved)
 - [x] PM2 (bot-wpp + discord-screen)
@@ -31,31 +43,28 @@
 
 ## 🔄 EM ANDAMENTO
 
-### Discord Screen Share
-- [ ] Investigar por que vídeo não aparece na Activity (BUG-006)
-- [ ] Testar fluxo completo com múltiplos viewers
-- [ ] Validar entrada de viewer após início da transmissão
-- [ ] Testar reconexão de broadcaster/viewer
-
 ### AutoMod Cassino
 - [ ] Validar detecção de cassino em produção
 - [ ] Testar falsos positivos/negativos
 - [ ] Ajustar limiar de confiança se necessário
 
+### Typecheck
+- [ ] Adicionar `fromMe?: boolean` em AutoModContext para limpar 2 erros
+
 ---
 
 ## 📋 PRÓXIMO
 
-### Testes
-- [ ] Testes de regressão para DNS
-- [ ] Testes de regressão para AutoMod
-- [ ] Testes de integração para Screen Share
-- [ ] Testes de carga para múltiplos viewers
+### Testes Screen Share
+- [ ] SS-004 Desktop viewer
+- [ ] SS-005 Web → Desktop
+- [ ] SS-006 Desktop → Web
+- [ ] SS-007 Desktop → Desktop
+- [ ] SS-008 2+ espectadores
 
 ### Documentação
 - [ ] Consolidar documentação existente
 - [ ] Remover arquivos duplicados
-- [ ] Atualizar CHANGELOG
 
 ### Limpeza
 - [ ] Remover endpoints temporários do testServer
@@ -81,10 +90,11 @@
 
 ## 🚫 BLOQUEADO
 
-- Discord Screen Share: Aguardando investigação do BUG-006
+- Discord Desktop: Aguardando testes (ver docs/PENDING_TESTS.md)
 - Instagram: API limitada
 - iMessage: Requer macOS
 
 ---
 
-**Última atualização**: 2026-09-16
+**Última atualização**: 2026-09-16 13:30 BRT
+**Commit**: ee622b5
