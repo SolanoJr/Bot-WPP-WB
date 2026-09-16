@@ -377,13 +377,21 @@ export class PlatformManager {
         // Telemetria: mensagem enviada
         metricsService.recordMessageSent(message.platform);
         // Responde citando (quote) a mensagem original do comando.
+        // Se a mensagem é do próprio bot (self-test), NÃO fazer quote para evitar loop.
         // Fallback: se o quote falhar (ex: ID inválido em ambiente de teste),
         // reenvia sem quote para não quebrar o comando.
+        const isFromBot = message.isFromMe === true;
         try {
-          await client.sendMessage(message.chatId, text, {
-            ...options,
-            replyToMessageId: message.id,
-          });
+          if (isFromBot) {
+            // Mensagem do próprio bot - enviar sem quote
+            await client.sendMessage(message.chatId, text, options);
+          } else {
+            // Mensagem de outro usuário - responder com quote
+            await client.sendMessage(message.chatId, text, {
+              ...options,
+              replyToMessageId: message.id,
+            });
+          }
         } catch (quoteErr: any) {
           logWarning(`[reply] quote falhou, reenviando sem quote: ${quoteErr?.message}`);
           await client.sendMessage(message.chatId, text, options);
@@ -537,10 +545,8 @@ export class PlatformManager {
     logInfo(`[sendMessageAndProcess] Adapters disponíveis: [${availableAdapters.join(', ')}]`);
     logInfo(`[sendMessageAndProcess] this.adapters.size: ${this.adapters.size}`);
     
-    // Buscar adapter direto primeiro
+    // Buscar adapter (suporta prefixos como whatsapp:558581344211)
     let adapter = this.adapters.get(platform);
-    
-    // Se não encontrar, tentar por prefixo
     if (!adapter) {
       for (const [key, value] of this.adapters) {
         if (key.startsWith(platform) || platform.startsWith(key)) {
@@ -549,19 +555,19 @@ export class PlatformManager {
         }
       }
     }
-    
     logInfo(`[sendMessageAndProcess] Adapter encontrado: ${adapter ? `SIM (${adapter.platform})` : 'NÃO'}`);
     
     if (!adapter) {
       throw new Error(`Plataforma não encontrada: ${platform} (disponíveis: ${availableAdapters.join(', ')})`);
     }
 
-    // Enviar a mensagem para o chat
+    // Enviar a mensagem para o chat e obter o ID real
     logInfo(`[sendMessageAndProcess] Enviando "${text}" para ${chatId} via ${adapter.platform}`);
+    let sentMessage: any;
     let sentMessageId: string | undefined;
     try {
-      const result = await adapter.client.sendMessage(chatId, text);
-      sentMessageId = result?.id || result?.key?.id || `sent-${Date.now()}`;
+      sentMessage = await adapter.client.sendMessage(chatId, text);
+      sentMessageId = sentMessage?.id || sentMessage?.key?.id || `sent-${Date.now()}`;
       logInfo(`[sendMessageAndProcess] Mensagem enviada com sucesso (id: ${sentMessageId})`);
     } catch (err: any) {
       logError(`[sendMessageAndProcess] Erro ao enviar: ${err?.message || err}`);
@@ -587,28 +593,31 @@ export class PlatformManager {
     }
 
     // Criar PlatformMessage para processamento (usar platform do adapter, não o solicitado)
+    // IMPORTANTE: Usar o ID real da mensagem para que o quote/reply funcione
     const message: PlatformMessage = {
-      id: `sent-${Date.now()}`,
+      id: sentMessageId || `sent-${Date.now()}`,
       platform: adapter.platform,
       chatId,
       userId: chatId,
       userName: 'Bot',
       text,
       timestamp: new Date(),
-      isFromMe: !forceProcess,
+      isFromMe: true,
       isCommand: text.startsWith('$'),
       commandName: text.replace('$', '').split(' ')[0],
       args: text.split(' ').slice(1),
-      raw: {},
+      raw: { ...sentMessage, isGroup: true },
       hasMedia: false,
     };
 
     // Processar (executar comando se for o caso)
     if (message.isCommand) {
-      await this.handleIncomingMessage(message);
+      // Executar comando diretamente (sem passar pelo handleIncomingMessage)
+      // para evitar loop de o bot ignorar a própria mensagem
+      await this.executeCommand(message, adapter);
     }
 
-    return { success: true, sent: text, platform, chatId };
+    return { success: true, sent: text, platform: adapter.platform, chatId };
   }
 
   /**
