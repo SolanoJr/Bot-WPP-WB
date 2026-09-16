@@ -394,7 +394,7 @@ export class PlatformManager {
         // Fallback: se o quote falhar (ex: ID inválido em ambiente de teste),
         // reenvia sem quote para não quebrar o comando.
         const isFromBot = message.isFromMe === true;
-        logInfo(`[reply] isFromBot=${isFromBot}, msgId=${message.id}, chatId=${message.chatId}`);
+        logInfo(`[reply] isFromBot=${isFromBot}, msgId=${message.id}, chatId=${message.chatId}, text=${text.substring(0,50)}...`);
         try {
           if (isFromBot) {
             // Mensagem do próprio bot - enviar sem quote
@@ -404,8 +404,10 @@ export class PlatformManager {
             const replyOpts = {
               ...options,
               replyToMessageId: message.id,
+              quotedFromMe: false,
+              quotedParticipant: message.userId,
             };
-            logInfo(`[reply] Enviando COM quote: replyToMessageId=${message.id}`);
+            logInfo(`[reply] Enviando COM quote: replyToMessageId=${message.id}, participant=${message.userId}`);
             await client.sendMessage(message.chatId, text, replyOpts);
           }
         } catch (quoteErr: any) {
