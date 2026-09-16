@@ -1,176 +1,78 @@
-# 📜 ChangeLog - WarriorBlack Bot
+# CHANGELOG.md — Linha do Tempo do Projeto Bot-WPP
 
-## [v1.3.2] - 2026-09-09
+> **Última atualização**: 2026-09-16 13:45 BRT
+> **Commit**: e2f1336
+> **Data/hora em BRT**: 2026-09-16 13:45 BRT
 
-### 🔒 Segurança — `npm audit fix` (9 de 10 vulnerabilidades resolvidas)
+---
 
-#### Resolvido (9 vulnerabilidades, via `npm audit fix --legacy-peer-deps`)
-- **postcss** (high) — sourceMappingURL path traversal em `from` ausente
-- **js-yaml** (high) — `maxTotalMergeKeys` CPU DoS em fontes vazias
-- **nanoid** (high) — geradores não-seguros em loop com size ≤ 0
-- **qs** (moderate) — array-limit bypass via bracket-key comma parsing
-- **brace-expansion** (high) — ReDoS
-- **browserslist** (high) — ReDoS
-- **baseline-browser-mapping** (moderate) — outdated
-- **@vitest/mocker** (moderate) — outdated
-- **vitest** (moderate) — outdated
+## 2026-09-16 (Sessão de Auditoria)
 
-#### Pendente (1 vulnerabilidade low — não-bloqueante)
-- **esbuild 0.27.3–0.28.0** (low, dev-only) — leitura arbitrária de arquivo no dev server Windows (GHSA-g7r4-m6w7-qqqr). Não afeta produção (dev-only); upgrade para >=0.28.1 requer `package.json` manual.
+| Data/Hora | Evento | Arquivos Alterados | Commit |
+|-----------|--------|-------------------|--------|
+| 2026-09-16 13:45 | Telemetria Screen Share - endpoint /lab/screen-stats | discord-screen/server/index.js | e2f1336 |
+| 2026-09-16 13:40 | Typecheck limpo - adicionado `fromMe?: boolean` em AutoModContext | src/services/autoModEngine.ts | 55142f8 |
+| 2026-09-16 13:30 | Fix: isForeignNumber exclui JIDs de grupo/LID | src/services/casinoClassifier.ts | 6cbfcd5 |
+| 2026-09-16 13:20 | Documentação atualizada (ROADMAP, AUDIT_REPORT, PENDING_TESTS, KNOWN_ISSUES) | docs/*.md | ee622b5, 9d4da53 |
+| 2026-09-16 13:10 | Telemetria Screen Share - close codes, watch, erros | discord-screen/server/index.js | 1f53abe |
+| 2026-09-16 09:13 | CasinoClassifier + 16 testes + documentação AI_CONTEXT | src/services/casinoClassifier.ts, docs/*.md | 8c538d9 |
 
-#### Workaround aplicado
-- `--legacy-peer-deps`: bug conhecido do npm 10.9.8 com peer deps bleeding-edge (vitest@4.x). Track upstream: https://github.com/npm/cli/issues
+---
 
-#### Validado
-- Typecheck 0 erros
-- 160/160 testes verdes
-- `npm run build` EXIT=0
-- PM2 reiniciado, 3 plataformas online (WhatsApp + Telegram + Discord) às 15:08
+## 2026-09-15 (Sessão de Screen Share e DNS)
 
-### 🧹 Auditoria + realocação de workspace (Windows dev)
+| Data/Hora | Evento | Arquivos Alterados | Commit |
+|-----------|--------|-------------------|--------|
+| 2026-09-15 17:01 | Fix DNS - symlink para systemd-resolved | /etc/resolv.conf | - |
+| 2026-09-15 14:28 | Bug DNS EAI_AGAIN diagnosticado | - | - |
+| 2026-09-15 22:07 | Teste de transmissão Screen Share confirmado | logs | - |
+| 2026-09-15 20:33 | Broadcaster conecta e stream inicia com sucesso | logs | - |
 
-#### Mudado
-- **Local do clone Windows**: `C:\Users\SolanoJr\Bot-WPP-WB` → `D:\Desktop\Programas\bot-wpp`. Motivo: liberar espaço em `C:\` (unidade do sistema). O servidor Linux permanece em `/home/solanojr/bot-wpp` (sem mudança).
-- `.git` preservado, código-fonte íntegro (recuperado via `git clone` do GitHub após acidente no `mv` cross-volume — Windows MSYS `mv` faz copy+delete, e `robocopy /MOVE` com paths parciais causou perda transitória do working tree).
+---
 
-#### Perdido e recuperado
-- `node_modules/` (488 pacotes) — recriado via `npm install` (2 min). Sem `npm audit fix` aplicado.
-- `dist/` — recriável com `npm run build` (não aplicado, build fica no servidor de produção).
-- `logs/` local — irrelevante (logs canônicos em `~/.pm2/logs/bot-wpp-stable.out.log` no Linux).
-- `.env` — recriado a partir de `.env.example`; **precisa reconfigurar chaves reais** (`GEMINI_API_KEY`, `WARRIOR_AUTH_KEY`, tokens Telegram/Discord) se o seu `.env` local tinha valores diferentes.
+## 2026-09-03 → 2026-09-14
 
-#### Servidor (Linux)
-- ✅ PM2 `bot-wpp` + `discord-screen` online 64min, WhatsApp reconectado às 12:45 (`WarriorBlack 558581344211:72@s.whatsapp.net`).
-- 🔴 `bot-wpp-screen.service` (systemd legado) ainda em loop de restart — aponta para `dist/services/discord-screen/index.js` (deletado no v1.3.1). Não afeta o bot (que está sob PM2). Limpeza manual pendente:
-  ```bash
-  sudo systemctl stop bot-wpp-screen.service
-  sudo systemctl disable bot-wpp-screen.service
-  sudo rm /etc/systemd/system/bot-wpp-screen.service
-  sudo systemctl daemon-reload
-  ```
-- ⚠️ `~/.wwebjs_auth` (165MB) e `~/.wwebjs_cache` (568K) legados — podem ser removidos sem efeito (Baileys não usa).
+| Data/Hora | Evento | Arquivos Alterados | Commit |
+|-----------|--------|-------------------|--------|
+| 2026-09-14 | Admin sofrendo ação do AutoMod corrigido | src/services/autoModEngine.ts | 2698ee1 |
+| 2026-09-14 | WAMessageKey truncada corrigida | BaileysMessageSender.ts | - |
+| 2026-09-14 | Loop infinito AutoMod corrigido | BaileysMessageNormalizer.ts | - |
+| 2026-09-14 | Baileys v7 sem store - migração authState | src/platforms/whatsapp/ | - |
+| 2026-09-03 | Discord Screen Share integrado (Activity) | discord-screen/ | 526a30a |
+| 2026-09-03 | Arquitetura multi-plataforma consolidada | src/core/, src/platforms/ | - |
+| 2026-09-09 | npm audit fix (9/10 vulnerabilidades) | package.json, package-lock.json | - |
+| 2026-09-09 | Auditoria de workspace e realocação | docs/ARCHIVE/ | - |
 
-#### Pendente (continua em próximas sessões)
-- Aplicar `AUDITORIA_ARQUIVOS.md` (consolidação de docs em `docs/ARCHIVE/`).
-- Substituir 162 `console.log` legados por `loggerService`.
-- Refatorar `BaileysAdapter.ts` (202KB) em módulos menores.
-- Validar `npm audit fix` em janela de manutenção específica (10 vulnerabilidades: 5 high, 4 moderate, 1 low).
+---
 
-## [v1.3.1] - 2026-09-03
-### 🖥️ Screen Share — consolidação, porta 3002, compat Express 5
+## Histórico de Commits Recentes
 
-#### Corrigido
-- **Porta do screen 3001 → 3002**: colidia com as métricas Prometheus (`:3001/metrics`, `:3001/health`, documentadas e ativas em produção). Métricas mantêm 3001; screen (server, client proxy, scripts, `Dockerfile`, `Caddyfile`, `.env.example`, `ecosystem.config.js`, `$screen`, `DiscordScreenService`) usa 3002
-- **Server lê `DISCORD_SCREEN_PORT` / `DISCORD_SCREEN_PUBLIC_ORIGIN` do `.env`** (antes hardcoded 3001/localhost; `dotenv` agora aponta para o `.env` da raiz do bot)
-- **Catch-all SPA compatível com Express 5**: `app.get('*')` → `app.use(...)` (o `*` quebra no `path-to-regexp` v8; as 3 suítes `index*.test.js` nem carregavam)
-- **Removido `discord-screen/server/node_modules`**: resto de install aninhado (Express 4 parcial, sem `array-flatten`) que sombreava o Express 5 do workspace e mascarava a quebra acima
+```
+e2f1336 feat(telemetry): adiciona endpoint /lab/screen-stats para diagnóstico
+55142f8 fix(types): adiciona fromMe no tipo AutoModContext
+9d4da53 docs: atualiza ROADMAP, AUDIT_REPORT, PENDING_TESTS com correções da auditoria
+ee622b5 docs(known-issues): corrige BUG-006 para cenário não validado
+6cbfcd5 fix(casino): exclui JIDs de grupo/LID do isForeignNumber
+1f53abe feat(telemetry): adiciona logs de close code, watch/unwatch, erros WebSocket
+8c538d9 feat(audit): AI_CONTEXT, KNOWN_ISSUES, TROUBLESHOOTING, DECISIONS, ROADMAP, AUDIT_REPORT
+2698ee1 chore: merge origin/main (retain local delete-chain fix)
+526a30a feat: integra discord-screen como Discord Activity
+```
 
-#### Removido (código morto)
-- **Fork legado `src/services/discord-screen/`** (server, client, public, shared + testes): duplicata não importada por nada em `src/` e fora do `include` do vitest raiz. `discord-screen/` é o canônico; em `src/services/discord-screen/` resta só o `DiscordScreenService.ts` (wrapper do processo filho)
-- **Script `build:screen-server`**: copiava os `.js` legados para `dist/` (runtime usa o fonte via PM2/serviço); removido do pipeline `build`
-- Scripts normalizados para workspace: `build:screen`/`screen:build`/`screen:install`/`dev:screen*` usam `npm --prefix` (antes `cd discord-screen/client && npm run build` caía no Vite 8 transitivo da raiz)
+---
 
-#### Validado
-- Suite `discord-screen/`: **390 testes, 11 arquivos, tudo verde**
-- Raiz: typecheck 0 erros, build OK, **156 testes verdes**
+## Versões
 
-## [v1.3.0] - 2026-09-03
-### 🖥️ Discord Screen Share (Activity) — Integração Completa
+| Versão | Data | Descrição |
+|--------|------|-----------|
+| v1.3.3 | 2026-09-16 | Auditoria, telemetria, correções de typecheck, casino classifier |
+| v1.3.2 | 2026-09-09 | Segurança (npm audit), realocação de workspace |
+| v1.3.1 | 2026-09-03 | Screen Share consolidação, porta 3002, Express 5 |
+| v1.3.0 | 2026-09-03 | Discord Screen Share integrado (Activity) |
+| v1.2.1 | 2026-09-02 | Blindagem AutoMod contra BOT/DONO/ADMINS |
+| v1.2.0 | 2026-08-14 | Sarcasmo, $automod, $ondeestou, $kick/$ban com nome |
 
-#### Adicionado / Corrigido
-- **Novo módulo `discord-screen/`**: Discord Activity completa (Express + WebRTC) para screen sharing
-  - Server: Express + WebSocket (porta 3001), OAuth2 Discord, salas WebRTC, admin dashboard
-  - Client: Vite + vanilla JS, `@discord/embedded-app-sdk`, captura tela via `getDisplayMedia`
-  - Shared: WebRTC signaling, broadcaster, tokens JWT compactos
-- **Comando `$screen`**: Cria sessão guest → sala → retorna links **Transmitir** (broadcaster) e **Assistir** (viewer)
-- **Integração no core**: `DiscordScreenService` inicializado no `multiPlatform.ts` após `platformManager.startAll()`
-  - Graceful shutdown inclui parada do screen service
-  - Variável global `discordScreenService` para cleanup
-- **PM2**: Novo processo `discord-screen` (`./discord-screen/server/index.js`, porta 3001)
-  - Logs dedicados (`discord-screen-stable.out.log/.err.log`)
-  - Memória 300M, node_args otimizados
-- **Deploy automatizado** (`sync_and_deploy.sh`):
-  - `npm ci` no `discord-screen/` e `discord-screen/client/`
-  - `pm2 delete/start` para ambos processos via `ecosystem.config.js`
-- **Variáveis de ambiente** (`.env.example`):
-  - `DISCORD_CLIENT_SECRET`, `SESSION_SECRET`, `DISCORD_SCREEN_PORT=3001`
-  - `DISCORD_SCREEN_PUBLIC_ORIGIN`, `DISCORD_ADMIN_ID`, `TURN_URL/USER/PASS`
-- **Comando `$screen`** registrado (`src/bot/commands/screen.ts`):
-  - Usa `DISCORD_SCREEN_PORT`/`DISCORD_SCREEN_PUBLIC_ORIGIN` do `.env`
-  - Conecta na porta correta do screen server (3001)
-  - Fallback para localhost se não configurado
+---
 
-#### Limpeza
-- Removidas pastas vazias: `src/platforms/discord/middlewares`, `src/platforms/telegram/middlewares`, `.test_auth`, `discord-screen/.cache`
-- `ARCHITECTURE.md` reescrito para refletir estado real (Baileys ativo, Screen Share integrado)
-
-#### Status
-- Typecheck: 0 erros
-- Build: Sucesso (inclui client Vite build)
-- Testes: 156 passing (19 arquivos, +10 novos testes do screen)
-- Git: Commit `526a30a` pushed para origin/main
-- Deploy pronto: `sync_and_deploy.sh` atualizado para gerenciar ambos processos PM2
-
-## [v1.2.1] - 2026-09-02
-### 🔒 Segurança: blindagem AntiMod contra banimento acidental de BOT/DONO/ADMINS
-
-#### Adicionado / Corrigido
-- **`src/services/databaseService.ts` (`banUser`):** agora verifica `isProtectedTarget` antes de inserir na tabela `banned_users`. Tenta banir o BOT (558581344211), o DONO (5588998314322) ou qualquer ADMIN do grupo agora é bloqueado silenciosamente com log de aviso.
-- **`src/services/autoModEngine.ts` Regra 1 (antiestrangeiro):** antes de chamar `banUser` + `removeParticipant`, verifica se o remetente é ID protegido. Se for, ignora a ação e logs "antiestrangeiro ignorado — ID protegido".
-- **`src/services/autoModEngine.ts` Regra 2 (antibot):** mesma blindagem: se `isProtectedTarget(senderJid)`, não banir nem remover. Antes a regra 2 chamava `banUser` + `removeParticipant` direto, sem verificação — um falso positivo poderia banir o próprio bot ou o dono.
-- **`src/bot/commands/addcmd.ts`:** agora requer `isMaster` (dono) para executar. Qualquer pessoa podia adicionar comandos customizados ao grupo antes; agora apenas o dono pode.
-- **Limpeza:** removidos 4 arquivos Python de diagnóstico (`query_groups.py`, `query_groups2.py`, `query_schema.py`, `query_subject.py`) que não eram referência ativa.
-
-#### Status
-- Build OK; typecheck 0 erros; testes 130/134 (4 falhas pré-existentes de sqlite3 bindings no Windows, não relacionadas).
-- Deploy Linux PID 133768 com as correções. Bot online: WhatsApp 558581344211, Telegram 8980550439, Discord 1307158493907652648.
-- `dist/services/autoModEngine.js`: 5 ocorrências de `isProtectedTarget` (Regra 1 + Regra 2 + import).
-- `dist/services/databaseService.js`: 2 ocorrências de `isProtectedTarget` (import + check em `banUser`).
-
-## [v1.2.0] - 2026-08-14
-### 🎯 Sarcasmo (keywordHandler), $automod, $ondeestou, $kick/$ban com nome
-
-#### Adicionado / Corrigido
-- **Sarcasmo (`src/services/keywordHandler.ts`):** 4 gatilhos funcionando por evidência:
-  1. Palavra "bot" em qualquer texto (dedup por conteúdo 5s evita resposta dupla do WWebJS double-emit)
-  2. Menção ao bot (`@WarriorBlack`) — reconhece ambos os IDs (`558581344211` e LID `2592935567439`)
-  3. Bot digita "bot" → `message_create` handler também roda `handleKeywords`
-  4. Reply em qualquer mensagem do bot → usa `getQuotedMessage()` quando `quotedMsg` não vem populado
-  - Frase do dono: `tenho nada ver com isso não sinhô` (+ variações). Só reply + texto.
-- **$automod (`modToggle.ts` + `PlatformManager.createCommandContext`):** aceita dono (isMaster) OU admin de grupo (`isAdmin` populado de `chat.participants`).
-- **$ondeestou (`ondeestou.ts` + `locationPoller.ts`):** gera link + recebe loc do relay + posta Google Maps + texto de espionagem no grupo (validado 11:35:35).
-- **$kick / $ban (BUG 34):** mostram NOME real da pessoa (via `getTargetDisplayName`) + menção.
-- **$banidos:** lista com NOME da pessoa + NOME do grupo (getChat().name). Só MASTER.
-- **AutoMod resilience:** `getChat()` com timeout 4s (`Promise.race`) — não trava mais em `@lid` (Issue #201838).
-- **handleKeywords ANTES do processAutoMod** no `message` handler (AutoMod travava e bloqueava o sarcasmo).
-
-#### Status
-- Build OK; suite **97/97 (16 files)** — zero falhas.
-- Deploy Linux PID atual com as correções. Sarcasmo validado por selftest + logs; $banidos/$ban-reentrada/$kick-outro-adm pendentes de validação em produção pelo dono.
-
-## [v1.1.9] - 2026-08-10
-### 🔧 Correção crítica: `$kick`/`$ban` e AutoMod (erro `r` / Issue #201838 / `@lid`)
-
-#### Alterado
-- **`WhatsAppAdapter.removeParticipant`/`banParticipant`:** passaram a usar `client.removeParticipants(chatId, [users])` **direto** (método do Client WWebJS), contornando `getChatById()` que lança `r:r` em chats `@lid`. Antes: `getChatById(...).removeParticipants(...)` → erro `r` no `$kick`/`$ban`.
-- **`autoModService.processAutoMod`:** resiliente a falha de `getChat()` (erro `r:r`) — assume bot-admin quando não consegue verificar `participants`, e usa `client.removeParticipants`/`client.sendMessage` diretos. Antes o AutoMod abortava silenciosamente (precisei que uma adm banisse manualmente o +62 831-8527-5521 em 09/08).
-
-#### Status
-- Build OK; suite **107/107 (18/18 files)** — zero falhas.
-- Deploy Linux PID 613687 com as correções. Pendente validação em produção (`$kick`/`$ban` e AutoMod em grupo `@lid`).
-
-## [v1.1.8] - 2026-08-07
-### 🔧 Correção de comandos (aliases, testes) e `$kick`/`$ban` (erro falso de admin)
-
-#### Alterado
-- **`src/bot/commands/index.ts`**: registrados aliases ausentes que o menu/testes esperavam: `piada`→`jokes`, `votar`→`vote`, `delvoto`→`delVote`, e o comando órfão `sendmsg` (`sendMessage.ts`) agora é importado e registrado.
-- **`src/bot/commands/kick.ts` / `ban.ts`**: quando `chat.isPermissionsVerified === false` (WWebJS falhou ao obter participantes — Issue #201838 / chat `@lid`), o comando **não bloqueia com erro falso de "precisa ser administrador"**. Prossegue e deixa o WWebJS retornar o erro real, se houver.
-- **`tests/unit/discordAdapter.test.ts`**: mock de `discord.js` agora exporta `GatewayIntentBits` e `Partials` (o adapter os importa no topo).
-- **`tests/unit/commands-registry.test.ts`**: passa após registro dos aliases.
-
-#### Status
-- Build OK; suite **107/107 (18/18 files)** — zero falhas.
-- Pendente deploy Linux para validar `$kick`/`$ban` em produção.
-
-## [v1.1.7] - 2026-08-07
-### 🔧 Correção de inicialização multiplataforma e menu
+**Última atualização**: 2026-09-16 13:45 BRT
+**Commit**: e2f1336
