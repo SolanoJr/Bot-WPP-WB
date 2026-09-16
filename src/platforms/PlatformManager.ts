@@ -572,7 +572,7 @@ export class PlatformManager {
     if (text.startsWith('$')) {
       try {
         if (typeof adapter.client.react === 'function') {
-          await adapter.client.react(sentMessageId, '👍');
+          await adapter.client.react(sentMessageId, '👍', chatId);
           logInfo(`[sendMessageAndProcess] Reagiu com 👍 em ${sentMessageId}`);
         }
       } catch (reactErr: any) {

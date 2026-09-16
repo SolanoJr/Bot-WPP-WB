@@ -199,8 +199,8 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
     return this.sender.sendMedia(chatId, media, caption, options);
   }
 
-  async react(messageId: string, emoji: string): Promise<void> {
-    await this.sender.react(messageId, emoji);
+  async react(messageId: string, emoji: string, chatId?: string): Promise<void> {
+    await this.sender.react(messageId, emoji, chatId);
   }
 
   // ---- Chat / User ----
