@@ -943,6 +943,55 @@ app.use(
   }),
 );
 
+// ────────────────────────────────────────────────────────────────────
+// Endpoint de métricas do Screen Share (telemetria)
+// Read-only, não expõe tokens
+// ────────────────────────────────────────────────────────────────────
+app.get('/lab/screen-stats', (_req, res) => {
+  const stats = {
+    rooms: [],
+    totalRooms: rooms.size,
+    totalBroadcasters: 0,
+    totalViewers: 0,
+  };
+
+  for (const [roomId, room] of rooms) {
+    const roomStats = {
+      id: roomId,
+      broadcasters: room.broadcasters ? room.broadcasters.size : 0,
+      viewers: room.viewers ? room.viewers.size : 0,
+      slots: room.slots ? Array.from(room.slots.keys()) : [],
+      droppedChunks: room.droppedChunks || 0,
+      watching: [],
+    };
+
+    // Viewers e seus watchings
+    if (room.viewers) {
+      for (const viewer of room.viewers) {
+        roomStats.watching.push({
+          name: viewer.name,
+          watching: Array.from(viewer.watching || []),
+        });
+      }
+    }
+
+    // Estatísticas de tráfego (trafficCounter usa bytes, não chunks)
+    if (room.traffic) {
+      roomStats.traffic = {
+        bytesReceived: room.traffic.receivedBytes || 0,
+        bytesSent: room.traffic.transmittedBytes || 0,
+        bytesDropped: room.traffic.droppedBytes || 0,
+      };
+    }
+
+    stats.rooms.push(roomStats);
+    stats.totalBroadcasters += roomStats.broadcasters;
+    stats.totalViewers += roomStats.viewers;
+  }
+
+  res.json(stats);
+});
+
 app.use((req, res, next) => {
   if (req.path.startsWith('/api')) return next();
   res.setHeader('Cache-Control', 'no-store');
@@ -1279,72 +1328,6 @@ function avisarBuildVelho() {
     // Ainda sem build; o proprio arranque ja diz o que fazer.
   }
 }
-
-// ────────────────────────────────────────────────────────────────────
-// Endpoint de métricas do Screen Share (telemetria)
-// Read-only, não expõe tokens
-// ────────────────────────────────────────────────────────────────────
-app.get('/lab/screen-stats', (_req, res) => {
-  const stats = {
-    rooms: [],
-    totalRooms: rooms.size,
-    totalBroadcasters: 0,
-    totalViewers: 0,
-  };
-
-  for (const [roomId, room] of rooms) {
-    const roomStats = {
-      id: roomId,
-      broadcasters: room.broadcasters ? room.broadcasters.size : 0,
-      viewers: room.viewers ? room.viewers.size : 0,
-      slots: room.slots ? Array.from(room.slots.keys()) : [],
-      droppedChunks: room.droppedChunks || 0,
-      watching: [],
-    };
-
-    // Viewers e seus watchings
-    if (room.viewers) {
-      for (const viewer of room.viewers) {
-        roomStats.watching.push({
-          name: viewer.name,
-          watching: Array.from(viewer.watching || []),
-        });
-      }
-    }
-
-    // Estatísticas de tráfego (trafficCounter usa bytes, não chunks)
-    if (room.traffic) {
-      roomStats.traffic = {
-        bytesReceived: room.traffic.receivedBytes || 0,
-        bytesSent: room.traffic.transmittedBytes || 0,
-        bytesDropped: room.traffic.droppedBytes || 0,
-      };
-    }
-
-    stats.rooms.push(roomStats);
-    stats.totalBroadcasters += roomStats.broadcasters;
-    stats.totalViewers += roomStats.viewers;
-  }
-
-  res.json(stats);
-});
-
-server.listen(PORT, () => {
-  const local = `http://localhost:${PORT}`;
-
-  console.log('');
-  console.log(`  Sala de Tela no ar em  ${local}`);
-  console.log(`  Abra esse endereço no navegador para usar fora do Discord.`);
-  console.log('');
-
-  if (DISCORD_CLIENT_ID) {
-    console.log(`  Discord: ligado · aplicação ${DISCORD_CLIENT_ID}`);
-    console.log(`  Endereço público: ${PUBLIC_ORIGIN}`);
-    console.log(`  Redirect que precisa estar no portal: ${PUBLIC_ORIGIN}/auth/callback`);
-  } else {
-    console.log('  Discord: desligado (só navegador).');
-    console.log('  Para usar dentro do Discord, rode: npm run configurar');
-  }
 
   if (TEM_ADMIN) {
     console.log(`  Painel administrativo: ${local}/admin`);
