@@ -1,145 +1,202 @@
-# Bot-WPP: Bot de WhatsApp com IA e Comandos
+# Bot-WPP / WarriorBlack
 
-## Visão Geral do Projeto
+> Bot multi-plataforma (WhatsApp, Telegram, Discord, Discord Screen Share).
 
-O Bot-WPP é um bot multiplataforma desenvolvido para automatizar interações, fornecer informações e gerenciar grupos. Ele integra inteligência artificial via Gemini API, comandos administrativos e um serviço de relay. O projeto é construído com Node.js e TypeScript, usando Baileys como engine ativo do WhatsApp.
+**Última atualização**: 2026-09-16 15:20 BRT
+**Commit**: 8371ae8
 
-## 🏗️ Arquitetura Atual (v2.0.0-TS-STABLE)
+---
 
-O sistema foi totalmente migrado para **TypeScript** e utiliza uma arquitetura distribuída e modular:
+## Visão Geral
 
--   **Bot (Linux VPS)**: Cliente Baileys em TypeScript que processa comandos, moderação e polling sem Chromium.
--   **AutoMod Avançado**: Sistema de segurança proativo que intercepta spam interativo, filtra DDI estrangeiro e aplica punições imediatas (ban/delete).
--   **Relay (Render)**: Servidor Node.js agindo como buffer intermediário para geolocalização e comandos customizados.
--   **Frontend (Cloudflare Pages)**: Interface web para captura de coordenadas GPS.
+Bot multi-plataforma com moderação automática, comandos unificados, e screen sharing via Discord Activity.
+
+| Plataforma | Engine | Status |
+|------------|--------|--------|
+| WhatsApp | Baileys v7 RC14 | ✅ Produção |
+| Telegram | Telegraf | ✅ Produção |
+| Discord | discord.js | ✅ Produção |
+| Screen Share | WebCodecs + WebSocket | ⚠️ Funcional (Web validado, Desktop não testado) |
+
+---
 
 ## Estrutura do Projeto
 
-O projeto segue uma estrutura modular, com os principais componentes:
+```
+src/
+├── core/               # Entry point e orquestração (multiPlatform.ts)
+├── platforms/          # Adapters por plataforma
+│   ├── whatsapp/       # Baileys adapter
+│   ├── telegram/       # Telegraf adapter
+│   └── discord/        # discord.js adapter
+├── services/           # Serviços compartilhados
+│   ├── autoModEngine.ts    # Motor de moderação
+│   ├── permissions.ts      # Proteções dono/bot/admin
+│   ├── loggerService.ts    # Winston estruturado
+│   ├── databaseService.ts  # SQLite (WAL)
+│   └── testServer.ts       # HTTP endpoints de teste
+└── bot/commands/       # ~70 comandos ($)
 
--   `src/`: Código fonte principal do bot.
-    -   `src/bot/`: Contém a lógica de carregamento e registro de comandos.
-        -   `src/bot/commands/`: Módulos individuais para cada comando do bot.
-    -   `src/services/`: Serviços auxiliares como manipulação de mensagens, moderação, permissões, e integração com IA.
-    -   `src/relay/`: Código para o serviço de relay (API externa).
-    -   `src/core/multiPlatform.ts`: Ponto de entrada que registra e inicializa os adapters.
-    -   `src/platforms/whatsapp/BaileysAdapter.ts`: Adapter ativo do WhatsApp.
+discord-screen/         # Screen sharing (projeto separado)
+├── server/             # Express + WebSocket (porta 3002)
+├── client/             # Vite + Discord Embedded App SDK
+└── shared/             # WebRTC signaling
 
-## 📌 Documentação de Correções de Arquitetura
+docs/                   # Documentação
+├── AI_CONTEXT.md       # Manual de entrada para LLMs/IDEs
+├── KNOWN_ISSUES.md     # Bugs conhecidos e resolvidos
+├── ROADMAP.md          # Planejamento do projeto
+├── CHANGELOG.md        # Linha do tempo temporal
+├── ENDPOINTS.md        # Documentação dos endpoints HTTP
+├── TELEMETRY.md        # Métricas do Screen Share
+├── PENDING_TESTS.md    # Testes pendentes (Discord Web vs Desktop)
+└── ARCHIVE/            # Documentação histórica
 
-Para evitar regressões por outras instâncias de IDE/agentes, o histórico de correções estruturais (tratamento de `@lid`, despacho de comandos/`startAll`, desacoplamento do AutoMod, estabilidade do Chromium) está centralizado em **[docs/ARCHITECTURE_FIXES.md](docs/ARCHITECTURE_FIXES.md)**. Leia-o antes de alterar `WhatsAppAdapter.ts`, `PlatformManager.ts` ou `multiPlatform.ts`.
--   `dist/`: Saída dos arquivos TypeScript compilados para JavaScript.
--   `.env`: Arquivo de configuração de variáveis de ambiente.
--   `ecosystem.config.js`: Configuração para gerenciamento de processos com PM2.
+laboratorio/            # Scripts de teste/diagnóstico
+└── ARCHIVE/            # Scripts antigos
+```
 
-## 🔐 Protocolo de Segurança
+---
 
-O sistema utiliza a chave **WARRIOR_AUTH_KEY** (16 caracteres) para autenticar todas as pontas:
--   **Frontend -> Relay**: POST `/location` com header `x-api-key`.
--   **Bot -> Relay**: GET `/pending/:chatId` com header `x-api-key`.
-
-## 🚀 Configuração de Ambiente
+## Configuração
 
 ### Pré-requisitos
 
--   Node.js 20.x, igual ao ambiente de produção e CI
--   Versão recomendada: `20.20.2` (também registrada em `.nvmrc`)
--   npm (gerenciador de pacotes do Node.js)
--   PM2 (para gerenciamento de processos em produção no Linux)
--   Conta no Google Cloud com acesso à Gemini API (Modelo: `gemini-2.0-flash`)
+- Node.js >= 20.x
+- npm ou pnpm
+- PM2 (para produção no Linux)
 
 ### Variáveis de Ambiente
 
-Crie um arquivo `.env` na raiz do projeto, baseado no `.env.example`, e preencha as seguintes variáveis:
+Crie `.env` a partir de `.env.example`:
 
--   `MASTER_USER`: Número de telefone do usuário mestre do bot (ex: `5511999999999@c.us`).
--   `GEMINI_API_KEY`: Sua chave da API Gemini para integração com IA.
--   `WARRIOR_AUTH_KEY`: Chave de autenticação para o serviço de relay.
--   `RELAY_URL`: URL do serviço de relay (ex: `https://bot-wpp-relay.onrender.com`).
--   Outras variáveis conforme necessário para funcionalidades específicas (ver `.env.example`).
+```bash
+# WhatsApp
+WPP_ENGINE=baileys
+WPP_SESSIONS=558581344211  # opcional: multi-número CSV
 
-### Portas e Endereços
--   **Relay**: Rodando em `https://bot-wpp-relay.onrender.com` (Porta padrão 443).
--   **Frontend**: Hospedado em `https://bot-wpp-wb-sc.pages.dev`.
+# Discord
+DISCORD_BOT_TOKEN=...
+DISCORD_CLIENT_ID=1307158493907652648
+DISCORD_CLIENT_SECRET=***
 
-## 🛠️ Scripts Disponíveis
+# Telegram
+TELEGRAM_BOT_TOKEN=...
 
--   `npm start`: Inicia o Relay (específico para deploy no Render).
--   `npm run bot:start`: Inicia o Bot do WhatsApp.
--   `npm test`: Executa a suite de testes de integração e segurança.
+# Screen Share
+SESSION_SECRET=***  # 32+ chars hex
+DISCORD_SCREEN_PORT=3002
+DISCORD_SCREEN_PUBLIC_ORIGIN=https://ubuntu.tail8486e7.ts.net
+
+# Banco
+BOT_DATA_DIR=./data
+
+# Identidades (usados por isProtectedTarget)
+MASTER_USER=5588998314322@c.us
+MASTER_LID=202658048684056
+BOT_NUMBER=558581344211
+BOT_LID=2592935567439
+```
+
+---
 
 ## Instalação
 
-1.  **Clonar o repositório:**
-    ```bash
-    # Bot WhatsApp (este repo)
-    git clone https://github.com/SolanoJr/Bot-WPP-WB.git
-    cd Bot-WPP-WB
-
-    # Frontend (Cloudflare Pages) — repositório separado
-    git clone https://github.com/SolanoJr/Bot-WPP-WB-SC.git
-    cd Bot-WPP-WB-SC
-    ```
-2.  **Instalar dependências:**
-    ```bash
-    npm install
-    ```
-3.  **Compilar o projeto:**
-    ```bash
-    npm run build
-    ```
-
-> 📁 **Local padrão recomendado:** clone em `D:\Desktop\Programas\bot-wpp` (Windows dev) ou `$HOME/bot-wpp` (Linux prod). Veja `CHANGELOG.md` v1.3.2 para histórico de realocação.
-
-## Como Executar o Bot
-
-### Desenvolvimento (com `tsx` e `nodemon`)
-
-Para executar o bot em modo de desenvolvimento com recarregamento automático:
-
 ```bash
-npm run dev:relay # Para o serviço de relay
-npm run bot:start # Para o bot principal
+git clone https://github.com/SolanoJr/Bot-WPP-WB.git
+cd bot-wpp
+npm install
+npm run build
+
+# Screen Share (desenvolvimento)
+cd discord-screen && npm install && cd ..
 ```
 
-### Produção (com PM2 no Linux)
+---
 
-No servidor Linux, após a instalação e compilação, use o PM2 para gerenciar o bot:
+## Execução
+
+### Produção (PM2 no Linux)
 
 ```bash
 pm2 start ecosystem.config.js
 pm2 save
+pm2 logs
 ```
 
-Para reiniciar o bot após atualizações:
-
+Após atualizações:
 ```bash
 pm2 restart bot-wpp
+pm2 restart discord-screen
 ```
 
-## Fluxo de Mensagens e Processamento de Comandos
+---
 
-Quando uma mensagem é recebida pelo bot, o adapter encaminha um `PlatformMessage` ao `PlatformManager`:
+## Endpoints HTTP
 
-1.  **Verificação de Comando:** A mensagem é primeiramente verificada para determinar se é um comando (começa com `$`).
-2.  **Moderação e Palavras-Chave:** AutoMod e palavras-chave são executados de forma desacoplada no adapter Baileys.
-3.  **Execução de Comando:** Se a mensagem for um comando e não for interceptada, o `messageHandler` tenta encontrar e executar o comando correspondente no mapa de comandos carregados (`src/bot/commands/index.ts`).
-4.  **Comandos Customizados (Fallback):** Se o comando não for encontrado localmente, o bot tenta buscar e executar comandos customizados configurados no serviço de relay.
+| Servidor | Porta | Acesso |
+|----------|-------|--------|
+| TestServer | 3004 | Apenas localhost |
+| Screen Share | 3002 | Público (Tailscale Funnel) |
+| Prometheus | 3001 | Público |
 
-## Solução de Problemas Comuns
-
-### Comandos não respondem ou mensagens são apagadas
-
-**Causa:** Falhas no adapter, no AutoMod ou no registro do handler podem impedir a execução.
-
--   `autoModEngine.ts`: Pode apagar ou remover mensagens suspeitas conforme as flags do grupo.
--   `keywordHandler.ts`: Pode responder sarcasticamente ou apagar mensagens que contenham "bot" ou frases de "trollagem".
-
-**Solução:** Confirme o log de `startAll`, o estado do adapter e o log estável do PM2 antes de investigar o conteúdo do comando.
-
-## Contribuição
-
-Para contribuir com o projeto, por favor, siga as diretrizes de código e submeta Pull Requests para a branch `main`.
+Documentação completa em [docs/ENDPOINTS.md](docs/ENDPOINTS.md).
 
 ---
-*Backup de estabilidade disponível na branch: `stable-js-working-v1`*
+
+## Comandos
+
+Prefixo: `$`
+
+Exemplos: `$menu`, `$ban`, `$kick`, `$automod`, `$screen`, `$ping`, `$figurinhas`
+
+---
+
+## Proteções
+
+O bot **NUNCA** executa ações contra:
+- O próprio bot (`558581344211`)
+- O dono (`5588998314322`)
+- Administradores legítimos do grupo
+
+---
+
+## Monitoramento
+
+- PM2: `pm2 status`, `pm2 logs`
+- Logs: `~/.pm2/logs/bot-wpp-stable.out.log`
+- Métricas Prometheus: `http://localhost:3001/metrics`
+- Screen Share stats: `http://localhost:3002/lab/screen-stats`
+
+---
+
+## Documentação
+
+| Arquivo | Descrição |
+|---------|-----------|
+| [docs/AI_CONTEXT.md](docs/AI_CONTEXT.md) | Manual de entrada para LLMs/IDEs |
+| [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) | Bugs conhecidos e resolvidos |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Diagnóstico de problemas |
+| [docs/DECISIONS.md](docs/DECISIONS.md) | Decisões arquiteturais |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Planejamento do projeto |
+| [docs/CHANGELOG.md](docs/CHANGELOG.md) | Linha do tempo temporal |
+| [docs/ENDPOINTS.md](docs/ENDPOINTS.md) | Documentação dos endpoints HTTP |
+| [docs/TELEMETRY.md](docs/TELEMETRY.md) | Métricas do Screen Share |
+| [docs/PENDING_TESTS.md](docs/PENDING_TESTS.md) | Testes pendentes (Discord Web vs Desktop) |
+
+---
+
+## Servidor de Produção
+
+| Recurso | Valor |
+|---------|-------|
+| Host | `100.101.218.16` (Ubuntu LXC) |
+| RAM | 2.0GB |
+| Disco | 32GB |
+| Tailscale | `ubuntu.tail8486e7.ts.net` |
+| GitHub | `SolanoJr/Bot-WPP-WB` |
+
+---
+
+**Última atualização**: 2026-09-16 15:20 BRT
+**Commit**: 8371ae8
