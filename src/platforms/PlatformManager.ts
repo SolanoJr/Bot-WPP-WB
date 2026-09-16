@@ -546,16 +546,27 @@ export class PlatformManager {
       throw new Error(`Plataforma não encontrada: ${platform}`);
     }
 
+    // ChatIds de teste configuráveis via .env (usar chats reais!)
+    const testChatIds: Record<string, string> = {
+      whatsapp: process.env.WPP_TEST_CHAT_ID || '558898314322@c.us',
+      telegram: process.env.TELEGRAM_TEST_CHAT_ID || 'tg:146078742',
+      discord: process.env.DISCORD_TEST_CHAT_ID || 'dc:1521942390082900190',
+    };
+    const testUserIds: Record<string, string> = {
+      whatsapp: process.env.WPP_TEST_USER_ID || '558898314322@c.us',
+      telegram: process.env.TELEGRAM_TEST_USER_ID || 'tg:146078742',
+      discord: process.env.DISCORD_TEST_USER_ID || 'dc:1307158493907652648',
+    };
+
+    const chatId = testChatIds[platform] || testChatIds.whatsapp;
+    const userId = testUserIds[platform] || testUserIds.whatsapp;
+
     // Criar uma PlatformMessage de teste
     const testMessage: PlatformMessage = {
       id: `test-${Date.now()}`,
       platform,
-      chatId: platform === 'whatsapp' || platform.startsWith('whatsapp:')
-        ? (process.env.WPP_TEST_CHAT_ID || '558581344211@c.us')
-        : platform === 'telegram' ? 'tg:146078742' : 'dc:1521942390082900190',
-      userId: platform === 'whatsapp' || platform.startsWith('whatsapp:')
-        ? (process.env.WPP_TEST_USER_ID || '558581344211@c.us')
-        : platform === 'telegram' ? 'tg:146078742' : 'dc:1307158493907652648',
+      chatId,
+      userId,
       userName: 'TestUser',
       text: command,
       timestamp: new Date(),
@@ -567,12 +578,12 @@ export class PlatformManager {
       hasMedia: false,
     };
 
-    logInfo(`[TestCommand] Executando ${command} em ${platform}`);
+    logInfo(`[TestCommand] Executando ${command} em ${platform} (chat: ${chatId})`);
 
     // Enviar diretamente para o handleIncomingMessage
     await this.handleIncomingMessage(testMessage);
 
-    return { success: true, command, platform };
+    return { success: true, command, platform, chatId };
   }
 
   /**

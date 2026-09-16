@@ -11,29 +11,15 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "types": ["node"],
-    "baseUrl": ".",
     "ignoreDeprecations": "6.0",
     "paths": {
-      "@shared/*": ["src/shared/*"],
-      "@relay/*": ["src/relay/*"],
-      "@bot/*": ["src/bot/*"]
+      "@shared/*": ["./src/shared/*"],
+      "@relay/*": ["./src/relay/*"],
+      "@bot/*": ["./src/bot/*"]
     }
   },
   "include": [
-    "laboratorio/find-casino-message.ts",
-    "laboratorio/execute-casino-delete.ts",
-    "laboratorio/diagnose-store.ts",
-    "laboratorio/capture-store.ts",
-    "laboratorio/list-captures.ts",
-    "laboratorio/casino-exclude.ts",
-    "laboratorio/casino-final-delete.ts",
-    "laboratorio/list-jids.ts",
-    "laboratorio/apagar-spam-cassino.ts",
-    "laboratorio/captura-msg.ts",
-    "laboratorio/apagar-spam.ts",
-    "laboratorio/simular-spam.ts",
-    "laboratorio/ativar-grupo.ts",
-    "laboratorio/delete-test.ts"
+    "laboratorio/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "laboratorio/ARCHIVE"]
 }
