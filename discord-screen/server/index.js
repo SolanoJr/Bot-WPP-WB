@@ -993,7 +993,7 @@ app.get('/lab/screen-stats', (_req, res) => {
 });
 
 app.use((req, res, next) => {
-  if (req.path.startsWith('/api')) return next();
+  if (req.path.startsWith('/api') || req.path.startsWith('/lab')) return next();
   res.setHeader('Cache-Control', 'no-store');
   res.sendFile(path.join(clientDist, 'index.html'), (err) => err && next());
 });
