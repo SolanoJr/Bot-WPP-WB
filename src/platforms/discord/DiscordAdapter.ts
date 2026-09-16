@@ -168,6 +168,10 @@ class DiscordClient implements PlatformClient {
       logInfo(`[Discord][AutoMod] avaliação: atuou=${autoModResult.acted}, motivo=${autoModResult.reason}, ação=${autoModResult.action}`);
 
       // ─── DISPATCH PARA HANDLER DE COMANDOS ────────────────────────────────
+      if (this.messageHandler) {
+        const platformMsg = this.normalizeMessage(msg);
+        await this.messageHandler(platformMsg);
+      }
     });
 
     this.client.on('error', (err) => {

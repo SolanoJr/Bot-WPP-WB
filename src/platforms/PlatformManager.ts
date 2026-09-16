@@ -113,51 +113,31 @@ export class PlatformManager {
 
     client.onMessage(async (rawMessage: PlatformMessage) => {
       const startTs = Date.now();
-      // Normalizar e enriquecer mensagem
       const message = this.enrichMessage(rawMessage, adapter.platform);
 
       // Telemetria: mensagem recebida
       metricsService.incrementMessage(adapter.platform);
-
-      // Rastrear último chat visto nesta plataforma (para ponte $send)
       this.lastChatByPlatform.set(adapter.platform, message.chatId);
 
-      // Verificar se é comando
-      const prefix = this.getCommandPrefix(adapter.platform);
-      const trimmedText = message.text.trim();
-      message.isCommand = trimmedText.startsWith(prefix);
-      if (message.isCommand) {
-        const parts = trimmedText.slice(prefix.length).trim().split(/ +/);
-        message.commandName = (parts.shift() || '').toLowerCase();
-        message.args = parts;
+      // ─── Detecção de mensagem própria (loop prevention) ───
+      // Mensagens do próprio bot NUNCA devem ser reprocessadas
+      if (message.isFromMe && !message.forceProcess) {
+        logInfo(`[PM] SKIP mensagem própria: ${message.id} (${message.platform})`);
+        return;
       }
 
-      // Executar handlers globais (logging, etc)
-      for (const handler of this.messageHandlers) {
-        try {
-          await handler(message);
-        } catch (error) {
-          logError('MessageHandler', error);
-        }
+      // ─── Detectar tipo de gatilho ───
+      const trigger = this.detectTrigger(message, adapter);
+      
+      // ─── Interação comum: reaction/like ───
+      if (trigger !== 'none' && !message.isFromMe) {
+        this.sendReaction(message, adapter, trigger);
       }
 
-      // Se é comando, executar
+      // ─── Processar comando ───
       if (message.isCommand && message.commandName) {
         await this.executeCommand(message, adapter);
-        // Reagir com 👍 na mensagem de comando (feedback visual)
-        try {
-          if (message.raw && typeof message.raw.react === 'function') {
-            await message.raw.react('👍');
-          } else if (typeof adapter.client.react === 'function') {
-            await adapter.client.react(message.id, '👍');
-          }
-        } catch (reactErr: any) {
-          logWarning(`[REACT] erro ao reagir com 👍: ${reactErr?.message}`);
-        }
       }
-
-      // Telemetria: duração do processamento
-      metricsService.recordMessageProcessingDuration(adapter.platform, Date.now() - startTs);
     });
 
     client.onReady(() => {
@@ -185,6 +165,65 @@ export class PlatformManager {
         }
       }
     });
+  }
+
+  /**
+   * Detecta o tipo de gatilho (command, mention, reply)
+   * Centraliza a detecção de interação do usuário
+   */
+  private detectTrigger(message: PlatformMessage, adapter: PlatformAdapter): 'command' | 'mention' | 'reply' | 'none' {
+    // Comando: mensagem começa com $ e tem commandName
+    if (message.isCommand && message.commandName) {
+      return 'command';
+    }
+    
+    // Reply: mensagem responde a uma mensagem do bot (quotedFromMe = true)
+    if (message.replyToMessageId && message.quotedFromMe) {
+      return 'reply';
+    }
+    
+    // Mention: mensagem menciona o bot
+    if (message.mentions && message.mentions.length > 0) {
+      return 'mention';
+    }
+    
+    return 'none';
+  }
+  
+  /**
+   * Envia reação/like na mensagem original
+   * Usa a API do adapter específico para reagir
+   */
+  private async sendReaction(message: PlatformMessage, adapter: PlatformAdapter, trigger: string): Promise<void> {
+    try {
+      if (typeof adapter.client.react !== 'function') {
+        logInfo(`[Reaction] ${message.platform} não suporta react em ${message.id} (${trigger})`);
+        return;
+      }
+      await adapter.client.react(message.id, '👍', message.chatId);
+      logInfo(`[Reaction] Reagiu com 👍 em ${message.id} (${trigger})`);
+    } catch (reactErr: any) {
+      logWarning(`[Reaction] erro ao reagir: ${reactErr?.message}`);
+    }
+  }
+  
+  /**
+   * Envia reply/quote na mensagem original
+   * Usa a API do adapter específico para responder com quote
+   */
+  private async sendReply(message: PlatformMessage, adapter: PlatformAdapter, trigger: string, text: string): Promise<void> {
+    try {
+      await adapter.client.sendMessage(message.chatId, text, {
+        replyToMessageId: message.id,
+        quotedFromMe: false,
+        quotedParticipant: message.userId,
+      });
+      logInfo(`[Reply] Respondido com quote em ${message.id} (${trigger})`);
+    } catch (replyErr: any) {
+      // Fallback: enviar sem quote
+      logWarning(`[Reply] quote falhou, enviando sem quote: ${replyErr?.message}`);
+      await adapter.client.sendMessage(message.chatId, text);
+    }
   }
 
   /**
@@ -268,19 +307,6 @@ export class PlatformManager {
       // Comando não encontrado - poderia buscar no relay (futuro)
       logger.info(`[PlatformManager] Comando não encontrado: ${message.commandName} em ${adapter.platform}`);
       return;
-    }
-
-    // ─── Reagir com 👍 na mensagem de comando (feedback visual) ───
-    // Só reagir se NÃO for mensagem do próprio bot (evita loop em self-test)
-    if (!message.isFromMe) {
-      try {
-        if (typeof adapter.client.react === 'function') {
-          await adapter.client.react(message.id, '👍', message.chatId);
-          logInfo(`[executeCommand] Reagiu com 👍 em ${message.id} (${message.commandName})`);
-        }
-      } catch (reactErr: any) {
-        logWarning(`[executeCommand] erro ao reagir: ${reactErr?.message}`);
-      }
     }
 
     // Verificar se comando está disponível nesta plataforma
