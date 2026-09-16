@@ -66,36 +66,6 @@ const platformLogger = winston.createLogger({
 });
 
 /**
- * Registra execução de comando com resultado
- */
-export function logCommand(opts: {
-  command: string;
-  platform: string;
-  userId: string;
-  chatId: string;
-  success: boolean;
-  durationMs?: number;
-  error?: string;
-  isAdmin?: boolean;
-  isMaster?: boolean;
-}): void {
-  const emoji = opts.success ? '✅' : '❌';
-  const permInfo = opts.isMaster ? '[MASTER]' : opts.isAdmin ? '[ADMIN]' : '[USER]';
-  const timing = opts.durationMs ? ` (${opts.durationMs}ms)` : '';
-  logger.info(`${emoji} [CMD:${opts.platform}] ${permInfo} $${opts.command} | user=${opts.userId} | ${opts.success ? `OK${timing}` : 'ERRO: ' + opts.error}`);
-  commandLogger.info('command_executed', opts);
-}
-
-/**
- * Registra mudança de status de plataforma
- */
-export function logPlatformStatus(platform: string, status: 'online' | 'offline' | 'error', detail?: string): void {
-  const emoji = status === 'online' ? '🟢' : status === 'offline' ? '🔴' : '🟡';
-  logger.info(`${emoji} [PLATFORM] ${platform} → ${status}${detail ? ': ' + detail : ''}`);
-  platformLogger.info('platform_status', { platform, status, detail });
-}
-
-/**
  * Registra erro com contexto completo
  */
 export function logError(context: string, error: any, extra?: Record<string, any>): void {
@@ -111,19 +81,6 @@ export function logInfo(message: string, meta: any = {}): void {
 
 export function logWarning(message: string, meta: any = {}): void {
   logger.warn(`${message} ${Object.keys(meta).length ? JSON.stringify(meta) : ''}`);
-}
-
-/**
- * Health check de todas as plataformas ativas
- */
-export function logHealthCheck(platforms: Record<string, { online: boolean; uptime?: number; lastError?: string }>): void {
-  const lines = Object.entries(platforms).map(([p, s]) => {
-    const icon = s.online ? '🟢' : '🔴';
-    const uptime = s.uptime ? ` uptime=${Math.floor(s.uptime / 60)}min` : '';
-    const err = s.lastError ? ` err=${s.lastError}` : '';
-    return `${icon} ${p}${uptime}${err}`;
-  });
-  logger.info(`[HEALTH] ${lines.join(' | ')}`);
 }
 
 export default logger;

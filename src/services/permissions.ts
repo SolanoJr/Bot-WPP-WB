@@ -170,10 +170,6 @@ export function isProtectedTarget(userId: string): boolean {
     return isMaster(userId) || isBotTarget(userId);
 }
 
-export function getBotIdentifiers(): { number: string; lid: string } {
-    return { number: BOT_NUMBER, lid: BOT_LID };
-}
-
 /**
  * Retorna o ID do dono para notificações (QR codes, alertas, etc.).
  * Blinda contra o caso de retornar o LID do próprio bot (202658048684056@lid).

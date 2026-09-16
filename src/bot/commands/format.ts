@@ -10,15 +10,6 @@ export function groupTag(ctx: any): string {
   return g ? ` (${g})` : '';
 }
 
-/** Retorna o nome legível de um usuário (pushname real se disponível, senão o número). */
-export function personName(ctx: any, fallbackId?: string): string {
-  const name = ctx?.userName || '';
-  if (name && !/^\d+$/.test(String(name).replace('@c.us', '').replace('@lid', ''))) {
-    return name;
-  }
-  if (fallbackId) return String(fallbackId).split('@')[0];
-  return '';
-}
 
 /**
  * Nome de exibição de um alvo (usuário sendo kickado/banido/etc).

@@ -121,30 +121,6 @@ export function getCommand(name: string): ICommand | undefined {
   return undefined;
 }
 
-// Função para obter lista de comandos
-export function getCommandsList(): { name: string; description: string }[] {
-  const list = Object.entries(commands).map(([name, cmd]) => ({
-    name,
-    description: cmd.description
-  }));
-  return list;
-}
-
-// Função para executar comando
-export async function executeCommand(name: string, ctx: CommandContext): Promise<void> {
-  const command = getCommand(name);
-  if (!command) {
-    logWarning(`Comando "${name}" não encontrado`);
-    return;
-  }
-  await command.execute(ctx);
-}
-
-// Comandos especiais de system
-export function getSystemCommands(): string[] {
-  return ['shutdown', 'admin'];
-}
-
 // Exportar loadCommands para compatibilidade com PlatformManager
 export function loadCommands(): Map<string, ICommand> {
   const commandsMap = new Map<string, ICommand>();
