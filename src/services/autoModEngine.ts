@@ -27,6 +27,9 @@ import { recordInfraction } from './infractions.js';
 import { isProtectedTarget } from '../services/permissions.js';
 import { logInfo, logWarning, logError } from './loggerService';
 
+// ─── Cassino Classifier ─────────────────────────────────────────────────
+import { classifyCasino } from './casinoClassifier.js';
+
 // ─── Configurações editáveis ────────────────────────────────────────────────
 const SUSPICIOUS_DOMAINS = [
   'wtf', 'bet', 'game', 'games', 'win', 'xyz', 'top', 'click',
@@ -298,6 +301,7 @@ interface AutoModContext {
   sock: any;
   userId: string;
   groupName: string;
+  fromMe?: boolean;
   getChat: (jid: string) => Promise<{ participants: any[]; id: string; subject?: string } | null>;
   sendMessage: (jid: string, text: string, opts?: any) => Promise<any>;
   removeParticipant: (groupId: string, userId: string) => Promise<void>;
@@ -485,16 +489,17 @@ export async function evaluate(
   if (hasSpamKeyword) botSignals.push('spam-keyword');
   if (hasSpamKeyword && spamContext) botSignals.push('spam-com-contexto');
 
-  // REGRA 2b: Cassino de alta probabilidade — foreign + link suspeito + mensagem interativa/botão/template
-  // Isso captura o padrão exato da mensagem da imagem: +62 823-6400-7211 + kl7.games + botão [↗ GO]
+  // REGRA 2b: Cassino de alta probabilidade — usa classificador multi-sinal
+  // Requer: confiança >= 60 E pelo menos 3 sinais
+  const casinoDetection = classifyCasino(msg, senderJid, senderName);
   const isHighProbabilityCasino =
     config.remover &&
-    isForeignNumber(senderJid) &&
-    isSuspiciousDomain(domains) &&
-    (msgType.buttonsMessage || msgType.interactiveMessage || msgType.templateMessage || msgType.productMessage);
+    casinoDetection.detected &&
+    casinoDetection.confidence >= 60 &&
+    casinoDetection.signals.length >= 3;
 
   if (isHighProbabilityCasino) {
-    const reasonText = `${senderName || senderJid} — CASSINO/BETANO ALTA PROBABILIDADE: estrangeiro + domínio suspeito + mensagem interativa/template.`;
+    const reasonText = `${senderName || senderJid} — CASSINO/BETANO ALTA PROBABILIDADE: ${casinoDetection.reason}.`;
     reportedActions.push(`ANTIBOT-CASINO: ${reasonText}`);
     ctx.log(`[AutoMod] ⚠️ CASSINO ALTA PROBABILIDADE detectado: ${reasonText}`);
 
@@ -504,9 +509,22 @@ export async function evaluate(
     }
 
     if (isAuditOnly) {
-      ctx.log(`[AutoMod] AUDIT-ONLY cassino: ${senderJid} seria banido/removido/deletado`);
+      ctx.log(`[AutoMod] AUDIT-ONLY cassino: ${senderJid} seria banido/removido/deletado (sinais: ${casinoDetection.signals.join(', ')})`);
       return { acted: false, reason: 'cassino: audit-only', action: 'none' };
     }
+
+    // Verificar se o remetente é admin do grupo (proteção contra falsos positivos)
+    try {
+      const chat = await ctx.getChat(groupId);
+      const participant = chat?.participants?.find((p: any) => {
+        const pId = p?.id || p;
+        return pId === senderJid || pId?.startsWith?.(senderJid?.split('@')[0]) || senderJid?.startsWith?.(pId?.split('@')[0]);
+      });
+      if (participant?.admin === 'admin' || participant?.admin === 'superadmin') {
+        ctx.log(`[AutoMod] cassino ignorado — remetente é admin: ${senderJid}`);
+        return { acted: false, reason: 'cassino: remetente é admin', action: 'none' };
+      }
+    } catch { /* ignorar */ }
 
     // Ban persistente
     try {
@@ -541,14 +559,14 @@ export async function evaluate(
       const hasRealAction = reportedActions.some(a => a === 'REMOVIDO' || a === 'MSGMENSAGEMAPAGADA');
       if (hasRealAction) {
         try {
-          await ctx.sendMessage(groupId, `🚫 [AUTOMOD-CASINO] Removido/banido/deletado: ${senderName || senderJid} (${senderJid}) — domínios: ${domains.join(', ')}`);
+          await ctx.sendMessage(groupId, `🚫 [AUTOMOD-CASINO] Removido/banido/deletado: ${senderName || senderJid} (${senderJid}) — sinais: ${casinoDetection.signals.join(', ')}`);
         } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar (cassino):', err?.message); }
       }
     }
 
     return {
       acted: true,
-      reason: `cassino-alta-probabilidade: ${botSignals.join(', ')} → ${reportedActions.join('; ')}`,
+      reason: `cassino-alta-probabilidade: ${casinoDetection.signals.join(', ')} → ${reportedActions.join('; ')}`,
       action: 'ban+remove+delete+announce',
     };
   }
