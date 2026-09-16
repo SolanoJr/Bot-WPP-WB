@@ -65,7 +65,7 @@ const TYPE_BYTE = 1;
 const KEYFRAME = 1;
 const AUDIO = 3;
 
-const rooms = new Map();
+export const rooms = new Map();
 
 // Contadores do payload de midia que realmente atravessa o relay. Eles nao
 // incluem os poucos bytes de cabecalho TCP/TLS/WebSocket, mas refletem a parte
