@@ -28,6 +28,27 @@ src/services/discord-screen/client/package-lock.json
 # 🔐 ARTEFATOS LOCAIS
 .env.backup
 .whatsapp-instance.lock
+
+# 🗑️ BANCO DE DADOS (gerado em runtime)
+data/*.db
+data/*.db-shm
+data/*.db-wal
+data/*.json
+
+# 🗑️ LOGS (gerados em runtime)
+logs/*.log
+logs/*.jsonl
+
+# 🗑️ ARTEFATOS DE LABORATÓRIO (resultados temporários)
+laboratorio/*.json
+laboratorio/*.jsonl
+laboratorio/test-*.ts
+laboratorio/casino-*-result.json
+laboratorio/delete-test-result.json
+
+# 🗑️ ARTEFATOS DO WINDOWS
+Thumbs.db
+nul
 scripts/logs/
 
 # 📊 RELATÓRIOS E TEMP
