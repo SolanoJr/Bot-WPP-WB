@@ -128,10 +128,11 @@ export class PlatformManager {
 
       // ─── Detectar tipo de gatilho ───
       const trigger = this.detectTrigger(message, adapter);
+      logInfo(`[PM] trigger=${trigger} msgId=${message.id} text=${message.text?.substring(0,30)}`);
       
       // ─── Interação comum: reaction/like ───
       if (trigger !== 'none' && !message.isFromMe) {
-        this.sendReaction(message, adapter, trigger);
+        await this.sendReaction(message, adapter, trigger);
       }
 
       // ─── Processar comando ───
