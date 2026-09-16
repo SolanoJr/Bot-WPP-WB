@@ -1,0 +1,60 @@
+# EditorConfig is awesome: https://EditorConfig.org
+
+# top-most EditorConfig file
+root = true
+
+# Unix-style newlines with a newline ending every file
+[*]
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# Tab indentation (no indentation size specified for tabs)
+[*.ts]
+indent_style = tab
+indent_size = 2
+
+# Tab indentation for JavaScript
+[*.js]
+indent_style = tab
+indent_size = 2
+
+# Tab indentation for TypeScript/JSX/TSX
+[*.{tsx,jsx}]
+indent_style = tab
+indent_size = 2
+
+# Tab indentation for config files
+[*.{json,jsonl}]
+indent_style = tab
+indent_size = 2
+
+# Tab indentation for HTML
+[*.html]
+indent_style = tab
+indent_size = 2
+
+# Tab indentation for CSS
+[*.css]
+indent_style = tab
+indent_size = 2
+
+# Tab indentation for Markdown
+[*.md]
+indent_style = tab
+indent_size = 2
+
+# Tab indentation for YAML
+[*.{yml,yaml}]
+indent_style = tab
+indent_size = 2
+
+# Tab indentation for Makefiles (Makefiles require tabs)
+[Makefile]
+indent_style = tab
+
+# Tab indentation for shell scripts
+[*.sh]
+indent_style = tab
+indent_size = 2
