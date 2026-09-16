@@ -943,8 +943,51 @@ app.use(
   }),
 );
 
+app.get('/lab/screen-stats', (_req, res) => {
+  const stats = {
+    rooms: [],
+    totalRooms: rooms.size,
+    totalBroadcasters: 0,
+    totalViewers: 0,
+  };
+
+  for (const [roomId, room] of rooms) {
+    const roomStats = {
+      id: roomId,
+      broadcasters: room.broadcasters ? room.broadcasters.size : 0,
+      viewers: room.viewers ? room.viewers.size : 0,
+      slots: room.slots ? Array.from(room.slots.keys()) : [],
+      droppedChunks: room.droppedChunks || 0,
+      watching: [],
+    };
+
+    if (room.viewers) {
+      for (const viewer of room.viewers) {
+        roomStats.watching.push({
+          name: viewer.name,
+          watching: Array.from(viewer.watching || []),
+        });
+      }
+    }
+
+    if (room.traffic) {
+      roomStats.traffic = {
+        bytesReceived: room.traffic.receivedBytes || 0,
+        bytesSent: room.traffic.transmittedBytes || 0,
+        bytesDropped: room.traffic.droppedBytes || 0,
+      };
+    }
+
+    stats.rooms.push(roomStats);
+    stats.totalBroadcasters += roomStats.broadcasters;
+    stats.totalViewers += roomStats.viewers;
+  }
+
+  res.json(stats);
+});
+
 app.use((req, res, next) => {
-  if (req.path.startsWith('/api')) return next();
+  if (req.path.startsWith('/api') || req.path.startsWith('/lab')) return next();
   res.setHeader('Cache-Control', 'no-store');
   res.sendFile(path.join(clientDist, 'index.html'), (err) => err && next());
 });
