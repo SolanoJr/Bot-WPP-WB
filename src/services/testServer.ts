@@ -454,8 +454,18 @@ export function startTestServer(port: number = 3004): void {
         }
         const trimmed = command.trim();
         if (!trimmed.startsWith('$')) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Command must start with $' }));
+          // Mensagem comum (não é comando) - enviar diretamente sem processar
+          const adapter = pm.getAdapter(platform as any);
+          if (!adapter) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Plataforma não encontrada: ${platform}` }));
+            return;
+          }
+          const chatId = parsedBody.chatId || '120363410094452673@g.us';
+          logInfo(`[TestServer] Enviando mensagem: "${trimmed}" para ${chatId}`);
+          const result = await pm.sendMessageAndProcess(platform, chatId, trimmed, false);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, platform, command: trimmed, result }));
           return;
         }
         const adapter = pm.getAdapter(platform as any);

@@ -556,7 +556,7 @@ export class PlatformManager {
       throw new Error(`Plataforma não encontrada: ${platform} (disponíveis: ${availableAdapters.join(', ')})`);
     }
 
-    // Enviar a mensagem para o chat (bot "digita")
+    // Enviar a mensagem para o chat
     logInfo(`[sendMessageAndProcess] Enviando "${text}" para ${chatId} via ${adapter.platform}`);
     try {
       await adapter.client.sendMessage(chatId, text);
@@ -564,6 +564,12 @@ export class PlatformManager {
     } catch (err: any) {
       logError(`[sendMessageAndProcess] Erro ao enviar: ${err?.message || err}`);
       throw err;
+    }
+
+    // Se não é comando, parar por aqui
+    if (!text.startsWith('$')) {
+      logInfo(`[sendMessageAndProcess] Mensagem comum enviada, sem processamento de comando`);
+      return { success: true, sent: text, platform: adapter.platform, chatId };
     }
 
     // Criar PlatformMessage para processamento (usar platform do adapter, não o solicitado)

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  :root {
+    --fg: #e0e0e0;
+    --muted: #888;
+    --accent: #4ade80;
+    --bg: transparent;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  .container {
+    text-align: center;
+    padding: 2rem;
+  }
+  .spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid var(--muted);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .status {
+    font-size: 1.1rem;
+    color: var(--fg);
+  }
+  .detail {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 0.5rem;
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="spinner"></div>
+    <div class="status">Enviando "Oi" para o grupo Teste...</div>
+    <div class="detail">WhatsApp · 120363410094452673@g.us</div>
+  </div>
+</body>
+</html>
