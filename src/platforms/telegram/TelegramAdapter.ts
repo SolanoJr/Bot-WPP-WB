@@ -58,7 +58,7 @@ function patchDnsLookup(): void {
     dns.resolve4(hostname, options as any, (err, addrs) => {
       if (err) {
         // Fallback para lookup original (usa getaddrinfo do sistema)
-        console.log(`[dns.lookup patch] resolve4 falhou para ${hostname} — usando fallback`);
+        logInfo(`[dns.lookup patch] resolve4 falhou para ${hostname} — usando fallback`);
         return (originalLookup as any).call(dns, hostname, options, callback);
       }
       if (options && options.all) {

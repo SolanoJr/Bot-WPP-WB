@@ -445,9 +445,9 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
               removeParticipant: async (g: string, u: string) => {
                 try { await this.removeParticipant(g, u); } catch { /* ignorar */ }
               },
-              log: console.log.bind(console),
-              warn: console.warn.bind(console),
-              error: console.error.bind(console),
+              log: logInfo,
+              warn: logWarning,
+              error: logError,
             },
             normMsg.chatId,
             normMsg.userId,

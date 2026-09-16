@@ -425,9 +425,9 @@ export class BaileysMessageNormalizer {
               removeParticipant: async (g: string, u: string) => {
                 try { await this.removeParticipant(g, u); } catch { /* ignorar */ }
               },
-              log: console.log.bind(console),
-              warn: console.warn.bind(console),
-              error: console.error.bind(console),
+              log: logInfo,
+              warn: logWarning,
+              error: logError,
             },
             from,
             sender,
