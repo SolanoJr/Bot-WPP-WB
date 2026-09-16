@@ -248,9 +248,9 @@ export class PlatformManager {
     logger.info(`[PlatformManager] Comando recebido: ${commandName} de ${message.userName} (${message.platform})`);
     
     // Buscar adapter da plataforma
-    const adapter = this.adapters.get(message.platform);
+    const adapter = this.getAdapter(message.platform);
     if (!adapter) {
-      logger.error(`[PlatformManager] Adapter não encontrado para ${message.platform}`);
+      logger.error(`[PlatformManager] Adapter não encontrado para ${message.platform} (adapters: ${Array.from(this.adapters.keys()).join(', ')})`);
       return;
     }
     
@@ -461,7 +461,7 @@ export class PlatformManager {
     let adapter = this.adapters.get(platform);
     if (!adapter) {
       for (const [key, value] of this.adapters) {
-        if (key.startsWith(platform)) {
+        if (key.startsWith(platform) || platform.startsWith(key)) {
           adapter = value;
           break;
         }
@@ -537,21 +537,39 @@ export class PlatformManager {
     logInfo(`[sendMessageAndProcess] Adapters disponíveis: [${availableAdapters.join(', ')}]`);
     logInfo(`[sendMessageAndProcess] this.adapters.size: ${this.adapters.size}`);
     
-    // Buscar adapter
-    const adapter = this.getAdapter(platform);
-    logInfo(`[sendMessageAndProcess] Adapter encontrado: ${adapter ? 'SIM' : 'NÃO'}`);
+    // Buscar adapter direto primeiro
+    let adapter = this.adapters.get(platform);
+    
+    // Se não encontrar, tentar por prefixo
+    if (!adapter) {
+      for (const [key, value] of this.adapters) {
+        if (key.startsWith(platform) || platform.startsWith(key)) {
+          adapter = value;
+          break;
+        }
+      }
+    }
+    
+    logInfo(`[sendMessageAndProcess] Adapter encontrado: ${adapter ? `SIM (${adapter.platform})` : 'NÃO'}`);
     
     if (!adapter) {
       throw new Error(`Plataforma não encontrada: ${platform} (disponíveis: ${availableAdapters.join(', ')})`);
     }
 
     // Enviar a mensagem para o chat (bot "digita")
-    await adapter.client.sendMessage(chatId, text);
+    logInfo(`[sendMessageAndProcess] Enviando "${text}" para ${chatId} via ${adapter.platform}`);
+    try {
+      await adapter.client.sendMessage(chatId, text);
+      logInfo(`[sendMessageAndProcess] Mensagem enviada com sucesso`);
+    } catch (err: any) {
+      logError(`[sendMessageAndProcess] Erro ao enviar: ${err?.message || err}`);
+      throw err;
+    }
 
     // Criar PlatformMessage para processamento
     const message: PlatformMessage = {
       id: `sent-${Date.now()}`,
-      platform,
+      platform: adapter.platform,
       chatId,
       userId: chatId,
       userName: 'Bot',
