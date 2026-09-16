@@ -1064,6 +1064,11 @@ async function receberOferta(slot, sdp) {
       if (!s.viaRtc) desistirDoRtc(slot);
     }, PRAZO_CONEXAO_MS);
   } catch (err) {
+      console.error("[ABRIR_LINK] ERRO OPEN_EXTERNAL_LINK:", err);
+      console.error("[ABRIR_LINK] err.name=", err.name);
+      console.error("[ABRIR_LINK] err.message=", err.message);
+      console.error("[ABRIR_LINK] err.stack=", err.stack);
+      try { console.error("[ABRIR_LINK] err.json=", JSON.stringify(err)); } catch(e) {}
     console.warn('[rtc] resposta falhou:', err.message);
     desistirDoRtc(slot);
   }
@@ -1075,6 +1080,11 @@ async function receberIce(slot, candidate) {
   try {
     await pc.addIceCandidate(candidate);
   } catch (err) {
+      console.error("[ABRIR_LINK] ERRO OPEN_EXTERNAL_LINK:", err);
+      console.error("[ABRIR_LINK] err.name=", err.name);
+      console.error("[ABRIR_LINK] err.message=", err.message);
+      console.error("[ABRIR_LINK] err.stack=", err.stack);
+      try { console.error("[ABRIR_LINK] err.json=", JSON.stringify(err)); } catch(e) {}
     // Candidato fora de ordem é rotina e se recupera sozinho no próximo.
     console.warn('[rtc]', err.message);
   }
@@ -1259,6 +1269,11 @@ async function boot() {
   try {
     session = inDiscord ? await authDiscord(config) : await authWeb();
   } catch (err) {
+      console.error("[ABRIR_LINK] ERRO OPEN_EXTERNAL_LINK:", err);
+      console.error("[ABRIR_LINK] err.name=", err.name);
+      console.error("[ABRIR_LINK] err.message=", err.message);
+      console.error("[ABRIR_LINK] err.stack=", err.stack);
+      try { console.error("[ABRIR_LINK] err.json=", JSON.stringify(err)); } catch(e) {}
     clearTimeout(vigia);
     setEmpty('Não foi possível entrar', err?.message ?? 'erro desconhecido');
     return;
@@ -1318,6 +1333,11 @@ async function abrirPeloIngresso(ingresso) {
     for (const chave of ['t', 'slot', 'cheia']) url.searchParams.delete(chave);
     history.replaceState(null, '', url);
   } catch (err) {
+      console.error("[ABRIR_LINK] ERRO OPEN_EXTERNAL_LINK:", err);
+      console.error("[ABRIR_LINK] err.name=", err.name);
+      console.error("[ABRIR_LINK] err.message=", err.message);
+      console.error("[ABRIR_LINK] err.stack=", err.stack);
+      try { console.error("[ABRIR_LINK] err.json=", JSON.stringify(err)); } catch(e) {}
     setEmpty('Não foi possível abrir', err.message);
   }
 }
@@ -1333,6 +1353,11 @@ async function entrarNaCall() {
       session?.sala ?? (await post(`${P}/api/rooms/call`, { identity: session.identity }));
     openRoom(tokens, { id: tokens.roomId, name: 'Sala da call' });
   } catch (err) {
+      console.error("[ABRIR_LINK] ERRO OPEN_EXTERNAL_LINK:", err);
+      console.error("[ABRIR_LINK] err.name=", err.name);
+      console.error("[ABRIR_LINK] err.message=", err.message);
+      console.error("[ABRIR_LINK] err.stack=", err.stack);
+      try { console.error("[ABRIR_LINK] err.json=", JSON.stringify(err)); } catch(e) {}
     setEmpty('Não foi possível entrar', err.message);
   }
 }
@@ -1510,6 +1535,11 @@ async function loadRooms() {
   try {
     rooms = (await post(`${P}/api/rooms/list`, { identity: session?.identity })).rooms ?? [];
   } catch (err) {
+      console.error("[ABRIR_LINK] ERRO OPEN_EXTERNAL_LINK:", err);
+      console.error("[ABRIR_LINK] err.name=", err.name);
+      console.error("[ABRIR_LINK] err.message=", err.message);
+      console.error("[ABRIR_LINK] err.stack=", err.stack);
+      try { console.error("[ABRIR_LINK] err.json=", JSON.stringify(err)); } catch(e) {}
     list.replaceChildren(msgRow(`Não foi possível carregar: ${err.message}`));
     return;
   }
@@ -1583,6 +1613,11 @@ async function enterRoom(room, password) {
     });
     openRoom(tokens, room);
   } catch (err) {
+      console.error("[ABRIR_LINK] ERRO OPEN_EXTERNAL_LINK:", err);
+      console.error("[ABRIR_LINK] err.name=", err.name);
+      console.error("[ABRIR_LINK] err.message=", err.message);
+      console.error("[ABRIR_LINK] err.stack=", err.stack);
+      try { console.error("[ABRIR_LINK] err.json=", JSON.stringify(err)); } catch(e) {}
     // 403 numa sala trancada é o caminho normal: pedir a senha.
     if (err.status === 403 && !password) return askPassword(room);
     if (err.status === 403) return askPassword(room, 'Senha incorreta.');
@@ -1841,6 +1876,11 @@ async function post(url, body, { retry = true } = {}) {
       signal: AbortSignal.timeout(15_000),
     });
   } catch (err) {
+      console.error("[ABRIR_LINK] ERRO OPEN_EXTERNAL_LINK:", err);
+      console.error("[ABRIR_LINK] err.name=", err.name);
+      console.error("[ABRIR_LINK] err.message=", err.message);
+      console.error("[ABRIR_LINK] err.stack=", err.stack);
+      try { console.error("[ABRIR_LINK] err.json=", JSON.stringify(err)); } catch(e) {}
     const msg =
       err.name === 'TimeoutError'
         ? 'O servidor não respondeu a tempo.'
@@ -2158,17 +2198,32 @@ function urlDaCaptura(fonte) {
 }
 
 async function abrirLink(fonte) {
+  console.log("[ABRIR_LINK] horario=", new Date().toISOString());
+  console.log("[ABRIR_LINK] fonte=", fonte);
+  console.log("[ABRIR_LINK] inDiscord=", inDiscord);
+  console.log("[ABRIR_LINK] typeof sdk=", typeof sdk);
+  console.log("[ABRIR_LINK] hasCommands=", !!(sdk && sdk.commands));
+  console.log("[ABRIR_LINK] hasOpenExt=", !!(sdk && sdk.commands && sdk.commands.openExternalLink));
+  console.log("[ABRIR_LINK] roomTokens exists=", !!roomTokens);
   if (!roomTokens) return;
   const url = urlDaCaptura(fonte).toString();
 
   if (inDiscord) {
     try {
+      console.log("[ABRIR_LINK] URL=", url);
+      console.log("[ABRIR_LINK] CHAMANDO openExternalLink...");
       const res = await sdk.commands.openExternalLink({ url });
+      console.log("[ABRIR_LINK] RESPOSTA=", JSON.stringify(res));
       // Clientes antigos devolvem null; só tratamos false como recusa explícita.
       if (res?.opened === false) {
         toast('Você recusou abrir o link. Sem isso não dá para capturar a tela.', true);
       }
     } catch (err) {
+      console.error("[ABRIR_LINK] ERRO OPEN_EXTERNAL_LINK:", err);
+      console.error("[ABRIR_LINK] err.name=", err.name);
+      console.error("[ABRIR_LINK] err.message=", err.message);
+      console.error("[ABRIR_LINK] err.stack=", err.stack);
+      try { console.error("[ABRIR_LINK] err.json=", JSON.stringify(err)); } catch(e) {}
       toast(`Não foi possível abrir o link: ${err.message}`, true);
     }
     return;
@@ -2225,10 +2280,18 @@ async function abrirNoSite() {
   }
 
   try {
-    const res = await sdk.commands.openExternalLink({ url });
+    console.log("[ABRIR_LINK] URL=", url);
+      console.log("[ABRIR_LINK] CHAMANDO openExternalLink...");
+      const res = await sdk.commands.openExternalLink({ url });
+      console.log("[ABRIR_LINK] RESPOSTA=", JSON.stringify(res));
     // Clientes antigos devolvem null; só false é recusa explícita.
     if (res?.opened === false) toast('Você recusou abrir o link.', true);
   } catch (err) {
+      console.error("[ABRIR_LINK] ERRO OPEN_EXTERNAL_LINK:", err);
+      console.error("[ABRIR_LINK] err.name=", err.name);
+      console.error("[ABRIR_LINK] err.message=", err.message);
+      console.error("[ABRIR_LINK] err.stack=", err.stack);
+      try { console.error("[ABRIR_LINK] err.json=", JSON.stringify(err)); } catch(e) {}
     toast(`Não foi possível abrir o link: ${err.message}`, true);
   }
 }
@@ -2348,6 +2411,11 @@ async function broadcastFromHere() {
     renderBar();
     return true;
   } catch (err) {
+      console.error("[ABRIR_LINK] ERRO OPEN_EXTERNAL_LINK:", err);
+      console.error("[ABRIR_LINK] err.name=", err.name);
+      console.error("[ABRIR_LINK] err.message=", err.message);
+      console.error("[ABRIR_LINK] err.stack=", err.stack);
+      try { console.error("[ABRIR_LINK] err.json=", JSON.stringify(err)); } catch(e) {}
     const showedPicker = performance.now() - startedAt > 250;
     if (err.name === 'NotAllowedError' && showedPicker) return true;
     return false;
@@ -2386,6 +2454,11 @@ $('createGo').addEventListener('click', async () => {
       owner: session.user.name,
     });
   } catch (err) {
+      console.error("[ABRIR_LINK] ERRO OPEN_EXTERNAL_LINK:", err);
+      console.error("[ABRIR_LINK] err.name=", err.name);
+      console.error("[ABRIR_LINK] err.message=", err.message);
+      console.error("[ABRIR_LINK] err.stack=", err.stack);
+      try { console.error("[ABRIR_LINK] err.json=", JSON.stringify(err)); } catch(e) {}
     toast(err.message, true);
   }
 });
@@ -2420,6 +2493,11 @@ $('roomSave').addEventListener('click', async () => {
     $('roomModal').hidden = true;
     toast(r.locked ? 'Sala protegida com senha.' : 'Senha removida.');
   } catch (err) {
+      console.error("[ABRIR_LINK] ERRO OPEN_EXTERNAL_LINK:", err);
+      console.error("[ABRIR_LINK] err.name=", err.name);
+      console.error("[ABRIR_LINK] err.message=", err.message);
+      console.error("[ABRIR_LINK] err.stack=", err.stack);
+      try { console.error("[ABRIR_LINK] err.json=", JSON.stringify(err)); } catch(e) {}
     toast(err.message, true);
   }
 });
@@ -2512,6 +2590,11 @@ $('probe').addEventListener('click', async () => {
     s.getTracks().forEach((t) => t.stop());
     toast('Funcionou! O iframe permite captura direta — dá para dispensar a aba externa.');
   } catch (err) {
+      console.error("[ABRIR_LINK] ERRO OPEN_EXTERNAL_LINK:", err);
+      console.error("[ABRIR_LINK] err.name=", err.name);
+      console.error("[ABRIR_LINK] err.message=", err.message);
+      console.error("[ABRIR_LINK] err.stack=", err.stack);
+      try { console.error("[ABRIR_LINK] err.json=", JSON.stringify(err)); } catch(e) {}
     toast(`Bloqueado (${err.name}): ${err.message}`, true);
   }
 });
