@@ -2,6 +2,9 @@
 
 > Este documento registra bugs encontrados, suas causas e soluções para evitar regressões.
 
+**Última atualização**: 2026-09-16 13:30 BRT
+**Commit**: 6cbfcd5
+
 ---
 
 ## BUG-001: DNS EAI_AGAIN — Servidor não resolve discord.com
@@ -172,43 +175,105 @@ if (participant?.admin === 'admin' || participant?.admin === 'superadmin') {
 
 ---
 
-## BUG-006: Discord Screen Share — Transmissão não aparece na Activity
+## BUG-006: Discord Screen Share — Vídeo não aparece (Desktop)
 
-**Status**: ⚠️ INVESTIGAÇÃO
+**Status**: ⚠️ CENÁRIO NÃO VALIDADO
 **Data**: 2026-09-15
-**Severidade**: MÉDIA
+**Data de reclassificação**: 2026-09-16
+**Severidade**: BAIXA
 
 ### Sintoma
-- Broadcaster conecta corretamente (logs confirmam)
-- Servidor recebe frames
-- Viewer (Activity) conecta
-- Mas o vídeo não aparece na Activity
+Usuário reportou que a transmissão funciona no Discord Web mas não no Discord Desktop.
 
-### Causa Provável
-O viewer pode não estar enviando `watch(slot)` para o servidor, ou o Tailscale Funnel não está encaminhando corretamente os frames do broadcaster para o viewer.
+### Histórico
+- 2026-09-15: Inicialmente reportado como BUG-006 (Screen Share)
+- 2026-09-16: Reclassificado — Web funciona, Desktop não validado
+- Transmissão confirmada via logs: broadcaster conecta, stream inicia, codec negociado
+
+### Hipóteses
+1. Desktop usa visualização nativa (não canvas)
+2. Desktop bloqueia WebCodecs no iframe
+3. Desktop tem CSP diferente
+4. Desktop não envia `watch(slot)` corretamente
 
 ### Status da Investigação
 - [x] Broadcaster conecta ✅
 - [x] Servidor recebe frames ✅
 - [x] Viewer conecta ✅
-- [ ] Viewer envia `watch(slot)` — A VERIFICAR
-- [ ] Servidor retransmite frames para viewer — A VERIFICAR
-- [ ] Player decodifica frames — A VERIFICAR
-- [ ] Canvas renderiza — A VERIFICAR
+- [ ] Desktop renderiza vídeo — NÃO VALIDADO
 
 ### Próximos Passos
-1. Verificar console do navegador na Activity
-2. Verificar se `viewer.watching.has(0)` é verdadeiro
-3. Verificar se `pushChunk()` envia dados para o viewer
+- Verificar console do navegador no Desktop
+- Verificar se `viewer.watching.has(slot)` é verdadeiro
+- Verificar erros de WebCodecs
 
 ### Arquivos Envolvidos
-- `discord-screen/server/rooms.js` (pushChunk, watching)
-- `discord-screen/client/src/main.js` (viewer)
-- `discord-screen/client/src/player.js` (decoder)
+- `discord-screen/server/rooms.js`
+- `discord-screen/client/src/main.js`
+- `discord-screen/client/src/player.js`
 
 ---
 
-## BUG-007: Discord Activity — getDisplayMedia no iframe
+## BUG-007: Casino Classifier — isForeignNumber falso positivo para JID de grupo
+
+**Status**: ✅ RESOLVIDO
+**Data**: 2026-09-16
+**Severidade**: MÉDIA
+
+### Sintoma
+JIDs de grupo brasileiros (ex: `120363410094452673@g.us`) eram classificados como `foreign-number`, aumentando a confiança de cassino incorretamente.
+
+### Causa Raiz
+A função `isForeignNumber()` não excluía JIDs de grupo (`@g.us`) ou LIDs (`@lid`).
+
+### Solução
+```typescript
+export function isForeignNumber(jid: string): boolean {
+  if (!jid) return false;
+  // Ignora JIDs de grupo (ex: 120363410094452673@g.us)
+  if (jid.includes('@g.us') || jid.includes('@lid')) return false;
+  const n = jid.replace(/\D/g, '');
+  return n.length > 0 && !n.startsWith('55');
+}
+```
+
+### Como Evitar
+- Sempre testar com JIDs de grupo e LIDs ao modificar funções de detecção
+
+### Arquivos Envolvidos
+- `src/services/casinoClassifier.ts`
+
+---
+
+## BUG-008: Typecheck — fromMe não existe em AutoModContext
+
+**Status**: ⚠️ PENDENTE
+**Data**: 2026-09-16
+**Severidade**: ALTA
+
+### Sintoma
+```
+src/platforms/whatsapp/baileys/BaileysMessageNormalizer.ts(407,15): error TS2353
+src/platforms/whatsapp/BaileysAdapter.ts(426,15): error TS2353
+```
+
+### Causa Raiz
+O tipo `AutoModContext` não tem a propriedade `fromMe`, mas o código a passa.
+
+### Solução Proposta
+Adicionar `fromMe?: boolean` ao tipo `AutoModContext` em `autoModEngine.ts`.
+
+### Como Evitar
+- Sempre verificar o tipo `AutoModContext` ao adicionar propriedades
+
+### Arquivos Envolvidos
+- `src/services/autoModEngine.ts`
+- `src/platforms/whatsapp/baileys/BaileysMessageNormalizer.ts`
+- `src/platforms/whatsapp/BaileysAdapter.ts`
+
+---
+
+## BUG-009: Discord Activity — getDisplayMedia no iframe
 
 **Status**: ✅ RESOLVIDO (design)
 **Data**: 2026-09-15
