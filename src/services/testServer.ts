@@ -464,7 +464,7 @@ export function startTestServer(port: number = 3004): void {
           res.end(JSON.stringify({ error: `Plataforma não encontrada: ${platform}` }));
           return;
         }
-        const result = await pm.sendMessageAndProcess(platform, parsedBody.chatId, command);
+        const result = await pm.sendMessageAndProcess(platform, parsedBody.chatId, command, true);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, platform, command, result }));
       } catch (err: any) {

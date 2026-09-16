@@ -530,7 +530,7 @@ export class PlatformManager {
    * Envia mensagem para o chat e processa comandos (se houver)
    * Faz o bot "digitar" a mensagem e responder
    */
-  async sendMessageAndProcess(platform: string, chatId: string, text: string): Promise<any> {
+  async sendMessageAndProcess(platform: string, chatId: string, text: string, forceProcess = false): Promise<any> {
     const adapter = this.adapters.get(platform);
     if (!adapter) {
       throw new Error(`Plataforma não encontrada: ${platform}`);
@@ -548,7 +548,7 @@ export class PlatformManager {
       userName: 'Bot',
       text,
       timestamp: new Date(),
-      isFromMe: true,
+      isFromMe: !forceProcess,
       isCommand: text.startsWith('$'),
       commandName: text.replace('$', '').split(' ')[0],
       args: text.split(' ').slice(1),
