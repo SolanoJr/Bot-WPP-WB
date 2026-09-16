@@ -606,7 +606,7 @@ export class PlatformManager {
       isCommand: text.startsWith('$'),
       commandName: text.replace('$', '').split(' ')[0],
       args: text.split(' ').slice(1),
-      raw: { ...sentMessage, isGroup: true },
+      raw: { ...sentMessage, isGroup: true, key: sentMessage?.key },
       hasMedia: false,
     };
 
