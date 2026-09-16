@@ -127,8 +127,18 @@ export class PlatformManager {
       }
 
       // ─── Detectar tipo de gatilho ───
+      // Preencher isCommand/commandName ANTES de detectar o gatilho
+      const prefix = this.getCommandPrefix(message.platform);
+      const trimmedText = message.text.trim();
+      message.isCommand = trimmedText.startsWith(prefix);
+      if (message.isCommand) {
+        const parts = trimmedText.slice(prefix.length).trim().split(/ +/);
+        message.commandName = (parts.shift() || '').toLowerCase();
+        message.args = parts;
+      }
+
       const trigger = this.detectTrigger(message, adapter);
-      logInfo(`[PM] trigger=${trigger} msgId=${message.id} text=${message.text?.substring(0,30)}`);
+      logInfo(`[PM] trigger=${trigger} msgId=${message.id} fromMe=${message.isFromMe} text=${message.text?.substring(0,30)}`);
       
       // ─── Interação comum: reaction/like ───
       if (trigger !== 'none' && !message.isFromMe) {
