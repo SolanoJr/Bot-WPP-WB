@@ -7,8 +7,9 @@ module.exports = {
     exec_mode: 'fork',
     autorestart: true,
     watch: false,
-    // Otimização P0: restart ANTES de atingir 94% (servidor tem 2GB total)
-    max_memory_restart: '600M',
+    // Otimização P0: restart ANTES de atingir o limite do Node (512MB)
+    // Servidor tem 2GB total, mas cada processo tem limite individual
+    max_memory_restart: '450M',
     merge_logs: true,
     out_file: '/home/solanojr/.pm2/logs/bot-wpp-stable.out.log',
     error_file: '/home/solanojr/.pm2/logs/bot-wpp-stable.err.log',
@@ -41,7 +42,8 @@ module.exports = {
     exec_mode: 'fork',
     autorestart: true,
     watch: false,
-    max_memory_restart: '300M',
+    // Otimização: restart ANTES de atingir o limite do Node (256MB)
+    max_memory_restart: '200M',
     merge_logs: true,
     out_file: '/home/solanojr/.pm2/logs/discord-screen-stable.out.log',
     error_file: '/home/solanojr/.pm2/logs/discord-screen-stable.err.log',
