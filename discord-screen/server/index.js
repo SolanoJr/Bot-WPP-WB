@@ -1046,6 +1046,10 @@ function handleBroadcaster(ws, room, info, fonte) {
     `[room ${room.id}] broadcaster conectado: ${info.name} · ${fonte} (slot ${entry.slot})`,
   );
 
+  // Telemetria: broadcaster conectado
+  if (!room.__telemetry) room.__telemetry = { broadcasters: 0, viewers: 0, reconnects: 0 };
+  room.__telemetry.broadcasters++;
+
   ws.on('message', (data, isBinary) => {
     if (isBinary) {
       R.pushChunk(room, entry, data);
@@ -1076,14 +1080,23 @@ function handleBroadcaster(ws, room, info, fonte) {
     }
   });
 
-  ws.on('close', () => {
+  ws.on('close', (code, reason) => {
+    const reasonStr = reason ? reason.toString() : 'sem motivo';
+    console.log(`[room ${room.id}] broadcaster saiu: ${info.name} (code=${code}, reason=${reasonStr})`);
     R.detachBroadcaster(room, ws);
-    console.log(`[room ${room.id}] broadcaster saiu: ${info.name}`);
+  });
+
+  ws.on('error', (err) => {
+    console.error(`[room ${room.id}] broadcaster error: ${info.name} — ${err.message}`);
   });
 }
 
 function handleViewer(ws, room, auth) {
   R.attachViewer(room, ws, { id: auth.uid, name: auth.name, avatar: auth.av ?? null });
+
+  // Telemetria: viewer conectado
+  if (!room.__telemetry) room.__telemetry = { broadcasters: 0, viewers: 0, reconnects: 0 };
+  room.__telemetry.viewers++;
 
   ws.on('message', (data, isBinary) => {
     if (isBinary) return;
@@ -1104,11 +1117,13 @@ function handleViewer(ws, room, auth) {
 
     if (msg.type === 'watch' && Number.isInteger(msg.slot)) {
       R.watch(room, ws, msg.slot);
+      console.log(`[room ${room.id}] ${auth.name} assistindo slot ${msg.slot}`);
       return;
     }
 
     if (msg.type === 'unwatch' && Number.isInteger(msg.slot)) {
       R.unwatch(room, ws, msg.slot);
+      console.log(`[room ${room.id}] ${auth.name} parou de assistir slot ${msg.slot}`);
       return;
     }
 
@@ -1165,8 +1180,15 @@ function handleViewer(ws, room, auth) {
     }
   });
 
-  ws.on('close', () => R.detachViewer(room, ws));
-  ws.on('error', () => R.detachViewer(room, ws));
+  ws.on('close', (code, reason) => {
+    const reasonStr = reason ? reason.toString() : 'sem motivo';
+    console.log(`[room ${room.id}] viewer saiu: ${auth.name} (code=${code}, reason=${reasonStr})`);
+    R.detachViewer(room, ws);
+  });
+
+  ws.on('error', (err) => {
+    console.error(`[room ${room.id}] viewer error: ${auth.name} — ${err.message}`);
+  });
 }
 
 // Derruba sockets mortos — sem isso o contador de viewers fica mentindo.
