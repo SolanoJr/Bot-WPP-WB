@@ -75,7 +75,10 @@ export function hasExternalLinks(text: string): boolean {
 }
 
 export function isForeignNumber(jid: string): boolean {
-  const n = (jid || '').replace(/\D/g, '');
+  if (!jid) return false;
+  // Ignora JIDs de grupo (ex: 120363410094452673@g.us)
+  if (jid.includes('@g.us') || jid.includes('@lid')) return false;
+  const n = jid.replace(/\D/g, '');
   return n.length > 0 && !n.startsWith('55');
 }
 
