@@ -98,17 +98,19 @@ export class BaileysMessageSender {
       };
     }
 
-    // Reply handling — CORREÇÃO 2026-09-17: usar WAMessageKey original se disponível
-    if (options?.replyToMessageId) {
-      const quotedId = options.replyToMessageId.split(':').pop();
+    // Reply handling — preservar WAMessageKey original sem reconstrução
+    // Baileys v7 exige: msgOpts.quoted = mensagemOriginal.raw (ou pelo menos { key, message })
+    const quotedRaw = options?.originalRawMessage || options?.quoteMessage?.message;
+    logInfo(`[BaileysSender.sendMessage] Reply: quotedRaw=${!!quotedRaw}, replyTo=${options?.replyToMessageId}, originalKey=${options?.originalKey?.id || 'NAO'}`);
+    if (quotedRaw || options?.replyToMessageId) {
+      const quotedId = options.replyToMessageId?.split(':').pop() || quotedRaw?.key?.id;
       const quotedFromMe = options.quotedFromMe ?? false;
-      // CORREÇÃO: não aplicar toJid() no quotedParticipant — usar formato original do Baileys
       const quotedParticipant = options.quotedParticipant;
       let quotedText = options.quotedText || '';
 
-      if (!quotedText && this.sock) {
+      // Recuperar texto original via waitForMessage se necessário
+      if (!quotedText && this.sock && quotedId) {
         try {
-          // Baileys v7: store.messages não existe; usa waitForMessage para recuperar a mensagem original
           const foundMsg = await this.sock.waitForMessage(jid, quotedId);
           if (foundMsg) {
             const mm = foundMsg.message || foundMsg;
@@ -119,7 +121,7 @@ export class BaileysMessageSender {
         } catch { /* ignora falha na recuperação */ }
       }
 
-      // CORREÇÃO 2026-09-17: usar originalKey se disponível (sem prefixos, formato original)
+      // Usar key original se disponível (sem reconstrução/truncação)
       const quotedKey = options.originalKey || {
         id: quotedId,
         remoteJid: jid,
@@ -127,30 +129,11 @@ export class BaileysMessageSender {
         fromMe: !!quotedFromMe,
       };
 
-      msgOpts.quoted = {
+      msgOpts.quoted = quotedRaw || {
         key: quotedKey,
         message: { conversation: quotedText, extendedTextMessage: { text: quotedText } },
       };
-    }
-
-    // Arbitrary quoteMessage
-    if (options?.quoteMessage) {
-      const q = options.quoteMessage;
-      const quotedParticipant = q.participant ? toJid(q.participant) : (q.fromMe ? toJid(this.userId) : undefined);
-      msgOpts.quoted = {
-        key: {
-          id: q.id,
-          remoteJid: q.remoteJid ? toJid(q.remoteJid) : jid,
-          participant: quotedParticipant,
-          fromMe: !!q.fromMe,
-        },
-        message: q.message || { conversation: '' },
-        participant: quotedParticipant,
-      };
-    }
-
-    if (options?.mentionedIds?.length) {
-      // handled in caller
+      logInfo(`[BaileysSender.sendMessage] Quoted payload construído: keyId=${msgOpts.quoted?.key?.id || 'NAO'}, hasMessage=${!!msgOpts.quoted?.message}`);
     }
 
     const res = await this.sock.sendMessage(toJid(chatId), msgOpts);

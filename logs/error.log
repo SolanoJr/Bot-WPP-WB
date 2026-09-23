@@ -1007,3 +1007,62 @@
 2026-09-16 13:35:54 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
 2026-09-16 13:35:54 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
 2026-09-16 13:35:55 [ERROR]: [memberJoinService] Erro ao processar entrada
+2026-09-16 17:59:35 [ERROR]: ❌ [Erro no comando $stats:] SQLITE_ERROR: no such table: feedbacks
+2026-09-16 17:59:35 [ERROR]:    Stack: 
+2026-09-16 17:59:35 [ERROR]: ❌ [❌ Erro no $grupos:] ctx.client.getChats is not a function
+2026-09-16 17:59:35 [ERROR]:    Stack: at Object.execute (D:/Desktop/Programas/bot-wpp/src/bot/commands/grupos.ts:17:44)
+2026-09-16 17:59:35 [ERROR]: ❌ [[ScreenCommand] Erro:] connect ECONNREFUSED 127.0.0.1:3002
+2026-09-16 17:59:35 [ERROR]:    Stack: at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+2026-09-16 17:59:35 [ERROR]: ❌ [[ScreenCommand] Erro:] connect ECONNREFUSED 127.0.0.1:3002
+2026-09-16 17:59:35 [ERROR]:    Stack: at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+2026-09-16 17:59:35 [ERROR]: ❌ [[ScreenCommand] Erro:] connect ECONNREFUSED 127.0.0.1:3002
+2026-09-16 17:59:35 [ERROR]:    Stack: at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+2026-09-16 17:59:37 [ERROR]: [DB] Falha ao registrar infração
+2026-09-16 17:59:37 [ERROR]: [DB] Falha ao registrar infração
+2026-09-16 17:59:37 [ERROR]: [DB] Falha ao registrar infração
+2026-09-16 17:59:37 [ERROR]: [DB] Falha ao registrar infração
+2026-09-16 17:59:37 [ERROR]: [DB] Falha ao registrar infração
+2026-09-16 17:59:37 [ERROR]: [DB] Falha ao registrar infração
+2026-09-16 17:59:37 [ERROR]: [DB] Falha ao registrar infração
+2026-09-16 17:59:37 [ERROR]: [DB] Falha ao registrar infração
+2026-09-16 17:59:37 [ERROR]: [DB] Falha ao registrar infração
+2026-09-16 17:59:37 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-09-16 17:59:37 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-09-16 17:59:37 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-09-16 17:59:38 [ERROR]: [memberJoinService] Erro ao processar entrada
+2026-09-17 09:08:28 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:08:28 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:08:28 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:08:28 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:08:28 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:08:28 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:08:28 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:08:28 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:08:28 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:08:31 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-09-17 09:08:31 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-09-17 09:08:31 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-09-17 09:08:50 [ERROR]: [memberJoinService] Erro ao processar entrada
+2026-09-17 09:09:21 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:09:21 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:09:21 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:09:21 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:09:21 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:09:21 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:09:21 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:09:21 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:09:21 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:09:24 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-09-17 09:09:24 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-09-17 09:09:24 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-09-17 09:09:25 [ERROR]: ❌ [Erro no comando $stats:] SQLITE_ERROR: no such table: feedbacks
+2026-09-17 09:09:25 [ERROR]:    Stack: 
+2026-09-17 09:09:25 [ERROR]: ❌ [❌ Erro no $grupos:] ctx.client.getChats is not a function
+2026-09-17 09:09:25 [ERROR]:    Stack: at Object.execute (D:/Desktop/Programas/bot-wpp/src/bot/commands/grupos.ts:17:44)
+2026-09-17 09:09:25 [ERROR]: ❌ [[ScreenCommand] Erro:] connect ECONNREFUSED 127.0.0.1:3002
+2026-09-17 09:09:25 [ERROR]:    Stack: at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+2026-09-17 09:09:25 [ERROR]: ❌ [[ScreenCommand] Erro:] connect ECONNREFUSED 127.0.0.1:3002
+2026-09-17 09:09:25 [ERROR]:    Stack: at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+2026-09-17 09:09:25 [ERROR]: ❌ [[ScreenCommand] Erro:] connect ECONNREFUSED 127.0.0.1:3002
+2026-09-17 09:09:25 [ERROR]:    Stack: at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+2026-09-17 09:09:27 [ERROR]: [memberJoinService] Erro ao processar entrada

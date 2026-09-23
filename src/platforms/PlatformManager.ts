@@ -430,37 +430,38 @@ export class PlatformManager {
       reply: async (text: string, options?: SendOptions) => {
         // Telemetria: mensagem enviada
         metricsService.recordMessageSent(message.platform);
-        // Responde citando (quote) a mensagem original do comando.
-        // Se a mensagem é do próprio bot (self-test), NÃO fazer quote para evitar loop.
-        // Fallback: se o quote falhar (ex: ID inválido em ambiente de teste),
-        // reenvia sem quote para não quebrar o comando.
+
+        const isLabMode = process.env.WPP_LAB_MODE === '1';
         const isFromBot = message.isFromMe === true;
-        logInfo(`[reply] isFromBot=${isFromBot}, msgId=${message.id}, chatId=${message.chatId}, text=${text.substring(0,50)}...`);
-        
+
+        logInfo(`[reply] isFromBot=${isFromBot}, isLabMode=${isLabMode}, msgId=${message.id}, chatId=${message.chatId}, text=${text.substring(0,50)}...`);
+
         let sentMsg: any;
         try {
-          if (isFromBot) {
-            // Mensagem do próprio bot - enviar sem quote
-            sentMsg = await client.sendMessage(message.chatId, text, options);
-          } else {
-            // Mensagem de outro usuário - responder com quote
-            // CORREÇÃO 2026-09-17: usar WAMessageKey original (raw.key) para o quote
-            const originalKey = message.raw?.key;
+          // Sempre fazer quote em lab mode (WPP_LAB_MODE=1) ou quando mensagem NÃO é do bot
+          // O Baileys exige payload com { text, quoted: mensagemOriginal.raw } para renderizar o balão de citação
+          if (isLabMode || !isFromBot) {
+            // Baileys v7: quoted deve ser a mensagem original completa (raw)
+            // O sender usa originalRawMessage se disponível, reconstruindo a key caso contrário
             const replyOpts = {
               ...options,
               replyToMessageId: message.id,
-              quotedFromMe: false,
+              quotedFromMe: isFromBot,
               quotedParticipant: message.userId,
-              originalKey: originalKey,
+              originalKey: message.raw?.key,
+              originalRawMessage: message.raw,
             };
-            logInfo(`[reply] Enviando COM quote: replyToMessageId=${message.id}, originalKey=${originalKey ? 'SIM' : 'NAO'}`);
+            logInfo(`[reply] Enviando COM quote (lab=${isLabMode}): replyTo=${message.id}, originalKey=${message.raw?.key?.id || 'NAO'}`);
             sentMsg = await client.sendMessage(message.chatId, text, replyOpts);
+          } else {
+            // Mensagem do próprio bot em produção - enviar sem quote
+            sentMsg = await client.sendMessage(message.chatId, text, options);
           }
         } catch (quoteErr: any) {
           logWarning(`[reply] quote falhou, reenviando sem quote: ${quoteErr?.message}`);
           sentMsg = await client.sendMessage(message.chatId, text, options);
         }
-        
+
         // Retornar a mensagem enviada para permitir reação ancorada na key
         return sentMsg;
       },
@@ -673,7 +674,7 @@ export class PlatformManager {
             isCommand: true,
             commandName,
             args,
-            raw: { ...sentMessage, isGroup: true, key: sentMessage?.key },
+            raw: { ...sentMessage?.raw, isGroup: true, key: sentMessage?.raw?.key },
             hasMedia: false,
           };
           

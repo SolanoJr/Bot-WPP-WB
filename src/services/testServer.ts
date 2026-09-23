@@ -481,6 +481,80 @@ export function startTestServer(port: number = 3004): void {
           return;
         }
 
+        // ─── Endpoint E2E real (laboratório) — valida quote/reação —──
+        if (req.url === '/lab/e2e/test-quote-flow') {
+          const platform = parsedBody.platform || 'whatsapp';
+          const chatId = parsedBody.chatId || '120363410094452673@g.us';
+          const originalMsgId = parsedBody.originalMsgId || 'test-msg-id';
+
+          // Captura eventos de resposta via arquivo
+          const capturesFile = path.join(process.cwd(), 'laboratorio', 'e2e-capture.jsonl');
+          try { fs.mkdirSync(path.dirname(capturesFile), { recursive: true }); } catch {}
+
+          process.env.WPP_LAB_MODE = '1';
+          const result = await pm.sendMessageAndProcess(platform, chatId, '$menu', true);
+          delete process.env.WPP_LAB_MODE;
+
+          // Aguarda brevemente e lê capturas
+          await new Promise(r => setTimeout(r, 2000));
+          const captures: any[] = [];
+          try {
+            if (fs.existsSync(capturesFile)) {
+              const lines = fs.readFileSync(capturesFile, 'utf8').trim().split('\n').filter(Boolean);
+              for (const line of lines.slice(-20)) {
+                try { captures.push(JSON.parse(line)); } catch {}
+              }
+            }
+          } catch {}
+
+          // Inspeciona mensagens capturadas para quote (stanzaId) e reaction
+          let quotePass = false;
+          let quoteStanzaId: string | undefined = undefined;
+          let reactionPass = false;
+
+          for (const cap of captures) {
+            if (cap.type === 'messages.upsert') {
+              const msg = cap.msg || cap;
+              const cinfo = msg?.message?.extendedTextMessage?.contextInfo || msg?.message?.imageMessage?.contextInfo || {};
+              const stanzaId = cinfo.stanzaId || msg?.contextInfo?.stanzaId;
+              if (stanzaId && msg?.key?.fromMe === true) {
+                quoteStanzaId = stanzaId;
+                quotePass = stanzaId === originalMsgId;
+              }
+            }
+            if (cap.type === 'reactionMessage' || (cap.msgType && String(cap.msgType).includes('reaction')) || (cap.msg && cap.msg === 'reactionMessage')) {
+              reactionPass = true;
+            }
+          }
+
+          // Se ainda não tem captures, retorna resultado do fluxo mas marca FAIL estrutural
+          const structured = {
+            ok: result?.success !== false,
+            platform,
+            chatId,
+            result,
+            labModeEnabled: process.env.WPP_LAB_MODE === '1',
+            e2e: {
+              originalMsgId,
+              quote: {
+                status: quotePass ? 'PASS_QUOTE' : (quoteStanzaId ? 'FAIL_QUOTE_STANZA_MISMATCH' : 'FAIL_QUOTE_NOT_PRESENT'),
+                expectedStanzaId: originalMsgId,
+                receivedStanzaId: quoteStanzaId || undefined,
+                capturesInspected: captures.length,
+                note: quotePass ? 'Quote confirmado estruturalmente (stanzaId corresponde)' : 'Quote NÃO confirmado — resposta não contém referência estrutural à mensagem original',
+              },
+              reaction: {
+                status: reactionPass ? 'PASS_REACTION' : 'FAIL_REACTION_NOT_DETECTED',
+                note: reactionPass ? 'Reação confirmada no evento messages.upsert' : 'Nenhum evento de reação capturado',
+              },
+            },
+          };
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(structured, null, 2));
+          return;
+        }
+
         // ─── Endpoint de comando de teste (existente) ───
         const { platform, command } = parsedBody;
         if (!platform || !command) {

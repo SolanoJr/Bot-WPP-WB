@@ -2766,3 +2766,175 @@
 2026-09-16 13:38:20 [INFO]: [TestServer] Servidor de testes iniciado {"port":3004}
 2026-09-16 13:38:20 [INFO]: [TestServer] endpoints: /test, /lab/find-message, /lab/messages, /lab/delete-message, /lab/adapter, /lab/groups, /lab/stats 
 2026-09-16 13:38:20 [INFO]: [TestServer] /lab/delete-message: construída WAMessageKey completa para envio {"messageId":"3EB0...","groupJid":"120363419033272638@g.us","deleteKey":{"id":"3EB0...","remoteJid":"120363419033272638@g.us","fromMe":true}}
+2026-09-16 17:59:35 [ERROR]: ❌ [Erro no comando $stats:] SQLITE_ERROR: no such table: feedbacks
+2026-09-16 17:59:35 [ERROR]:    Stack: 
+2026-09-16 17:59:35 [INFO]: 🛑 [SHUTDOWN] Comando executado por: 5588998314322@c.us 
+2026-09-16 17:59:35 [ERROR]: ❌ [❌ Erro no $grupos:] ctx.client.getChats is not a function
+2026-09-16 17:59:35 [ERROR]:    Stack: at Object.execute (D:/Desktop/Programas/bot-wpp/src/bot/commands/grupos.ts:17:44)
+2026-09-16 17:59:35 [ERROR]: ❌ [[ScreenCommand] Erro:] connect ECONNREFUSED 127.0.0.1:3002
+2026-09-16 17:59:35 [ERROR]:    Stack: at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+2026-09-16 17:59:35 [ERROR]: ❌ [[ScreenCommand] Erro:] connect ECONNREFUSED 127.0.0.1:3002
+2026-09-16 17:59:35 [ERROR]:    Stack: at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+2026-09-16 17:59:35 [ERROR]: ❌ [[ScreenCommand] Erro:] connect ECONNREFUSED 127.0.0.1:3002
+2026-09-16 17:59:35 [ERROR]:    Stack: at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+2026-09-16 17:59:35 [INFO]: 🛑 [SHUTDOWN] Comando executado por: 5588998314322@c.us 
+2026-09-16 17:59:37 [ERROR]: [DB] Falha ao registrar infração
+2026-09-16 17:59:37 [ERROR]: [DB] Falha ao registrar infração
+2026-09-16 17:59:37 [ERROR]: [DB] Falha ao registrar infração
+2026-09-16 17:59:37 [ERROR]: [DB] Falha ao registrar infração
+2026-09-16 17:59:37 [ERROR]: [DB] Falha ao registrar infração
+2026-09-16 17:59:37 [ERROR]: [DB] Falha ao registrar infração
+2026-09-16 17:59:37 [ERROR]: [DB] Falha ao registrar infração
+2026-09-16 17:59:37 [ERROR]: [DB] Falha ao registrar infração
+2026-09-16 17:59:37 [ERROR]: [DB] Falha ao registrar infração
+2026-09-16 17:59:37 [INFO]: [TelegramAdapter] Inicializando... 
+2026-09-16 17:59:37 [INFO]: [Telegram] Iniciando launch()... 
+2026-09-16 17:59:37 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-09-16 17:59:37 [INFO]: [TelegramAdapter] Inicializando... 
+2026-09-16 17:59:37 [INFO]: [Telegram] Iniciando launch()... 
+2026-09-16 17:59:37 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-09-16 17:59:37 [INFO]: [TelegramAdapter] Inicializando... 
+2026-09-16 17:59:37 [INFO]: [Telegram] Iniciando launch()... 
+2026-09-16 17:59:37 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-09-16 17:59:37 [INFO]: [TelegramAdapter] Inicializando... 
+2026-09-16 17:59:37 [INFO]: [TelegramAdapter] Já estava pronto 
+2026-09-16 17:59:37 [INFO]: [TelegramAdapter] Inicializando... 
+2026-09-16 17:59:37 [INFO]: [Telegram] Iniciando launch()... 
+2026-09-16 17:59:37 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-09-16 17:59:37 [INFO]: [TelegramAdapter] Inicializando... 
+2026-09-16 17:59:37 [INFO]: [Telegram] Iniciando launch()... 
+2026-09-16 17:59:37 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-09-16 17:59:37 [INFO]: [Discord] Cliente v14 inicializado com intents, partials e presence 
+2026-09-16 17:59:37 [INFO]: [Discord] Iniciando login... 
+2026-09-16 17:59:37 [INFO]: [Discord] ✅ Pronto como TestDiscordBot (1111) 
+2026-09-16 17:59:37 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-09-16 17:59:37 [INFO]: [Discord] Chamada de login concluída 
+2026-09-16 17:59:37 [INFO]: [Discord] Cliente v14 inicializado com intents, partials e presence 
+2026-09-16 17:59:37 [INFO]: [Discord] Iniciando login... 
+2026-09-16 17:59:37 [INFO]: [Discord] ✅ Pronto como TestDiscordBot (1111) 
+2026-09-16 17:59:37 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-09-16 17:59:37 [INFO]: [Discord] Chamada de login concluída 
+2026-09-16 17:59:37 [INFO]: [Discord] Iniciando login... 
+2026-09-16 17:59:37 [INFO]: [Discord] Chamada de login concluída 
+2026-09-16 17:59:37 [INFO]: [Discord] Cliente v14 inicializado com intents, partials e presence 
+2026-09-16 17:59:37 [INFO]: [Discord] Iniciando login... 
+2026-09-16 17:59:37 [INFO]: [Discord] ✅ Pronto como TestDiscordBot (1111) 
+2026-09-16 17:59:37 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-09-16 17:59:37 [INFO]: [Discord] Chamada de login concluída 
+2026-09-16 17:59:38 [ERROR]: [memberJoinService] Erro ao processar entrada
+2026-09-16 17:59:39 [INFO]: [DiscordScreenService] Missing required Discord credentials, screen sharing disabled 
+2026-09-16 17:59:39 [INFO]: [DiscordScreenService] Gerenciado externamente (DISCORD_SCREEN_EXTERNAL) — spawn interno desativado 
+2026-09-16 17:59:39 [INFO]: [DiscordScreenService] Gerenciado externamente (DISCORD_SCREEN_EXTERNAL) — spawn interno desativado 
+2026-09-16 17:59:41 [INFO]: [keywordHandler] Palavra-chave detectada, resposta enviada
+2026-09-16 17:59:41 [INFO]: [Discord] Cliente v14 inicializado com intents, partials e presence 
+2026-09-17 09:08:28 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:08:28 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:08:28 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:08:28 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:08:28 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:08:28 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:08:28 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:08:28 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:08:28 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:08:31 [INFO]: [TelegramAdapter] Inicializando... 
+2026-09-17 09:08:31 [INFO]: [Telegram] Iniciando launch()... 
+2026-09-17 09:08:31 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-09-17 09:08:31 [INFO]: [TelegramAdapter] Inicializando... 
+2026-09-17 09:08:31 [INFO]: [Telegram] Iniciando launch()... 
+2026-09-17 09:08:31 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-09-17 09:08:31 [INFO]: [TelegramAdapter] Inicializando... 
+2026-09-17 09:08:31 [INFO]: [Telegram] Iniciando launch()... 
+2026-09-17 09:08:31 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-09-17 09:08:31 [INFO]: [TelegramAdapter] Inicializando... 
+2026-09-17 09:08:31 [INFO]: [TelegramAdapter] Já estava pronto 
+2026-09-17 09:08:31 [INFO]: [TelegramAdapter] Inicializando... 
+2026-09-17 09:08:31 [INFO]: [Telegram] Iniciando launch()... 
+2026-09-17 09:08:31 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-09-17 09:08:31 [INFO]: [TelegramAdapter] Inicializando... 
+2026-09-17 09:08:31 [INFO]: [Telegram] Iniciando launch()... 
+2026-09-17 09:08:31 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-09-17 09:08:31 [INFO]: [Discord] Cliente v14 inicializado com intents, partials e presence 
+2026-09-17 09:08:31 [INFO]: [Discord] Iniciando login... 
+2026-09-17 09:08:31 [INFO]: [Discord] ✅ Pronto como TestDiscordBot (1111) 
+2026-09-17 09:08:31 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-09-17 09:08:31 [INFO]: [Discord] Chamada de login concluída 
+2026-09-17 09:08:31 [INFO]: [Discord] Cliente v14 inicializado com intents, partials e presence 
+2026-09-17 09:08:31 [INFO]: [Discord] Iniciando login... 
+2026-09-17 09:08:31 [INFO]: [Discord] ✅ Pronto como TestDiscordBot (1111) 
+2026-09-17 09:08:31 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-09-17 09:08:31 [INFO]: [Discord] Chamada de login concluída 
+2026-09-17 09:08:31 [INFO]: [Discord] Iniciando login... 
+2026-09-17 09:08:31 [INFO]: [Discord] Chamada de login concluída 
+2026-09-17 09:08:31 [INFO]: [Discord] Cliente v14 inicializado com intents, partials e presence 
+2026-09-17 09:08:31 [INFO]: [Discord] Iniciando login... 
+2026-09-17 09:08:31 [INFO]: [Discord] ✅ Pronto como TestDiscordBot (1111) 
+2026-09-17 09:08:31 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-09-17 09:08:31 [INFO]: [Discord] Chamada de login concluída 
+2026-09-17 09:08:47 [INFO]: 🛑 [SHUTDOWN] Comando executado por: 5588998314322@c.us 
+2026-09-17 09:08:50 [ERROR]: [memberJoinService] Erro ao processar entrada
+2026-09-17 09:08:52 [INFO]: [keywordHandler] Palavra-chave detectada, resposta enviada
+2026-09-17 09:08:53 [INFO]: [DiscordScreenService] Missing required Discord credentials, screen sharing disabled 
+2026-09-17 09:08:53 [INFO]: [DiscordScreenService] Gerenciado externamente (DISCORD_SCREEN_EXTERNAL) — spawn interno desativado 
+2026-09-17 09:08:53 [INFO]: [DiscordScreenService] Gerenciado externamente (DISCORD_SCREEN_EXTERNAL) — spawn interno desativado 
+2026-09-17 09:08:54 [INFO]: [Discord] Cliente v14 inicializado com intents, partials e presence 
+2026-09-17 09:09:21 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:09:21 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:09:21 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:09:21 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:09:21 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:09:21 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:09:21 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:09:21 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:09:21 [ERROR]: [DB] Falha ao registrar infração
+2026-09-17 09:09:24 [INFO]: [TelegramAdapter] Inicializando... 
+2026-09-17 09:09:24 [INFO]: [Telegram] Iniciando launch()... 
+2026-09-17 09:09:24 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-09-17 09:09:24 [INFO]: [TelegramAdapter] Inicializando... 
+2026-09-17 09:09:24 [INFO]: [Telegram] Iniciando launch()... 
+2026-09-17 09:09:24 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-09-17 09:09:24 [INFO]: [TelegramAdapter] Inicializando... 
+2026-09-17 09:09:24 [INFO]: [Telegram] Iniciando launch()... 
+2026-09-17 09:09:24 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-09-17 09:09:24 [INFO]: [TelegramAdapter] Inicializando... 
+2026-09-17 09:09:24 [INFO]: [TelegramAdapter] Já estava pronto 
+2026-09-17 09:09:24 [INFO]: [TelegramAdapter] Inicializando... 
+2026-09-17 09:09:24 [INFO]: [Telegram] Iniciando launch()... 
+2026-09-17 09:09:24 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-09-17 09:09:24 [INFO]: [TelegramAdapter] Inicializando... 
+2026-09-17 09:09:24 [INFO]: [Telegram] Iniciando launch()... 
+2026-09-17 09:09:24 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-09-17 09:09:24 [INFO]: [Discord] Cliente v14 inicializado com intents, partials e presence 
+2026-09-17 09:09:24 [INFO]: [Discord] Iniciando login... 
+2026-09-17 09:09:24 [INFO]: [Discord] ✅ Pronto como TestDiscordBot (1111) 
+2026-09-17 09:09:24 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-09-17 09:09:24 [INFO]: [Discord] Chamada de login concluída 
+2026-09-17 09:09:24 [INFO]: [Discord] Cliente v14 inicializado com intents, partials e presence 
+2026-09-17 09:09:24 [INFO]: [Discord] Iniciando login... 
+2026-09-17 09:09:24 [INFO]: [Discord] ✅ Pronto como TestDiscordBot (1111) 
+2026-09-17 09:09:24 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-09-17 09:09:24 [INFO]: [Discord] Chamada de login concluída 
+2026-09-17 09:09:24 [INFO]: [Discord] Iniciando login... 
+2026-09-17 09:09:24 [INFO]: [Discord] Chamada de login concluída 
+2026-09-17 09:09:24 [INFO]: [Discord] Cliente v14 inicializado com intents, partials e presence 
+2026-09-17 09:09:24 [INFO]: [Discord] Iniciando login... 
+2026-09-17 09:09:24 [INFO]: [Discord] ✅ Pronto como TestDiscordBot (1111) 
+2026-09-17 09:09:24 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-09-17 09:09:24 [INFO]: [Discord] Chamada de login concluída 
+2026-09-17 09:09:25 [ERROR]: ❌ [Erro no comando $stats:] SQLITE_ERROR: no such table: feedbacks
+2026-09-17 09:09:25 [ERROR]:    Stack: 
+2026-09-17 09:09:25 [INFO]: 🛑 [SHUTDOWN] Comando executado por: 5588998314322@c.us 
+2026-09-17 09:09:25 [ERROR]: ❌ [❌ Erro no $grupos:] ctx.client.getChats is not a function
+2026-09-17 09:09:25 [ERROR]:    Stack: at Object.execute (D:/Desktop/Programas/bot-wpp/src/bot/commands/grupos.ts:17:44)
+2026-09-17 09:09:25 [ERROR]: ❌ [[ScreenCommand] Erro:] connect ECONNREFUSED 127.0.0.1:3002
+2026-09-17 09:09:25 [ERROR]:    Stack: at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+2026-09-17 09:09:25 [ERROR]: ❌ [[ScreenCommand] Erro:] connect ECONNREFUSED 127.0.0.1:3002
+2026-09-17 09:09:25 [ERROR]:    Stack: at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+2026-09-17 09:09:25 [ERROR]: ❌ [[ScreenCommand] Erro:] connect ECONNREFUSED 127.0.0.1:3002
+2026-09-17 09:09:25 [ERROR]:    Stack: at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16)
+2026-09-17 09:09:26 [INFO]: 🛑 [SHUTDOWN] Comando executado por: 5588998314322@c.us 
+2026-09-17 09:09:27 [ERROR]: [memberJoinService] Erro ao processar entrada
+2026-09-17 09:09:29 [INFO]: [keywordHandler] Palavra-chave detectada, resposta enviada
+2026-09-17 09:09:30 [INFO]: [DiscordScreenService] Missing required Discord credentials, screen sharing disabled 
+2026-09-17 09:09:30 [INFO]: [DiscordScreenService] Gerenciado externamente (DISCORD_SCREEN_EXTERNAL) — spawn interno desativado 
+2026-09-17 09:09:30 [INFO]: [DiscordScreenService] Gerenciado externamente (DISCORD_SCREEN_EXTERNAL) — spawn interno desativado 
+2026-09-17 09:09:33 [INFO]: [Discord] Cliente v14 inicializado com intents, partials e presence 
