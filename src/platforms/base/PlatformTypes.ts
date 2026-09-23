@@ -90,7 +90,7 @@ export interface PlatformClient {
   onMessage(handler: MessageHandler): void;
   onReady(handler: () => void): void;
   onDisconnected(handler: (reason: string) => void): void;
-  react?(messageId: string, emoji: string): Promise<void>;
+  react?(messageId: string, emoji: string, chatId?: string, originalKey?: any): Promise<void>;
   // Resolução de contatos (específico do WhatsApp — Baileys/WWebJS).
   // Opcional: plataformas sem noção de "número de telefone" não implementam.
   getNumberId?(phone: string): Promise<{ serialized: string; lid?: string } | null>;

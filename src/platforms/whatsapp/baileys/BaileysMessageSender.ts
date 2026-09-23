@@ -98,11 +98,12 @@ export class BaileysMessageSender {
       };
     }
 
-    // Reply handling
+    // Reply handling — CORREÇÃO 2026-09-17: usar WAMessageKey original se disponível
     if (options?.replyToMessageId) {
       const quotedId = options.replyToMessageId.split(':').pop();
       const quotedFromMe = options.quotedFromMe ?? false;
-      const quotedParticipant = options.quotedParticipant ? toJid(options.quotedParticipant) : undefined;
+      // CORREÇÃO: não aplicar toJid() no quotedParticipant — usar formato original do Baileys
+      const quotedParticipant = options.quotedParticipant;
       let quotedText = options.quotedText || '';
 
       if (!quotedText && this.sock) {
@@ -118,13 +119,16 @@ export class BaileysMessageSender {
         } catch { /* ignora falha na recuperação */ }
       }
 
+      // CORREÇÃO 2026-09-17: usar originalKey se disponível (sem prefixos, formato original)
+      const quotedKey = options.originalKey || {
+        id: quotedId,
+        remoteJid: jid,
+        participant: quotedFromMe ? undefined : quotedParticipant,
+        fromMe: !!quotedFromMe,
+      };
+
       msgOpts.quoted = {
-        key: {
-          id: quotedId,
-          remoteJid: jid,
-          participant: quotedFromMe ? undefined : quotedParticipant,
-          fromMe: !!quotedFromMe,
-        },
+        key: quotedKey,
         message: { conversation: quotedText, extendedTextMessage: { text: quotedText } },
       };
     }
@@ -195,73 +199,47 @@ export class BaileysMessageSender {
     };
   }
 
-  async react(messageId: string, emoji: string, chatId?: string): Promise<void> {
+  async react(messageId: string, emoji: string, chatId?: string, originalKey?: any): Promise<void> {
     if (!this.sock) return;
     try {
-      // Extrair ID real (último segmento após :)
+      // CORREÇÃO 2026-09-17: Usar WAMessageKey original se disponível (sem reconstrução)
+      if (originalKey && originalKey.id) {
+        logInfo(`[Baileys.react] Usando WAMessageKey original`, {
+          id: originalKey.id,
+          remoteJid: originalKey.remoteJid,
+          fromMe: originalKey.fromMe,
+          participant: originalKey.participant
+        });
+        await this.sock.sendMessage(originalKey.remoteJid, {
+          react: {
+            text: emoji,
+            key: {
+              id: originalKey.id,
+              remoteJid: originalKey.remoteJid,
+              fromMe: originalKey.fromMe,
+              participant: originalKey.participant
+            }
+          }
+        });
+        logInfo(`[Baileys.react] ✅ Reação enviada com sucesso`);
+        return;
+      }
+      
+      // Fallback: reconstruir (pode falhar com prefixos)
       const parts = messageId.split(':');
       const msgId = parts[parts.length - 1];
       const remoteJid = chatId || '';
       
-      logInfo(`[Baileys.react] Buscando mensagem ${msgId} em ${remoteJid}`);
-      
-      // Baileys v7: usar messages.upsert para encontrar a mensagem
-      // Ou usar o store interno se disponível
-      let foundMsg: any = null;
-      
-      // Tentativa 1: Store interno do Baileys
-      if (!foundMsg && remoteJid && (this.sock as any).store?.messages) {
-        const store = (this.sock as any).store;
-        const msgs = store.messages[remoteJid];
-        if (Array.isArray(msgs)) {
-          foundMsg = msgs.find((m: any) => m?.key?.id === msgId);
+      logInfo(`[Baileys.react] Fallback: reconstruindo chave`);
+      await this.sock.sendMessage(remoteJid, {
+        react: {
+          text: emoji,
+          key: { id: msgId, remoteJid, fromMe: true, participant: undefined }
         }
-        // Tentar também por JID sem sufixo
-        if (!foundMsg) {
-          const jidBase = remoteJid.split('@')[0];
-          for (const [key, val] of Object.entries(store.messages)) {
-            if (key.startsWith(jidBase) && Array.isArray(val)) {
-              foundMsg = val.find((m: any) => m?.key?.id === msgId);
-              if (foundMsg) break;
-            }
-          }
-        }
-      }
-      
-      // Tentativa 2: Se não encontrou, criar reação via protocolMessage
-      // O Baileys aceita reagir com o key da mensagem
-      if (!foundMsg) {
-        // Tentar reagir usando o remoteJid e msgId diretamente
-        logInfo(`[Baileys.react] Mensagem não encontrada no store, tentando protocolMessage`);
-        try {
-          await this.sock.sendMessage(remoteJid, {
-            react: {
-              text: emoji,
-              key: {
-                id: msgId,
-                remoteJid: remoteJid,
-                fromMe: true,
-                participant: undefined
-              }
-            }
-          });
-          logInfo(`[Baileys.react] Reação enviada via protocolMessage`);
-          return;
-        } catch (protocolErr: any) {
-          logWarning(`[Baileys.react] protocolMessage falhou: ${protocolErr?.message}`);
-        }
-      }
-      
-      if (foundMsg && foundMsg.key) {
-        await this.sock.sendMessage(foundMsg.key.remoteJid, {
-          react: { text: emoji, key: foundMsg.key },
-        });
-        logInfo(`[Baileys.react] Reação enviada`);
-      } else {
-        logWarning(`[Baileys.react] Mensagem não encontrada para reagir: ${messageId}`);
-      }
-    } catch (e: any) {
-      logError('[Baileys.react]', e);
+      });
+    } catch (err: any) {
+      logError('[Baileys.react] erro', err);
+      throw err;
     }
   }
 }

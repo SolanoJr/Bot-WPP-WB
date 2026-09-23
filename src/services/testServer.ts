@@ -445,6 +445,42 @@ export function startTestServer(port: number = 3004): void {
           return;
         }
 
+        // ─── Endpoint de teste do fluxo $menu completo ───
+        if (req.url === '/lab/test-menu-flow') {
+          const platform = parsedBody.platform || 'whatsapp';
+          const chatId = parsedBody.chatId || '120363410094452673@g.us';
+          const { adapter, sock } = getAdapterAndSock(platform);
+          if (!adapter) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Plataforma não encontrada: ${platform}` }));
+            return;
+          }
+          if (!sock) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Socket não disponível' }));
+            return;
+          }
+
+          // Enable lab mode for this test
+          process.env.WPP_LAB_MODE = '1';
+
+          try {
+            logInfo('[TestServer] /lab/test-menu-flow: Enviando $menu para ' + chatId);
+            const result = await pm.sendMessageAndProcess(platform, chatId, '$menu', true);
+            logInfo('[TestServer] /lab/test-menu-flow: Fluxo concluído', { result });
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, platform, chatId, result }));
+          } catch (err: any) {
+            logError('TestServer.test-menu-flow', err);
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+          } finally {
+            // Disable lab mode after test
+            delete process.env.WPP_LAB_MODE;
+          }
+          return;
+        }
+
         // ─── Endpoint de comando de teste (existente) ───
         const { platform, command } = parsedBody;
         if (!platform || !command) {

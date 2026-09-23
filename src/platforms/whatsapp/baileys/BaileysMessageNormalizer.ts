@@ -80,9 +80,10 @@ export class BaileysMessageNormalizer {
       const isGroup = remoteJid.endsWith('@g.us');
       const fromMe = !!key.fromMe;
 
-      // Pular mensagens do próprio bot (fromMe: true) — o anúncio do autoMod é uma nova mensagem
-      // que o Baileys buffer reprocessa durante o initial sync, gerando loop infinito
-      if (fromMe) {
+      // ─── Loop prevention: skip messages from the bot itself ───
+      // EXCEPT in lab mode (WPP_LAB_MODE=1) where we need to process own messages
+      const isLabMode = process.env.WPP_LAB_MODE === '1';
+      if (fromMe && !isLabMode) {
         return;
       }
 
@@ -172,7 +173,8 @@ export class BaileysMessageNormalizer {
         quotedParticipant,
         quotedText,
         hasMedia: false,
-        raw: rawMsg,
+        // CORREÇÃO 2026-09-17: Preservar WAMessageKey original do Baileys (sem prefixos)
+        raw: { ...rawMsg, key: key },
         correlationId: `msg-${key.id}-${Date.now()}`,
       };
 

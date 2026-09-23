@@ -51,5 +51,15 @@ export const menuCommand: ICommand = {
     ].join('\n');
 
     await ctx.reply(menu);
+    
+    // Auto-reação: se a mensagem veio do próprio bot (isFromMe), reagir com 🤖
+    if (ctx.msg.isFromMe && ctx.client.react) {
+      try {
+        const messageId = ctx.msg.raw?.key?.id || ctx.msg.id;
+        await ctx.client.react(messageId, '🤖', ctx.chatId);
+      } catch (e) {
+        // Ignorar erro de reação
+      }
+    }
   }
 };

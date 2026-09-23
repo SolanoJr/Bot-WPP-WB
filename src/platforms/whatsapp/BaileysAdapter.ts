@@ -324,11 +324,12 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
     this.disconnectedHandler?.(reason);
 
     if (statusCode === 401) {
-      logInfo('[BaileysAdapter] 🚪 Logout (401) — limpando e encerrando');
-      this.connection.clearAuth();
+      logInfo('[BaileysAdapter] 🚪 Logout (401) — mantendo credenciais para reconexão');
+      // NÃO limpar credenciais nem sair — manter para reconexão
+      this.reconnectAttempts = 0; // Reset backoff
       setTimeout(() => {
-        logInfo('[BaileysAdapter] 🔄 Encerrando para PM2 reiniciar limpo...');
-        process.exit(1);
+        logInfo('[BaileysAdapter] 🔄 Reconectando...');
+        this.connection.connect();
       }, 5000);
       return;
     }

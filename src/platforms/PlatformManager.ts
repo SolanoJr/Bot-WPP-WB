@@ -121,7 +121,9 @@ export class PlatformManager {
 
       // ─── Detecção de mensagem própria (loop prevention) ───
       // Mensagens do próprio bot NUNCA devem ser reprocessadas
-      if (message.isFromMe && !message.forceProcess) {
+      // EXCETO em modo laboratório (WPP_LAB_MODE=1) para testes
+      const isLabMode = process.env.WPP_LAB_MODE === '1';
+      if (message.isFromMe && !message.forceProcess && !isLabMode) {
         logInfo(`[PM] SKIP mensagem própria: ${message.id} (${message.platform})`);
         return;
       }
@@ -211,7 +213,9 @@ export class PlatformManager {
         logInfo(`[Reaction] ${message.platform} não suporta react em ${message.id} (${trigger})`);
         return;
       }
-      await adapter.client.react(message.id, '👍', message.chatId);
+      // CORREÇÃO 2026-09-17: passar WAMessageKey original (raw.key) para o adapter
+      const originalKey = message.raw?.key;
+      await adapter.client.react(message.id, '👍', message.chatId, originalKey);
       logInfo(`[Reaction] Reagiu com 👍 em ${message.id} (${trigger})`);
     } catch (reactErr: any) {
       logWarning(`[Reaction] erro ao reagir: ${reactErr?.message}`);
@@ -438,13 +442,16 @@ export class PlatformManager {
             await client.sendMessage(message.chatId, text, options);
           } else {
             // Mensagem de outro usuário - responder com quote
+            // CORREÇÃO 2026-09-17: usar WAMessageKey original (raw.key) para o quote
+            const originalKey = message.raw?.key;
             const replyOpts = {
               ...options,
               replyToMessageId: message.id,
               quotedFromMe: false,
               quotedParticipant: message.userId,
+              originalKey: originalKey,
             };
-            logInfo(`[reply] Enviando COM quote: replyToMessageId=${message.id}, participant=${message.userId}`);
+            logInfo(`[reply] Enviando COM quote: replyToMessageId=${message.id}, originalKey=${originalKey ? 'SIM' : 'NAO'}`);
             await client.sendMessage(message.chatId, text, replyOpts);
           }
         } catch (quoteErr: any) {
@@ -466,6 +473,10 @@ export class PlatformManager {
    * Registra comando global (disponível em todas plataformas)
    */
   registerCommand(command: ICommand): void {
+    if (this.commandRegistry.has(command.name)) {
+      logWarning(`[PlatformManager] Comando ${command.name} já registrado — ignorando duplicata`);
+      return;
+    }
     this.commandRegistry.set(command.name, command);
     logger.info(`[PlatformManager] Comando registrado: ${command.name}${command.platforms ? ` (${command.platforms.join(', ')})` : ' (todas)'}`);
   }
@@ -616,7 +627,9 @@ export class PlatformManager {
       throw new Error(`Plataforma não encontrada: ${platform} (disponíveis: ${availableAdapters.join(', ')})`);
     }
 
-    // Enviar a mensagem para o chat e obter a key real
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ETAPA 1: Enviar a mensagem "$menu" para o grupo
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     logInfo(`[sendMessageAndProcess] Enviando "${text}" para ${chatId} via ${adapter.platform}`);
     let sentMessage: any;
     let sentMessageId: string | undefined;
@@ -629,7 +642,69 @@ export class PlatformManager {
       throw err;
     }
 
-    // Reagir com 👍 na mensagem enviada (feedback visual)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ETAPA 2: Gerar resposta do menu (simulando o listener)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (text.startsWith('$')) {
+      const commandName = text.replace('$', '').split(' ')[0];
+      const args = text.split(' ').slice(1);
+      
+      logInfo(`[sendMessageAndProcess] Processando comando $${commandName}`);
+      
+      // Buscar o comando
+      const command = this.commandRegistry.get(commandName);
+      if (command) {
+        try {
+          // Criar PlatformMessage para o comando
+          const commandMsg: PlatformMessage = {
+            id: sentMessageId || `sent-${Date.now()}`,
+            platform: adapter.platform,
+            chatId,
+            userId: chatId,
+            userName: 'Bot',
+            text,
+            timestamp: new Date(),
+            isFromMe: false, // Simular mensagem de usuário para testar quote+reaction
+            isCommand: true,
+            commandName,
+            args,
+            raw: { ...sentMessage, isGroup: true, key: sentMessage?.key },
+            hasMedia: false,
+          };
+          
+          // Criar contexto completo (com reply, react, etc.)
+          const commandCtx = await this.createCommandContext(commandMsg, adapter.client);
+          
+          // Executar o comando — o comando em si envia a resposta
+          await command.execute(commandCtx);
+          
+          logInfo(`[sendMessageAndProcess] Comando executado com sucesso`);
+          
+          return {
+            success: true,
+            sent: text,
+            platform: adapter.platform,
+            chatId,
+            commandProcessed: true,
+            command: commandName,
+          };
+        } catch (err: any) {
+          logError(`[sendMessageAndProcess] Erro ao executar comando: ${err?.message}`);
+          return {
+            success: true,
+            sent: text,
+            platform: adapter.platform,
+            chatId,
+            commandProcessed: false,
+            error: err.message,
+          };
+        }
+      }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ETAPA 5: Reagir com 👍 na mensagem original (feedback visual)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if (text.startsWith('$') && sentMessage?.key) {
       try {
         if (typeof adapter.client.react === 'function') {
@@ -645,31 +720,6 @@ export class PlatformManager {
     if (!text.startsWith('$')) {
       logInfo(`[sendMessageAndProcess] Mensagem comum enviada, sem processamento de comando`);
       return { success: true, sent: text, platform: adapter.platform, chatId };
-    }
-
-    // Criar PlatformMessage para processamento (usar platform do adapter, não o solicitado)
-    // IMPORTANTE: Usar o ID real da mensagem para que o quote/reply funcione
-    const message: PlatformMessage = {
-      id: sentMessageId || `sent-${Date.now()}`,
-      platform: adapter.platform,
-      chatId,
-      userId: chatId,
-      userName: 'Bot',
-      text,
-      timestamp: new Date(),
-      isFromMe: true,
-      isCommand: text.startsWith('$'),
-      commandName: text.replace('$', '').split(' ')[0],
-      args: text.split(' ').slice(1),
-      raw: { ...sentMessage, isGroup: true, key: sentMessage?.key },
-      hasMedia: false,
-    };
-
-    // Processar (executar comando se for o caso)
-    if (message.isCommand) {
-      // Executar comando diretamente (sem passar pelo handleIncomingMessage)
-      // para evitar loop de o bot ignorar a própria mensagem
-      await this.executeCommand(message, adapter);
     }
 
     return { success: true, sent: text, platform: adapter.platform, chatId };

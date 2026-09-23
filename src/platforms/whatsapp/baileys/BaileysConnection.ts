@@ -182,6 +182,10 @@ export class BaileysConnection {
       driver = makeWASocket({
         auth: driverState,
         browser: ['WarriorBlack', 'Desktop', '1.0'],
+        qrTimeout: 0, // Sem timeout de QR — aguarda scan indefinidamente
+        syncFullHistory: false,
+        markOnlineOnConnect: false,
+        connectTimeoutMs: 120000,
       });
     } catch (sockErr: any) {
       logError('Baileys.socket', sockErr);
@@ -191,34 +195,8 @@ export class BaileysConnection {
     this.sock = driver;
     this.setSock(driver);
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // PAIRING CODE — gerar código imediatamente após makeWASocket.
-    // Define creds.me ANTES do validateConnection rodar, evitando
-    // "not logged in" e o fallback para QR.
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    const phoneNumber = this.getPhoneNumber();
-    try {
-      const code = await driver.requestPairingCode(phoneNumber);
-      logInfo('');
-      logInfo('╔════════════════════════════════════════════════════════════╗');
-      logInfo('║  📱 PAIRING CODE GERADO!                                  ║');
-      logInfo('╠════════════════════════════════════════════════════════════╣');
-      logInfo(`║                  CÓDIGO:  ${code}                         ║`);
-      logInfo('╠════════════════════════════════════════════════════════════╣');
-      logInfo('║  1. WhatsApp > Ajustes > Dispositivos conectados          ║');
-      logInfo('║  2. Conectar dispositivo > Digitar código                 ║');
-      logInfo('╚════════════════════════════════════════════════════════════╝');
-      logInfo('');
-      this.setQrPending(true);
-      this.onQR?.(code);
-    } catch (pairingErr: any) {
-      logWarning(`[BaileysConnection] requestPairingCode falhou: ${pairingErr?.message}`);
-      logInfo('[BaileysConnection] Tentando QR automático como fallback...');
-    }
-
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // QR CODE — fluxo nativo do Baileys v7 (pair-device IQ).
-    // Fallback caso o pairing code falhe.
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     // Salvamento de credenciais — v7: usar driver.ev.on('creds.update', ...)
@@ -244,11 +222,39 @@ export class BaileysConnection {
 
     // Conexão estabelecida — 'connection.update' está no BaileysEventMap.
     // ConnectionState.connection: 'open' | 'connecting' | 'close'
-    driver.ev.on('connection.update', (update: any) => {
+    driver.ev.on('connection.update', async (update: any) => {
       // QR Code — Baileys v7 emite qr durante 'connecting' (isNewLogin: true)
       if (update.qr) {
         this.setQrPending(true);
         logInfo('[Baileys] 📱 QR recebido via connection.update');
+        try {
+          const fs = require('fs');
+          const path = require('path');
+          const srcQr = path.join(this.authDir, 'qr.png');
+          if (fs.existsSync(srcQr)) {
+            const destQr = path.join(process.cwd(), 'qr_wpp.png');
+            fs.copyFileSync(srcQr, destQr);
+            logInfo(`[Baileys] 📱 QR COPIED TO: ${destQr}`);
+          }
+        } catch (e: any) {
+          logWarning(`[Baileys] Falha ao copiar QR: ${e?.message}`);
+        }
+        try {
+          const qrcode = require('qrcode');
+          const qrString = await qrcode.toString(update.qr, { type: 'utf8', margin: 2, scale: 2 });
+          logInfo('');
+          logInfo('╔════════════════════════════════════════════════════════════╗');
+          logInfo('║  📱 QR CODE — ESCANE COM O WHATSAPP                      ║');
+          logInfo('╠════════════════════════════════════════════════════════════╣');
+          logInfo('║  WhatsApp > Ajustes > Dispositivos conectados             ║');
+          logInfo('║  > Conectar dispositivo > Vincular pelo QR Code           ║');
+          logInfo('╚════════════════════════════════════════════════════════════╝');
+          logInfo('');
+          logInfo(qrString);
+          logInfo('');
+        } catch (e: any) {
+          logWarning(`[Baileys] Falha ao gerar ASCII: ${e?.message}`);
+        }
         this.onQR?.(update.qr);
       }
       if (update.connection === 'open') {
@@ -276,8 +282,8 @@ export class BaileysConnection {
 
         if (statusCode === DisconnectReason.loggedOut || String(statusCode) === '401' || reason === DisconnectReason.loggedOut) {
           this._loggedOut = true;
-          logInfo('[Baileys] 🚪 loggedOut detectado (401) — limpando credenciais para novo login');
-          this.clearAuthDir();
+          logInfo('[Baileys] 🚪 loggedOut detectado (401) — aguardando reconexão (SEM limpar credenciais)');
+          // NÃO limpar credenciais - manter para reconexão automática
         }
       }
     });
