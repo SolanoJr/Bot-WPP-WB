@@ -103,6 +103,40 @@ export class BaileysConnection {
 
   isLoggedOut(): boolean { return this._loggedOut; }
 
+  /** Public wrapper for adapter cleanup on 401 */
+  clearAuth(): void { this.clearAuthDir(); }
+
+  /**
+   * Limpa todos os arquivos do diretório de autenticação.
+   * Chamado quando 401 é detectado para permitir novo login limpo.
+   */
+  private clearAuthDir(): void {
+    try {
+      if (fs.existsSync(this.authDir)) {
+        const files = fs.readdirSync(this.authDir);
+        for (const file of files) {
+          fs.unlinkSync(path.join(this.authDir, file));
+        }
+        logInfo(`[BaileysConnection] 🧹 ${files.length} arquivo(s) removido(s)`);
+      }
+    } catch (e: any) {
+      logWarning(`[BaileysConnection] Falha ao limpar authDir: ${e?.message}`);
+    }
+  }
+
+  // ---- Utilitários ----
+  private getPhoneNumber(): string {
+    const env = process.env.WPP_PHONE_NUMBER;
+    if (env) {
+      const cleaned = env.replace(/[^0-9]/g, '');
+      logInfo(`[BaileysConnection] 📱 WPP_PHONE_NUMBER: ${cleaned}`);
+      return cleaned;
+    }
+    const fallback = '558581344211';
+    logWarning(`[BaileysConnection] ⚠️ WPP_PHONE_NUMBER não definido. Usando: ${fallback}`);
+    return fallback;
+  }
+
   // ---- Conexão ----
   async connect(): Promise<void> {
     this.setLastConnectAttemptTs(Date.now());
@@ -112,6 +146,11 @@ export class BaileysConnection {
     // useMultiFileAuthState espera um DIRS, não um arquivo — Baileys v7 gerencia
     // múltiplos arquivos de auth (creds, keys, etc.) dentro desse diretório.
     const authDir = this.authDir;
+
+    // NÃO limpar credenciais aqui — só limpar em 401 no handler abaixo.
+    // Removido clearAuthDir() do início para evitar loop de reconexão:
+    // a cada reconnect, o auth era apagado, creds ficavam vazias,
+    // novo pairing code era solicitado, conexão fechava, loop infinito.
 
     const { state: driverState, saveCreds } = await useMultiFileAuthState(authDir);
 
@@ -138,12 +177,49 @@ export class BaileysConnection {
       },
     };
 
-    const driver = makeWASocket({
-      auth: driverState,
-    });
+    let driver: any;
+    try {
+      driver = makeWASocket({
+        auth: driverState,
+        browser: ['WarriorBlack', 'Desktop', '1.0'],
+      });
+    } catch (sockErr: any) {
+      logError('Baileys.socket', sockErr);
+      throw sockErr;
+    }
 
     this.sock = driver;
     this.setSock(driver);
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // PAIRING CODE — gerar código imediatamente após makeWASocket.
+    // Define creds.me ANTES do validateConnection rodar, evitando
+    // "not logged in" e o fallback para QR.
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const phoneNumber = this.getPhoneNumber();
+    try {
+      const code = await driver.requestPairingCode(phoneNumber);
+      logInfo('');
+      logInfo('╔════════════════════════════════════════════════════════════╗');
+      logInfo('║  📱 PAIRING CODE GERADO!                                  ║');
+      logInfo('╠════════════════════════════════════════════════════════════╣');
+      logInfo(`║                  CÓDIGO:  ${code}                         ║`);
+      logInfo('╠════════════════════════════════════════════════════════════╣');
+      logInfo('║  1. WhatsApp > Ajustes > Dispositivos conectados          ║');
+      logInfo('║  2. Conectar dispositivo > Digitar código                 ║');
+      logInfo('╚════════════════════════════════════════════════════════════╝');
+      logInfo('');
+      this.setQrPending(true);
+      this.onQR?.(code);
+    } catch (pairingErr: any) {
+      logWarning(`[BaileysConnection] requestPairingCode falhou: ${pairingErr?.message}`);
+      logInfo('[BaileysConnection] Tentando QR automático como fallback...');
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // QR CODE — fluxo nativo do Baileys v7 (pair-device IQ).
+    // Fallback caso o pairing code falhe.
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     // Salvamento de credenciais — v7: usar driver.ev.on('creds.update', ...)
     // 'creds.update' está no BaileysEventMap tipado.
@@ -169,6 +245,12 @@ export class BaileysConnection {
     // Conexão estabelecida — 'connection.update' está no BaileysEventMap.
     // ConnectionState.connection: 'open' | 'connecting' | 'close'
     driver.ev.on('connection.update', (update: any) => {
+      // QR Code — Baileys v7 emite qr durante 'connecting' (isNewLogin: true)
+      if (update.qr) {
+        this.setQrPending(true);
+        logInfo('[Baileys] 📱 QR recebido via connection.update');
+        this.onQR?.(update.qr);
+      }
       if (update.connection === 'open') {
         logInfo('[Baileys] ✅ Conexão estabelecida');
         this.setReady(true);
@@ -183,8 +265,9 @@ export class BaileysConnection {
         const reason = update.lastDisconnect?.error
           ? (update.lastDisconnect.error instanceof Error ? update.lastDisconnect.error.message : String(update.lastDisconnect.error))
           : (update.reason || 'desconhecido');
-        const statusCode = update.lastDisconnect?.error
-          ? (update.lastDisconnect.error instanceof Error ? 0 : (update.lastDisconnect.error as any)?.statusCode || 0)
+        const rawErr = update.lastDisconnect?.error;
+        const statusCode = rawErr
+          ? ((rawErr as any)?.output?.statusCode || (rawErr as any)?.statusCode || 0)
           : 0;
         logInfo(`[Baileys] 🔌 Conexão encerrada: ${reason} (${statusCode})`);
         this.setReady(false);
@@ -193,7 +276,8 @@ export class BaileysConnection {
 
         if (statusCode === DisconnectReason.loggedOut || String(statusCode) === '401' || reason === DisconnectReason.loggedOut) {
           this._loggedOut = true;
-          logInfo('[Baileys] 🚪 loggedOut detectado (401)');
+          logInfo('[Baileys] 🚪 loggedOut detectado (401) — limpando credenciais para novo login');
+          this.clearAuthDir();
         }
       }
     });
@@ -252,19 +336,50 @@ export class BaileysConnection {
       }
     });
 
-    // Iniciar conexão — v7: socket conecta automaticamente ao ser criado.
-    // Usar waitForConnectionUpdate para aguardar que atinja 'open'.
-    try {
-      await driver.waitForConnectionUpdate(
-        async (u: any) => u.connection === 'open' || u.connection === 'close',
-        120000
-      );
-      logInfo('[Baileys] 🚀 Baileys iniciado');
-    } catch (e: any) {
-      logError('Baileys.connect', e);
-      this.setReady(false);
-      throw e;
+    // ════════════════════════════════════════════════════════════════
+    // QR CODE — quando não há credenciais válidas (auth vazio),
+    // o Baileys gera QR automaticamente via ev.on('qr', ...).
+    // O QR é salvo em qr.png no authDir e enviado ao dono pelo adapter.
+    // Aguamos indefinitement por conexão.open (após QR escaneado).
+    // ════════════════════════════════════════════════════════════════
+    const hasCreds = !!(driverState?.creds?.me?.id);
+    let waitForConnTimeout = 120000; // 2 min padrão
+    if (!hasCreds) {
+      logInfo(`[BaileysConnection] 🔍 hasCreds=false — QR pendente, usando listener assíncrono (waitForConnectionUpdate pulado)`);
+
+      // EVITAR waitForConnectionUpdate com timeout curto — o Baileys fica
+      // em estado intermediário (connecting) até o QR ser escaneado, e o
+      // timeout de 120s/10min sempre expira antes. Em vez disso, esperar
+      // explicitamente pelo evento 'connection.update' → 'open' via Promise.
+      logWarning('[BaileysConnection] Pulando waitForConnectionUpdate — usando listener assíncrono para detectar conexão aberta');
+
+      logInfo('Aguardando confirmação de conexão (QR escaneado)...');
+
+      await new Promise<void>((resolve, reject) => {
+        const onOpen = (update: any) => {
+          if (update.connection === 'open') {
+            logInfo('[Baileys] 🚀 Conexão aberta detectada via listener!');
+            driver.ev.off('connection.update', onOpen);
+            resolve();
+          }
+          if (update.connection === 'close') {
+            driver.ev.off('connection.update', onOpen);
+            reject(new Error(`[BaileysConnection] Connection closed: ${update.state || 'unknown'}`));
+          }
+        };
+        driver.ev.on('connection.update', onOpen);
+
+        // Fallback de segurança: timeout após 1h (QR deve ser escaneado muito antes)
+        setTimeout(() => {
+          driver.ev.off('connection.update', onOpen);
+          reject(new Error('[BaileysConnection] Timeout segurança: 1h sem conexão aberta'));
+        }, 3600000);
+      });
+
+      logInfo('[Baileys] ✅ Conexão confirmada!');
     }
+
+    logInfo('[Baileys] 🚀 Baileys iniciado');
   }
 
   async shutdown(): Promise<void> {

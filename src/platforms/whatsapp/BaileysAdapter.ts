@@ -58,6 +58,8 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
   private msgHandler: MessageHandler | null = null;
   private readyHandler: (() => void) | null = null;
   private disconnectedHandler: ((reason: string) => void) | null = null;
+  private reconnectAttempts = 0;
+  private readonly maxReconnectDelay = 60000;
 
   constructor(opts: { authDir?: string; platform?: string } = {}) {
     this.authDir = opts.authDir
@@ -199,8 +201,8 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
     return this.sender.sendMedia(chatId, media, caption, options);
   }
 
-  async react(messageId: string, emoji: string, chatId?: string): Promise<void> {
-    await this.sender.react(messageId, emoji, chatId);
+  async react(messageId: string, emoji: string, chatId?: string, originalKey?: any): Promise<void> {
+    await this.sender.react(messageId, emoji, chatId, originalKey);
   }
 
   // ---- Chat / User ----
@@ -248,6 +250,10 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
     }
     try {
       const sock = this.connection.getSock();
+      if (!sock) {
+        logWarning('[Baileys][notifyOwner] ⚠️ socket nulo, alerta descartado');
+        return;
+      }
       await Promise.race([
         sock.sendMessage(toJid(ownerId), { text }),
         new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 5s')), 5000)),
@@ -287,6 +293,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
 
   private handleOpen(): void {
     this.isReady = true;
+    this.reconnectAttempts = 0; // reseta backoff ao conectar
     this.userId = this.connection.getUserId();
     this.userName = this.connection.getUserName();
     logInfo(`[Baileys] ✅ Conectado como ${this.userName} (${this.userId})`);
@@ -316,34 +323,23 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
     this.getHealth();
     this.disconnectedHandler?.(reason);
 
-    if (statusCode === 401) { // DisconnectReason.loggedOut = 401
-      logInfo(`[Baileys] 🚪 Deslogado — precisa escanear QR novamente.`);
-      this.notifyOwner(`🚪 *Sessão WhatsApp encerrada*\nO servidor desconectou o bot (sessão expirada).\n\n⚠️ Novo QR code necessário. Reconnectando em 30s para gerar...`).catch(() => {});
+    if (statusCode === 401) {
+      logInfo('[BaileysAdapter] 🚪 Logout (401) — limpando e encerrando');
+      this.connection.clearAuth();
       setTimeout(() => {
-        logInfo(`[Baileys] 🔄 Reconectando (loggedOut - tentativa única)...`);
-        this.connection.connect();
-      }, 30000);
-    } else if (reason.includes('Stream Errored') || reason.includes('conflict')) {
-      logInfo(`[Baileys] 🔄 Stream Errored — forçando re-init completo...`);
-      try { this.connection.getSock()?.end?.(new Error('force-reinit')); } catch {}
-      setTimeout(() => {
-        logInfo(`[Baileys] 🔄 Reconectando...`);
-        this.connection.connect();
-      }, 2000);
-    } else if (reason.includes('Connection Failure') || reason.includes('Timed Out') || reason.includes('socket hang up')) {
-      logInfo(`[Baileys] 🔄 ${reason} — reconectando em 5s...`);
-      this.notifyOwner(`⚠️ *WhatsApp desconectado*: ${reason}\nReconectando automaticamente...`).catch(() => {});
-      setTimeout(() => {
-        logInfo(`[Baileys] 🔄 Reconectando (connection failure)...`);
-        this.connection.connect();
+        logInfo('[BaileysAdapter] 🔄 Encerrando para PM2 reiniciar limpo...');
+        process.exit(1);
       }, 5000);
-    } else {
-      logInfo(`[Baileys] ⚠️ Desconhecido (${reason}) — reconectando em 10s...`);
-      setTimeout(() => {
-        logInfo(`[Baileys] 🔄 Reconectando (unknown reason)...`);
-        this.connection.connect();
-      }, 10000);
+      return;
     }
+
+    // Backoff exponencial: evita loop infinito de reconnect
+    this.reconnectAttempts++;
+    const baseDelay = reason.includes('Stream Errored') || reason.includes('conflict') ? 2000 : 5000;
+    const delay = Math.min(baseDelay * Math.pow(2, this.reconnectAttempts - 1), this.maxReconnectDelay);
+
+    logInfo(`[BaileysAdapter] 🔄 ${reason} — reconectando em ${delay}ms (tentativa ${this.reconnectAttempts})...`);
+    setTimeout(() => this.connection.connect(), delay);
   }
 
   private handleCredsUpdate(): void {
