@@ -436,11 +436,12 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
                   };
                 } catch { return null; }
               },
-              sendMessage: async (jid: string, text: string, opts?: any) => {
-                try { await this.sendMessage(jid, text, opts); return {} as any; } catch { return null as any; }
-              },
+
               removeParticipant: async (g: string, u: string) => {
                 try { await this.removeParticipant(g, u); } catch { /* ignorar */ }
+              },
+              sendMessage: async (jid: string, text: string, opts?: any) => {
+                try { return await this.sendMessage(jid, text, opts); } catch { return null as any; }
               },
               log: logInfo,
               warn: logWarning,

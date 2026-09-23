@@ -1,6 +1,7 @@
 import { ICommand } from './types';
 import { CommandContext } from '../../platforms/base/PlatformTypes';
 import { execSync } from 'child_process';
+import { logInfo, logWarning } from '../../services/loggerService';
 
 function getShortHash(): string {
   try {
@@ -50,15 +51,20 @@ export const menuCommand: ICommand = {
       `_Use $help para a lista completa e descrições._`,
     ].join('\n');
 
-    await ctx.reply(menu);
+    // Enviar o menu e capturar a mensagem enviada (para reação ancorada)
+    const sentMsg: any = await ctx.reply(menu);
     
-    // Auto-reação: se a mensagem veio do próprio bot (isFromMe), reagir com 🤖
-    if (ctx.msg.isFromMe && ctx.client.react) {
+    // Auto-reação: reagir na própria resposta recém-enviada
+    if (ctx.client.react) {
       try {
-        const messageId = ctx.msg.raw?.key?.id || ctx.msg.id;
-        await ctx.client.react(messageId, '🤖', ctx.chatId);
-      } catch (e) {
-        // Ignorar erro de reação
+        const reactionKey = sentMsg?.raw?.key || sentMsg?.key;
+        const reactionId = sentMsg?.id || ctx.msg.id;
+        if (reactionKey && reactionId) {
+          logInfo(`[Action] Enviando reação (🤖) para a própria resposta do menu (key: ${reactionKey.id})`);
+          await ctx.client.react(reactionId, '🤖', ctx.chatId, reactionKey);
+        }
+      } catch (e: any) {
+        logWarning(`[Action] Erro ao reagir: ${e?.message}`);
       }
     }
   }

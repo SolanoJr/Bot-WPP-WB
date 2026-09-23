@@ -80,6 +80,8 @@ export class BaileysMessageNormalizer {
       const isGroup = remoteJid.endsWith('@g.us');
       const fromMe = !!key.fromMe;
 
+      logInfo(`[BaileysNormalizer] 📥 DISPATCH: fromMe=${fromMe}, remoteJid=${remoteJid}, isGroup=${isGroup}, msgType=${Object.keys(m)[0] || 'empty'}`);
+
       // ─── Loop prevention: skip messages from the bot itself ───
       // EXCEPT in lab mode (WPP_LAB_MODE=1) where we need to process own messages
       const isLabMode = process.env.WPP_LAB_MODE === '1';

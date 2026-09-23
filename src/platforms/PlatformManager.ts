@@ -436,10 +436,12 @@ export class PlatformManager {
         // reenvia sem quote para não quebrar o comando.
         const isFromBot = message.isFromMe === true;
         logInfo(`[reply] isFromBot=${isFromBot}, msgId=${message.id}, chatId=${message.chatId}, text=${text.substring(0,50)}...`);
+        
+        let sentMsg: any;
         try {
           if (isFromBot) {
             // Mensagem do próprio bot - enviar sem quote
-            await client.sendMessage(message.chatId, text, options);
+            sentMsg = await client.sendMessage(message.chatId, text, options);
           } else {
             // Mensagem de outro usuário - responder com quote
             // CORREÇÃO 2026-09-17: usar WAMessageKey original (raw.key) para o quote
@@ -452,12 +454,15 @@ export class PlatformManager {
               originalKey: originalKey,
             };
             logInfo(`[reply] Enviando COM quote: replyToMessageId=${message.id}, originalKey=${originalKey ? 'SIM' : 'NAO'}`);
-            await client.sendMessage(message.chatId, text, replyOpts);
+            sentMsg = await client.sendMessage(message.chatId, text, replyOpts);
           }
         } catch (quoteErr: any) {
           logWarning(`[reply] quote falhou, reenviando sem quote: ${quoteErr?.message}`);
-          await client.sendMessage(message.chatId, text, options);
+          sentMsg = await client.sendMessage(message.chatId, text, options);
         }
+        
+        // Retornar a mensagem enviada para permitir reação ancorada na key
+        return sentMsg;
       },
       replyPrivate: async (text: string) => {
         // Para WhatsApp, envia no privado do usuário

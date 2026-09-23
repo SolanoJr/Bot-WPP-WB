@@ -364,7 +364,7 @@ class DiscordClient implements PlatformClient {
     await msg.delete();
   }
 
-  async react(messageId: string, emoji: string): Promise<void> {
+  async react(messageId: string, emoji: string, _chatId?: string, _originalKey?: any): Promise<void> {
     const cleanMessageId = messageId.split(':').pop() || messageId;
     const channel = await this.client.channels.fetch(cleanMessageId).catch(() => null) as TextChannel | null;
     if (!channel) return;

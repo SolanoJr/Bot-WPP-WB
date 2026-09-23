@@ -296,6 +296,7 @@ export class BaileysConnection {
 
     // messages.upsert — está no BaileysEventMap.
     driver.ev.on('messages.upsert', async (event: { messages?: any[] }) => {
+      logInfo(`[Baileys] 📥 MESSAGES_UPSERT: ${event?.messages?.length || 0} mensagens`);
       if (event?.messages?.length) {
         await this.onMessagesUpsert?.(event.messages);
       }

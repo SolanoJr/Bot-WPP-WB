@@ -574,7 +574,7 @@ class TelegramClient implements PlatformClient {
   onReady(handler: () => void): void { this.readyHandler = handler; }
   onDisconnected(handler: (reason: string) => void): void { this.disconnectedHandler = handler; }
 
-  async react(messageId: string, emoji: string): Promise<void> {
+  async react(messageId: string, emoji: string, _chatId?: string, _originalKey?: any): Promise<void> {
     try {
       const msgId = messageId.split(':').pop();
       await this.bot.telegram.callApi('setMessageReaction', {
