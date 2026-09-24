@@ -2938,3 +2938,24 @@
 2026-09-17 09:09:30 [INFO]: [DiscordScreenService] Gerenciado externamente (DISCORD_SCREEN_EXTERNAL) — spawn interno desativado 
 2026-09-17 09:09:30 [INFO]: [DiscordScreenService] Gerenciado externamente (DISCORD_SCREEN_EXTERNAL) — spawn interno desativado 
 2026-09-17 09:09:33 [INFO]: [Discord] Cliente v14 inicializado com intents, partials e presence 
+2026-09-24 17:27:49 [INFO]: [BaileysSender.sendMessage] Reply: quotedRaw=false, replyTo=original:123, originalKey=NAO 
+2026-09-24 17:27:49 [INFO]: [BaileysSender.sendMessage] Quoted payload construído: keyId=123, hasMessage=true 
+2026-09-24 17:27:49 [INFO]: [BaileysSender.sendMessage] Reply: quotedRaw=false, replyTo=original:123, originalKey=NAO 
+2026-09-24 17:27:49 [INFO]: [BaileysSender.sendMessage] Quoted payload construído: keyId=123, hasMessage=true 
+2026-09-24 17:27:49 [INFO]: [BaileysSender.sendMessage] Reply: quotedRaw=false, replyTo=undefined, originalKey=NAO 
+2026-09-24 17:27:49 [INFO]: [BaileysSender.sendMessage] Reply: quotedRaw=false, replyTo=original:123, originalKey=NAO 
+2026-09-24 17:27:49 [INFO]: [BaileysSender.sendMessage] Quoted payload construído: keyId=123, hasMessage=true 
+2026-09-24 17:28:06 [INFO]: [BaileysSender.sendMessage] Reply: quotedRaw=false, replyTo=original:123, originalKey=NAO 
+2026-09-24 17:28:06 [INFO]: [BaileysSender.sendMessage] Quoted payload construído: keyId=123, hasMessage=true 
+2026-09-24 17:28:06 [INFO]: [BaileysSender.sendMessage] Reply: quotedRaw=false, replyTo=original:123, originalKey=NAO 
+2026-09-24 17:28:06 [INFO]: [BaileysSender.sendMessage] Quoted payload construído: keyId=123, hasMessage=true 
+2026-09-24 17:28:06 [INFO]: [BaileysSender.sendMessage] Reply: quotedRaw=false, replyTo=undefined, originalKey=NAO 
+2026-09-24 17:28:06 [INFO]: [BaileysSender.sendMessage] Reply: quotedRaw=false, replyTo=original:123, originalKey=NAO 
+2026-09-24 17:28:06 [INFO]: [BaileysSender.sendMessage] Quoted payload construído: keyId=123, hasMessage=true 
+2026-09-24 17:30:00 [INFO]: [BaileysSender.sendMessage] Reply: quotedRaw=false, replyTo=original:123, originalKey=NAO 
+2026-09-24 17:30:00 [INFO]: [BaileysSender.sendMessage] Quoted payload construído: keyId=123, hasMessage=true 
+2026-09-24 17:30:00 [INFO]: [BaileysSender.sendMessage] Reply: quotedRaw=false, replyTo=original:123, originalKey=NAO 
+2026-09-24 17:30:00 [INFO]: [BaileysSender.sendMessage] Quoted payload construído: keyId=123, hasMessage=true 
+2026-09-24 17:30:00 [INFO]: [BaileysSender.sendMessage] Reply: quotedRaw=false, replyTo=undefined, originalKey=NAO 
+2026-09-24 17:30:00 [INFO]: [BaileysSender.sendMessage] Reply: quotedRaw=false, replyTo=original:123, originalKey=NAO 
+2026-09-24 17:30:00 [INFO]: [BaileysSender.sendMessage] Quoted payload construído: keyId=123, hasMessage=true 

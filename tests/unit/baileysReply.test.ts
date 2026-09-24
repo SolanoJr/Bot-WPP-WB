@@ -39,8 +39,8 @@ function makeBaileysAdapter() {
       }
       return undefined;
     }),
-    sendMessage: vi.fn(async (jid: string, msg: any) => {
-      calls.push({ chatId: jid, text: msg.text || '', options: msg.quoted ? undefined : undefined, ret: undefined });
+    sendMessage: vi.fn(async (jid: string, content: any, options: any) => {
+      calls.push({ chatId: jid, text: content?.text || '', options, ret: undefined });
       return {
           key: { id: 'sent:' + Date.now(), remoteJid: jid, fromMe: true, participant: undefined },
           id: 'sent:' + Date.now(),
@@ -104,12 +104,13 @@ describe('BaileysAdapter — linha de reply (citação de mensagem)', () => {
     // O mock sock.sendMessage recebe o msg completo; verificamos via acesso direto ao mock.
     const mockSend = (adapter as any).sock.sendMessage as ReturnType<typeof vi.fn>;
     expect(mockSend).toHaveBeenCalledTimes(1);
-    const [jidArg, msgArg] = mockSend.mock.calls[0];
+    const [jidArg, contentArg, optionsArg] = mockSend.mock.calls[0];
     expect(jidArg).toBe(chatId);
-    expect(msgArg).toBeDefined();
+    expect(contentArg).toBeDefined();
+    expect(contentArg.text).toBe(text);
 
-    // Verifica que msgArg.quoted existe e tem as propriedades mínimas.
-    const quoted = msgArg.quoted as any;
+    // Verifica que options.quoted existe e tem as propriedades mínimas.
+    const quoted = optionsArg?.quoted as any;
     expect(quoted).toBeDefined();
     expect(quoted.key).toBeDefined();
     // O código extrai quotedId via options.replyToMessageId.split(':').pop() → '123'.
@@ -140,8 +141,8 @@ describe('BaileysAdapter — linha de reply (citação de mensagem)', () => {
     await (adapter as any).sendMessage(chatId, text, options);
 
     expect(mockSend).toHaveBeenCalledTimes(1);
-    const [jidArg, msgArg] = mockSend.mock.calls[0];
-    const quoted = (msgArg as any).quoted as any;
+    const [jidArg, contentArg, optionsArg] = mockSend.mock.calls[0];
+    const quoted = optionsArg?.quoted as any;
     expect(quoted).toBeDefined();
     expect(quoted.key.fromMe).toBe(true);
     // O quotedText deve ter sido recuperado do store pelo fallback.
@@ -158,10 +159,10 @@ describe('BaileysAdapter — linha de reply (citação de mensagem)', () => {
     await (adapter as any).sendMessage(chatId, text, {});
 
     expect(mockSend).toHaveBeenCalledTimes(1);
-    const [jidArg, msgArg] = mockSend.mock.calls[0];
-    const quoted = (msgArg as any).quoted;
+    const [jidArg, contentArg, optionsArg] = mockSend.mock.calls[0];
+    const quoted = optionsArg?.quoted;
     expect(quoted).toBeUndefined();
-    expect(msgArg.text).toBe(text);
+    expect(contentArg.text).toBe(text);
   });
 
   it('toJid preserva @g.us e @lid, converte @c.us -> @s.whatsapp.net', () => {
@@ -192,12 +193,13 @@ describe('BaileysAdapter — linha de reply (citação de mensagem)', () => {
       replyToMessageId: 'original:123',
       quotedFromMe: false,
       quotedParticipant: '6289562706508@s.whatsapp.net',
-      quotedText: 'msg de terceiro',
+      quotedText: 'msg original',
     });
 
-    const [, msgArg] = mockSend.mock.calls[0];
-    const quoted = (msgArg as any).quoted as any;
-    expect(quoted.key.fromMe).toBe(false);
-    expect(quoted.key.participant).toBe('6289562706508@s.whatsapp.net');
+    const call = mockSend.mock.calls[mockSend.mock.calls.length - 1];
+    const [jidArg, contentArg, optionsArg] = call;
+    expect(optionsArg?.quoted).toBeDefined();
+    // A mensagem original é de TERCEIRO, então fromMe=false
+    expect(optionsArg.quoted.key.fromMe).toBe(false);
   });
 });

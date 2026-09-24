@@ -496,16 +496,11 @@ export function startTestServer(port: number = 3004): void {
         // ─── Endpoint de teste do fluxo $menu completo ───
         if (req.url === '/lab/test-menu-flow') {
           const platform = parsedBody.platform || 'whatsapp';
-          const chatId = parsedBody.chatId || '120363410094452673@g.us';
-          const { adapter, sock } = getAdapterAndSock(platform);
+          const chatId = parsedBody.chatId || '';
+          const adapter = pm.getAdapter(platform as any);
           if (!adapter) {
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: `Plataforma não encontrada: ${platform}` }));
-            return;
-          }
-          if (!sock) {
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Socket não disponível' }));
             return;
           }
 
@@ -513,7 +508,7 @@ export function startTestServer(port: number = 3004): void {
           process.env.WPP_LAB_MODE = '1';
 
           try {
-            logInfo('[TestServer] /lab/test-menu-flow: Enviando $menu para ' + chatId);
+            logInfo(`[TestServer] /lab/test-menu-flow: Enviando $menu para ${chatId}`);
             const result = await pm.sendMessageAndProcess(platform, chatId, '$menu', true);
             logInfo('[TestServer] /lab/test-menu-flow: Fluxo concluído', { result });
             res.writeHead(200, { 'Content-Type': 'application/json' });
