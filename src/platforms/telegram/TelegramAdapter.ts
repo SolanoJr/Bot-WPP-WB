@@ -349,15 +349,15 @@ class TelegramClient implements PlatformClient {
               await this.removeParticipant(g, u);
               logInfo(`[Telegram][AutoMod] participante removido: ${u}`);
             } catch (e: any) {
-              logError('[Telegram][AutoMod] erro ao remover participante:', e?.message);
+              logError('[Telegram][AutoMod] erro ao remover:', e?.message);
             }
           },
           log: (...a: any[]) => logInfo('[Telegram][AutoMod]', ...a),
           warn: (...a: any[]) => logWarning('[Telegram][AutoMod]', ...a),
           error: (msg: string, ...args: any[]) => logError('[Telegram][AutoMod]', msg, ...args),
         },
-        tg?.chat?.id ?? 0,
-        tg?.from?.id ?? 0,
+        `tg:${tg?.chat?.id ?? 0}`,
+        `tg:${tg?.from?.id ?? 0}`,
         tg?.from?.first_name ?? 'unknown',
       );
       logInfo(`[Telegram][AutoMod] avaliação: atuou=${autoModResult2.acted}, motivo=${autoModResult2.reason}, ação=${autoModResult2.action}`);

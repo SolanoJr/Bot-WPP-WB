@@ -169,7 +169,12 @@ export class BaileysMessageSender {
     } else {
       msgOpts[media.type] = { url: media.data as string };
     }
-    const res = await this.sock.sendMessage(toJid(chatId), msgOpts);
+
+    // Baileys v7 expects: sendMessage(jid, content, options)
+    // 'quoted' must go in options (3rd arg), NOT in content (2nd arg)
+    // ⚠️ REGRA CRÍTICA (commit 25de193): quoted em content = ignorado
+    const { quoted, ...content } = msgOpts;
+    const res = await this.sock.sendMessage(toJid(chatId), content, quoted ? { quoted } : undefined);
     return {
       id: `${this.platform}:${res.key.id}`,
       platform: this.platform,
