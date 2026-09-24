@@ -504,7 +504,8 @@ export function startTestServer(port: number = 3004): void {
             return;
           }
 
-          // Enable lab mode for this test
+          // Enable lab mode for this test (save previous value for restore)
+          const prevLabMode = process.env.WPP_LAB_MODE;
           process.env.WPP_LAB_MODE = '1';
 
           try {
@@ -518,8 +519,12 @@ export function startTestServer(port: number = 3004): void {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: err.message }));
           } finally {
-            // Disable lab mode after test
-            delete process.env.WPP_LAB_MODE;
+            // Restore previous lab mode value
+            if (prevLabMode === undefined) {
+              delete process.env.WPP_LAB_MODE;
+            } else {
+              process.env.WPP_LAB_MODE = prevLabMode;
+            }
           }
           return;
         }
@@ -573,9 +578,16 @@ export function startTestServer(port: number = 3004): void {
             });
           }
 
+          // Save previous lab mode value for restore
+          const prevLabMode = process.env.WPP_LAB_MODE;
           process.env.WPP_LAB_MODE = '1';
           const result = await pm.sendMessageAndProcess(platform, chatId, '$menu', true);
-          delete process.env.WPP_LAB_MODE;
+          // Restore previous lab mode value
+          if (prevLabMode === undefined) {
+            delete process.env.WPP_LAB_MODE;
+          } else {
+            process.env.WPP_LAB_MODE = prevLabMode;
+          }
 
           // Aguarda brevemente e lê capturas
           await new Promise(r => setTimeout(r, 2000));
@@ -654,6 +666,7 @@ export function startTestServer(port: number = 3004): void {
             return;
           }
 
+          const prevLabModeTest1 = process.env.WPP_LAB_MODE;
           process.env.WPP_LAB_MODE = '1';
 
                     // Registrar listener para capturar messages.upsert para este teste
@@ -839,7 +852,11 @@ export function startTestServer(port: number = 3004): void {
             },
           };
 
-          delete process.env.WPP_LAB_MODE;
+          if (prevLabModeTest1 === undefined) {
+            delete process.env.WPP_LAB_MODE;
+          } else {
+            process.env.WPP_LAB_MODE = prevLabModeTest1;
+          }
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(result, null, 2));
           return;
@@ -938,13 +955,18 @@ export function startTestServer(port: number = 3004): void {
           };
 
           let pmError: string | null = null;
+          const prevLabModeTest3 = process.env.WPP_LAB_MODE;
           try {
             process.env.WPP_LAB_MODE = '1';
             await pm.handleIncomingMessage(fakeMessage);
-            delete process.env.WPP_LAB_MODE;
           } catch (e: any) {
             pmError = e?.message || String(e);
-            delete process.env.WPP_LAB_MODE;
+          } finally {
+            if (prevLabModeTest3 === undefined) {
+              delete process.env.WPP_LAB_MODE;
+            } else {
+              process.env.WPP_LAB_MODE = prevLabModeTest3;
+            }
           }
           await new Promise(r => setTimeout(r, 2000));
 

@@ -54,17 +54,19 @@ export const menuCommand: ICommand = {
     // Enviar o menu e capturar a mensagem enviada (para reação ancorada)
     const sentMsg: any = await ctx.reply(menu);
     
-    // Auto-reação: reagir na própria resposta recém-enviada
-    if (ctx.client.react) {
+    // Auto-reação: em modo laboratório, reagir com 🤖 na própria resposta
+    // Em produção, NÃO reagir na resposta (evita reação dupla e confusão)
+    const isLabMode = process.env.WPP_LAB_MODE === '1';
+    if (isLabMode && ctx.client.react) {
       try {
         const reactionKey = sentMsg?.raw?.key || sentMsg?.key;
         const reactionId = sentMsg?.id || ctx.msg.id;
         if (reactionKey && reactionId) {
-          logInfo(`[Action] Enviando reação (🤖) para a própria resposta do menu (key: ${reactionKey.id})`);
+          logInfo(`[LabMode] Reação (🤖) na resposta do menu (key: ${reactionKey.id})`);
           await ctx.client.react(reactionId, '🤖', ctx.chatId, reactionKey);
         }
       } catch (e: any) {
-        logWarning(`[Action] Erro ao reagir: ${e?.message}`);
+        logWarning(`[LabMode] Erro ao reagir: ${e?.message}`);
       }
     }
   }

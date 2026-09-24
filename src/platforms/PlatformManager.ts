@@ -213,12 +213,12 @@ export class PlatformManager {
         logInfo(`[Reaction] ${message.platform} não suporta react em ${message.id} (${trigger})`);
         return;
       }
-      // CORREÇÃO 2026-09-17: passar WAMessageKey original (raw.key) para o adapter
       const originalKey = message.raw?.key;
       await adapter.client.react(message.id, '👍', message.chatId, originalKey);
+      // Só loga sucesso se a Promise resolveu sem erro
       logInfo(`[Reaction] Reagiu com 👍 em ${message.id} (${trigger})`);
     } catch (reactErr: any) {
-      logWarning(`[Reaction] erro ao reagir: ${reactErr?.message}`);
+      logWarning(`[Reaction] erro ao reagir em ${message.id}: ${reactErr?.message}`);
     }
   }
   

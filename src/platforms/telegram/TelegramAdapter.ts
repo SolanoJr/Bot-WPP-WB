@@ -575,16 +575,16 @@ class TelegramClient implements PlatformClient {
   onDisconnected(handler: (reason: string) => void): void { this.disconnectedHandler = handler; }
 
   async react(messageId: string, emoji: string, _chatId?: string, _originalKey?: any): Promise<void> {
-    try {
-      const msgId = messageId.split(':').pop();
-      await this.bot.telegram.callApi('setMessageReaction', {
-        chat_id: Number(this.bot.botInfo?.id),
-        message_id: Number(msgId),
-        reaction: [{ type: 'emoji', emoji: emoji as any }],
-      });
-    } catch (e: any) {
-      logError('Telegram.react', e);
+    const msgId = messageId.split(':').pop();
+    const chatId = _chatId?.replace(/^tg:/, '') || '';
+    if (!chatId) {
+      throw new Error('Telegram.react: chat_id não fornecido');
     }
+    await this.bot.telegram.callApi('setMessageReaction', {
+      chat_id: Number(chatId),
+      message_id: Number(msgId),
+      reaction: [{ type: 'emoji', emoji: emoji as any }],
+    });
   }
 
   async shutdown(): Promise<void> {
