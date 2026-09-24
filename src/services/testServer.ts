@@ -11,6 +11,54 @@ const CAPTURE_FILE = path.join(process.cwd(), 'laboratorio', 'captured-messages.
 let totalAttempts = 0;
 let totalSuccess = 0;
 
+/** Procura por contextInfo em qualquer nível de um objeto de mensagem */
+function findContextInfoInMessage(msg: any): any[] {
+  const results: any[] = [];
+  if (!msg || typeof msg !== 'object') return results;
+  for (const key of Object.keys(msg)) {
+    const val = msg[key];
+    if (val && typeof val === 'object' && val.contextInfo !== undefined) {
+      results.push({
+        path: `message.${key}.contextInfo`,
+        stanzaId: val.contextInfo.stanzaId || null,
+        quotedMessage: val.contextInfo.quotedMessage ? 'present' : null,
+        hasQuotedMessage: !!val.contextInfo.quotedMessage,
+        contextInfoKeys: Object.keys(val.contextInfo),
+      });
+    }
+    if (val && typeof val === 'object') {
+      results.push(...findContextInfoInMessage(val));
+    }
+  }
+  return results;
+}
+
+/** Inspeção recursiva completa da mensagem de resposta */
+function inspectMessageRecursively(msg: any, path: string = 'message'): any[] {
+  const results: any[] = [];
+  if (!msg || typeof msg !== 'object') return results;
+
+  if (msg.contextInfo) {
+    results.push({
+      path,
+      stanzaId: msg.contextInfo.stanzaId || null,
+      quotedMessage: msg.contextInfo.quotedMessage ? 'present' : null,
+      hasQuotedMessage: !!msg.contextInfo.quotedMessage,
+      contextInfoKeys: Object.keys(msg.contextInfo),
+      contextInfo: msg.contextInfo,
+    });
+  }
+
+  for (const key of Object.keys(msg)) {
+    if (key === 'contextInfo' || key === 'stanzaId') continue;
+    const val = msg[key];
+    if (val && typeof val === 'object') {
+      results.push(...inspectMessageRecursively(val, `${path}.${key}`));
+    }
+  }
+  return results;
+}
+
 function readCaptures(): Array<Record<string, any>> {
   if (!fs.existsSync(CAPTURE_FILE)) return [];
   try {
@@ -590,7 +638,418 @@ export function startTestServer(port: number = 3004): void {
           };
 
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify(structured, null, 2));
+                    res.end(JSON.stringify(structured, null, 2));
+                    return;
+                  }
+
+                  // ─── Endpoint TESTE 1 ISOLADO — quote direto com WAMessage REAL (sock.sendMessage) ───
+        if (req.url === '/lab/test1/isolated-quote') {
+          const platform = parsedBody.platform || 'whatsapp';
+          const chatId = parsedBody.chatId || '120363410094452673@g.us';
+          const adapter = pm.getAdapter(platform as any);
+          if (!adapter) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Plataforma não encontrada: ${platform}` }));
+            return;
+          }
+          const sock = adapter.connection?.getSock?.() || (adapter as any).sock || null;
+          if (!sock) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Socket não disponível' }));
+            return;
+          }
+
+          process.env.WPP_LAB_MODE = '1';
+
+                    // Registrar listener para capturar messages.upsert para este teste
+                    const capturesFile = path.join(process.cwd(), 'laboratorio', 'test1-capture.jsonl');
+                    try { fs.mkdirSync(path.dirname(capturesFile), { recursive: true }); } catch {}
+                    let quotePass = false;
+                    let quoteStanzaId: string | undefined = undefined;
+                    const sockForCapture = sock;
+                    if (sockForCapture && sockForCapture.ev) {
+                      sockForCapture.ev.on('messages.upsert', (event: any) => {
+                        try {
+                          for (const msg of (event.messages || [])) {
+                            const cinfo = msg?.message?.extendedTextMessage?.contextInfo || msg?.message?.imageMessage?.contextInfo || {};
+                            const stanzaId = cinfo.stanzaId;
+                            if (stanzaId && msg?.key?.fromMe === true) {
+                              // Escreve no JSONL para auditoria
+                              const captureObj = {
+                                type: 'messages.upsert',
+                                timestamp: Date.now(),
+                                msgKey: msg.key,
+                                contextInfo: {
+                                  stanzaId: cinfo.stanzaId || null,
+                                  quotedMessage: cinfo.quotedMessage ? 'present' : 'none',
+                                  participant: cinfo.participant || null,
+                                },
+                              };
+                              try { fs.appendFileSync(capturesFile, JSON.stringify(captureObj) + '\n'); } catch {}
+                              // Verifica se é o quote que estamos procurando
+                              if (sentB && cinfo.stanzaId === sentB.key?.id) {
+                                quotePass = true;
+                                quoteStanzaId = cinfo.stanzaId;
+                              }
+                            }
+                          }
+                        } catch {}
+                      });
+                    }
+
+                    // --- TESTE 1A: SEM QUOTE (controle) ---
+          const markerA = `LAB_NO_QUOTE_${Date.now()}`;
+          let sentA = null;
+          let sentA_error = null;
+          try {
+            sentA = await sock.sendMessage(chatId, { text: markerA });
+          } catch (e: any) {
+            sentA_error = e?.message || String(e);
+          }
+          await new Promise(r => setTimeout(r, 2000));
+
+          // --- TESTE 1B: COM QUOTE USANDO WAMessage REAL ---
+          const markerB = `LAB_QUOTE_ORIGINAL_${Date.now()}`;
+          let sentB = null;
+          let replyB = null;
+          let sentB_error = null;
+          let replyB_error = null;
+          try {
+            sentB = await sock.sendMessage(chatId, { text: markerB });
+            // TESTE 1C: Captura direta do WAMessage original em JSONL (sem depender de logInfo)
+            const laboratorioDir = path.join(process.cwd(), 'laboratorio');
+            if (!fs.existsSync(laboratorioDir)) {
+              fs.mkdirSync(laboratorioDir, { recursive: true });
+            }
+            const captureFile = path.join(laboratorioDir, 'test1-capture.jsonl');
+            // Limpa arquivo antigo para esta execução
+            if (fs.existsSync(captureFile)) {
+              fs.writeFileSync(captureFile, '');
+            }
+            // Registra o WAMessage original COMPLETO
+            const sentBCapture: any = {
+              timestamp: Date.now(),
+              event: 'TESTE_1C_ORIGINAL_WAMESSAGE',
+              source: 'sock.sendMessage(chatId, { text: markerB })',
+              sentB: {
+                key: sentB?.key ? {
+                  id: sentB.key.id,
+                  remoteJid: sentB.key.remoteJid,
+                  fromMe: sentB.key.fromMe,
+                  participant: sentB.key.participant || undefined,
+                  participantAlt: sentB.key.participantAlt || undefined,
+                  addressingMode: sentB.key.addressingMode || undefined,
+                  ...(sentB.key.participantUsername !== undefined && { participantUsername: sentB.key.participantUsername }),
+                } : null,
+                message: sentB?.message ? {
+                  keys: Object.keys(sentB.message),
+                  raw: sentB.message,
+                } : null,
+                messageTimestamp: sentB?.messageTimestamp,
+                participant: sentB?.participant,
+                status: sentB?.status,
+              },
+              // Estrutura de contextInfo dentro do message de sentB
+              sentB_message_contextInfo: sentB?.message ? findContextInfoInMessage(sentB.message) : null,
+            };
+            fs.appendFileSync(captureFile, JSON.stringify(sentBCapture) + '\n');
+
+            await new Promise(r => setTimeout(r, 2000));
+            replyB = await sock.sendMessage(chatId, { text: 'LAB_QUOTE_RESPONSE' }, { quoted: sentB });
+            // TESTE 1D: Captura direta da resposta COMPLETA + inspeção recursiva em JSONL
+            const replyBCapture: any = {
+              timestamp: Date.now(),
+              event: 'TESTE_1D_REPLY_WAMESSAGE',
+              source: 'sock.sendMessage(chatId, { text: LAB_QUOTE_RESPONSE }, { quoted: sentB })',
+              sentB_key_id: sentB?.key?.id,
+              replyB: {
+                key: replyB?.key ? {
+                  id: replyB.key.id,
+                  remoteJid: replyB.key.remoteJid,
+                  fromMe: replyB.key.fromMe,
+                  participant: replyB.key.participant || undefined,
+                  participantAlt: replyB.key.participantAlt || undefined,
+                  addressingMode: replyB.key.addressingMode || undefined,
+                  ...(replyB.key.participantUsername !== undefined && { participantUsername: replyB.key.participantUsername }),
+                } : null,
+                message: replyB?.message ? {
+                  keys: Object.keys(replyB.message),
+                  raw: replyB.message,
+                } : null,
+                messageTimestamp: replyB?.messageTimestamp,
+                participant: replyB?.participant,
+                status: replyB?.status,
+              },
+              // Inspeção recursiva de replyB.message buscando contextInfo/stanzaId/quotedMessage em TODOS os níveis
+              replyB_recursive_inspection: replyB?.message ? inspectMessageRecursively(replyB.message) : null,
+            };
+            fs.appendFileSync(captureFile, JSON.stringify(replyBCapture) + '\\n');
+          } catch (e: any) {
+            if (!sentB) sentB_error = e?.message || String(e);
+            else replyB_error = e?.message || String(e);
+          }
+
+          // Aguarda respostas aparecerem no messages.upsert
+          await new Promise(r => setTimeout(r, 5000));
+
+          // Captura eventos via arquivo — reutiliza as variáveis já declaradas acima (capturesFile, quotePass, quoteStanzaId)
+          let responseId: string | undefined = undefined;
+          let responseFromMe: boolean | undefined = undefined;
+          try {
+            if (fs.existsSync(capturesFile)) {
+              const lines = fs.readFileSync(capturesFile, 'utf8').trim().split('\n').filter(Boolean);
+              for (const line of lines.slice(-20)) {
+                try {
+                  const cap = JSON.parse(line);
+                  if (cap.type === 'messages.upsert' && cap.msgKey && cap.contextInfo?.stanzaId) {
+                    // Verifica se esta resposta cita a mensagem original do TESTE 1B
+                    if (sentB && cap.contextInfo.stanzaId === sentB.key?.id) {
+                      quotePass = true;
+                      quoteStanzaId = cap.contextInfo.stanzaId;
+                    }
+                  }
+                } catch {}
+              }
+            }
+          } catch {}
+
+          const result = {
+            ok: true,
+            test: 'TESTE_1_ISOLADO_QUOTE',
+            platform,
+            chatId,
+            test1a: {
+              marker: `LAB_NO_QUOTE_...`,
+              sendMessage: sentA ? 'OK' : 'FAIL',
+              msgId: sentA?.key?.id || null,
+              error: sentA_error,
+            },
+            test1b: {
+              marker: `LAB_QUOTE_ORIGINAL_...`,
+              sendMessageOriginal: sentB ? 'OK' : 'FAIL',
+              originalMsgId: sentB?.key?.id || null,
+              originalKey: sentB?.key || null,
+              originalMessageKeys: sentB?.message ? Object.keys(sentB?.message || {}) : null,
+              sendMessageReply: replyB ? 'OK' : 'FAIL',
+              replyMsgId: replyB?.key?.id || null,
+              replyError: replyB_error,
+              quotedSent: sentB ? true : false,
+            },
+            quote: {
+              status: quotePass ? 'PASS_QUOTE' : 'FAIL_QUOTE_NOT_PRESENT',
+              expectedStanzaId: sentB?.key?.id || null,
+              receivedStanzaId: quoteStanzaId || null,
+              match: quotePass,
+              note: quotePass ? 'Quote confirmado (response.contextInfo.stanzaId === original.key.id)' : 'Quote NÃO confirmado — resposta não contém stanzaId apontando para original',
+            },
+          };
+
+          delete process.env.WPP_LAB_MODE;
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(result, null, 2));
+          return;
+        }
+
+
+        // (TESTE_2 removido — substituído pelo TESTE_3 que compara diretamente sem hooks)
+
+        // ─── Endpoint de comando de teste (existente) ───
+        // ─── TESTE 3 — COMPARAÇÃO DECISIVA: direto vs PlatformManager ───
+        if (req.url === '/lab/test3/compare-quotes') {
+          const platform = parsedBody.platform || 'whatsapp';
+          const chatId = parsedBody.chatId || '120363410094452673@g.us';
+          const adapter = pm.getAdapter(platform as any);
+          if (!adapter) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Plataforma não encontrada: ${platform}` }));
+            return;
+          }
+          const sock = adapter.connection?.getSock?.() || (adapter as any).sock || null;
+          if (!sock) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Socket não disponível' }));
+            return;
+          }
+
+          const laboratorioDir = path.join(process.cwd(), 'laboratorio');
+          if (!fs.existsSync(laboratorioDir)) fs.mkdirSync(laboratorioDir, { recursive: true });
+          const test3File = path.join(laboratorioDir, 'test3-compare.jsonl');
+          if (fs.existsSync(test3File)) fs.writeFileSync(test3File, '');
+
+          // Coletor de eventos para observar o que o Baileys efetivamente recebe
+          const observedEvents: any[] = [];
+          const collector = (eventName: string) => (ev: any) => {
+            try {
+              for (const msg of (ev.messages || [])) {
+                const cinfo = msg?.message?.extendedTextMessage?.contextInfo
+                  || msg?.message?.imageMessage?.contextInfo
+                  || msg?.message?.videoMessage?.contextInfo
+                  || msg?.message?.documentMessage?.contextInfo
+                  || msg?.message?.audioMessage?.contextInfo
+                  || msg?.message?.stickerMessage?.contextInfo
+                  || (msg?.message?.conversation !== undefined ? { stanzaId: null, inlined: true } : null)
+                  || null;
+                const entry = {
+                  observedAt: Date.now(),
+                  sourceEvent: eventName,
+                  key: msg.key,
+                  messageType: Object.keys(msg.message || {}),
+                  contextInfo: cinfo,
+                };
+                observedEvents.push(entry);
+                fs.appendFileSync(test3File, JSON.stringify(entry) + '\n');
+              }
+            } catch {}
+          };
+          sock.ev.on('messages.upsert', collector('messages.upsert'));
+          sock.ev.on('messages.update', collector('messages.update'));
+
+          // ─── A) CAMINHO DIRETO ───
+          const markerA = `LAB_DIRECT_${Date.now()}`;
+          let sentDirect: any = null;
+          try {
+            sentDirect = await sock.sendMessage(chatId, { text: markerA });
+          } catch (e: any) {}
+          await new Promise(r => setTimeout(r, 1000));
+
+          let replyDirect: any = null;
+          try {
+            replyDirect = await sock.sendMessage(chatId, { text: `LAB_DIRECT_QUOTE_${Date.now()}` }, { quoted: sentDirect });
+          } catch (e: any) {}
+          await new Promise(r => setTimeout(r, 2000));
+
+          // ─── B) CAMINHO PLATFORMMANAGER ───
+          const markerB = `LAB_PM_${Date.now()}`;
+          let sentPM: any = null;
+          try {
+            sentPM = await sock.sendMessage(chatId, { text: markerB });
+          } catch (e: any) {}
+          await new Promise(r => setTimeout(r, 1000));
+
+          // Criar PlatformMessage artificial com raw=sentPM
+          const fakeMessage: any = {
+            id: sentPM?.key?.id,
+            platform: adapter.platform,
+            chatId,
+            userId: chatId,
+            userName: 'LabTest',
+            text: '$ping',
+            timestamp: new Date(),
+            isFromMe: false,
+            forceProcess: true,
+            isCommand: true,
+            hasMedia: false,
+            raw: sentPM,
+          };
+
+          let pmError: string | null = null;
+          try {
+            process.env.WPP_LAB_MODE = '1';
+            await pm.handleIncomingMessage(fakeMessage);
+            delete process.env.WPP_LAB_MODE;
+          } catch (e: any) {
+            pmError = e?.message || String(e);
+            delete process.env.WPP_LAB_MODE;
+          }
+          await new Promise(r => setTimeout(r, 2000));
+
+          // Remover listener
+          sock.ev.removeAllListeners('messages.upsert');
+          sock.ev.removeAllListeners('messages.update');
+
+          // ─── ANÁLISE ───
+          const findReplyTo = (sentKey: any) => {
+            const target = sentKey?.id;
+            if (!target) return null;
+            for (const ev of observedEvents) {
+              if (ev.key?.fromMe && ev.contextInfo?.stanzaId === target) {
+                return ev;
+              }
+            }
+            return null;
+          };
+
+          const directObserved = findReplyTo(sentDirect?.key);
+          const pmObserved = findReplyTo(sentPM?.key);
+
+          const directPass = directObserved?.contextInfo?.stanzaId === sentDirect?.key?.id;
+          const pmPass = pmObserved?.contextInfo?.stanzaId === sentPM?.key?.id;
+
+          // Comparação estrutural
+          let structuralDiff: any = null;
+          if (directObserved?.contextInfo && pmObserved?.contextInfo) {
+            const d = directObserved.contextInfo;
+            const p = pmObserved.contextInfo;
+            structuralDiff = {
+              directHasQuotedMessage: !!d.quotedMessage,
+              pmHasQuotedMessage: !!p.quotedMessage,
+              directQuotedMsgType: d.quotedMessage ? Object.keys(d.quotedMessage)[0] : null,
+              pmQuotedMsgType: p.quotedMessage ? Object.keys(p.quotedMessage)[0] : null,
+              directQuotedText: d.quotedMessage?.extendedTextMessage?.text || d.quotedMessage?.conversation || null,
+              pmQuotedText: p.quotedMessage?.extendedTextMessage?.text || p.quotedMessage?.conversation || null,
+              directParticipant: d.participant,
+              pmParticipant: p.participant,
+              directStanzaIdLen: d.stanzaId?.length,
+              pmStanzaIdLen: p.stanzaId?.length,
+              directStanzaId: d.stanzaId,
+              pmStanzaId: p.stanzaId,
+              sameStanzaIdLength: d.stanzaId?.length === p.stanzaId?.length,
+              sameParticipant: d.participant === p.participant,
+              sameQuotedMsgType: (d.quotedMessage ? Object.keys(d.quotedMessage)[0] : null) === (p.quotedMessage ? Object.keys(p.quotedMessage)[0] : null),
+              sameQuotedText: (d.quotedMessage?.extendedTextMessage?.text || d.quotedMessage?.conversation || null) === (p.quotedMessage?.extendedTextMessage?.text || p.quotedMessage?.conversation || null),
+            };
+          }
+
+          const result = {
+            ok: true,
+            test: 'TESTE_3_COMPARE_QUOTES',
+            platform,
+            chatId,
+            direct: {
+              sentKey: sentDirect?.key?.id || null,
+              observed: directObserved ? {
+                keyId: directObserved.key?.id,
+                stanzaId: directObserved.contextInfo?.stanzaId,
+                quotedMessage: directObserved.contextInfo?.quotedMessage ? 'present' : 'absent',
+                quotedMsgType: directObserved.contextInfo?.quotedMessage ? Object.keys(directObserved.contextInfo.quotedMessage)[0] : null,
+                participant: directObserved.contextInfo?.participant,
+              } : null,
+              result: directPass ? 'PASS' : 'FAIL',
+            },
+            platformManager: {
+              sentKey: sentPM?.key?.id || null,
+              observed: pmObserved ? {
+                keyId: pmObserved.key?.id,
+                stanzaId: pmObserved.contextInfo?.stanzaId,
+                quotedMessage: pmObserved.contextInfo?.quotedMessage ? 'present' : 'absent',
+                quotedMsgType: pmObserved.contextInfo?.quotedMessage ? Object.keys(pmObserved.contextInfo.quotedMessage)[0] : null,
+                participant: pmObserved.contextInfo?.participant,
+              } : null,
+              result: pmPass ? 'PASS' : 'FAIL',
+              error: pmError,
+            },
+            comparison: {
+              directPass,
+              pmPass,
+              bothPass: directPass && pmPass,
+              structurallyEquivalent: structuralDiff
+                ? (structuralDiff.sameStanzaIdLength && structuralDiff.sameParticipant && structuralDiff.sameQuotedMsgType && structuralDiff.sameQuotedText)
+                : null,
+              diffDetails: structuralDiff,
+            },
+            totalObservedEvents: observedEvents.length,
+            allEvents: observedEvents.map(e => ({
+              observedAt: e.observedAt,
+              sourceEvent: e.sourceEvent,
+              keyId: e.key?.id,
+              fromMe: e.key?.fromMe,
+              stanzaId: e.contextInfo?.stanzaId,
+              hasQuotedMessage: !!e.contextInfo?.quotedMessage,
+            })),
+          };
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(result, null, 2));
           return;
         }
 
