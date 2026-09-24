@@ -1,8 +1,39 @@
 # CHANGELOG.md — Linha do Tempo do Projeto Bot-WPP
 
-> **Última atualização**: 2026-09-16 13:45 BRT
-> **Commit**: e2f1336
-> **Data/hora em BRT**: 2026-09-16 13:45 BRT
+> **Última atualização**: 2026-09-24 19:30 BRT
+> **Commit**: 25de193
+> **Data/hora em BRT**: 2026-09-24 19:30 BRT
+
+---
+
+## 2026-09-24 (Correção do Quote/Reply WhatsApp)
+
+| Data/Hora | Evento | Arquivos Alterados | Commit |
+|-----------|--------|-------------------|--------|
+| 2026-09-24 19:30 | **BUG CORRIGIDO**: quote/reply não aparecia como citação no WhatsApp | `src/platforms/whatsapp/baileys/BaileysMessageSender.ts` | 25de193 |
+
+**Problema**: Respostas do bot não apareciam como mensagem citada no WhatsApp — o balão de citação não era renderizado.
+
+**Causa raiz**: O `BaileysMessageSender` passava `quoted` dentro do objeto `content` (2º argumento de `sendMessage`), mas o Baileys v7 espera:
+```ts
+sock.sendMessage(jid, content, options)
+```
+O campo `quoted` deve estar em `options` (3º argumento), não em `content` (2º argumento). Quando em `content`, o Baileys ignorava e enviava a mensagem como texto simples.
+
+**Correção**:
+```ts
+// ANTES (bug):
+const res = await this.sock.sendMessage(toJid(chatId), msgOpts);
+// msgOpts = { text, quoted } — quoted perdido dentro do content
+
+// DEPOIS (correto):
+const { quoted, ...content } = msgOpts;
+const res = await this.sock.sendMessage(toJid(chatId), content, quoted ? { quoted } : undefined);
+```
+
+**Validação**: TESTE 3 do laboratório — Direct PASS + PlatformManager PASS. `contextInfo.stanzaId` corresponde à mensagem original em ambos os caminhos.
+
+**Impacto**: Todos os comandos que usam `ctx.reply()` (como `$ping`, `$menu`, etc.) agora geram citação nativa corretamente no WhatsApp.
 
 ---
 

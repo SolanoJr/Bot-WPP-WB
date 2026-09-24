@@ -2,13 +2,14 @@
 
 Este documento registra bugs críticos encontrados e suas respectivas soluções para evitar reincidência.
 
-## Estado atual (2026-09-09)
+## Estado atual (2026-09-24)
 
+- **CONFIRMADO / P1:** Quote/reply não aparecia como citação no WhatsApp. Causa: `quoted` passado em `content` (2º arg) em vez de `options` (3º arg) em `BaileysMessageSender.ts`. Corregido em 25de193.
 - **CONFIRMADO / P0:** proteções de dono e bot agora usam comparação exata de telefone/LID em `permissions.ts` e também nos três adapters.
 - **CONFIRMADO / P1:** `$mute` usa estado do core, preserva `@lid` e bloqueia dono/bot; há testes unitários de regressão.
 - **CONFIRMADO / P1:** healthcheck lê `healthStore` e `PlatformManager.getActivePlatforms()`/`getAdapter()`; processo PM2 online não equivale a WhatsApp conectado.
 - **CONFIRMADO / P1:** percentuais de memória usam o limite real do heap V8, não o `heapTotal` elástico de curto prazo.
-- **CONFIRMADO / P1:** `npm audit --omit=dev` está sem vulnerabilidades runtime após atualizar transitivas. O npm 10 do Linux ainda reporta 6 vulnerabilidades altas somente em ferramentas de desenvolvimento; não afetam o processo de produção e ficam pendentes de atualização compatível do toolchain.
+- **CONFIRMADO / P1:** `npm audit --omit=dev` está sem vulnerabilidades runtime após atualizar transitivas. O npm 10 do Linux ainda reporta 6 vulnerabilidades altas somente em ferramentas de desenvolvimento; não afetam o processo de produção e ficam pendentes
 - **RESOLVIDO / P1:** produção foi reconciliada com `ecosystem.config.js`: cwd, logs estáveis, `--expose-gc` e banco estão corretos.
 - **PENDENTE / P2:** suíte local ainda requer binding compatível do `sqlite3` com Node 20 ou uma estratégia de dependência nativa multiplataforma.
 - **RESOLVIDO / P2:** com Node `20.20.2` e scripts nativos habilitados, a suíte completa passa `146/146`; Node 24 não é runtime suportado para esta validação.

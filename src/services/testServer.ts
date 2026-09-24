@@ -1094,6 +1094,6 @@ export function startTestServer(port: number = 3004): void {
 
   server.listen(port, '127.0.0.1', () => {
     logInfo(`[TestServer] Servidor de testes iniciado`, { port });
-    logInfo(`[TestServer] endpoints: /test, /lab/find-message, /lab/messages, /lab/delete-message, /lab/adapter, /lab/groups, /lab/stats`);
+    logInfo(`[TestServer] endpoints: /test, /lab/find-message, /lab/messages, /lab/delete-message, /lab/adapter, /lab/groups, /lab/stats, /lab/test1/isolated-quote, /lab/test3/compare-quotes`);
   });
 }

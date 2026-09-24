@@ -100,6 +100,8 @@ export class BaileysMessageSender {
 
     // Reply handling — preservar WAMessageKey original sem reconstrução
     // Baileys v7 exige: msgOpts.quoted = mensagemOriginal.raw (ou pelo menos { key, message })
+    // ⚠️ REGRA CRÍTICA (commit 25de193): quoted deve ser passado como 3º argumento (options), NUNCA dentro do 2º argumento (content).
+    // Se quoted estiver em content, o Baileys ignora e envia mensagem sem citação.
     const quotedRaw = options?.originalRawMessage || options?.quoteMessage?.message;
     logInfo(`[BaileysSender.sendMessage] Reply: quotedRaw=${!!quotedRaw}, replyTo=${options?.replyToMessageId}, originalKey=${options?.originalKey?.id || 'NAO'}`);
     if (quotedRaw || options?.replyToMessageId) {
