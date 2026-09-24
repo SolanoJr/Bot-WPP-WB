@@ -491,6 +491,45 @@ export function startTestServer(port: number = 3004): void {
           const capturesFile = path.join(process.cwd(), 'laboratorio', 'e2e-capture.jsonl');
           try { fs.mkdirSync(path.dirname(capturesFile), { recursive: true }); } catch {}
 
+          // Configura captura persistente do adapter Baileys para eventos upsert
+          const adapterForCapture = pm.getAdapter(platform as any);
+          const sockForCapture = adapterForCapture ? (adapterForCapture.connection?.getSock?.() || adapterForCapture.sock || null) : null;
+          if (sockForCapture && sockForCapture.ev) {
+            // Listener único (não duplicar se já existia) — apenas adiciona se ainda não está registrado
+            // Não removemos o listener anterior para evitar conflitos; adicionamos outro se necessário
+            sockForCapture.ev.on('messages.upsert', (event: any) => {
+              try {
+                for (const msg of (event.messages || [])) {
+                  const captureObj: any = {
+                    type: 'messages.upsert',
+                    timestamp: Date.now(),
+                    msgKey: msg?.key ? {
+                      id: msg?.key?.id,
+                      remoteJid: msg?.key?.remoteJid,
+                      fromMe: msg?.key?.fromMe,
+                      participant: msg?.key?.participant,
+                      participantAlt: msg?.key?.participantAlt,
+                      addressingMode: msg?.key?.addressingMode,
+                    } : null,
+                    messageType: msg?.message ? Object.keys(msg?.message || {})[0] || 'empty' : 'none',
+                    messageContent: msg?.message ? 'present' : 'empty',
+                    // Preserva contexto se existir
+                    contextInfo: msg?.message?.extendedTextMessage?.contextInfo ? {
+                      stanzaId: msg?.message?.extendedTextMessage?.contextInfo?.stanzaId,
+                      quotedMessage: msg?.message?.extendedTextMessage?.contextInfo?.quotedMessage ? 'present' : 'none',
+                      participant: msg?.message?.extendedTextMessage?.contextInfo?.participant,
+                    } : null,
+                  };
+                  const capturesFile = path.join(process.cwd(), 'laboratorio', 'e2e-capture.jsonl');
+                  try {
+                    fs.mkdirSync(path.dirname(capturesFile), { recursive: true });
+                    fs.appendFileSync(capturesFile, JSON.stringify(captureObj) + '\n');
+                  } catch {}
+                }
+              } catch {}
+            });
+          }
+
           process.env.WPP_LAB_MODE = '1';
           const result = await pm.sendMessageAndProcess(platform, chatId, '$menu', true);
           delete process.env.WPP_LAB_MODE;

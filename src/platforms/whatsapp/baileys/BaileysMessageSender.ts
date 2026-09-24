@@ -136,6 +136,26 @@ export class BaileysMessageSender {
       logInfo(`[BaileysSender.sendMessage] Quoted payload construído: keyId=${msgOpts.quoted?.key?.id || 'NAO'}, hasMessage=${!!msgOpts.quoted?.message}`);
     }
 
+    // PROBLEMA 6 — LOG TEMPORÁRIO: mostrar exatamente o que Baileys recebe antes de sendMessage
+    // NÃO ALTERAR — apenas auditoria para distinguir A/B/C/D
+    logInfo(`[AUDIT] BaileysSender.sendMessage — ANTES de sock.sendMessage`);
+    logInfo(`[AUDIT]  msgOpts.text: ${String(msgOpts.text)?.substring(0,30)}`);
+    if (msgOpts.quoted) {
+      logInfo(`[AUDIT]  msgOpts.quoted presente: SIM`);
+      logInfo(`[AUDIT]    quoted.type: ${(msgOpts.quoted as any)?.message ? 'message_object' : 'other'}`);
+      logInfo(`[AUDIT]    quoted.key.id: ${(msgOpts.quoted as any)?.key?.id || 'N/A'}`);
+      logInfo(`[AUDIT]    quoted.key.remoteJid: ${(msgOpts.quoted as any)?.key?.remoteJid || 'N/A'}`);
+      logInfo(`[AUDIT]    quoted.key.fromMe: ${(msgOpts.quoted as any)?.key?.fromMe}`);
+      logInfo(`[AUDIT]    quoted.key.participant: ${(msgOpts.quoted as any)?.key?.participant || 'undefined'}`);
+      logInfo(`[AUDIT]    quoted.key.participantAlt: ${(msgOpts.quoted as any)?.key?.participantAlt || 'undefined'}`);
+      logInfo(`[AUDIT]    quoted.key.addressingMode: ${(msgOpts.quoted as any)?.key?.addressingMode || 'undefined'}`);
+      logInfo(`[AUDIT]    quoted.message present: ${!!(msgOpts.quoted as any)?.message}`);
+      logInfo(`[AUDIT]    quoted.message keys: ${(msgOpts.quoted as any)?.message ? Object.keys((msgOpts.quoted as any)?.message || {}).join(',') : 'N/A'}`);
+      logInfo(`[AUDIT]    msgOpts.quoted === originalRawMessage: ${(msgOpts.quoted === options?.originalRawMessage || msgOpts.quoted === (options?.originalRawMessage || null))}`);
+    } else {
+      logInfo(`[AUDIT]  msgOpts.quoted: NAO PRESENTE (envio sem quote)`);
+    }
+
     const res = await this.sock.sendMessage(toJid(chatId), msgOpts);
     return {
       id: `${this.platform}:${res.key.id}`,
