@@ -322,6 +322,11 @@ class TelegramClient implements PlatformClient {
       if (tg?.text) textParts2.push(tg.text);
       const autoModText2 = textParts2.join(' ').trim();
 
+      // Construir senderJid no formato esperado pelo autoModEngine (com @ para ser reconhecido como JID)
+      // O evaluate usa senderJid.includes('@') e senderJid.replace(/.*/, '') — precisamos de formato compatível
+      const senderJidTelegram = tg?.from?.is_bot
+        ? `bot:${tg?.from?.id}`
+        : `user:${tg?.from?.id}`;
       const autoModResult2 = await evaluate(
         { key: { id: tg?.message_id ?? 0 }, message: {} } as any,
         {
@@ -357,7 +362,7 @@ class TelegramClient implements PlatformClient {
           error: (msg: string, ...args: any[]) => logError('[Telegram][AutoMod]', msg, ...args),
         },
         `tg:${tg?.chat?.id ?? 0}`,
-        `tg:${tg?.from?.id ?? 0}`,
+        senderJidTelegram,
         tg?.from?.first_name ?? 'unknown',
       );
       logInfo(`[Telegram][AutoMod] avaliação: atuou=${autoModResult2.acted}, motivo=${autoModResult2.reason}, ação=${autoModResult2.action}`);
@@ -366,6 +371,16 @@ class TelegramClient implements PlatformClient {
         const platformMsg = this.normalizeMessage(ctx);
         await this.messageHandler(platformMsg);
       }
+    });
+
+    // ─── Handler de disconnect do socket Telegram ─────────────────────────
+    // O Telegraf emite 'telegramError' quando o socket sofre falha de conexão.
+    // Usamos isso para detectar desconexão e iniciar reconexão automática.
+    this.bot.on('telegramError', (err: any) => {
+      logWarning(`[Telegram] ⚠️ Erro de conexão: ${err?.message || err}`);
+      this.isReady = false;
+      if (this.disconnectedHandler) this.disconnectedHandler(err?.message || String(err));
+      this.scheduleReconnect();
     });
 
     this.bot.catch?.((err: any) => {

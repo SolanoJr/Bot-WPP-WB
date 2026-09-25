@@ -124,13 +124,22 @@ export function getCommand(name: string): ICommand | undefined {
 // Exportar loadCommands para compatibilidade com PlatformManager
 export function loadCommands(): Map<string, ICommand> {
   const commandsMap = new Map<string, ICommand>();
+  const seenCommands = new Set<ICommand>();
   for (const [name, command] of Object.entries(commands)) {
+    // Evitar registrar aliases duplicados (piada→jokes, votar→vote, delvoto→delVote, etc.)
+    if (seenCommands.has(command)) {
+      continue;
+    }
+    seenCommands.add(command);
     commandsMap.set(name, command);
   }
-  // Adicionar screen command
-  commandsMap.set('screen', screenCommand);
-  commandsMap.set('screenshare', screenCommand);
-  commandsMap.set('share', screenCommand);
+  // Adicionar screen command (apenas uma vez, mesmo sendo alias)
+  if (!seenCommands.has(screenCommand)) {
+    seenCommands.add(screenCommand);
+    commandsMap.set('screen', screenCommand);
+    commandsMap.set('screenshare', screenCommand);
+    commandsMap.set('share', screenCommand);
+  }
   return commandsMap;
 }
 

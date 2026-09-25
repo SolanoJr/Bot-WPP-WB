@@ -242,6 +242,10 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
     return h;
   }
 
+  onSocketDisconnect(handler: (reason: string) => void): void {
+    this.connection.onSocketDisconnect(handler);
+  }
+
   async notifyOwner(text: string): Promise<void> {
     const ownerId = getOwnerNotifyTarget();
     if (!ownerId) {

@@ -22,11 +22,22 @@ class DiscordClient implements PlatformClient {
   private client: Client;
   public userId: string = '';
   public userName: string = '';
+
+  getUserId(): string {
+    return this.userId;
+  }
+
+  getUserName(): string {
+    return this.userName;
+  }
+
   public isReady: boolean = false;
 
   private messageHandler: MessageHandler | null = null;
   private readyHandler: (() => void) | null = null;
   private disconnectedHandler: ((reason: string) => void) | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectAttempts = 0;
 
   private token: string;
 
@@ -178,6 +189,13 @@ class DiscordClient implements PlatformClient {
       logError('[DiscordAdapter] Erro:', err);
       this.isReady = false;
       if (this.disconnectedHandler) this.disconnectedHandler(err.message);
+    });
+
+    this.client.on('disconnect', (event: any) => {
+      logWarning(`[DiscordAdapter] ⚠️ Discord desconectado: ${event?.code || event?.reason || 'desconhecido'}`);
+      this.isReady = false;
+      if (this.disconnectedHandler) this.disconnectedHandler(event?.code || event?.reason || 'desconectado');
+      this.client.scheduleReconnect();
     });
   }
 
@@ -385,7 +403,83 @@ class DiscordClient implements PlatformClient {
     this.disconnectedHandler = handler;
   }
 
+  // Métodos opcionais do PlatformClient (não aplicáveis ao Discord)
+  async getNumberId(_phone: string): Promise<string> {
+    return '';
+  }
+
+  async getContactById(_id: string): Promise<any> {
+    return null;
+  }
+
+  // Métodos não aplicáveis ao Discord — stubs para compatibilidade com PlatformManager
+  onSocketDisconnect(_handler: (reason: string) => void): void {
+    // não aplicável
+  }
+
+  onCredsUpdate(_handler: () => void): void {
+    // não aplicável
+  }
+
+  getHealth(): WppHealth {
+    return {
+      platform: 'discord',
+      isConnected: this.isReady,
+      isConnectedRaw: this.isReady ? 1 : 0,
+    };
+  }
+
+  onMessagesUpsert(_handler: (messages: any[]) => void): void {
+    // não aplicável
+  }
+
+  onMessagesDelete(_handler: (keys: any[]) => void): void {
+    // não aplicável
+  }
+
+  onMessagesDeleteAll(_handler: (jid: string, all: boolean) => void): void {
+    // não aplicável
+  }
+
+  onMessagesUpdate(_handler: (updates: any[]) => void): void {
+    // não aplicável
+  }
+
+  private shuttingDown = false;
+
+  private scheduleReconnect(): void {
+    if (this.reconnecting || this.reconnectTimer) return;
+    const delayMs = Math.min(300000, 5000 * 2 ** Math.min(this.reconnectAttempts, 6));
+    this.reconnectAttempts += 1;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.reconnect().catch(() => undefined);
+    }, delayMs);
+    logWarning(`[DiscordAdapter] Reconexão agendada em ${Math.round(delayMs / 1000)}s (tentativa ${this.reconnectAttempts})`);
+  }
+
+  private reconnecting = false;
+
+  async reconnect(): Promise<void> {
+    if (this.reconnecting || this.shuttingDown) return;
+    this.reconnecting = true;
+    try {
+      await this.client.login();
+      logInfo(`[DiscordAdapter] ✅ Reconectado com sucesso (tentativa ${this.reconnectAttempts})`);
+      this.reconnectAttempts = 0;
+      this.reconnecting = false;
+      if (this.readyHandler) this.readyHandler();
+    } catch (err: any) {
+      logError(`[DiscordAdapter] ❌ Falha na reconexão (tentativa ${this.reconnectAttempts}):`, err?.message);
+      this.reconnecting = false;
+      this.scheduleReconnect();
+    }
+  }
+
   async shutdown(): Promise<void> {
+    this.shuttingDown = true;
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
     await this.client.destroy();
     this.isReady = false;
   }
@@ -580,10 +674,119 @@ export class DiscordAdapter implements PlatformAdapter {
   }
 
   async initialize(): Promise<void> {
-    await (this.client as DiscordClient).login();
+    await this.client.login();
+    if (!this.client.isReady) {
+      await new Promise<void>((resolve) => {
+        const check = () => {
+          if (this.client.isReady) { resolve(); return; }
+          this.client.once('clientReady', resolve);
+        };
+        check();
+        setTimeout(resolve, 15000);
+      });
+    }
+  }
+
+  // ─── Métodos públicos do PlatformClient ────────────────────────────────────
+
+  getUserId(): string {
+    return this.client.getUserId();
+  }
+
+  getUserName(): string {
+    return this.client.getUserName();
   }
 
   async shutdown(): Promise<void> {
     await this.client.shutdown();
   }
+
+  async reconnect(): Promise<void> {
+    await this.client.reconnect();
+  }
+
+  private scheduleReconnect(): void {
+    this.client.scheduleReconnect();
+  }
+
+  getChats(): any[] {
+    return this.client.getChats();
+  }
+
+  async getChat(chatId: string): Promise<any> {
+    return this.client.getChat(chatId);
+  }
+
+  async getUser(userId: string): Promise<any> {
+    return this.client.getUser(userId);
+  }
+
+  async getNumberId(phone: string): Promise<string> {
+    return this.client.getNumberId(phone);
+  }
+
+  async getContactById(id: string): Promise<any> {
+    return this.client.getContactById(id);
+  }
+
+  async removeParticipant(chatId: string, userId: string): Promise<void> {
+    return this.client.removeParticipant(chatId, userId);
+  }
+
+  async banParticipant(chatId: string, userId: string): Promise<void> {
+    return this.client.banParticipant(chatId, userId);
+  }
+
+  async deleteMessage(chatId: string, messageId: string, fromMe?: boolean, participant?: string): Promise<void> {
+    return this.client.deleteMessage(chatId, messageId, fromMe, participant);
+  }
+
+  async sendMedia(chatId: string, media: DiscordMedia, caption?: string): Promise<PlatformMessage> {
+    return this.client.sendMedia(chatId, media, caption);
+  }
+
+  async react(messageId: string, emoji: string, _chatId?: string, _originalKey?: any): Promise<void> {
+    return this.client.react(messageId, emoji, _chatId, _originalKey);
+  }
+
+  onSocketDisconnect(handler: (reason: string) => void): void {
+    this.client.onSocketDisconnect(handler);
+  }
+
+  onCredsUpdate(handler: () => void): void {
+    this.client.onCredsUpdate(handler);
+  }
+
+  getHealth(): WppHealth {
+    return this.client.getHealth();
+  }
+
+  setOnReady(handler: () => void): void {
+    this.client.onReady(handler);
+  }
+
+  setOnMessage(handler: (msg: PlatformMessage) => void): void {
+    this.client.onMessage(handler);
+  }
+
+  setOnDisconnected(handler: (reason: string) => void): void {
+    this.client.onDisconnected(handler);
+  }
+
+  onMessagesUpsert(handler: (messages: any[]) => void): void {
+    this.client.onMessagesUpsert(handler);
+  }
+
+  onMessagesDelete(handler: (keys: any[]) => void): void {
+    this.client.onMessagesDelete(handler);
+  }
+
+  onMessagesDeleteAll(handler: (jid: string, all: boolean) => void): void {
+    this.client.onMessagesDeleteAll(handler);
+  }
+
+  onMessagesUpdate(handler: (updates: any[]) => void): void {
+    this.client.onMessagesUpdate(handler);
+  }
+
 }
