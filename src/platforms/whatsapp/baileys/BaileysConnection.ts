@@ -428,6 +428,11 @@ export class BaileysConnection {
    */
   async waitForReady(timeoutMs: number = 30000): Promise<boolean> {
     if (!this.sock) return false;
+    // Verificar estado atual primeiro — se já estiver 'open', não esperar
+    const currentState = this.sock?.connectionState;
+    if (currentState?.connection === 'open') {
+      return true;
+    }
     try {
       await this.sock.waitForConnectionUpdate(
         (state) => state.connection === 'open',
