@@ -39,13 +39,25 @@ export class BaileysMessageSender {
   }
 
   setSock(sock: any): void {
-    this.sock = sock;
-  }
+      this.sock = sock;
+    }
 
-  async sendMessage(chatId: string, text: string, options?: any): Promise<any> {
-    if (!this.sock) throw new Error('Baileys não conectado');
-    const jid = toJid(chatId);
-    const msgOpts: any = { text };
+    /** Verifica se o socket está efetivamente conectado (WebSocket OPEN). */
+    private isSocketReady(): boolean {
+      if (!this.sock) return false;
+      const ws = this.sock.ws;
+      if (!ws) return false;
+      // WebSocket.OPEN = 1
+      return ws.readyState === 1;
+    }
+
+    async sendMessage(chatId: string, text: string, options?: any): Promise<any> {
+      if (!this.sock) throw new Error('Baileys não conectado');
+      if (!this.isSocketReady()) {
+        logWarning('[BaileysSender] sendMessage: socket existe mas NÃO está pronto (readyState !== OPEN)');
+      }
+      const jid = toJid(chatId);
+      const msgOpts: any = { text };
 
     // ─── Delete message support ───
     // Preserve the COMPLETE WAMessageKey — do NOT reconstruct a truncated key.
@@ -191,46 +203,50 @@ export class BaileysMessageSender {
   }
 
   async react(messageId: string, emoji: string, chatId?: string, originalKey?: any): Promise<void> {
-    if (!this.sock) return;
-    try {
-      // CORREÇÃO 2026-09-17: Usar WAMessageKey original se disponível (sem reconstrução)
-      if (originalKey && originalKey.id) {
-        logInfo(`[Baileys.react] Usando WAMessageKey original`, {
-          id: originalKey.id,
-          remoteJid: originalKey.remoteJid,
-          fromMe: originalKey.fromMe,
-          participant: originalKey.participant
-        });
-        await this.sock.sendMessage(originalKey.remoteJid, {
+      if (!this.sock) return;
+      if (!this.isSocketReady()) {
+        logWarning('[BaileysSender] react: socket existe mas NÃO está pronto (readyState !== OPEN)');
+      }
+      try {
+        // CORREÇÃO: Usar WAMessageKey original se disponível — participant vem do remetente real,
+        // NÃO derivado do JID do grupo (extractLidFromGroupJid estava incorreto).
+        if (originalKey && originalKey.id) {
+          logInfo(`[Baileys.react] Usando WAMessageKey original`, {
+            id: originalKey.id,
+            remoteJid: originalKey.remoteJid,
+            fromMe: originalKey.fromMe,
+            participant: originalKey.participant,
+          });
+          await this.sock.sendMessage(originalKey.remoteJid, {
+            react: {
+              text: emoji,
+              key: {
+                id: originalKey.id,
+                remoteJid: originalKey.remoteJid,
+                fromMe: originalKey.fromMe,
+                participant: originalKey.participant, // ← remetente real da mensagem
+              },
+            },
+          });
+          logInfo(`[Baileys.react] ✅ Reação enviada com sucesso`);
+          return;
+        }
+
+        // Fallback: reconstruir (sem participant — pode falhar em grupos)
+        const parts = messageId.split(':');
+        const msgId = parts[parts.length - 1];
+        const remoteJid = chatId || '';
+
+        logInfo(`[Baileys.react] Fallback: reconstruindo chave (sem participant)`);
+        await this.sock.sendMessage(remoteJid, {
           react: {
             text: emoji,
-            key: {
-              id: originalKey.id,
-              remoteJid: originalKey.remoteJid,
-              fromMe: originalKey.fromMe,
-              participant: originalKey.participant
-            }
-          }
+            key: { id: msgId, remoteJid, fromMe: true, participant: undefined },
+          },
         });
-        logInfo(`[Baileys.react] ✅ Reação enviada com sucesso`);
-        return;
+      } catch (err: any) {
+        logError('[Baileys.react] erro', err);
+        throw err;
       }
-      
-      // Fallback: reconstruir (pode falhar com prefixos)
-      const parts = messageId.split(':');
-      const msgId = parts[parts.length - 1];
-      const remoteJid = chatId || '';
-      
-      logInfo(`[Baileys.react] Fallback: reconstruindo chave`);
-      await this.sock.sendMessage(remoteJid, {
-        react: {
-          text: emoji,
-          key: { id: msgId, remoteJid, fromMe: true, participant: undefined }
-        }
-      });
-    } catch (err: any) {
-      logError('[Baileys.react] erro', err);
-      throw err;
     }
   }
-}

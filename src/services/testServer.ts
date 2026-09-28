@@ -71,6 +71,31 @@ function readCaptures(): Array<Record<string, any>> {
 }
 
 /**
+ * Executa uma função com WPP_LAB_MODE ativado ('1'), garantindo
+ * restauração do valor anterior em try/finally — mesmo se a função
+ * lançar exceção. Previne vazamento de LAB_MODE para produção.
+ *
+ * Uso:
+ *   await withLabMode(async () => {
+ *     const result = await pm.sendMessageAndProcess(...);
+ *     return result;
+ *   });
+ */
+export async function withLabMode<T>(fn: () => Promise<T>): Promise<T> {
+  const previous = process.env.WPP_LAB_MODE;
+  process.env.WPP_LAB_MODE = '1';
+  try {
+    return await fn();
+  } finally {
+    if (previous === undefined) {
+      delete process.env.WPP_LAB_MODE;
+    } else {
+      process.env.WPP_LAB_MODE = previous;
+    }
+  }
+}
+
+/**
  * Servidor de testes HTTP na porta 3004.
  * Permite injetar comandos diretamente no bot via POST /test
  *
@@ -578,16 +603,10 @@ export function startTestServer(port: number = 3004): void {
             });
           }
 
-          // Save previous lab mode value for restore
-          const prevLabMode = process.env.WPP_LAB_MODE;
-          process.env.WPP_LAB_MODE = '1';
-          const result = await pm.sendMessageAndProcess(platform, chatId, '$menu', true);
-          // Restore previous lab mode value
-          if (prevLabMode === undefined) {
-            delete process.env.WPP_LAB_MODE;
-          } else {
-            process.env.WPP_LAB_MODE = prevLabMode;
-          }
+          // Use withLabMode para garantir restauração do LAB_MODE mesmo em caso de erro
+          const result = await withLabMode(async () => {
+            return await pm.sendMessageAndProcess(platform, chatId, '$menu', true);
+          });
 
           // Aguarda brevemente e lê capturas
           await new Promise(r => setTimeout(r, 2000));
@@ -666,8 +685,10 @@ export function startTestServer(port: number = 3004): void {
             return;
           }
 
-          const prevLabModeTest1 = process.env.WPP_LAB_MODE;
-          process.env.WPP_LAB_MODE = '1';
+          // Use withLabMode para garantir restauração do LAB_MODE mesmo em caso de erro
+          const result = await withLabMode(async () => {
+            return await pm.sendMessageAndProcess(platform, chatId, '$menu', true);
+          });
 
                     // Registrar listener para capturar messages.upsert para este teste
                     const capturesFile = path.join(process.cwd(), 'laboratorio', 'test1-capture.jsonl');
@@ -821,7 +842,7 @@ export function startTestServer(port: number = 3004): void {
             }
           } catch {}
 
-          const result = {
+          const testResult = {
             ok: true,
             test: 'TESTE_1_ISOLADO_QUOTE',
             platform,
@@ -852,13 +873,8 @@ export function startTestServer(port: number = 3004): void {
             },
           };
 
-          if (prevLabModeTest1 === undefined) {
-            delete process.env.WPP_LAB_MODE;
-          } else {
-            process.env.WPP_LAB_MODE = prevLabModeTest1;
-          }
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify(result, null, 2));
+          res.end(JSON.stringify(testResult, null, 2));
           return;
         }
 

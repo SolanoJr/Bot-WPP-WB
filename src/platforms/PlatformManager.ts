@@ -120,13 +120,13 @@ export class PlatformManager {
       this.lastChatByPlatform.set(adapter.platform, message.chatId);
 
       // ─── Detecção de mensagem própria (loop prevention) ───
-      // Mensagens do próprio bot NUNCA devem ser reprocessadas
-      // EXCETO em modo laboratório (WPP_LAB_MODE=1) para testes
-      const isLabMode = process.env.WPP_LAB_MODE === '1';
-      if (message.isFromMe && !message.forceProcess && !isLabMode) {
-        logInfo(`[PM] SKIP mensagem própria: ${message.id} (${message.platform})`);
-        return;
-      }
+        // Mensagens do próprio bot NUNCA devem ser reprocessadas
+        // EXCETO em modo laboratório (WPP_LAB_MODE=1) para testes
+        const isLabMode = process.env.WPP_LAB_MODE === '1';
+        if (message.isFromMe && !isLabMode) {
+          logInfo(`[PM] SKIP mensagem própria: ${message.id} (${message.platform})`);
+          return;
+        }
 
       // ─── Detectar tipo de gatilho ───
       // Preencher isCommand/commandName ANTES de detectar o gatilho
@@ -638,13 +638,13 @@ export class PlatformManager {
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     logInfo(`[sendMessageAndProcess] Enviando "${text}" para ${chatId} via ${adapter.platform}`);
     let sentMessage: any;
-    let sentMessageId: string | undefined;
+    let sentMessageId: string = `sent-${Date.now()}`;
     try {
       sentMessage = await adapter.client.sendMessage(chatId, text);
-      sentMessageId = sentMessage?.id || sentMessage?.key?.id || `sent-${Date.now()}`;
+      sentMessageId = sentMessage?.id || sentMessage?.raw?.key?.id || `sent-${Date.now()}`;
       logInfo(`[sendMessageAndProcess] Mensagem enviada com sucesso (id: ${sentMessageId})`);
     } catch (err: any) {
-      logError(`[sendMessageAndProcess] Erro ao enviar: ${err?.message || err}`);
+      logError(`[sendMessageAndProcess]`, err);
       throw err;
     }
 
@@ -695,7 +695,7 @@ export class PlatformManager {
             command: commandName,
           };
         } catch (err: any) {
-          logError(`[sendMessageAndProcess] Erro ao executar comando: ${err?.message}`);
+          logError(`[sendMessageAndProcess]`, err);
           return {
             success: true,
             sent: text,
@@ -711,10 +711,10 @@ export class PlatformManager {
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // ETAPA 5: Reagir com 👍 na mensagem original (feedback visual)
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    if (text.startsWith('$') && sentMessage?.key) {
+    if (text.startsWith('$') && sentMessage?.raw?.key) {
       try {
         if (typeof adapter.client.react === 'function') {
-          await adapter.client.react(sentMessageId, '👍', chatId);
+          await adapter.client.react(sentMessageId, '👍', chatId, sentMessage.raw?.key);
           logInfo(`[sendMessageAndProcess] Reagiu com 👍 em ${sentMessageId}`);
         }
       } catch (reactErr: any) {

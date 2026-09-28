@@ -421,4 +421,22 @@ export class BaileysConnection {
   getSockSafe(): any {
     return this.sock;
   }
+
+  /**
+   * Aguarda a conexão ficar pronta (state 'open').
+   * Útil após reconexão para garantir que o socket está operacional antes de usar.
+   */
+  async waitForReady(timeoutMs: number = 30000): Promise<boolean> {
+    if (!this.sock) return false;
+    try {
+      await this.sock.waitForConnectionUpdate(
+        (state) => state.connection === 'open',
+        timeoutMs
+      );
+      return true;
+    } catch (e: any) {
+      logWarning(`[BaileysConnection] waitForReady timeout ou erro: ${e?.message}`);
+      return false;
+    }
+  }
 }

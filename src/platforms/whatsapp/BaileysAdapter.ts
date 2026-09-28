@@ -59,7 +59,8 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
   private readyHandler: (() => void) | null = null;
   private disconnectedHandler: ((reason: string) => void) | null = null;
   private reconnectAttempts = 0;
-  private readonly maxReconnectDelay = 60000;
+    private reconnectInProgress = false;
+    private readonly maxReconnectDelay = 60000;
 
   constructor(opts: { authDir?: string; platform?: string } = {}) {
     this.authDir = opts.authDir
@@ -296,36 +297,46 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
   }
 
   private handleOpen(): void {
-    this.isReady = true;
-    this.reconnectAttempts = 0; // reseta backoff ao conectar
-    this.userId = this.connection.getUserId();
-    this.userName = this.connection.getUserName();
-    logInfo(`[Baileys] ✅ Conectado como ${this.userName} (${this.userId})`);
+      this.isReady = true;
+      this.reconnectAttempts = 0; // reseta backoff ao conectar
+      this.userId = this.connection.getUserId();
+      this.userName = this.connection.getUserName();
+      logInfo(`[Baileys] ✅ Conectado como ${this.userName} (${this.userId})`);
 
-    this.notifyOwner(`✅ *WPP reconectado* (Baileys) como ${this.userName}. Bot operante.`).catch(() => {});
+      this.notifyOwner(`✅ *WPP reconectado* (Baileys) como ${this.userName}. Bot operante.`).catch(() => {});
 
-    this.getHealth();
-    this.readyHandler?.();
+      this.getHealth();
+      this.readyHandler?.();
 
-    if (process.env.WPP_AUTOSELFTEST === '1') {
-      const alvoTeste = process.env.WPP_TEST_GROUP_ID || '';
-      if (alvoTeste) {
-        import('../../../laboratorio/selftest.js').then((mod) => {
-          setTimeout(() => mod.runSelfTestMod(this as any, alvoTeste).catch(() => {}), 6000);
-        }).catch(() => {});
+      // Sincronizar submódulos com o socket recém-aberto (robustez adicional)
+      // Isso cobre o caso onde connect() resolve antes de 'connection.update: open' ser emitido
+      this.syncSubmodulesWithNewSocket().catch(() => {});
+
+      if (process.env.WPP_AUTOSELFTEST === '1') {
+        const alvoTeste = process.env.WPP_TEST_GROUP_ID || '';
+        if (alvoTeste) {
+          import('../../../laboratorio/selftest.js').then((mod) => {
+            setTimeout(() => mod.runSelfTestMod(this as any, alvoTeste).catch(() => {}), 6000);
+          }).catch(() => {});
+        }
       }
+
+      // Update health module
+      this.health.setReady(true);
+      this.health.setQrPending(false);
+      this.health.setUserInfo(this.userId, this.userName);
     }
 
-    // Update health module
-    this.health.setReady(true);
-    this.health.setQrPending(false);
-    this.health.setUserInfo(this.userId, this.userName);
-  }
-
-  private handleClose(reason: string, statusCode?: number): void {
+private handleClose(reason: string, statusCode?: number): void {
     this.isReady = false;
     this.getHealth();
     this.disconnectedHandler?.(reason);
+
+    // Evita reconnect concorrente: se já há um em progresso, ignora
+    if (this.reconnectInProgress) {
+      logWarning('[BaileysAdapter] 🔄 Reconecte concorrente ignorado (já há um em progresso)');
+      return;
+    }
 
     if (statusCode === 401) {
       logInfo('[BaileysAdapter] 🚪 Logout (401) — mantendo credenciais para reconexão');
@@ -333,7 +344,13 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
       this.reconnectAttempts = 0; // Reset backoff
       setTimeout(() => {
         logInfo('[BaileysAdapter] 🔄 Reconectando...');
-        this.connection.connect();
+        this.reconnectInProgress = true;
+        this.connection.connect().then(() => {
+          this.reconnectInProgress = false;
+          this.syncSubmodulesWithNewSocket();
+        }).catch(() => {
+          this.reconnectInProgress = false;
+        });
       }, 5000);
       return;
     }
@@ -344,7 +361,45 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
     const delay = Math.min(baseDelay * Math.pow(2, this.reconnectAttempts - 1), this.maxReconnectDelay);
 
     logInfo(`[BaileysAdapter] 🔄 ${reason} — reconectando em ${delay}ms (tentativa ${this.reconnectAttempts})...`);
-    setTimeout(() => this.connection.connect(), delay);
+    setTimeout(() => {
+      this.reconnectInProgress = true;
+      this.connection.connect().then(() => {
+        this.reconnectInProgress = false;
+        this.syncSubmodulesWithNewSocket();
+      }).catch(() => {
+        this.reconnectInProgress = false;
+      });
+    }, delay);
+  }
+
+  /**
+   * Atualiza todos os submódulos com o novo socket após reconexão.
+   * CORREÇÃO: Sem isso, o sender/normalizer/chatManager continuam usando o socket antigo (fechado),
+   * causando "Connection Closed" em operações de saída enquanto entrada ainda funciona.
+   */
+  private async syncSubmodulesWithNewSocket(): Promise<void> {
+    const sock = this.connection.getSock();
+    if (!sock) {
+      logWarning('[BaileysAdapter] syncSubmodulesWithNewSocket: socket ainda nulo após connect()');
+      return;
+    }
+    // Aguarda a conexão ficar pronta (state 'open') antes de atualizar os submódulos
+    const ready = await this.connection.waitForReady(30000);
+    if (!ready) {
+      logError('[BaileysAdapter]', new Error('waitForReady falhou — socket não ficou pronto a tempo'));
+      return;
+    }
+    const newSock = this.connection.getSock();
+    if (!newSock) {
+      logWarning('[BaileysAdapter] syncSubmodulesWithNewSocket: socket ficou nulo após waitForReady');
+      return;
+    }
+    this.normalizer?.setSock(newSock);
+    this.sender?.setSock(newSock);
+    this.chatManager?.setSock(newSock);
+    this.memberManager?.setSock(newSock);
+    this.health?.setSock(newSock);
+    logInfo('[BaileysAdapter] ✅ Submódulos sincronizados com novo socket após reconexão (ready=true)');
   }
 
   private handleCredsUpdate(): void {
