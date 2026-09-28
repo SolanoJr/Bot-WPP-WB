@@ -378,18 +378,22 @@ private handleClose(reason: string, statusCode?: number): void {
    * causando "Connection Closed" em operações de saída enquanto entrada ainda funciona.
    */
   private async syncSubmodulesWithNewSocket(): Promise<void> {
+    logInfo('[BaileysAdapter] syncSubmodulesWithNewSocket: iniciando');
     const sock = this.connection.getSock();
+    logInfo('[BaileysAdapter] syncSubmodulesWithNewSocket: sock=', sock ? { exists: true } : { exists: false });
     if (!sock) {
       logWarning('[BaileysAdapter] syncSubmodulesWithNewSocket: socket ainda nulo após connect()');
       return;
     }
     // Aguarda a conexão ficar pronta (state 'open') antes de atualizar os submódulos
     const ready = await this.connection.waitForReady(30000);
+    logInfo(`[BaileysAdapter] syncSubmodulesWithNewSocket: waitForReady=${ready}`);
     if (!ready) {
       logError('[BaileysAdapter]', new Error('waitForReady falhou — socket não ficou pronto a tempo'));
       return;
     }
     const newSock = this.connection.getSock();
+    logInfo('[BaileysAdapter] syncSubmodulesWithNewSocket: newSock=', newSock ? { exists: true } : { exists: false });
     if (!newSock) {
       logWarning('[BaileysAdapter] syncSubmodulesWithNewSocket: socket ficou nulo após waitForReady');
       return;

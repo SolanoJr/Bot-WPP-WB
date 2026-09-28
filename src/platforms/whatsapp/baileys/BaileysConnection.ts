@@ -427,14 +427,19 @@ export class BaileysConnection {
    * Útil após reconexão para garantir que o socket está operacional antes de usar.
    */
   async waitForReady(timeoutMs: number = 30000): Promise<boolean> {
-    if (!this.sock) return false;
+    if (!this.sock) {
+      logWarning('[BaileysConnection] waitForReady: sock nulo');
+      return false;
+    }
     // Verificar estado atual primeiro — se já estiver 'open', não esperar
     const currentState = this.sock?.connectionState;
+    logInfo('[BaileysConnection] waitForReady: connectionState=', currentState);
     if (currentState?.connection === 'open') {
       return true;
     }
     // Fallback: verificar WebSocket diretamente
     const ws = this.sock?.ws;
+    logInfo('[BaileysConnection] waitForReady: ws=', ws ? { readyState: ws.readyState } : null);
     if (ws && ws.readyState === 1) { // WebSocket.OPEN
       return true;
     }
