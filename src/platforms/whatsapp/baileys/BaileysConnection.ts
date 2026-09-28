@@ -433,6 +433,11 @@ export class BaileysConnection {
     if (currentState?.connection === 'open') {
       return true;
     }
+    // Fallback: verificar WebSocket diretamente
+    const ws = this.sock?.ws;
+    if (ws && ws.readyState === 1) { // WebSocket.OPEN
+      return true;
+    }
     try {
       await this.sock.waitForConnectionUpdate(
         (state) => state.connection === 'open',
