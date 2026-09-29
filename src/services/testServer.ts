@@ -1086,6 +1086,43 @@ export function startTestServer(port: number = 3004): void {
           return;
         }
 
+        // ─── Endpoint de desconexão controlada (para teste de reconnect) ───
+        if (req.url === '/lab/disconnect-socket') {
+          const { platform } = parsedBody;
+          if (!platform) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Missing platform' }));
+            return;
+          }
+          const { adapter, sock } = getAdapterAndSock(platform);
+          if (!adapter) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Plataforma não encontrada: ${platform}` }));
+            return;
+          }
+          if (!sock) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Socket não disponível' }));
+            return;
+          }
+          logInfo(`[TestServer] 🔌 Desconexão controlada do socket ${platform}`);
+          try {
+            // Fecha o socket - NÃO apaga sessão, NÃO desloga
+            // O handleClose do adapter deve detectar e agendar reconnect
+            if (typeof sock.end === 'function') {
+              sock.end();
+            } else if (typeof sock.disconnect === 'function') {
+              sock.disconnect();
+            }
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, message: 'Socket desconectado controladamente' }));
+          } catch (err: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+          }
+          return;
+        }
+
         // ─── Endpoint de comando de teste (existente) ───
         const { platform, command } = parsedBody;
         if (!platform || !command) {
