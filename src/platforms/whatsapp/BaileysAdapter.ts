@@ -337,31 +337,51 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
     }
 
     if (statusCode === 401) {
-      logInfo('[BaileysAdapter] 🚪 Logout (401) — mantendo credenciais para reconexão');
-      this.reconnectAttempts = 0;
-      setTimeout(() => {
-        logInfo('[BaileysAdapter] 🔄 Reconectando...');
-        this.reconnectInProgress = true;
-        this.connection.connect().catch(() => {
-          this.reconnectInProgress = false;
-        });
-      }, 5000);
-      return;
-    }
+          logInfo('[BaileysAdapter] 🚪 Logout (401) — mantendo credenciais para reconexão');
+          this.reconnectAttempts = 0;
+          setTimeout(() => {
+            logInfo('[BaileysAdapter] 🔄 Reconectando...');
+            this.reconnectInProgress = true;
+            this.connection.connect()
+              .then(() => {
+                this.reconnectInProgress = false;
+              })
+              .catch((err: any) => {
+                this.reconnectInProgress = false;
+                logError('[BaileysAdapter] Falha no reconnect (401):', err);
+                // Reagendar reconnect com backoff
+                this.reconnectAttempts++;
+                const baseDelay = 5000;
+                const delay = Math.min(baseDelay * Math.pow(2, this.reconnectAttempts - 1), this.maxReconnectDelay);
+                logInfo(`[BaileysAdapter] 🔄 Reagendando reconect em ${delay}ms (tentativa ${this.reconnectAttempts})...`);
+                setTimeout(() => this.handleClose('reconnect-failed-after-401', 401), delay);
+              });
+          }, 5000);
+          return;
+        }
 
-    // Backoff exponencial: evita loop infinito de reconnect
-    this.reconnectAttempts++;
-    const baseDelay = reason.includes('Stream Errored') || reason.includes('conflict') ? 2000 : 5000;
-    const delay = Math.min(baseDelay * Math.pow(2, this.reconnectAttempts - 1), this.maxReconnectDelay);
+        // Backoff exponencial: evita loop infinito de reconnect
+        this.reconnectAttempts++;
+        const baseDelay = reason.includes('Stream Errored') || reason.includes('conflict') ? 2000 : 5000;
+        const delay = Math.min(baseDelay * Math.pow(2, this.reconnectAttempts - 1), this.maxReconnectDelay);
 
-    logInfo(`[BaileysAdapter] 🔄 ${reason} — reconectando em ${delay}ms (tentativa ${this.reconnectAttempts})...`);
-    setTimeout(() => {
-      this.reconnectInProgress = true;
-      this.connection.connect().catch(() => {
-        this.reconnectInProgress = false;
-      });
-    }, delay);
-  }
+        logInfo(`[BaileysAdapter] 🔄 ${reason} — reconectando em ${delay}ms (tentativa ${this.reconnectAttempts})...`);
+        setTimeout(() => {
+          this.reconnectInProgress = true;
+          this.connection.connect()
+            .then(() => {
+              this.reconnectInProgress = false;
+            })
+            .catch((err: any) => {
+              this.reconnectInProgress = false;
+              logError('[BaileysAdapter] Falha no reconnect:', err);
+              // Reagendar com backoff
+              const retryDelay = Math.min(baseDelay * Math.pow(2, this.reconnectAttempts), this.maxReconnectDelay);
+              logInfo(`[BaileysAdapter] 🔄 Reagendando reconect em ${retryDelay}ms (tentativa ${this.reconnectAttempts + 1})...`);
+              setTimeout(() => this.handleClose('reconnect-failed', 0), retryDelay);
+            });
+        }, delay);
+      }
 
   /**
    * Atualiza todos os submódulos com o novo socket após reconexão.
