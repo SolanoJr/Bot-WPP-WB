@@ -45,8 +45,13 @@ export class BaileysMessageSender {
     /** Verifica se o socket está efetivamente conectado (WebSocket OPEN). */
     private isSocketReady(): boolean {
       if (!this.sock) return false;
-      // Baileys v7: o WebSocket está em sock.socket (não sock.ws)
-      const ws = this.sock.socket || this.sock.ws;
+      // Baileys v7: sock.ws é o WebSocketClient, sock.ws.socket é o WebSocket nativo
+      const wsClient = this.sock.ws;
+      if (!wsClient) return false;
+      // WebSocketClient tem getter isOpen (verifica socket.readyState === OPEN)
+      if (typeof wsClient.isOpen === 'boolean') return wsClient.isOpen;
+      // Fallback: verificar WebSocket nativo diretamente
+      const ws = wsClient.socket;
       if (!ws) return false;
       // WebSocket.OPEN = 1
       return ws.readyState === 1;
