@@ -336,12 +336,15 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
       return;
     }
 
+    // Marca reconnectInProgress ANTES do setTimeout para evitar race condition
+    // com handleClose() duplicado (segunda chamada antes do timer executar)
+    this.reconnectInProgress = true;
+
     if (statusCode === 401) {
           logInfo('[BaileysAdapter] 🚪 Logout (401) — mantendo credenciais para reconexão');
           this.reconnectAttempts = 0;
           setTimeout(() => {
             logInfo('[BaileysAdapter] 🔄 Reconectando...');
-            this.reconnectInProgress = true;
             this.connection.connect()
               .then(() => {
                 this.reconnectInProgress = false;
@@ -367,7 +370,6 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
 
         logInfo(`[BaileysAdapter] 🔄 ${reason} — reconectando em ${delay}ms (tentativa ${this.reconnectAttempts})...`);
         setTimeout(() => {
-          this.reconnectInProgress = true;
           this.connection.connect()
             .then(() => {
               this.reconnectInProgress = false;
