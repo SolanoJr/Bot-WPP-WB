@@ -310,6 +310,75 @@ interface AutoModContext {
   error: (...args: any[]) => void;
 }
 
+// ─── AntiBot: Detecção Estrutural de Bot/Spammer ─────────────────────────
+
+export interface AntiBotResult {
+  detected: boolean;
+  type: string;
+  reason: string;
+  signals: string[];
+}
+
+/**
+ * Detecta mensagens com estrutura característica de bot/spammer.
+ * 
+ * NÃO detecta figurinhas, mídia normal, ou mensagens humanas comuns.
+ * Analisa apenas a ESTRUTURA do payload Baileys.
+ * 
+ * Tipos detectados:
+ * - buttonsMessage: mensagem com botões (padrão de bot)
+ * - listMessage: mensagem com lista (padrão de bot)
+ * - templateMessage: template com botões CTA (padrão de bot)
+ * - interactiveMessage: mensagem interativa (padrão de bot)
+ * - productMessage: mensagem de produto (padrão de bot)
+ */
+export function detectAntiBot(msg: WAMessage, senderJid: string, senderName: string): AntiBotResult {
+  const signals: string[] = [];
+  const m = msg.message || {};
+
+  // Verificar se é mensagem do próprio bot (anti-loop)
+  const botId = (senderJid || '').replace(/:.*/, '');
+  if (senderJid.toLowerCase().includes('558581344211')) {
+    return { detected: false, type: '', reason: 'mensagem do próprio bot', signals: [] };
+  }
+
+  // Verificar se é mensagem de comando (não banir comandos)
+  const text = extractTextFromWAMessage(msg);
+  if (text.startsWith('$')) {
+    return { detected: false, type: '', reason: 'comando do bot', signals: [] };
+  }
+
+  // Detectar padrões estruturais de bot
+  if (m.buttonsMessage) {
+    signals.push('buttonsMessage');
+  }
+  if (m.listMessage) {
+    signals.push('listMessage');
+  }
+  if (m.templateMessage) {
+    signals.push('templateMessage');
+  }
+  if (m.interactiveMessage) {
+    signals.push('interactiveMessage');
+  }
+  if (m.productMessage) {
+    signals.push('productMessage');
+  }
+
+  // Se encontrou pelo menos um padrão estrutural, é bot
+  if (signals.length > 0) {
+    const type = signals[0];
+    return {
+      detected: true,
+      type,
+      reason: `estrutura de bot detectada: ${signals.join(', ')}`,
+      signals,
+    };
+  }
+
+  return { detected: false, type: '', reason: 'sem padrão de bot', signals: [] };
+}
+
 // ─── Engine ────────────────────────────────────────────────────────────────
 
 export interface AutoModResult {
@@ -409,6 +478,82 @@ export async function evaluate(
   // ─── ORQUESTRAÇÃO DE REGRAS ──────────────────────────────────────────────
   const reportedActions: string[] = [];
   const msgType = msg.message ?? {};
+
+  // REGRA 0: AntiBot — detecção estrutural de bot/spammer
+  // Prioridade máxima: se a mensagem tem estrutura de bot, agir imediatamente
+  const antiBotResult = detectAntiBot(msg, senderJid, senderName);
+  if (antiBotResult.detected) {
+    const reasonText = `${senderName || senderJid} — AntiBot: ${antiBotResult.reason}`;
+    reportedActions.push(`ANTIBOT: ${reasonText}`);
+    ctx.log(`[AntiBot] chat=${groupId} messageId=${msg.key.id} sender=${senderJid} type=${antiBotResult.type} reason=${antiBotResult.reason} action=delete+ban`);
+
+    // Blindagem: ID protegido nunca é banido
+    if (isProtectedTarget(senderJid)) {
+      ctx.log(`[AntiBot] ignorado — ID protegido: ${senderJid}`);
+      return { acted: false, reason: 'antibot: ID protegido', action: 'none' };
+    }
+
+    // Audit-only mode: apenas registrar, não executar ações
+    if (isAuditOnly) {
+      ctx.log(`[AntiBot] AUDIT-ONLY: ${senderJid} seria banido/removido/deletado (tipo: ${antiBotResult.type})`);
+      return { acted: false, reason: 'antibot: audit-only', action: 'none' };
+    }
+
+    // Verificar se o remetente é admin do grupo (proteção contra falsos positivos)
+    try {
+      const chat = await ctx.getChat(groupId);
+      const participant = chat?.participants?.find((p: any) => {
+        const pId = p?.id || p;
+        return pId === senderJid || pId?.startsWith?.(senderJid?.split('@')[0]) || senderJid?.startsWith?.(pId?.split('@')[0]);
+      });
+      if (participant?.admin === 'admin' || participant?.admin === 'superadmin') {
+        ctx.log(`[AntiBot] ignorado — remetente é admin: ${senderJid}`);
+        return { acted: false, reason: 'antibot: remetente é admin', action: 'none' };
+      }
+    } catch { /* ignorar */ }
+
+    // Ban persistente
+    try {
+      await banUser({ groupId, userId: senderJid, reason: `antibot-${antiBotResult.type}` });
+      ctx.log(`[AntiBot] ban persistente registrado para ${senderJid}`);
+    } catch (err: any) { ctx.warn('[AntiBot] erro ao banir:', err?.message); }
+
+    // Remove do grupo
+    try {
+      await ctx.removeParticipant(groupId, senderJid);
+      ctx.log(`[AntiBot] removido do grupo: ${senderJid}`);
+      reportedActions.push('REMOVIDO');
+    } catch (err: any) {
+      ctx.warn(`[AntiBot] erro ao remover ${senderJid}:`, err?.message);
+      reportedActions.push(`FALHA AO REMOVER (${err?.message || 'erro'})`);
+    }
+
+    // Delete mensagem
+    try {
+      await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
+      ctx.log(`[AntiBot] mensagem deletada: ${senderJid}`);
+      reportedActions.push('MENSAGEMAPAGADA');
+    } catch (err: any) { ctx.warn('[AntiBot] erro ao deletar:', err?.message); }
+
+    // Registrar infração
+    await recordInfraction(groupId, senderJid).catch(err => ctx.warn('[AntiBot] erro ao registrar infração:', err?.message));
+
+    // Anunciar se detectar on
+    if (config.detectar === true) {
+      const hasRealAction = reportedActions.some(a => a === 'REMOVIDO' || a === 'MENSAGEMAPAGADA');
+      if (hasRealAction) {
+        try {
+          await ctx.sendMessage(groupId, `🤖 [ANTIBOT] ${reasonText} — tipo: ${antiBotResult.type}`);
+        } catch (err: any) { ctx.warn('[AntiBot] erro ao anunciar:', err?.message); }
+      }
+    }
+
+    return {
+      acted: true,
+      reason: `antibot: ${antiBotResult.reason} → ${reportedActions.join('; ')}`,
+      action: 'delete+ban+remove+announce',
+    };
+  }
 
   // REGRA 1: antiestrangeiro (absoluto) — ban+remove+delete de TODO não-brasileiro
       if (config.antiestrangeiro && isForeignNumber(senderJid)) {
