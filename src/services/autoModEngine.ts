@@ -25,6 +25,7 @@ import {
 } from './databaseService.js';
 import { recordInfraction } from './infractions.js';
 import { isProtectedTarget } from '../services/permissions.js';
+import { isSenderGroupAdmin } from './groupAdmin.js';
 import { logInfo, logWarning, logError } from './loggerService';
 
 // ─── Cassino Classifier ─────────────────────────────────────────────────
@@ -63,6 +64,34 @@ const SUSPICIOUS_DISPLAY_NAMES: RegExp[] = [
 ];
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
+
+/**
+ * Monta a chave de DELETE a partir da WAMessage ORIGINAL.
+ *
+ * ⚠️ Não reconstruir a chave do zero: em grupos com addressingMode 'lid' o
+ * Baileys exige `participantAlt`/`addressingMode` para o servidor aceitar o
+ * revoke. Reconstruir com { id, remoteJid, fromMe, participant } produzia uma
+ * chave incompleta e o delete podia falhar silenciosamente.
+ *
+ * Preserva todos os campos da key original; só normaliza `fromMe` para false
+ * (só se deleta mensagem de terceiros).
+ */
+function buildDeleteKey(msg: WAMessage, senderJid: string): any {
+  const orig: any = (msg as any)?.key || {};
+  const key: any = {
+    id: orig.id,
+    remoteJid: orig.remoteJid,
+    fromMe: false,
+    participant: orig.participant || senderJid,
+  };
+  // Campos que o Baileys v7 usa para resolver o remetente em grupos @lid
+  if (orig.participantAlt) key.participantAlt = orig.participantAlt;
+  if (orig.addressingMode) key.addressingMode = orig.addressingMode;
+  if (orig.remoteJidAlt) key.remoteJidAlt = orig.remoteJidAlt;
+  if (orig.participantUsername) key.participantUsername = orig.participantUsername;
+  if (orig.server_id) key.server_id = orig.server_id;
+  return key;
+}
 
 function extractNumber(jid: string): string {
   return (jid || '').replace(/\D/g, '');
@@ -494,7 +523,7 @@ export async function evaluate(
       // Delete mensagem (se bot for admin) — antiestrangeiro sempre deleta
       let deleteSuccess = false;
             try { 
-                await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
+                await ctx.sendMessage(groupId, '', { delete: buildDeleteKey(msg, senderJid) });
                 ctx.log(`[AutoMod] mensagem deletada de ${senderJid}`);
                 reportedActions.push(`MSGMENSAGEMAPAGADA`);
                 deleteSuccess = true;
@@ -523,21 +552,37 @@ export async function evaluate(
             };
           }
 
-  // REGRA 2: anti-bot (remover) — foreign + conteúdo suspeito + nome suspeito + repetido
-    // Threshold: >=2 sinais → ban+remove+delete+announce
-    // REGRA 2b: anti-bot cassino (alta probabilidade) — foreign + link recente + interativo → BANIR, REMOVER, DELETAR, ANUNCIAR
+  // REGRA 2: anti-bot (remover) — combinação de sinais INDEPENDENTES
+    // Threshold: >=2 sinais independentes → ban+remove+delete+announce
+    // REGRA 2b: anti-bot cassino (alta probabilidade) — classificador dedicado
+    //
+    // ⚠️ REGRA ANTI-DUPLA-CONTAGEM
+    // Uma mesma propriedade da mensagem NÃO pode virar duas evidências.
+    // A estrutura (buttons/list/template/interactive/product) é UMA categoria:
+    // por mais tipos que o payload traga, conta como UM sinal.
+    // Ex.: estrutura + nome-suspeito = 2 sinais independentes → dispara.
+    //      estrutura + buttonsMessage  = 1 sinal estrutural    → NÃO dispara.
     const botSignals: string[] = [];
     if (isForeignNumber(senderJid)) botSignals.push('foreign');
     if (isSuspiciousDomain(domains)) botSignals.push('link-suspeito');
-    if (msgType.buttonsMessage || msgType.listMessage || msgType.templateMessage || msgType.interactiveMessage) botSignals.push('mensagem-interativa');
     if (suspiciousName) botSignals.push('nome-suspeito');
     if (hasSpamKeyword) botSignals.push('spam-keyword');
-    if (hasSpamKeyword && spamContext) botSignals.push('spam-com-contexto');
 
-    // Integrar sinais estruturais AntiBot
+    // Estrutura de bot = UMA categoria = NO MÁXIMO UM sinal.
+    // structuralSignals pode listar vários tipos, mas todos pertencem à mesma
+    // categoria (mensagem estruturada de bot) → 1 evidência, com os tipos no
+    // nome para auditoria.
     if (structuralSignals.length > 0) {
-      botSignals.push(...structuralSignals);
+      botSignals.push(`estrutura-bot(${structuralSignals.join('+')})`);
     }
+
+    // Rede de segurança: nenhum sinal duplicado entra na contagem.
+    const uniqueSignals = [...new Set(botSignals)];
+    if (uniqueSignals.length !== botSignals.length) {
+      ctx.warn(`[AutoMod] sinais duplicados removidos: ${botSignals.join(', ')}`);
+    }
+    botSignals.length = 0;
+    botSignals.push(...uniqueSignals);
 
   // REGRA 2b: Cassino de alta probabilidade — usa classificador multi-sinal
   // Requer: confiança >= 60 E pelo menos 3 sinais
@@ -566,11 +611,7 @@ export async function evaluate(
     // Verificar se o remetente é admin do grupo (proteção contra falsos positivos)
     try {
       const chat = await ctx.getChat(groupId);
-      const participant = chat?.participants?.find((p: any) => {
-        const pId = p?.id || p;
-        return pId === senderJid || pId?.startsWith?.(senderJid?.split('@')[0]) || senderJid?.startsWith?.(pId?.split('@')[0]);
-      });
-      if (participant?.admin === 'admin' || participant?.admin === 'superadmin') {
+      if (isSenderGroupAdmin(chat, senderJid)) {
         ctx.log(`[AutoMod] cassino ignorado — remetente é admin: ${senderJid}`);
         return { acted: false, reason: 'cassino: remetente é admin', action: 'none' };
       }
@@ -595,7 +636,7 @@ export async function evaluate(
     // Delete mensagem
     let casinoDeleteSuccess = false;
     try {
-      await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
+      await ctx.sendMessage(groupId, '', { delete: buildDeleteKey(msg, senderJid) });
       ctx.log(`[AutoMod] mensagem deletada (cassino): ${senderJid}`);
       reportedActions.push(`MSGMENSAGEMAPAGADA`);
       casinoDeleteSuccess = true;
@@ -658,7 +699,7 @@ export async function evaluate(
       // Delete mensagem
       let antibotDeleteSuccess = false;
             try {
-              await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
+              await ctx.sendMessage(groupId, '', { delete: buildDeleteKey(msg, senderJid) });
               ctx.log(`[AutoMod] mensagem deletada de ${senderJid}`);
               reportedActions.push(`MSGMENSAGEMAPAGADA`);
               antibotDeleteSuccess = true;
@@ -707,7 +748,7 @@ export async function evaluate(
       // Delete mensagem
       let antilinkDeleteSuccess = false;
       try {
-        await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
+        await ctx.sendMessage(groupId, '', { delete: buildDeleteKey(msg, senderJid) });
         ctx.log(`[AutoMod] mensagem deletada por antilink: ${senderJid}`);
         reportedActions.push(`MSGMENSAGEMAPAGADA`);
         antilinkDeleteSuccess = true;
@@ -751,7 +792,7 @@ export async function evaluate(
 
       // Delete mensagem
       try {
-        await ctx.sendMessage(groupId, '', { delete: { id: msg.key.id, fromMe: false, participant: senderJid } });
+        await ctx.sendMessage(groupId, '', { delete: buildDeleteKey(msg, senderJid) });
         ctx.log(`[AutoMod] mensagem deletada por antispam: ${senderJid}`);
         reportedActions.push(`MSGUPDELETE`);
       } catch (err: any) { ctx.warn('[AutoMod] erro ao deletar mensagem:', err?.message); }

@@ -20,6 +20,7 @@ import {
 import { rateLimiter } from '../services/rateLimiter';
 import metricsService from '../services/metricsService';
 import { isMaster } from '../services/permissions';
+import { isSenderGroupAdmin } from '../services/groupAdmin';
 import logger, { logInfo, logError, logWarning } from '../services/loggerService';
 
 type AdapterFactory = () => Promise<PlatformAdapter>;
@@ -406,15 +407,12 @@ export class PlatformManager {
     try {
       const chat = await client.getChat(message.chatId);
       groupName = (chat as any)?.name;
-      // Admin do grupo: verifica se o userId está em participants com isAdmin/isSuperAdmin
-      const cleanUser = String(message.userId).split('@')[0].replace(/^wpp:/, '');
-      const parts = (chat as any)?.participants || [];
-      const isGroupAdmin = parts.some((p: any) => {
-        const pid = String(p.id?._serialized || p.id || '').split('@')[0].replace(/^wpp:/, '');
-        return pid === cleanUser && (p.isAdmin || p.isSuperAdmin);
-      });
-      contextIsAdmin = isGroupAdmin;
-    } catch { /* ignora */ }
+      // Admin do grupo: fonte ÚNICA (groupAdmin). Reconhece o usuário por LID
+      // ou PN usando a relação real do groupMetadata — nunca por comparação
+      // direta de cleanId, que falha quando o remetente aparece como @lid e o
+      // resto do sistema usa @s.whatsapp.net (BUG conhecido do $kick).
+      contextIsAdmin = isSenderGroupAdmin(chat as any, message.userId);
+    } catch { /* ignora — sem metadata, isAdmin permanece false */ }
     return {
       msg: message,
       client,

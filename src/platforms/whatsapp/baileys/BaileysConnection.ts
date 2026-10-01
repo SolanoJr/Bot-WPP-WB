@@ -343,6 +343,101 @@ export class BaileysConnection {
       }
     });
 
+    // ─── HISTÓRICO (messaging-history.set) ───────────────────────────────
+    // O Baileys v7 NÃO tem store de mensagens: o histórico só chega por este
+    // evento, emitido quando o telefone responde a um historySyncOnDemandRequest
+    // (ver fetchMessageHistory em /lab/history) ou ao sync inicial.
+    //
+    // Sem este handler, o blob PDO era baixado, decriptado pelo Baileys e
+    // DESCARTADO — tornando mensagens passadas irrecuperáveis (ex: o spam do
+    // grupo Figurinhas visto na imagem).
+    //
+    // Aqui persistimos as mensagens do histórico no capture-store (JSONL
+    // sanitizado) para que possam ser auditadas e reavaliadas pelo evaluate().
+    driver.ev.on('messaging-history.set', async (event: any) => {
+      try {
+        const msgs: any[] = event?.messages || [];
+        const chats: any[] = event?.chats || [];
+        const contacts: any[] = event?.contacts || [];
+        const lidPnMappings: any[] = event?.lidPnMappings || [];
+
+        logInfo('[BaileysConnection] MESSAGING_HISTORY_SET', {
+          messages: msgs.length,
+          chats: chats.length,
+          contacts: contacts.length,
+          lidPnMappings: lidPnMappings.length,
+          syncType: event?.syncType ?? null,
+          progress: event?.progress ?? null,
+          isLatest: event?.isLatest ?? null,
+          chunkOrder: event?.chunkOrder ?? null,
+          peerDataRequestSessionId: event?.peerDataRequestSessionId ?? null,
+        });
+
+        if (!msgs.length) return;
+
+        const { appendCapture } = require('../../../../laboratorio/capture-store.js');
+        if (typeof appendCapture !== 'function') {
+          logWarning('[BaileysConnection] capture-store indisponível — histórico não persistido');
+          return;
+        }
+
+        let saved = 0;
+        for (const m of msgs) {
+          try {
+            const key = m?.key || {};
+            const remoteJid = key.remoteJid || '';
+            const isGroup = remoteJid.endsWith('@g.us');
+            const messageObj = m?.message || {};
+            const messageType = Object.keys(messageObj)[0] || 'empty';
+
+            appendCapture({
+              captureId: `hist-${key.id || 'noid'}-${Date.now()}`,
+              capturedAt: new Date().toISOString(),
+              source: 'messaging-history.set',
+              syncType: event?.syncType ?? null,
+              peerDataRequestSessionId: event?.peerDataRequestSessionId ?? null,
+              groupId: isGroup ? remoteJid : '',
+              messageId: key.id || '',
+              remoteJid,
+              participant: key.participant || '',
+              participantAlt: key.participantAlt || '',
+              addressingMode: key.addressingMode || '',
+              fromMe: !!key.fromMe,
+              timestamp: Number(m?.messageTimestamp || 0) * 1000 || Date.now(),
+              messageType,
+              contentType: messageType,
+              senderJid: key.participant || remoteJid,
+              isGroup,
+              pushName: m?.pushName || '',
+              size: 0,
+              // payload COMPLETO e sanitizado — é o que permite ao evaluate()
+              // reprocessar a mensagem real
+              rawPayloadSafe: {
+                key: {
+                  id: key.id,
+                  remoteJid,
+                  fromMe: !!key.fromMe,
+                  participant: key.participant,
+                  participantAlt: key.participantAlt,
+                  addressingMode: key.addressingMode,
+                },
+                message: messageObj,
+                messageTimestamp: m?.messageTimestamp,
+                pushName: m?.pushName,
+                status: m?.status,
+              },
+            });
+            saved++;
+          } catch (e: any) {
+            logWarning('[BaileysConnection] falha ao persistir mensagem do histórico:', e?.message);
+          }
+        }
+        logInfo(`[BaileysConnection] ✅ histórico persistido: ${saved}/${msgs.length} mensagens`);
+      } catch (e: any) {
+        logWarning('[BaileysConnection] messaging-history.set falhou:', e?.message);
+      }
+    });
+
     // ════════════════════════════════════════════════════════════════
     // QR CODE — quando não há credenciais válidas (auth vazio),
     // o Baileys gera QR automaticamente via ev.on('qr', ...).

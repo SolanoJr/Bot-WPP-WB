@@ -17,7 +17,14 @@ export interface PlatformChat {
   platform: string;
   name: string;
   isGroup: boolean;
-  participants: string[];
+  /** Objetos de participante (id + phoneNumber + isAdmin/isSuperAdmin). */
+  participants: Array<{
+    id: string;
+    phoneNumber?: string;
+    isAdmin: boolean;
+    isSuperAdmin: boolean;
+    raw?: any;
+  }>;
   raw: any;
 }
 
@@ -62,7 +69,19 @@ export class BaileysChatManager {
       platform: this.platform,
       name: metadata?.subject || '',
       isGroup: jid.endsWith('@g.us'),
-      participants: metadata?.participants?.map((p: any) => p.id) || [],
+      // Participantes como OBJETOS (id + phoneNumber + isAdmin/isSuperAdmin).
+      // kick.ts/ban.ts precisam de isAdmin; o metadata já traz phoneNumber, que
+      // é a única fonte confiável da relação LID↔PN.
+      participants: (metadata?.participants || []).map((p: any) => ({
+        id: String(p?.id ?? ''),
+        phoneNumber: p?.phoneNumber ?? p?.phone_number ?? undefined,
+        isAdmin: p?.admin === 'admin' || p?.isAdmin === true,
+        isSuperAdmin: p?.admin === 'superadmin' || p?.isSuperAdmin === true,
+        raw: p,
+      })),
+      // Metadata obtido com sucesso e participantes presentes → permissões verificadas.
+      // Sem metadata → NÃO assumir admin (o comando deve recusar, não prosseguir).
+      isPermissionsVerified: Boolean(metadata && Array.isArray(metadata.participants)),
       raw: metadata || {},
     };
   }
@@ -116,7 +135,13 @@ export class BaileysChatManager {
       platform: this.platform,
       name: c.subject || c.name || '',
       isGroup: true,
-      participants: (c.participants || []).map((p: any) => p.id ?? p),
+      participants: (c.participants || []).map((p: any) => ({
+        id: String(p?.id ?? ''),
+        phoneNumber: p?.phoneNumber ?? p?.phone_number ?? undefined,
+        isAdmin: p?.admin === 'admin' || p?.isAdmin === true,
+        isSuperAdmin: p?.admin === 'superadmin' || p?.isSuperAdmin === true,
+        raw: p,
+      })),
       raw: c,
     }));
   }

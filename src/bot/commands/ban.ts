@@ -1,6 +1,7 @@
 import { ICommand } from './types';
 import { CommandContext } from '../../platforms/base/PlatformTypes';
-import { cleanId, isMaster } from '../../services/permissions';
+import { isMaster, cleanId } from '../../services/permissions';
+import { isBotGroupAdmin, isSenderGroupAdmin, findParticipant, adapterProvidesParticipants } from '../../services/groupAdmin';
 import { groupTag, getTargetDisplayName } from './format';
 import { logInfo, logWarning, logError } from '../../services/loggerService';
 
@@ -17,35 +18,24 @@ export const banCommand: ICommand = {
       }
 
       const participants = chat.participants || [];
-      const botId = cleanId(ctx.client.userId);
-      const senderId = cleanId(ctx.userId);
 
-      // Se as permissões não puderam ser verificadas (WWebJS falhou ao obter
-      // participantes — Issue #201838 / chat @lid), NÃO bloquear com erro falso
-      // de "precisa ser administrador". Prosseguir e deixar o WWebJS retornar o
-      // erro real, se houver.
-      const permsVerified = (chat as any).isPermissionsVerified !== false;
-
-      const botPart = participants.find(p => cleanId(p.id) === botId);
-      const senderPart = participants.find(p => cleanId(p.id) === senderId);
-
-      if (permsVerified && !botPart?.isAdmin && !botPart?.isSuperAdmin) {
+      // Autorização: fonte única (groupAdmin) — mesma lógica do $kick.
+      const botAdmin = isBotGroupAdmin(chat, ctx.client.userId);
+      if (!botAdmin.verified) {
+        await ctx.reply(
+          adapterProvidesParticipants(chat)
+            ? '❌ Não foi possível identificar o bot na lista de membros. Tente novamente.'
+            : '❌ Este comando exige a lista de membros do grupo, que não está disponível nesta plataforma.'
+        );
+        return;
+      }
+      if (!botAdmin.isAdmin) {
         await ctx.reply('❌ O bot precisa ser administrador para usar este comando.');
         return;
       }
 
-      const isSenderAdmin = Boolean(senderPart?.isAdmin || senderPart?.isSuperAdmin);
-      // Se o getChat nao entregou participants confiaveis (senderPart indefinido),
-      // verificar admin no groupMetadata (autoritativo) em vez de barrar injustamente.
-      let senderIsAdmin = isSenderAdmin;
-      if (!senderIsAdmin && !isMaster(ctx.userId) && (ctx.client as any).isParticipantAdmin) {
-        try {
-          senderIsAdmin = await (ctx.client as any).isParticipantAdmin(ctx.chatId, ctx.userId);
-        } catch {
-          senderIsAdmin = false;
-        }
-      }
-      if (!senderIsAdmin && !isMaster(ctx.userId)) {
+      const senderIsAdmin = isSenderGroupAdmin(chat, ctx.userId) || isMaster(ctx.userId);
+      if (!senderIsAdmin) {
         await ctx.reply('❌ Você precisa ser administrador para usar este comando.');
         return;
       }
@@ -59,7 +49,7 @@ export const banCommand: ICommand = {
       const userToBan = mentioned[0].id;
       const userToBanClean = cleanId(userToBan);
 
-      const userPart = participants.find(p => cleanId(p.id) === userToBanClean);
+      const userPart = findParticipant(chat, userToBan);
       if (userPart?.isAdmin || userPart?.isSuperAdmin) {
         await ctx.reply('❌ Não é possível banir administradores.');
         return;

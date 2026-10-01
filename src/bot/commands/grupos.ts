@@ -1,5 +1,6 @@
 import { ICommand } from './types';
-import { isMaster, cleanId } from '../../services/permissions';
+import { isMaster } from '../../services/permissions';
+import { findParticipant } from '../../services/groupAdmin';
 import { logInfo, logWarning, logError } from '../../services/loggerService';
 
 export const gruposCommand: ICommand = {
@@ -25,11 +26,9 @@ export const gruposCommand: ICommand = {
             let response = `📋 **LISTA DE GRUPOS (${groups.length})**\n\n`;
 
             for (const group of groups) {
-                const botIdClean = cleanId(ctx.client.userId);
-                
-                const botMember = (group.participants || []).find(p => cleanId(p.id) === botIdClean);
-                const isBotAdmin = botMember && (botMember.isAdmin || botMember.isSuperAdmin);
-
+                // Usa a fonte única: reconhece o bot por LID, PN ou PN-com-device
+                const botMember = findParticipant(group, ctx.client.userId);
+                const isBotAdmin = Boolean(botMember && (botMember.isAdmin || botMember.isSuperAdmin));
                 logInfo(`[GRUPOS] Verificando ${group.name} | Eu sou admin? ${isBotAdmin ? 'true' : 'false'}`);
                 
                 response += `👥 **${group.name}**\n`;

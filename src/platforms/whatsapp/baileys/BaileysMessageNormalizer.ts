@@ -412,7 +412,9 @@ export class BaileysMessageNormalizer {
                 try {
                   const res = await this.getChat(jid);
                   return {
-                    participants: (res?.participants || []).map((p: any) => p?.id || p),
+                    // Objetos normalizados (id/phoneNumber/isAdmin/isSuperAdmin) —
+                    // preserva isAdmin para o admin check do AutoMod e dos comandos.
+                    participants: res?.participants || [],
                     id: res?.id || jid,
                     subject: res?.name,
                   };

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { sendMessageCommand } from '../../src/bot/commands/sendMessage';
 
 /**
@@ -81,10 +81,25 @@ const EXTERNAL_API_COMMANDS = new Set([
 const MASTER_ONLY_COMMANDS = new Set(['shutdown', 'admin']);
 
 describe('command-signature — regressão da padronização execute(ctx)', () => {
-  it('loadCommands() retorna Map e nenhum comando crasha ao receber ctx mínimo', async () => {
-    const { loadCommands } = await import('../../src/bot/commands/index');
-    const commands = loadCommands();
+  /**
+   * Carrega os 54 comandos UMA vez.
+   *
+   * `import('./commands/index')` custa ~3.2s sozinho (54 módulos, alguns com
+   * dependências pesadas como axios/telegraf). Na suíte completa, com contenção
+   * de CPU entre workers, esse import passava dos 10s do testTimeout e o teste
+   * falhava por TIMEOUT, não por bug — os comandos em si somam ~235ms.
+   *
+   * beforeAll com timeout próprio isola o custo de CARREGAMENTO do custo de
+   * EXECUÇÃO: se um comando ficar lento de verdade, o teste ainda pega.
+   */
+  let commands: Map<string, any>;
 
+  beforeAll(async () => {
+    const mod = await import('../../src/bot/commands/index');
+    commands = mod.loadCommands();
+  }, 60000);
+
+  it('loadCommands() retorna Map e nenhum comando crasha ao receber ctx mínimo', async () => {
     expect(commands).toBeInstanceOf(Map);
     expect(commands.size).toBeGreaterThan(30);
 
@@ -109,12 +124,9 @@ describe('command-signature — regressão da padronização execute(ctx)', () =
         throw new Error(`Comando "${name}" NÃO aceita execute(ctx) — crashou: ${err?.message}`);
       }
     }
-  });
+  }, 30000);
 
   it('help, menu, ping e alive respondem com texto não-vazio', async () => {
-    const { loadCommands } = await import('../../src/bot/commands/index');
-    const commands = loadCommands();
-
     const guaranteed = ['help', 'menu', 'ping', 'alive'];
     for (const name of guaranteed) {
       const cmd = commands.get(name);
@@ -129,14 +141,11 @@ describe('command-signature — regressão da padronização execute(ctx)', () =
       const firstArg = String(calledWith[0][0]);
       expect(firstArg.trim().length).toBeGreaterThan(0);
     }
-  });
+  }, 30000);
 
   it('shutdown e admin NÃO crasham com ctx.isMaster=true', async () => {
     const origExit = process.exit;
     process.exit = vi.fn();
-
-    const { loadCommands } = await import('../../src/bot/commands/index');
-    const commands = loadCommands();
 
     const masterCmds = ['shutdown', 'admin'];
     for (const name of masterCmds) {
@@ -148,12 +157,9 @@ describe('command-signature — regressão da padronização execute(ctx)', () =
     }
 
     process.exit = origExit;
-  });
+  }, 30000);
 
   it('mute, kick, ban, promover aceitam ctx sem menção (não crasham — recebem resposta)', async () => {
-    const { loadCommands } = await import('../../src/bot/commands/index');
-    const commands = loadCommands();
-
     const cmds = ['mute', 'kick', 'ban', 'promover', 'desmute', 'delete'];
     for (const name of cmds) {
       const cmd = commands.get(name);
@@ -166,5 +172,5 @@ describe('command-signature — regressão da padronização execute(ctx)', () =
       // exato porque depende do estado do chat sintético (isAdmin, isPermissionsVerified etc.).
       expect(ctx.reply).toHaveBeenCalled();
     }
-  });
+  }, 30000);
 });

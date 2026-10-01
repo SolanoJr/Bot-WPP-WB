@@ -2,6 +2,7 @@ import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
 import path from 'path';
 import fs from 'fs';
+import { normGroupId } from './groupIds';
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 const DB_DIR = process.env.BOT_DATA_DIR
@@ -218,12 +219,65 @@ export async function listBanned(limit: number = 10): Promise<any[]> {
   );
 }
 
+/**
+ * Busca a linha de group_mod aceitando o ID COM ou SEM prefixo de plataforma.
+ *
+ * Motivo: PlatformManager/ctx.chatId grava "wpp:120363...@g.us", enquanto o
+ * BaileysNormalizer/evaluate() consulta "120363...@g.us". Um match exato falha
+ * silenciosamente e o AutoMod responde "nada ligado — ignorando".
+ *
+ * A comparação é feita pelo ID NORMALIZADO nos dois lados, então funciona nas
+ * duas direções, sem migração destrutiva do banco.
+ */
+async function getGroupModRow(db: any, groupId: string): Promise<any> {
+  const raw = String(groupId ?? '');
+  const norm = normGroupId(raw);
+
+  // 1) Match EXATO no ID recebido — preserva a distinção entre plataformas
+  //    (wpp:X e tg:X são grupos diferentes e não podem colidir).
+  const exact = await db.get(
+    `SELECT * FROM group_mod WHERE group_id = ? LIMIT 1`,
+    [raw]
+  );
+  if (exact) return exact;
+
+  // 2) Match exato no normalizado (caller sem prefixo + DB sem prefixo).
+  if (norm !== raw) {
+    const exactNorm = await db.get(
+      `SELECT * FROM group_mod WHERE group_id = ? LIMIT 1`,
+      [norm]
+    );
+    if (exactNorm) return exactNorm;
+  }
+
+  // 3) Fallback: variantes com prefixo, em ordem determinística
+  //    (wpp → tg → dc). Cobre o caso real de produção: DB grava "wpp:X" e o
+  //    evaluate() consulta "X".
+  return db.get(
+    `SELECT * FROM group_mod
+      WHERE group_id IN (?, ?, ?)
+      ORDER BY CASE
+        WHEN group_id = 'wpp:' || ? THEN 0
+        WHEN group_id = 'tg:'  || ? THEN 1
+        ELSE 2
+      END
+      LIMIT 1`,
+    [`wpp:${norm}`, `tg:${norm}`, `dc:${norm}`, norm, norm]
+  );
+}
+
+/**
+ * Resolve a chave de escrita: preserva o formato já armazenado no banco.
+ * Se o grupo ainda não existe, usa o groupId recebido (sem inventar prefixo).
+ */
+async function resolveGroupModKey(db: any, groupId: string): Promise<string> {
+  const existing = await getGroupModRow(db, groupId);
+  return existing?.group_id || groupId;
+}
+
 export async function getGroupMod(groupId: string): Promise<GroupModConfig> {
   const db = await getDb();
-  const row = await db.get(
-    `SELECT antispam, antiestrangeiro, autolink, bemvindo, detectar, remover, audit_only FROM group_mod WHERE group_id = ?`,
-    [groupId]
-  );
+  const row = await getGroupModRow(db, groupId);
   if (!row) return {};
   return {
     antispam: row.antispam === 1 || row.antispam === true,
@@ -249,15 +303,17 @@ export async function getGroupModState(groupId: string): Promise<string> {
 
 export async function setGroupModField(groupId: string, field: keyof GroupModConfig, value: boolean): Promise<void> {
   const db = await getDb();
+  const key = await resolveGroupModKey(db, groupId);
   await db.run(
     `INSERT INTO group_mod (group_id, ${field}) VALUES (?, ?)
      ON CONFLICT(group_id) DO UPDATE SET ${field} = ?`,
-    [groupId, value ? 1 : 0, value ? 1 : 0]
+    [key, value ? 1 : 0, value ? 1 : 0]
   );
 }
 
 export async function setGroupModAll(groupId: string, config: GroupModConfig): Promise<void> {
   const db = await getDb();
+  const key = await resolveGroupModKey(db, groupId);
   await db.run(
     `INSERT INTO group_mod (group_id, antispam, antiestrangeiro, autolink, bemvindo, detectar, remover)
      VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -269,7 +325,7 @@ export async function setGroupModAll(groupId: string, config: GroupModConfig): P
        detectar = excluded.detectar,
        remover = excluded.remover`,
     [
-      groupId,
+      key,
       config.antispam !== false ? 1 : 0,
       config.antiestrangeiro !== false ? 1 : 0,
       config.autolink !== false ? 1 : 0,
@@ -290,10 +346,8 @@ export async function ensureGroupMod(
   config?: Partial<GroupModConfig>,
 ): Promise<void> {
   const db = await getDb();
-  const existing = await db.get(
-    `SELECT * FROM group_mod WHERE group_id = ?`,
-    [groupId]
-  );
+  const key = await resolveGroupModKey(db, groupId);
+  const existing = await getGroupModRow(db, groupId);
   if (!existing) {
     // Cria com defaults: tudo ligado
     const defaults: GroupModConfig = {
@@ -310,7 +364,7 @@ export async function ensureGroupMod(
       `INSERT INTO group_mod (group_id, antispam, antiestrangeiro, autolink, bemvindo, detectar, remover)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
-        groupId,
+        key,
         merged.antispam !== false ? 1 : 0,
         merged.antiestrangeiro !== false ? 1 : 0,
         merged.autolink !== false ? 1 : 0,
@@ -319,7 +373,7 @@ export async function ensureGroupMod(
         merged.remover !== false ? 1 : 0,
       ]
     );
-    logInfo(`[databaseService] Grupo ${groupId} criado no group_mod com configurações ativas.`);
+    logInfo(`[databaseService] Grupo ${key} criado no group_mod com configurações ativas.`);
   } else {
     if (config) {
       for (const [field, value] of Object.entries(config)) {
@@ -327,10 +381,10 @@ export async function ensureGroupMod(
         const f = field as keyof GroupModConfig;
         await db.run(
           `UPDATE group_mod SET ${f} = ? WHERE group_id = ?`,
-          [value ? 1 : 0, groupId]
+          [value ? 1 : 0, key]
         );
       }
-      logInfo(`[databaseService] Grupo ${groupId} atualizado no group_mod.`);
+      logInfo(`[databaseService] Grupo ${key} atualizado no group_mod.`);
     }
   }
 }

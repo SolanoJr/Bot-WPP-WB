@@ -1,6 +1,7 @@
 import { ICommand } from './types';
 import axios from 'axios';
 import { isMaster, cleanId } from '../../services/permissions';
+import { findParticipant } from '../../services/groupAdmin';
 import { groupTag } from './format';
 import { logInfo, logWarning, logError } from '../../services/loggerService';
 
@@ -24,8 +25,9 @@ export const setwelcomeCommand: ICommand = {
             const freshChat = chat;
             const authorClean = cleanId(authorId);
             
-            const member = (chat.participants || []).find((m: any) => cleanId(m.id) === authorClean);
-            isGroupAdmin = !!(member && (member.isAdmin || member.isSuperAdmin));
+            // Usa a fonte única de admin (aceita string legada e objeto, LID ou PN)
+            const member = findParticipant(chat, authorId);
+            isGroupAdmin = Boolean(member && (member.isAdmin || member.isSuperAdmin));
 
             logInfo(`🛡️ [ADMIN-CHECK] Usuário ${authorClean} é Admin? ${isGroupAdmin ? 'SIM' : 'NÃO'}`);
         }
