@@ -310,3 +310,89 @@ describe('H — anti-loop e proteções', () => {
     expect(String(anuncios[0][1])).toMatch(/cassino|sinais/i);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LACUNA 1 (corrigida) — texto puro de cassino com remetente BRASILEIRO
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('LACUNA 1 — combinação forte cobre remetente brasileiro em @lid', () => {
+  const TEXTO = 'Ganhe dinheiro no cassino! Acesse betano.com e recolha seu bonus 777';
+
+  it('domínio + keywords, remetente BR, nome normal → AGORA detecta', async () => {
+    const { r } = await run(wa({ conversation: TEXTO }, LID_BR, PN_BR), 'João Silva', LID_BR);
+    expect(r.acted).toBe(true);
+    expect(r.reason).toContain('cassino');
+  });
+
+  it('o classifier marca strongCombo nesse caso', async () => {
+    const { classifyCasino } = await import('../../src/services/casinoClassifier');
+    const c = classifyCasino({ message: { conversation: TEXTO } }, LID_BR, 'João Silva');
+    expect(c.strongCombo).toBe(true);
+    expect(c.signals).toContain('casino-domain');
+    expect(c.signals).toContain('casino-keywords');
+  });
+
+  it('domínio + estrutura interativa (sem keywords) → strongCombo', async () => {
+    const { classifyCasino } = await import('../../src/services/casinoClassifier');
+    const c = classifyCasino(
+      { message: { buttonsMessage: { contentText: 'acesse kl7.games', buttons: [] } } },
+      LID_BR, 'João Silva',
+    );
+    expect(c.strongCombo).toBe(true);
+  });
+
+  it('CONTROLE: só keywords (sem domínio) NÃO vira combinação forte', async () => {
+    const { classifyCasino } = await import('../../src/services/casinoClassifier');
+    const c = classifyCasino(
+      { message: { conversation: 'ganhei no jogo ontem, que sorte' } },
+      LID_BR, 'João Silva',
+    );
+    expect(c.strongCombo).toBe(false);
+  });
+
+  it('CONTROLE: só domínio (sem keywords/estrutura) NÃO vira combinação forte', async () => {
+    const { classifyCasino } = await import('../../src/services/casinoClassifier');
+    const c = classifyCasino({ message: { conversation: 'veja betano.com' } }, LID_BR, 'João Silva');
+    expect(c.strongCombo).toBe(false);
+  });
+
+  it('não regride: conversa normal continua sem detecção', async () => {
+    const { r } = await run(wa({ conversation: 'bom dia, alguém viu o jogo ontem?' }, LID_BR, PN_BR), 'João Silva', LID_BR);
+    expect(r.acted).toBe(false);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LACUNA 2 (corrigida) — AntiBot (regra 2c) agora protege admin
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('LACUNA 2 — AntiBot não bane admin do grupo', () => {
+  it('admin + estrutura + nome suspeito (2 sinais do AntiBot) → NÃO bane', async () => {
+    const ctx = makeCtx();
+    // admin real do grupo Figurinhas
+    ctx.getChat = vi.fn(async () => ({
+      participants: [{ id: '27445294006297@lid', phoneNumber: '558781303081@s.whatsapp.net', isAdmin: true, isSuperAdmin: false }],
+      id: FIG, subject: 'Figurinhas',
+    }));
+    // estrutura + nome suspeito = 2 sinais do AntiBot (sem cassino, para cair na 2c)
+    const msg = wa({ buttonsMessage: { contentText: 'Clique aqui', buttons: [{ buttonId: '1', buttonText: { displayText: 'OK' } }] } },
+      '27445294006297@lid', '558781303081@s.whatsapp.net');
+    const r = await evaluate(msg, ctx as any, FIG, '27445294006297@lid', '');
+    expect(r.acted).toBe(false);
+    expect(r.reason).toContain('admin');
+  });
+
+  it('não-admin com os MESMOS sinais → continua banindo', async () => {
+    const ctx = makeCtx();
+    ctx.getChat = vi.fn(async () => ({
+      participants: [{ id: '27445294006297@lid', phoneNumber: '558781303081@s.whatsapp.net', isAdmin: true, isSuperAdmin: false }],
+      id: FIG, subject: 'Figurinhas',
+    }));
+    // remetente diferente do admin → não é admin
+    const msg = wa({ buttonsMessage: { contentText: 'Clique aqui', buttons: [{ buttonId: '1', buttonText: { displayText: 'OK' } }] } },
+      LID_BR, PN_BR);
+    const r = await evaluate(msg, ctx as any, FIG, LID_BR, '');
+    expect(r.acted).toBe(true);
+    expect(r.reason).toContain('antibot');
+  });
+});

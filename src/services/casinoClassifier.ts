@@ -19,6 +19,18 @@ export interface CasinoDetection {
   confidence: number; // 0-100
   signals: string[];
   reason: string;
+  /**
+   * Combinação praticamente definitiva: domínio de cassino + (keywords OU
+   * estrutura interativa). Um domínio de cassino (kl7, betano, blaze...) não
+   * aparece em conversa legítima, e junto com promoção/CTA fecha o padrão.
+   *
+   * Existe porque o threshold numérico (>=60 / >=3 sinais) foi calibrado
+   * assumindo que `foreign-number` estaria presente. Em grupos com
+   * addressingMode 'lid' esse sinal não existe (LID não carrega DDI), então
+   * spam textual de cassino de remetente brasileiro ficava em 55% / 2 sinais
+   * e passava batido.
+   */
+  strongCombo: boolean;
 }
 
 // ─── Configuração ─────────────────────────────────────────────────────────
@@ -224,12 +236,21 @@ export function classifyCasino(
   // Requer pelo menos 2 sinais E confiança >= 40
   const detected = signals.length >= 2 && confidence >= 40;
 
+  // Combinação forte: domínio de cassino + (keywords OU estrutura interativa).
+  // Fecha o padrão mesmo sem o sinal `foreign-number` (ausente em @lid).
+  const strongCombo =
+    signals.includes('casino-domain') &&
+    (signals.includes('casino-keywords') ||
+     signals.includes('buttons-message') ||
+     signals.includes('template-message'));
+
   return {
     detected,
     confidence,
     signals,
+    strongCombo,
     reason: detected
-      ? `Cassino detectado (${signals.length} sinais, ${confidence}% confiança): ${signals.join(', ')}`
+      ? `Cassino detectado (${signals.length} sinais, ${confidence}% confiança${strongCombo ? ', combinação forte' : ''}): ${signals.join(', ')}`
       : `Não classificado como cassino (${signals.length} sinais, ${confidence}% confiança)`,
   };
 }

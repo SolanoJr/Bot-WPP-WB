@@ -603,13 +603,17 @@ export async function evaluate(
     botSignals.push(...uniqueSignals);
 
   // REGRA 2b: Cassino de alta probabilidade — usa classificador multi-sinal
-  // Requer: confiança >= 60 E pelo menos 3 sinais
+  // Threshold normal: confiança >= 60 E >= 3 sinais.
+  // Combinação forte: domínio de cassino + (keywords OU estrutura interativa).
+  //   Existe porque o threshold numérico foi calibrado contando com o sinal
+  //   `foreign-number`, que NÃO existe em grupos @lid (LID não carrega DDI).
+  //   Sem isso, spam textual de cassino de remetente brasileiro passava.
   const casinoDetection = classifyCasino(msg, senderJid, senderName);
   const isHighProbabilityCasino =
     config.remover &&
     casinoDetection.detected &&
-    casinoDetection.confidence >= 60 &&
-    casinoDetection.signals.length >= 3;
+    (casinoDetection.strongCombo ||
+     (casinoDetection.confidence >= 60 && casinoDetection.signals.length >= 3));
 
   if (isHighProbabilityCasino) {
     const reasonText = `${senderName || senderJid} — CASSINO/BETANO ALTA PROBABILIDADE: ${casinoDetection.reason}.`;
@@ -697,6 +701,17 @@ export async function evaluate(
           ctx.log(`[AutoMod] AUDIT-ONLY antibot: ${senderJid} seria banido/removido/deletado (sinais: ${botSignals.join(', ')})`);
           return { acted: false, reason: 'antibot: audit-only', action: 'none' };
         }
+
+        // Verificar se o remetente é admin do grupo (proteção contra falsos positivos)
+        // — mesma blindagem da REGRA 2b (cassino). Um admin legítimo não pode ser
+        // banido por mandar uma mensagem estruturada.
+        try {
+          const chat = await ctx.getChat(groupId);
+          if (isSenderGroupAdmin(chat, senderJid)) {
+            ctx.log(`[AutoMod] antibot ignorado — remetente é admin: ${senderJid}`);
+            return { acted: false, reason: 'antibot: remetente é admin', action: 'none' };
+          }
+        } catch { /* ignorar */ }
 
       // Ban persistente
       try {
