@@ -461,6 +461,34 @@ export function startTestServer(port: number = 3004): void {
           return;
         }
 
+        // ─── Endpoint de restauração de membro (para testes controlados) ───
+        // Reingressa um membro removido pelo $kick/$ban usando o socket real.
+        // Usado APÓS testes destrutivos autorizados, para restaurar o alvo.
+        if (req.url === '/lab/restore-member') {
+          const { platform, groupJid, participant } = parsedBody;
+          if (!platform || !groupJid || !participant) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Missing platform, groupJid or participant' }));
+            return;
+          }
+          const { sock } = getAdapterAndSock(platform);
+          if (!sock) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Socket não disponível' }));
+            return;
+          }
+          try {
+            const result = await sock.groupParticipantsUpdate(groupJid, [participant], 'add');
+            logInfo('[TestServer] /lab/restore-member', { groupJid, participant, result });
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, groupJid, participant, result }));
+          } catch (err: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+          }
+          return;
+        }
+
         // ─── Endpoint de histórico via fetchMessageHistory ──────────────────
         if (req.url === '/lab/history') {
           const { platform, groupJid, oldestMsgId, oldestMsgTimestamp, count } = parsedBody;
