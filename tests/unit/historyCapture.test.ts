@@ -250,7 +250,13 @@ describe('evaluate() reprocessa o payload capturado do histórico', () => {
     };
 
     expect(extractAntiBotSignals(waMessage)).toEqual(['interactiveMessage']);
-    expect(isForeignNumber(entry.participant)).toBe(true);
+    // ⚠️ O participante é um LID — NÃO carrega DDI. isForeignNumber DEVE ser
+    // false: tratar LID como telefone fazia o antiestrangeiro banir todo
+    // membro de grupo @lid.
+    expect(entry.participant).toContain('@lid');
+    expect(isForeignNumber(entry.participant)).toBe(false);
+    // O DDI só é decidível pelo PN
+    expect(isForeignNumber('6285822480546@s.whatsapp.net')).toBe(true);
     expect(containsSpamKeyword(entry.rawPayloadSafe.message.interactiveMessage.body.text)).toBe(true);
   });
 });

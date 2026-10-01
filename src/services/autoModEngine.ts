@@ -97,9 +97,27 @@ function extractNumber(jid: string): string {
   return (jid || '').replace(/\D/g, '');
 }
 
+/**
+ * O remetente tem DDI estrangeiro?
+ *
+ * ⚠️ Um LID (`123456789012345@lid`) NÃO é um número de telefone — é um
+ * identificador opaco do WhatsApp, sem DDI. Tratá-lo como telefone fazia
+ * `isForeignNumber()` retornar `true` para TODO membro de grupo com
+ * addressingMode 'lid' — ou seja, o antiestrangeiro baniria o grupo inteiro
+ * quando audit_only=0.
+ *
+ * Regra: só é possível decidir DDI a partir de um PN (`@s.whatsapp.net` /
+ * `@c.us`). Para LID, retorna false (indeterminado → não pune).
+ */
 export function isForeignNumber(jid: string): boolean {
-  const n = extractNumber(jid);
-  return n.length > 0 && !n.startsWith('55');
+  const s = String(jid || '');
+  // LID não carrega DDI — não é telefone.
+  if (s.includes('@lid')) return false;
+  const n = extractNumber(s);
+  if (!n) return false;
+  // Só decide com um PN reconhecível.
+  if (!s.includes('@')) return false;
+  return !n.startsWith('55');
 }
 
 /** Normaliza nome para checagem de bot-pattern. */

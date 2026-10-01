@@ -227,3 +227,48 @@ describe('AntiBot — chave de delete usa a key ORIGINAL (não reconstrói)', ()
     expect('addressingMode' in key).toBe(false);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REGRESSÃO CRÍTICA — LID não é telefone (antiestrangeiro baniria o grupo)
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('isForeignNumber — LID não carrega DDI', () => {
+  it('LID NUNCA é estrangeiro (não é telefone)', async () => {
+    const { isForeignNumber } = await import('../../src/services/autoModEngine');
+    // Todos estes são BRASILEIROS reais, mas o LID não diz isso
+    expect(isForeignNumber('60382962012254@lid')).toBe(false);
+    expect(isForeignNumber('111936159097042@lid')).toBe(false);
+    expect(isForeignNumber('2592935567439@lid')).toBe(false);
+    expect(isForeignNumber('202658048684056@lid')).toBe(false);
+    expect(isForeignNumber('33471368028338@lid')).toBe(false);
+  });
+
+  it('PN decide o DDI corretamente', async () => {
+    const { isForeignNumber } = await import('../../src/services/autoModEngine');
+    // brasileiros
+    expect(isForeignNumber('558899855554@s.whatsapp.net')).toBe(false);
+    expect(isForeignNumber('558581344211@c.us')).toBe(false);
+    // estrangeiros
+    expect(isForeignNumber('6282364007211@s.whatsapp.net')).toBe(true);
+    expect(isForeignNumber('6285822480546@s.whatsapp.net')).toBe(true);
+    expect(isForeignNumber('639625978908@s.whatsapp.net')).toBe(true);
+  });
+
+  it('entradas vazias/inválidas não são estrangeiras', async () => {
+    const { isForeignNumber } = await import('../../src/services/autoModEngine');
+    expect(isForeignNumber('')).toBe(false);
+    expect(isForeignNumber('123456')).toBe(false);   // sem @ = não é JID
+  });
+
+  it('REGRESSÃO: evaluate() com remetente @lid NÃO dispara antiestrangeiro', async () => {
+    const ctx = makeCtx();
+    const m: any = {
+      key: { id: 'lid-1', fromMe: false, remoteJid: GROUP_JID, participant: '60382962012254@lid' },
+      message: { conversation: 'oi pessoal' },
+      messageTimestamp: Date.now(),
+    };
+    const r = await evaluate(m, ctx as any, GROUP_JID, '60382962012254@lid', 'João Silva');
+    expect(r.acted).toBe(false);
+    expect(r.reason).not.toContain('antiestrangeiro');
+  });
+});
