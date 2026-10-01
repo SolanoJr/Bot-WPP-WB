@@ -568,6 +568,15 @@ export function startTestServer(port: number = 3004): void {
             return;
           }
           try {
+            // $ban faz updateBlockStatus('block') — sem desbloquear, o reingresso
+            // retorna 403. Desbloqueia antes de tentar adicionar.
+            const pnJid = participant.includes('@') ? participant : `${participant}@s.whatsapp.net`;
+            try {
+              await sock.updateBlockStatus(pnJid, 'unblock');
+              logInfo('[TestServer] /lab/restore-member: unblock aplicado', { pnJid });
+            } catch (e: any) {
+              logWarning('[TestServer] /lab/restore-member: unblock falhou (não crítico)', e?.message);
+            }
             const result = await sock.groupParticipantsUpdate(groupJid, [participant], 'add');
             logInfo('[TestServer] /lab/restore-member', { groupJid, participant, result });
             res.writeHead(200, { 'Content-Type': 'application/json' });
