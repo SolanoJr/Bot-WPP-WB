@@ -461,6 +461,96 @@ export function startTestServer(port: number = 3004): void {
           return;
         }
 
+        // ─── Endpoint de teste do AntiBot (caminho REAL de produção) ───────
+        // Constrói uma WAMessage sintética e chama o MESMO evaluate() usado em
+        // produção, com o ctx REAL (socket/sendMessage/removeParticipant reais).
+        // Usado para provar detecção + ação sem depender de um bot externo.
+        if (req.url === '/lab/antibot-test') {
+          const { platform, groupJid, participant, messageType, text, pushName } = parsedBody;
+          if (!platform || !groupJid || !participant) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Missing platform, groupJid or participant' }));
+            return;
+          }
+          const { adapter, sock } = getAdapterAndSock(platform);
+          if (!adapter || !sock) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Adapter/socket indisponível' }));
+            return;
+          }
+          try {
+            // Resolve o participante no metadata para obter LID/PN reais
+            let partId = participant;
+            let partAlt: string | undefined;
+            try {
+              const chat = await adapter.client.getChat(groupJid);
+              const hit = ((chat as any)?.participants || []).find((p: any) => {
+                const pn = String(p?.phoneNumber || '').replace(/\D/g, '');
+                const id = String(p?.id || '').replace(/\D/g, '');
+                const want = String(participant).replace(/\D/g, '');
+                return pn === want || id === want;
+              });
+              if (hit) { partId = hit.id; partAlt = hit.phoneNumber; }
+            } catch { /* usa o valor recebido */ }
+
+            const msgObj: any = {};
+            const t = messageType || 'buttonsMessage';
+            if (t === 'buttonsMessage') {
+              msgObj.buttonsMessage = {
+                contentText: text || 'spam', footerText: 'KL7.GAME',
+                buttons: [{ buttonId: '1', buttonText: { displayText: 'go' }, type: 1 }],
+              };
+            } else if (t === 'interactiveMessage') {
+              msgObj.interactiveMessage = {
+                body: { text: text || 'spam' },
+                nativeFlowMessage: { buttons: [{ name: 'cta_url', buttonParamsJson: '{"display_text":"go"}' }] },
+              };
+            } else if (t === 'listMessage') {
+              msgObj.listMessage = { title: 'L', description: text || 'spam', buttonText: 'go', sections: [] };
+            } else {
+              msgObj.conversation = text || 'spam';
+            }
+
+            const waMessage: any = {
+              key: { id: `ANTIBOT-${Date.now()}`, remoteJid: groupJid, fromMe: false,
+                     participant: partId, participantAlt: partAlt, addressingMode: 'lid' },
+              message: msgObj,
+              messageTimestamp: Math.floor(Date.now() / 1000),
+            };
+
+            const { evaluate } = await import('../services/autoModEngine.js');
+            const result = await evaluate(
+              waMessage,
+              {
+                sock, userId: (adapter as any).userId, fromMe: false, groupName: groupJid,
+                getChat: async (jid: string) => {
+                  const c = await adapter.client.getChat(jid);
+                  return { participants: (c as any)?.participants || [], id: jid, subject: (c as any)?.name };
+                },
+                sendMessage: async (jid: string, t2: string, opts?: any) => {
+                  try { return await adapter.client.sendMessage(jid, t2, opts); } catch { return null; }
+                },
+                removeParticipant: async (g: string, u: string) => {
+                  try { await adapter.client.removeParticipant(g, u); } catch { /* ignorar */ }
+                },
+                log: logInfo, warn: logWarning, error: logError,
+              },
+              groupJid,
+              partId,
+              pushName || '',
+            );
+
+            logInfo('[TestServer] /lab/antibot-test', { messageType: t, partId, partAlt, result });
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, messageType: t, participant: partId,
+              participantAlt: partAlt, key: waMessage.key, result }, null, 1));
+          } catch (err: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+          }
+          return;
+        }
+
         // ─── Endpoint de restauração de membro (para testes controlados) ───
         // Reingressa um membro removido pelo $kick/$ban usando o socket real.
         // Usado APÓS testes destrutivos autorizados, para restaurar o alvo.
