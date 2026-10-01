@@ -682,6 +682,38 @@ export class PlatformManager {
             args,
             raw: { ...sentMessage?.raw, isGroup: true, key: sentMessage?.raw?.key },
             hasMedia: false,
+            // ⚠️ Popula mentions a partir do texto "@numero" — em produção o
+            // WhatsApp entrega via contextInfo.mentionedJidList, mas o harness
+            // envia texto puro. Sem isso, $kick/$ban respondem
+            // "Mencione alguém..." e nunca executam a remoção.
+            //
+            // Em grupos @lid o WhatsApp entrega o LID na menção, não o PN.
+            // Resolvemos contra o metadata do grupo para reproduzir isso.
+            mentions: await (async () => {
+              const found = text.match(/@(\d{8,})/g) || [];
+              if (!found.length) return [];
+              let parts: any[] = [];
+              try {
+                const chat = await adapter.client.getChat(chatId);
+                parts = (chat as any)?.participants || [];
+              } catch { /* sem metadata → usa PN cru */ }
+              return found.map((m: string) => {
+                const num = m.slice(1);
+                const hit = parts.find((p: any) => {
+                  const pn = String(p?.phoneNumber || '').replace(/\D/g, '');
+                  const id = String(p?.id || '').replace(/\D/g, '');
+                  return pn === num || id === num;
+                });
+                return {
+                  // Preferir o ID como o WhatsApp entrega (@lid em grupos @lid)
+                  id: hit?.id || `${num}@s.whatsapp.net`,
+                  name: '',
+                  isBot: false,
+                  platform: adapter.platform,
+                  raw: hit || {},
+                };
+              });
+            })(),
           };
           
           // Criar contexto completo (com reply, react, etc.)
