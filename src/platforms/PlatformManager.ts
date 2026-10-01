@@ -608,7 +608,7 @@ export class PlatformManager {
    * Envia mensagem para o chat e processa comandos (se houver)
    * Faz o bot "digitar" a mensagem e responder
    */
-  async sendMessageAndProcess(platform: string, chatId: string, text: string, forceProcess = false): Promise<any> {
+  async sendMessageAndProcess(platform: string, chatId: string, text: string, forceProcess = false, asUserId?: string): Promise<any> {
     // Log detalhado para debug
     const availableAdapters = Array.from(this.adapters.keys());
     logInfo(`[sendMessageAndProcess] Plataforma solicitada: "${platform}"`);
@@ -660,11 +660,19 @@ export class PlatformManager {
       if (command) {
         try {
           // Criar PlatformMessage para o comando
+          // ⚠️ O remetente PRECISA ser um usuário real, não o JID do grupo.
+          // Antes usava `userId: chatId`, o que fazia toda verificação de admin
+          // falhar (o "remetente" era o próprio grupo). O caller (/test) pode
+          // passar `asUserId`; default = dono do bot (MASTER).
+          const simulatedUserId = asUserId
+            || process.env.MASTER_USER
+            || process.env.MASTER_NUMBER
+            || '';
           const commandMsg: PlatformMessage = {
             id: sentMessageId || `sent-${Date.now()}`,
             platform: adapter.platform,
             chatId,
-            userId: chatId,
+            userId: simulatedUserId || chatId,
             userName: 'Bot',
             text,
             timestamp: new Date(),
