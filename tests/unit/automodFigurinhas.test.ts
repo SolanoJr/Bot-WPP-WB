@@ -396,3 +396,69 @@ describe('LACUNA 2 — AntiBot não bane admin do grupo', () => {
     expect(r.reason).toContain('antibot');
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ORDEM DOS GUARDS — admin protegido ANTES do audit_only
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('ordem dos guards — admin é reconhecido mesmo em audit_only', () => {
+  async function comAuditOnly(auditOnly: boolean, cfg: any) {
+    vi.resetModules();
+    vi.doMock('../../src/services/databaseService', () => ({
+      getGroupMod: vi.fn(async () => ({ ...cfg, audit_only: auditOnly })),
+      banUser: vi.fn(async () => {}), recordMemberJoin: vi.fn(async () => {}),
+      recordMemberRemove: vi.fn(async () => {}), recordMessageFingerprint: vi.fn(async () => {}),
+      getRecentFingerprintCount: vi.fn(async () => 0),
+      cleanupOldFingerprintEntries: vi.fn(async () => {}), cleanupOldJoinEntries: vi.fn(async () => {}),
+    }));
+    vi.doMock('../../src/services/infractions', () => ({ recordInfraction: vi.fn(async () => 1) }));
+    return await import('../../src/services/autoModEngine');
+  }
+
+  const CFG_CASSINO = { antispam: true, antiestrangeiro: false, autolink: true, bemvindo: true, detectar: true, remover: true };
+
+  it('CASSINO: admin com audit_only=1 → reason "remetente é admin" (não "audit-only")', async () => {
+    const { evaluate: ev } = await comAuditOnly(true, CFG_CASSINO);
+    const ctx = makeCtx();
+    ctx.getChat = vi.fn(async () => ({
+      participants: [{ id: '27445294006297@lid', phoneNumber: '558781303081@s.whatsapp.net', isAdmin: true, isSuperAdmin: false }],
+      id: FIG, subject: 'Figurinhas',
+    }));
+    const r = await ev(wa({ buttonsMessage: { contentText: TEXTO_CASSINO, buttons: [] } }, '27445294006297@lid', '558781303081@s.whatsapp.net'),
+      ctx as any, FIG, '27445294006297@lid', 'X');
+    expect(r.acted).toBe(false);
+    expect(r.reason).toContain('admin');
+    expect(r.reason).not.toContain('audit-only');
+  });
+
+  it('CASSINO: não-admin com audit_only=1 → reason "audit-only"', async () => {
+    const { evaluate: ev } = await comAuditOnly(true, CFG_CASSINO);
+    const ctx = makeCtx();
+    const r = await ev(wa({ buttonsMessage: { contentText: TEXTO_CASSINO, buttons: [] } }, LID_BR, PN_BR),
+      ctx as any, FIG, LID_BR, 'X');
+    expect(r.reason).toContain('audit-only');
+  });
+
+  it('ANTIBOT: admin com audit_only=1 → reason "remetente é admin"', async () => {
+    const { evaluate: ev } = await comAuditOnly(true, CFG_CASSINO);
+    const ctx = makeCtx();
+    ctx.getChat = vi.fn(async () => ({
+      participants: [{ id: '27445294006297@lid', phoneNumber: '558781303081@s.whatsapp.net', isAdmin: true, isSuperAdmin: false }],
+      id: FIG, subject: 'Figurinhas',
+    }));
+    // estrutura + nome suspeito = 2 sinais do AntiBot (sem cassino)
+    const r = await ev(wa({ buttonsMessage: { contentText: 'Clique aqui', buttons: [{ buttonId: '1', buttonText: { displayText: 'OK' } }] } },
+      '27445294006297@lid', '558781303081@s.whatsapp.net'),
+      ctx as any, FIG, '27445294006297@lid', '');
+    expect(r.acted).toBe(false);
+    expect(r.reason).toContain('admin');
+  });
+
+  it('não regride: não-admin continua sendo tratado normalmente', async () => {
+    const { evaluate: ev } = await comAuditOnly(false, CFG_CASSINO);
+    const ctx = makeCtx();
+    const r = await ev(wa({ buttonsMessage: { contentText: TEXTO_CASSINO, buttons: [] } }, LID_BR, PN_BR),
+      ctx as any, FIG, LID_BR, 'X');
+    expect(r.acted).toBe(true);
+  });
+});

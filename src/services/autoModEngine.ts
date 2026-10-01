@@ -620,17 +620,14 @@ export async function evaluate(
     reportedActions.push(`ANTIBOT-CASINO: ${reasonText}`);
     ctx.log(`[AutoMod] ⚠️ CASSINO ALTA PROBABILIDADE detectado: ${reasonText}`);
 
+    // Blindagem: ID protegido não é banido/removido/deletado
     if (isProtectedTarget(senderJid)) {
       ctx.log(`[AutoMod] cassino ignorado — ID protegido: ${senderJid}`);
       return { acted: false, reason: 'cassino: ID protegido', action: 'none' };
     }
 
-    if (isAuditOnly) {
-      ctx.log(`[AutoMod] AUDIT-ONLY cassino: ${senderJid} seria banido/removido/deletado (sinais: ${casinoDetection.signals.join(', ')})`);
-      return { acted: false, reason: 'cassino: audit-only', action: 'none' };
-    }
-
-    // Verificar se o remetente é admin do grupo (proteção contra falsos positivos)
+    // Admin do grupo: nunca é punido automaticamente. Verificado ANTES do
+    // audit_only para que a proteção apareça no log mesmo em modo auditoria.
     try {
       const chat = await ctx.getChat(groupId);
       if (isSenderGroupAdmin(chat, senderJid)) {
@@ -638,6 +635,11 @@ export async function evaluate(
         return { acted: false, reason: 'cassino: remetente é admin', action: 'none' };
       }
     } catch { /* ignorar */ }
+
+    if (isAuditOnly) {
+      ctx.log(`[AutoMod] AUDIT-ONLY cassino: ${senderJid} seria banido/removido/deletado (sinais: ${casinoDetection.signals.join(', ')})`);
+      return { acted: false, reason: 'cassino: audit-only', action: 'none' };
+    }
 
     // Ban persistente
     try {
@@ -696,15 +698,9 @@ export async function evaluate(
           return { acted: false, reason: 'antibot: ID protegido', action: 'none' };
         }
 
-        // Audit-only mode: apenas registrar, não executar ações
-        if (isAuditOnly) {
-          ctx.log(`[AutoMod] AUDIT-ONLY antibot: ${senderJid} seria banido/removido/deletado (sinais: ${botSignals.join(', ')})`);
-          return { acted: false, reason: 'antibot: audit-only', action: 'none' };
-        }
-
-        // Verificar se o remetente é admin do grupo (proteção contra falsos positivos)
-        // — mesma blindagem da REGRA 2b (cassino). Um admin legítimo não pode ser
-        // banido por mandar uma mensagem estruturada.
+        // Admin do grupo: nunca é punido automaticamente. Verificado ANTES do
+        // audit_only — mesma blindagem da REGRA 2b (cassino). Um admin legítimo
+        // não pode ser banido por mandar uma mensagem estruturada.
         try {
           const chat = await ctx.getChat(groupId);
           if (isSenderGroupAdmin(chat, senderJid)) {
@@ -712,6 +708,12 @@ export async function evaluate(
             return { acted: false, reason: 'antibot: remetente é admin', action: 'none' };
           }
         } catch { /* ignorar */ }
+
+        // Audit-only mode: apenas registrar, não executar ações
+        if (isAuditOnly) {
+          ctx.log(`[AutoMod] AUDIT-ONLY antibot: ${senderJid} seria banido/removido/deletado (sinais: ${botSignals.join(', ')})`);
+          return { acted: false, reason: 'antibot: audit-only', action: 'none' };
+        }
 
       // Ban persistente
       try {

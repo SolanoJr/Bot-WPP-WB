@@ -495,9 +495,15 @@ export function startTestServer(port: number = 3004): void {
 
             const msgObj: any = {};
             const t = messageType || 'buttonsMessage';
+            // ⚠️ NÃO injetar footer de cassino por padrão: isso adicionava
+            // `casino-domain` a TODO buttonsMessage e contaminava os testes
+            // negativos (botão legítimo virava "cassino"). O footer só entra
+            // se o caller passar `footer` explicitamente.
+            const footer = parsedBody.footer as string | undefined;
             if (t === 'buttonsMessage') {
               msgObj.buttonsMessage = {
-                contentText: text || 'spam', footerText: 'KL7.GAME',
+                contentText: text || 'spam',
+                ...(footer ? { footerText: footer } : {}),
                 buttons: [{ buttonId: '1', buttonText: { displayText: 'go' }, type: 1 }],
               };
             } else if (t === 'interactiveMessage') {
