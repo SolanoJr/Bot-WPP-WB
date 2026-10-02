@@ -39,11 +39,15 @@ import { gruposCommand } from './grupos';
 import { noticiasCommand } from './noticias';
 import { banidosCommand } from './banidos';
 import { setwelcomeCommand } from './setwelcome';
+import { apresentarCommand } from './apresentar';
+import { apresentacaoCommand } from './apresentacao';
 import { cantadaCommand } from './cantada';
 import { fakechatCommand } from './interacao';
 import { sendCommand } from './send';
 import { cmdToggleCommand } from './cmdToggle';
-import { automodCommand, antispamModCommand, antiestrangeiroModCommand, autolinkModCommand, bemvindoModCommand, detectarModCommand, removerModCommand } from './modToggle';
+import { automodCommand, antispamModCommand, antiestrangeiroModCommand, antilinkModCommand, bemvindoModCommand, anuncioModCommand, punicaoModCommand, antibotModCommand, anticassinoModCommand, auditonlyModCommand,
+  // aliases legados (mesma instância)
+  autolinkModCommand, casinoModCommand, removerModCommand, detectarModCommand } from './modToggle';
 import { screenCommand } from './screen';
 import { deleteMsgCommand } from './deleteMsg';
 import { desmuteCommand } from './desmute';
@@ -91,6 +95,8 @@ const commands: Record<string, ICommand> = {
   noticias: noticiasCommand,
   banidos: banidosCommand,
   setwelcome: setwelcomeCommand,
+    apresentar: apresentarCommand,
+    apresentacao: apresentacaoCommand,
   cantada: cantadaCommand,
   fakechat: fakechatCommand,
   send: sendCommand,
@@ -98,9 +104,19 @@ const commands: Record<string, ICommand> = {
   automod: automodCommand,
   antispam: antispamModCommand,
   antiestrangeiro: antiestrangeiroModCommand,
+  // Nomes OFICIAIS (PT-BR)
+  antilink: antilinkModCommand,
+  antibot: antibotModCommand,
+  anticassino: anticassinoModCommand,
+  punicao: punicaoModCommand,
+  anuncio: anuncioModCommand,
+  auditonly: auditonlyModCommand,
+  bemvindo: bemvindoModCommand,
+  // Aliases LEGADOS (compatibilidade — mesmo comportamento)
   autolink: autolinkModCommand,
-  detectar: detectarModCommand,
+  casino: casinoModCommand,
   remover: removerModCommand,
+  detectar: detectarModCommand,
   delete: deleteMsgCommand,
     desmute: desmuteCommand,
     screen: screenCommand,

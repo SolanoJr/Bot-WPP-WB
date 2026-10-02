@@ -18,6 +18,8 @@ import { runPeriodicCleanup } from '../services/autoModEngine';
 import { memoryMonitor } from '../services/memoryMonitor';
 import { startPeriodicCleanup } from '../services/cleanupService';
 import { createDiscordScreenServiceFromEnv } from '../services/discord-screen/DiscordScreenService';
+import { consolidateStale, listPending } from '../services/presentationService';
+import { publishToTelegram, retryPending, TG_CHAT_ID, TG_THREAD_ID } from '../services/presentationPublisher';
 
 // 🕒 Logging: o loggerService (Winston) escreve no Console (com timestamp próprio)
 // E em arquivos estruturados (logs/combined.log, commands.jsonl, platforms.jsonl).
@@ -74,17 +76,18 @@ export async function initializePlatforms() {
   }
 
   // Inicializar Telegram (se token configurado e válido)
-  const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
-  if (telegramToken && telegramToken.trim() !== '' && telegramToken !== 'seu_token_aqui' && !telegramToken.startsWith('#')) {
-    try {
-      const telegramAdapter = new TelegramAdapter(telegramToken);
-      platformManager.registerAdapter(telegramAdapter);
-    } catch (error) {
-      logError('RegisterTelegram', error);
+    const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
+    let telegramAdapter: TelegramAdapter | null = null;
+    if (telegramToken && telegramToken.trim() !== '' && telegramToken !== 'seu_token_aqui' && !telegramToken.startsWith('#')) {
+      try {
+        telegramAdapter = new TelegramAdapter(telegramToken);
+        platformManager.registerAdapter(telegramAdapter);
+      } catch (error) {
+        logError('RegisterTelegram', error);
+      }
+    } else {
+      logger.warn('⚠️ Telegram não configurado (TELEGRAM_BOT_TOKEN não definido ou inválido)');
     }
-  } else {
-    logger.warn('⚠️ Telegram não configurado (TELEGRAM_BOT_TOKEN não definido ou inválido)');
-  }
 
   // Inicializar Discord (se token configurado e válido)
   const discordToken = process.env.DISCORD_BOT_TOKEN;
@@ -126,15 +129,44 @@ export async function initializePlatforms() {
   });
 
   // Handler de pronto
-  platformManager.onReady(() => {
-    logger.info('🎉 Todas as plataformas prontas!');
-    // Iniciar cleanup periódico do autoMod (fingerprints + audit trail)
-    startAutoModPeriodicCleanup();
-    // Iniciar monitoramento de memória (check a cada 60s)
-    memoryMonitor.start(60000);
-    // P2.3: Iniciar limpeza periódica (a cada 6h)
-    startPeriodicCleanup();
-  });
+    platformManager.onReady(() => {
+      logger.info('🎉 Todas as plataformas prontas!');
+      // Iniciar cleanup periódico do autoMod (fingerprints + audit trail)
+      startAutoModPeriodicCleanup();
+      // Iniciar monitoramento de memória (check a cada 60s)
+      memoryMonitor.start(60000);
+      // P2.3: Iniciar limpeza periódica (a cada 6h)
+      startPeriodicCleanup();
+
+      // ─── Consolidação de apresentações (Comunidade 085) ───
+      // A cada 2 minutos: verifica sessões inativas há 10 min, consolida no SQLite
+      // e publica no Telegram (tópico 2). O Telegram é espelho — se falhar, fica
+      // com status 'failed' e é retentado.
+      setInterval(async () => {
+        try {
+          const stale = await consolidateStale();
+          if (stale.length > 0 && telegramAdapter) {
+            for (const { record } of stale) {
+              // Busca nome/link do grupo de origem para o cabeçalho
+              let groupName: string | undefined;
+              let groupLink: string | undefined;
+              try {
+                const chat = await telegramAdapter.getChat(record.group_id);
+                groupName = chat?.name;
+                // Link de convite não é trivial; omitimos se não disponível
+              } catch { /* ignore */ }
+              await publishToTelegram(record, telegramAdapter.bot, groupName, groupLink);
+            }
+          }
+          // Retenta pendentes (falhas anteriores)
+          if (telegramAdapter) {
+            await retryPending(telegramAdapter.bot);
+          }
+        } catch (e: any) {
+          logger.warn('[presentation] consolidação periódica falhou:', e?.message);
+        }
+      }, 2 * 60 * 1000).unref();
+    });
 
   // P1.2: Graceful shutdown melhorado
   setupGracefulShutdown();

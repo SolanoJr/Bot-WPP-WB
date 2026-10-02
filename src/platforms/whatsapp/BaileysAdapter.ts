@@ -82,6 +82,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
         onMessagesDelete: (keys) => this.handleMessagesDelete(keys),
         onMessagesDeleteAll: (jid, all) => this.handleMessagesDeleteAll(jid, all),
         onMessagesUpdate: (updates) => this.handleMessagesUpdate(updates),
+        onGroupParticipantsUpdate: (event) => this.handleGroupParticipantsUpdate(event),
       },
       this.platform
     );
@@ -446,7 +447,127 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
     }
   }
 
-  private async handleMutedCheck(normMsg: any) {
+  /**
+   * Entrada/saída de membros — `group-participants.update` do Baileys.
+   *
+   * Fluxo: Baileys → BaileysConnection → AQUI → memberJoinService → welcome.
+   * Antes desta implementação o listener não existia e o memberJoinService era
+   * código morto (nunca chamado).
+   */
+  private async handleGroupParticipantsUpdate(event: any): Promise<void> {
+    const groupId = event?.id || '';
+    const action = event?.action || '';
+    const rawParticipants: any[] = event?.participants || [];
+    if (!groupId || !rawParticipants.length) return;
+
+    // Registra a relação grupo → comunidade (linkedParent do metadata).
+    // É a identificação REAL da Comunidade 085, não uma lista de nomes.
+    try {
+      const chat = await this.getChat(groupId);
+      const meta = (chat as any)?.raw || {};
+      if (meta.linkedParent) {
+        const { upsertCommunityGroup } = await import('../../services/welcomeService.js');
+        await upsertCommunityGroup(groupId, meta.linkedParent, (chat as any)?.name);
+      }
+    } catch { /* metadata indisponível — não bloqueia o fluxo */ }
+
+    // Só 'add' interessa para welcome/ban-on-rejoin.
+    if (action !== 'add') return;
+
+    // Resolve os dados de cada novato (nome + PN) a partir do metadata.
+    let participants: Array<{ id: string; name?: string; phoneNumber?: string }> = [];
+    try {
+      const chat = await this.getChat(groupId);
+      const parts: any[] = (chat as any)?.participants || [];
+      participants = rawParticipants.map((raw: any) => {
+        const id = typeof raw === 'string' ? raw : (raw?.id || '');
+        const hit = parts.find((p: any) => p?.id === id);
+        return { id, name: hit?.name || hit?.pushName, phoneNumber: hit?.phoneNumber };
+      });
+    } catch {
+      participants = rawParticipants.map((raw: any) => ({
+        id: typeof raw === 'string' ? raw : (raw?.id || ''),
+      }));
+    }
+
+    try {
+      const { handleMemberJoin } = await import('../../services/memberJoinService.js');
+      await handleMemberJoin(
+        {
+          removeParticipant: (g: string, u: string) => this.removeParticipant(g, u),
+          sendMessage: async (g: string, text: string) => { await this.sendMessage(g, text); },
+          resolveGroupName: async (g: string) => (await this.getChat(g))?.name || g,
+        },
+        { groupId, members: participants },
+      );
+    } catch (err: any) {
+      logWarning('[Baileys] handleGroupParticipantsUpdate falhou:', err?.message);
+    }
+  }
+
+  /**
+   * Coleta de apresentações — mensagens de membros em grupos da Comunidade 085.
+   *
+   * Gatilhos:
+   *   1. reply à mensagem de welcome → MUITO FORTE
+   *   2. $apresentar → MUITO FORTE (tratado no comando)
+   *   3. entrou recente + ≥2 sinais → contextual
+   *   4. sessão já aberta → continua coletando
+   *
+   * NUNCA usa uma palavra isolada ("idade") como prova.
+   */
+  private async handlePresentationCollect(normMsg: any): Promise<void> {
+    try {
+      const { getOrCreateSession, getActiveSession, collectMessage, isCommunity085Group, DEFAULT_IDLE_MS } =
+        await import('../../services/presentationService');
+
+      const chatId = normMsg?.chatId || '';
+      const senderId = normMsg?.senderId || '';
+      const text = normMsg?.text || '';
+      const messageId = normMsg?.messageId || '';
+      const mediaType = normMsg?.mediaType;
+
+      if (!chatId || !senderId || !chatId.includes('@g.us')) return;
+
+      // Só publica na Comunidade 085 — mas a coleta é gratuita (não bloqueia).
+      const inCommunity = await isCommunity085Group(chatId);
+
+      // 1. Sessão já aberta → continua coletando
+      const active = getActiveSession(chatId, senderId);
+      if (active) {
+        collectMessage(active, messageId, text, mediaType ? { type: mediaType === 'image' ? 'image' : 'other', mediaType } : undefined);
+        return;
+      }
+
+      // 2. Reply à mensagem de welcome → MUITO FORTE
+      const replyTo = normMsg?.replyToMessageId || normMsg?.quotedMessageId;
+      if (replyTo) {
+        // Se a mensagem respondida foi o welcome do bot, abre sessão
+        const { getWelcomeMessage } = await import('../../services/welcomeService');
+        const welcome = await getWelcomeMessage(chatId);
+        // Heurística: se o texto da mensagem respondida contém "Bem-vindo" ou o welcome customizado
+        const quotedText = normMsg?.quotedText || '';
+        if (quotedText.includes('Bem-vindo') || (welcome && quotedText.includes(welcome))) {
+          const s = getOrCreateSession(chatId, senderId, 'welcome_reply');
+          collectMessage(s, messageId, text, mediaType ? { type: mediaType === 'image' ? 'image' : 'other', mediaType } : undefined);
+          return;
+        }
+      }
+
+      // 3. Gatilho contextual: entrou recente + ≥2 sinais de apresentação
+      // (não implementado aqui — requer tracking de tempo de entrada)
+      // Por enquanto, só coleta se houver sinais claros no texto
+      const sinais = countPresentationSignals(text);
+      if (sinais >= 2) {
+        const s = getOrCreateSession(chatId, senderId, 'signals');
+        collectMessage(s, messageId, text, mediaType ? { type: mediaType === 'image' ? 'image' : 'other', mediaType } : undefined);
+      }
+    } catch (e: any) {
+      logWarning('[Baileys] handlePresentationCollect falhou:', e?.message);
+    }
+  }
+
+    private async handleMutedCheck(normMsg: any) {
     const muted = await handleMutedMessage({
       chatId: normMsg.chatId,
       userId: normMsg.userId,

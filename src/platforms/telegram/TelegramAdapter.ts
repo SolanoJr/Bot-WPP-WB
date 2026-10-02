@@ -106,7 +106,7 @@ import path from 'node:path';
 
 /**
  * Captura mensagem do Telegram e persiste no JSONL de capturas.
- * Formato compatível com laboratorio/capture-store.ts (WAMessageKey-like).
+ * Formato compatível com src/services/captureStore.ts (WAMessageKey-like).
  */
 async function captureTelegramMessage(ctx: any): Promise<void> {
   const tg = ctx.message || (ctx.update as any)?.message;
@@ -503,29 +503,31 @@ class TelegramClient implements PlatformClient {
       parse_mode: options?.parseMode as any,
       disable_web_page_preview: options?.disablePreview as any,
       reply_to_message_id: options?.replyToMessageId ? Number(options.replyToMessageId.replace(/^tg:/, '')) : undefined,
+      message_thread_id: options?.messageThreadId ? Number(options.messageThreadId) : undefined,
     } as any);
     return this.normalizeMessage({ message: sent } as any);
   }
 
-  async sendMedia(chatId: string, media: MediaPayload, caption?: string): Promise<PlatformMessage> {
+  async sendMedia(chatId: string, media: MediaPayload, caption?: string, options?: SendOptions): Promise<PlatformMessage> {
     const cleanChatId = chatId.replace(/^tg:/, '');
     const { type, data, filename } = media;
+    const threadId = options?.messageThreadId ? Number(options.messageThreadId) : undefined;
     let sent: any;
     switch (type) {
       case 'image':
-        sent = await this.bot.telegram.sendPhoto(Number(cleanChatId), { source: data as Buffer }, { caption });
+        sent = await this.bot.telegram.sendPhoto(Number(cleanChatId), { source: data as Buffer }, { caption, message_thread_id: threadId });
         break;
       case 'video':
-        sent = await this.bot.telegram.sendVideo(Number(cleanChatId), { source: data as Buffer }, { caption });
+        sent = await this.bot.telegram.sendVideo(Number(cleanChatId), { source: data as Buffer }, { caption, message_thread_id: threadId });
         break;
       case 'audio':
-        sent = await this.bot.telegram.sendAudio(Number(cleanChatId), { source: data as Buffer }, { caption });
+        sent = await this.bot.telegram.sendAudio(Number(cleanChatId), { source: data as Buffer }, { caption, message_thread_id: threadId });
         break;
       case 'document':
-        sent = await this.bot.telegram.sendDocument(Number(cleanChatId), { source: data as Buffer, filename }, { caption });
+        sent = await this.bot.telegram.sendDocument(Number(cleanChatId), { source: data as Buffer, filename }, { caption, message_thread_id: threadId });
         break;
       case 'sticker':
-        sent = await this.bot.telegram.sendSticker(Number(cleanChatId), { source: data as Buffer });
+        sent = await this.bot.telegram.sendSticker(Number(cleanChatId), { source: data as Buffer }, { message_thread_id: threadId });
         break;
       default:
         throw new Error(`Tipo de mídia não suportado: ${type}`);

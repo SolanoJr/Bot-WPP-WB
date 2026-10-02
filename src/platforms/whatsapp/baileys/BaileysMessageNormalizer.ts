@@ -183,19 +183,27 @@ export class BaileysMessageNormalizer {
       // Mute check
       const { handleMutedMessage } = await import('../../../bot/commands/mute.js');
       const muted = await handleMutedMessage({
-        chatId: normId(from),
-        userId: normId(sender),
-        raw: {
-          delete: async () => {
-            await this.sock?.sendMessage(from, { delete: key });
-          },
-        },
+              chatId: normId(from),
+              userId: normId(sender),
+              raw: {
+                delete: async () => {
+                  await this.sock?.sendMessage(from, { delete: key });
+                },
+              },
       });
       if (muted) return;
 
+      // ─── Coleta de apresentações (ANTES do handler de comandos)
+      // Captura mensagens de TODOS os usuários em grupos da Comunidade 085,
+      // não apenas comandos.
+      try {
+              const { handlePresentationCollect } = await import('../../../services/presentationService.js');
+              await handlePresentationCollect(normMsg);
+      } catch { /* não bloqueia o fluxo principal */ }
+
       // Dispatch para handlers de comandos normais
       if (this.msgHandler) {
-        await this.msgHandler(normMsg);
+              await this.msgHandler(normMsg);
       }
 
     } catch (e: any) {
@@ -235,7 +243,7 @@ export class BaileysMessageNormalizer {
           event: 'key_deleted',
           key: key,
         };
-        const { appendCapture } = require('../../../../laboratorio/capture-store.js');
+        const { appendCapture } = require('../../../services/captureStore.js');
         if (typeof appendCapture === 'function') {
           appendCapture(captureEntry);
         }
@@ -265,9 +273,9 @@ export class BaileysMessageNormalizer {
       // Se é um protocol message de revoke, captura para o experimento
       if (hasProtocol && (message as any).protocolMessage?.type === 'REVOKE') {
         if (key?.id && key?.remoteJid) {
-          const { appendCapture } = require('../../../../laboratorio/capture-store.js');
+          const { appendCapture } = require('../../../services/captureStore.js');
           if (typeof appendCapture === 'function') {
-            appendCapture({
+      appendCapture({
               captureId: `proto-revoke-${key.id}-${Date.now()}`,
               capturedAt: new Date().toISOString(),
               groupId: key.remoteJid.endsWith('@g.us') ? key.remoteJid : '',
@@ -285,7 +293,7 @@ export class BaileysMessageNormalizer {
               event: 'protocol_revoke',
               key: key,
               protocolMessage: (message as any).protocolMessage,
-            });
+      });
           }
         }
       }
@@ -320,9 +328,9 @@ export class BaileysMessageNormalizer {
       for (const b of buttons) {
         if (typeof b.buttonParamsJson === 'string') {
           try {
-            const parsed = JSON.parse(b.buttonParamsJson);
-            if (parsed.display_text) parts.push(parsed.display_text);
-            if (parsed.url) parts.push(parsed.url);
+      const parsed = JSON.parse(b.buttonParamsJson);
+      if (parsed.display_text) parts.push(parsed.display_text);
+      if (parsed.url) parts.push(parsed.url);
           } catch { /* ignore */ }
         }
       }
@@ -388,20 +396,20 @@ export class BaileysMessageNormalizer {
           let senderName = '';
           // Baileys v7: sock.store não existe; obtém via getChat ou waitForMessage
           try {
-            const chat = await this.getChat(sender);
-            senderName = chat?.name || chat?.subject || '';
+      const chat = await this.getChat(sender);
+      senderName = chat?.name || chat?.subject || '';
           } catch { /* ignorar */ }
           if (!senderName) {
-            try {
+      try {
               // Fallback: tenta buscar a mensagem mais recente do remetente
               const recent = await this.sock.waitForMessage(from, '');
               if (recent?.pushName) senderName = recent.pushName;
-            } catch { /* ignorar */ }
+      } catch { /* ignorar */ }
           }
 
           await evaluate(
-            rawMsg,
-            {
+      rawMsg,
+      {
               sock: this.sock,
               userId: this.userId,
               fromMe: fromMe,  // passa para o evaluate saber se é mensagem do bot
@@ -430,10 +438,10 @@ export class BaileysMessageNormalizer {
               log: logInfo,
               warn: logWarning,
               error: logError,
-            },
-            from,
-            sender,
-            senderName,
+      },
+      from,
+      sender,
+      senderName,
           );
         } catch (err: any) {
           logWarning('[Baileys] autoModEngine.evaluate falhou:', err?.message);
@@ -475,8 +483,8 @@ export class BaileysMessageNormalizer {
       for (const b of buttons) {
         try {
           if (b.buttonParamsJson) {
-            const params = JSON.parse(String(b.buttonParamsJson));
-            if (params.url) tryAdd(params.url);
+      const params = JSON.parse(String(b.buttonParamsJson));
+      if (params.url) tryAdd(params.url);
           }
         } catch { /* ignore */ }
       }
@@ -489,8 +497,8 @@ export class BaileysMessageNormalizer {
       for (const b of buttons) {
         try {
           if (b.buttonParamsJson) {
-            const params = JSON.parse(String(b.buttonParamsJson));
-            if (params.url) tryAdd(params.url);
+      const params = JSON.parse(String(b.buttonParamsJson));
+      if (params.url) tryAdd(params.url);
           }
         } catch { /* ignore */ }
       }
@@ -512,8 +520,8 @@ export class BaileysMessageNormalizer {
       for (const b of buttons) {
         try {
           if (b.buttonParamsJson) {
-            const params = JSON.parse(String(b.buttonParamsJson));
-            if (params.url) tryAdd(params.url);
+      const params = JSON.parse(String(b.buttonParamsJson));
+      if (params.url) tryAdd(params.url);
           }
         } catch { /* ignore */ }
       }

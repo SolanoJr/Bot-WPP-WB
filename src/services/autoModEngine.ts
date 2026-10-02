@@ -120,6 +120,19 @@ export function isForeignNumber(jid: string): boolean {
   return !n.startsWith('55');
 }
 
+/**
+ * DDI estrangeiro a partir do PN associado à mensagem.
+ *
+ * Em grupos com `addressingMode: 'lid'`, o `participant` é um LID (sem DDI) e
+ * o número real só existe em `key.participantAlt`. Esta função olha os dois,
+ * preferindo o PN — é o único que carrega DDI.
+ */
+export function isForeignSender(msg: WAMessage, senderJid: string): boolean {
+  const alt: string = String((msg as any)?.key?.participantAlt || '');
+  if (alt && isForeignNumber(alt)) return true;
+  return isForeignNumber(senderJid);
+}
+
 /** Normaliza nome para checagem de bot-pattern. */
 function normalizeDisplayName(name: string): string {
   return (name || '').toLowerCase().trim();
@@ -437,6 +450,15 @@ export async function evaluate(
   const domains = extractDomains(urls);
   const fp = fingerprint(text);
 
+  // 1b. Anti-loop / proteção da própria mensagem (DUPLA DEFESA).
+  // O normalizer já filtra `fromMe`, mas o engine é chamado por outros caminhos
+  // (testServer, harness, lab). Sem este guard, uma mensagem do próprio bot
+  // poderia ser avaliada e punida — criando loop ou auto-punição.
+  if ((msg as any)?.key?.fromMe === true) {
+    ctx.log('[AutoMod] mensagem do próprio bot — ignorando (anti-loop)');
+    return { acted: false, reason: 'mensagem do próprio bot', action: 'none' };
+  }
+
   // 2. Config do grupo
   let config;
   try {
@@ -447,7 +469,8 @@ export async function evaluate(
   }
 
   // Nada ligado → return
-    const anyOn = config.antiestrangeiro || config.remover || config.autolink || config.antispam;
+    const anyOn = config.antiestrangeiro || config.remover || config.autolink
+      || config.antispam || config.antibot === true || config.casino === true;
     if (!anyOn) {
       ctx.log(`[AutoMod] grupo ${groupId}: nada ligado — ignorando`);
       return { acted:false, reason:'nada ligado', action:'none' };
@@ -503,7 +526,7 @@ export async function evaluate(
     const msgType = msg.message ?? {};
 
     // REGRA 1: antiestrangeiro (absoluto) — ban+remove+delete de TODO não-brasileiro
-      if (config.antiestrangeiro && isForeignNumber(senderJid)) {
+      if (config.antiestrangeiro && isForeignSender(msg, senderJid)) {
         const reasonText = `${senderName || senderJid} — DDI estrangeiro (anti-estrangeiro).`;
         reportedActions.push(`ANTIESTRANGEIRO: ${reasonText}`);
         ctx.log(`[AutoMod] antiestrangeiro ativado: ${reasonText}`);
@@ -581,7 +604,10 @@ export async function evaluate(
     // Ex.: estrutura + nome-suspeito = 2 sinais independentes → dispara.
     //      estrutura + buttonsMessage  = 1 sinal estrutural    → NÃO dispara.
     const botSignals: string[] = [];
-    if (isForeignNumber(senderJid)) botSignals.push('foreign');
+    // DDI estrangeiro — usa o PN (o LID não carrega DDI). Fonte ÚNICA: antes
+    // havia também um `isForeignNumber(senderJid)` aqui, que em grupos @lid
+    // retornava false e criava duas fontes para o mesmo fato.
+    if (isForeignSender(msg, senderJid)) botSignals.push('foreign');
     if (isSuspiciousDomain(domains)) botSignals.push('link-suspeito');
     if (suspiciousName) botSignals.push('nome-suspeito');
     if (hasSpamKeyword) botSignals.push('spam-keyword');
@@ -610,7 +636,7 @@ export async function evaluate(
   //   Sem isso, spam textual de cassino de remetente brasileiro passava.
   const casinoDetection = classifyCasino(msg, senderJid, senderName);
   const isHighProbabilityCasino =
-    config.remover &&
+    config.casino === true &&
     casinoDetection.detected &&
     (casinoDetection.strongCombo ||
      (casinoDetection.confidence >= 60 && casinoDetection.signals.length >= 3));
@@ -687,7 +713,7 @@ export async function evaluate(
   }
 
   // REGRA 2c: anti-bot padrão (>=2 sinais)
-  if (config.remover && botSignals.length >= 2) {
+  if (config.antibot === true && botSignals.length >= 2) {
         const reasonText = `${senderName || senderJid} — bot detectado (${botSignals.join(', ')}).`;
         reportedActions.push(`ANTIBOT: ${reasonText}`);
         ctx.log(`[AutoMod] antibot ativado: ${reasonText}`);

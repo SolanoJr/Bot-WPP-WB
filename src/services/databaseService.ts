@@ -24,7 +24,43 @@ export interface GroupModConfig {
   detectar?: boolean;
   remover?: boolean;
   audit_only?: boolean;
+  /** AntiBot: detecção de mensagens estruturais/automatizadas. */
+  antibot?: boolean;
+  /** Casino: cassino/betano de alta probabilidade. */
+  casino?: boolean;
+  /** Apresentações (Comunidade 085) — serviço separado do engine. */
+  presentation_enabled?: boolean;
 }
+
+/**
+ * Defaults de um GRUPO NOVO.
+ *
+ * Regra de arquitetura: todo recurso automático começa DESLIGADO. O bot nunca
+ * passa a moderar um grupo só porque entrou nele — alguém precisa ligar
+ * explicitamente. Grupos EXISTENTES não são tocados (valores persistidos
+ * permanecem; isto só vale para linhas novas).
+ */
+export const GROUP_MOD_DEFAULTS: Required<GroupModConfig> = {
+  antispam: false,
+  antiestrangeiro: false,
+  autolink: false,
+  bemvindo: false,
+  detectar: false,
+  remover: false,
+  audit_only: false,
+  antibot: false,
+  casino: false,
+  presentation_enabled: false,
+};
+
+/** Colunas de group_mod que representam automações ligáveis. */
+export const GROUP_MOD_FLAGS = [
+  'antispam', 'antiestrangeiro', 'autolink', 'bemvindo',
+  'detectar', 'remover', 'audit_only', 'antibot', 'casino',
+  'presentation_enabled',
+] as const;
+
+export type GroupModFlag = typeof GROUP_MOD_FLAGS[number];
 
 export async function initDatabase() {
   const db = await open({
@@ -63,19 +99,102 @@ export async function initDatabase() {
   `);
 
   // ─── Configurações de moderação por grupo ───
+  // DEFAULTS DE GRUPO NOVO: tudo DESLIGADO. O bot não passa a moderar um grupo
+  // só porque entrou nele. Grupos existentes mantêm seus valores persistidos
+  // (CREATE TABLE IF NOT EXISTS não altera tabela já criada).
     await db.exec(`
       CREATE TABLE IF NOT EXISTS group_mod (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         group_id TEXT NOT NULL UNIQUE,
-        antispam BOOLEAN DEFAULT 1,
-        antiestrangeiro BOOLEAN DEFAULT 1,
-        autolink BOOLEAN DEFAULT 1,
+        antispam BOOLEAN DEFAULT 0,
+        antiestrangeiro BOOLEAN DEFAULT 0,
+        autolink BOOLEAN DEFAULT 0,
         bemvindo BOOLEAN DEFAULT 0,
         detectar BOOLEAN DEFAULT 0,
-        remover BOOLEAN DEFAULT 1,
+        remover BOOLEAN DEFAULT 0,
         audit_only BOOLEAN DEFAULT 0
       );
     `);
+
+  // ─── MIGRAÇÃO ADITIVA: welcome_message + tabelas de apresentação ───
+    // `ALTER TABLE ... ADD COLUMN` falha se a coluna já existe — por isso o
+    // helper tolerante. Não destrutivo: preserva os dados existentes.
+    const addColumnIfMissing = async (table: string, column: string, ddl: string) => {
+      try {
+        await db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+        logInfo(`[databaseService] migração: ${table}.${column} adicionada`);
+      } catch (e: any) {
+        if (!/duplicate column name/i.test(e?.message || '')) {
+          logWarning(`[databaseService] migração ${table}.${column}: ${e?.message}`);
+        }
+      }
+    };
+
+    // Welcome configurável por grupo. NULL = usa o padrão do sistema.
+    await addColumnIfMissing('group_mod', 'welcome_message', 'welcome_message TEXT DEFAULT NULL');
+
+    // Apresentações: ativa/desativa por grupo (default 0 = desligado).
+    await addColumnIfMissing('group_mod', 'presentation_enabled', 'presentation_enabled INTEGER NOT NULL DEFAULT 0');
+
+    // AntiBot e Casino: flags PRÓPRIAS. Antes ambos eram gated por `remover`,
+    // o que impedia desligar um sem desligar o outro (e o antiestrangeiro).
+    await addColumnIfMissing('group_mod', 'antibot', 'antibot INTEGER NOT NULL DEFAULT 0');
+    await addColumnIfMissing('group_mod', 'casino', 'casino INTEGER NOT NULL DEFAULT 0');
+
+    // ─── APRESENTAÇÕES (Comunidade 085) ───
+  // SQLite é a fonte OFICIAL. O Telegram é espelho — a apresentação nunca
+  // depende da existência da mensagem no Telegram.
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS presentations (
+      presentation_id TEXT PRIMARY KEY,
+      platform TEXT NOT NULL,
+      group_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      phone_number TEXT,
+      display_name TEXT,
+      nome TEXT,
+      idade INTEGER,
+      genero TEXT,
+      trabalho TEXT,
+      hobbies TEXT,
+      bio TEXT,
+      orientacao TEXT,
+      estado_civil TEXT,
+      bairro TEXT,
+      rede_social TEXT,
+      photo_ref TEXT,
+      photo_source TEXT,
+      original_text TEXT,
+      source_message_ids TEXT,
+      tg_chat_id TEXT,
+      tg_thread_id TEXT,
+      tg_message_id TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+  `);
+
+  await db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_presentations_user_group
+      ON presentations(platform, group_id, user_id);
+  `);
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_presentations_status
+      ON presentations(status);
+  `);
+
+  // Grupos pertencentes à Comunidade 085.
+  // O Baileys entrega `linkedParent` no metadata — é a relação REAL, não uma
+  // lista de nomes. Guardamos em tabela para consulta rápida e auditoria.
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS community_groups (
+      group_id TEXT PRIMARY KEY,
+      community_id TEXT NOT NULL,
+      group_name TEXT,
+      updated_at INTEGER NOT NULL
+    );
+  `);
 
   // ─── AUDIT TRAIL: entrada/saída de membros ───
   await db.exec(`
@@ -250,9 +369,15 @@ async function getGroupModRow(db: any, groupId: string): Promise<any> {
     if (exactNorm) return exactNorm;
   }
 
-  // 3) Fallback: variantes com prefixo, em ordem determinística
-  //    (wpp → tg → dc). Cobre o caso real de produção: DB grava "wpp:X" e o
-  //    evaluate() consulta "X".
+  // 3) Fallback: variantes com prefixo — SOMENTE para JIDs do WhatsApp.
+  //
+  // ⚠️ Só é seguro para JIDs do WhatsApp (contêm `@`), que são inequívocos.
+  // Para IDs de Telegram/Discord (numéricos puros), `wpp:X`, `tg:X` e `dc:X`
+  // são grupos DIFERENTES: aplicar o fallback vazaria configuração entre
+  // plataformas (ex.: um grupo do Telegram lendo a config de um grupo do
+  // WhatsApp com o mesmo número).
+  if (!norm.includes('@')) return null;
+
   return db.get(
     `SELECT * FROM group_mod
       WHERE group_id IN (?, ?, ?)
@@ -275,6 +400,51 @@ async function resolveGroupModKey(db: any, groupId: string): Promise<string> {
   return existing?.group_id || groupId;
 }
 
+/**
+ * Representação CANÔNICA do group_id no banco.
+ *
+ * Regra: remove o prefixo de plataforma APENAS quando o restante é um JID do
+ * WhatsApp (contém `@`).
+ *
+ * Por quê a condição: IDs de Telegram (`-1003470059875`) e Discord
+ * (`387787838013571072`) são numéricos puros. Remover o prefixo deles faria
+ * `wpp:146078742`, `tg:146078742` e `dc:146078742` colidirem no MESMO registro —
+ * vazando configuração entre plataformas.
+ *
+ * Um JID do WhatsApp (`120363…@g.us`) é inequívoco, então o prefixo é ruído.
+ */
+export function canonicalGroupId(groupId: string): string {
+  const raw = String(groupId || '');
+  const semPrefixo = raw.replace(/^(wpp|tg|dc):/i, '');
+  // Só canoniza quando é claramente um JID do WhatsApp.
+  if (semPrefixo.includes('@')) return semPrefixo;
+  return raw;
+}
+
+/**
+ * Garante que a linha do grupo exista com TODAS as flags explicitamente 0.
+ *
+ * Nunca depende do `DEFAULT` do schema: bancos criados antes da correção de
+ * defaults têm `DEFAULT 1` gravado no DDL, e `CREATE TABLE IF NOT EXISTS` não
+ * altera tabela existente.
+ *
+ * @returns a chave (group_id) efetivamente usada na linha.
+ */
+export async function ensureGroupModRow(groupId: string): Promise<string> {
+  const db = await getDb();
+  const existing = await getGroupModRow(db, groupId);
+  if (existing?.group_id) return existing.group_id;
+
+  const key = canonicalGroupId(groupId);
+  const cols = GROUP_MOD_FLAGS.join(', ');
+  const zeros = GROUP_MOD_FLAGS.map(() => '0').join(', ');
+  await db.run(
+    `INSERT OR IGNORE INTO group_mod (group_id, ${cols}) VALUES (?, ${zeros})`,
+    [key]
+  );
+  return key;
+}
+
 export async function getGroupMod(groupId: string): Promise<GroupModConfig> {
   const db = await getDb();
   const row = await getGroupModRow(db, groupId);
@@ -287,98 +457,132 @@ export async function getGroupMod(groupId: string): Promise<GroupModConfig> {
     detectar: row.detectar === 1 || row.detectar === true,
     remover: row.remover === 1 || row.remover === true,
     audit_only: row.audit_only === 1 || row.audit_only === true,
+    antibot: row.antibot === 1 || row.antibot === true,
+    casino: row.casino === 1 || row.casino === true,
+    presentation_enabled: row.presentation_enabled === 1 || row.presentation_enabled === true,
   };
 }
 
-export async function getGroupModState(groupId: string): Promise<string> {
+/**
+ * Estado textual do grupo.
+ * 'ativado' = tudo ligado | 'desativado' = nada ligado | 'personalizado' = misto
+ */
+export async function getGroupModState(groupId: string): Promise<'ativado' | 'desativado' | 'personalizado'> {
   const config = await getGroupMod(groupId);
-  const allOn = ['antispam', 'antiestrangeiro', 'autolink', 'remover'].every(
-    k => config[k as keyof GroupModConfig] !== false
-  );
-  const anyOff = Object.values(config).some(v => v === false);
-  if (allOn) return 'ativado';
-  if (anyOff) return 'personalizado';
-  return 'desativado';
+  const flags = GROUP_MOD_FLAGS.filter(f => f !== 'audit_only');
+  const on = flags.filter(f => config[f as keyof GroupModConfig] === true);
+  if (on.length === 0) return 'desativado';
+  if (on.length === flags.length) return 'ativado';
+  return 'personalizado';
 }
 
+/**
+ * Status centralizado de TODAS as automações do grupo.
+ *
+ * Fonte única para `$automod status`. Separa:
+ *   - moderação (engine): antispam, antiestrangeiro, autolink, antibot, casino, remover, detectar
+ *   - serviços: welcome, apresentações
+ *   - modo: audit_only
+ */
+export async function getGroupAutomationStatus(groupId: string): Promise<{
+  config: GroupModConfig;
+  state: 'ativado' | 'desativado' | 'personalizado';
+  hasRow: boolean;
+}> {
+  const db = await getDb();
+  const row = await getGroupModRow(db, groupId);
+  const config = await getGroupMod(groupId);
+  const state = await getGroupModState(groupId);
+  return { config, state, hasRow: !!row };
+}
+
+/**
+ * Liga/desliga UMA flag do grupo.
+ *
+ * ⚠️ Não pode herdar defaults do schema: um `INSERT` de uma única coluna faria
+ * as outras receberem os defaults da TABELA, ligando módulos que ninguém pediu
+ * (ex.: `$bemvindo on` ligava AntiSpam/AntiLink/Remover).
+ *
+ * Também não pode confiar no `DEFAULT` do schema: bancos criados antes desta
+ * correção têm `DEFAULT 1` gravado no DDL, e `CREATE TABLE IF NOT EXISTS` não
+ * altera tabela já existente. Por isso as colunas são escritas EXPLICITAMENTE
+ * como 0 na criação da linha.
+ */
 export async function setGroupModField(groupId: string, field: keyof GroupModConfig, value: boolean): Promise<void> {
   const db = await getDb();
-  const key = await resolveGroupModKey(db, groupId);
+  // Coluna é interpolada da lista fechada (não vem de input do usuário).
+  if (!(GROUP_MOD_FLAGS as readonly string[]).includes(field)) {
+    throw new Error(`setGroupModField: flag inválida "${field}"`);
+  }
+  // Cria a linha com TODAS as flags explicitamente 0 (não depende do schema).
+  const key = await ensureGroupModRow(groupId);
   await db.run(
-    `INSERT INTO group_mod (group_id, ${field}) VALUES (?, ?)
-     ON CONFLICT(group_id) DO UPDATE SET ${field} = ?`,
-    [key, value ? 1 : 0, value ? 1 : 0]
-  );
-}
-
-export async function setGroupModAll(groupId: string, config: GroupModConfig): Promise<void> {
-  const db = await getDb();
-  const key = await resolveGroupModKey(db, groupId);
-  await db.run(
-    `INSERT INTO group_mod (group_id, antispam, antiestrangeiro, autolink, bemvindo, detectar, remover)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(group_id) DO UPDATE SET
-       antispam = excluded.antispam,
-       antiestrangeiro = excluded.antiestrangeiro,
-       autolink = excluded.autolink,
-       bemvindo = excluded.bemvindo,
-       detectar = excluded.detectar,
-       remover = excluded.remover`,
-    [
-      key,
-      config.antispam !== false ? 1 : 0,
-      config.antiestrangeiro !== false ? 1 : 0,
-      config.autolink !== false ? 1 : 0,
-      config.bemvindo === true ? 1 : 0,
-      config.detectar === true ? 1 : 0,
-      config.remover !== false ? 1 : 0,
-    ]
+    `UPDATE group_mod SET ${field} = ? WHERE group_id = ?`,
+    [value ? 1 : 0, key]
   );
 }
 
 /**
- * Garante que um grupo exista no group_mod com as configurações especificadas.
- * Se o grupo não existir, cria com as flags padrão (todas ligadas exceto detectar).
- * Se já existir, atualiza ONLY os campos fornecidos (campos undefined são ignorados).
+ * Aplica um conjunto de flags de uma vez.
+ *
+ * Flags ausentes no objeto NÃO são alteradas (preserva o que já está no banco)
+ * e a linha nova é criada com tudo DESLIGADO antes de aplicar o que foi pedido.
+ */
+export async function setGroupModAll(groupId: string, config: GroupModConfig): Promise<void> {
+  const db = await getDb();
+  // Linha nova nasce com TODAS as flags explicitamente 0 (não depende do DEFAULT
+  // do schema, que em bancos antigos é 1).
+  const key = await ensureGroupModRow(groupId);
+
+  // Só as flags EXPLICITAMENTE presentes no objeto são aplicadas.
+  const entries = Object.entries(config).filter(
+    ([k, v]) => typeof v === 'boolean' && (GROUP_MOD_FLAGS as readonly string[]).includes(k)
+  ) as Array<[GroupModFlag, boolean]>;
+
+  for (const [flag, value] of entries) {
+    await db.run(
+      `UPDATE group_mod SET ${flag} = ? WHERE group_id = ?`,
+      [value ? 1 : 0, key]
+    );
+  }
+}
+
+/**
+ * Garante que um grupo exista no group_mod.
+ *
+ * GRUPO NOVO: criado com TODAS as automações DESLIGADAS (GROUP_MOD_DEFAULTS) —
+ * o bot nunca passa a moderar um grupo só porque entrou nele. Se `config` for
+ * passado, apenas as flags explicitamente presentes nele são ligadas.
+ *
+ * GRUPO EXISTENTE: só os campos fornecidos são atualizados; o resto é
+ * preservado. Nada é resetado.
  */
 export async function ensureGroupMod(
   groupId: string,
   config?: Partial<GroupModConfig>,
 ): Promise<void> {
   const db = await getDb();
-  const key = await resolveGroupModKey(db, groupId);
   const existing = await getGroupModRow(db, groupId);
   if (!existing) {
-    // Cria com defaults: tudo ligado
-    const defaults: GroupModConfig = {
-      antispam: true,
-      antiestrangeiro: true,
-      autolink: true,
-      bemvindo: false,
-      detectar: true,
-      remover: true,
-      audit_only: false,
-    };
-    const merged = config ? { ...defaults, ...config } : defaults;
+    // Grupo novo: tudo desligado; aplica só o que foi explicitamente pedido.
+    const merged: GroupModConfig = { ...GROUP_MOD_DEFAULTS, ...(config || {}) };
+    const key = canonicalGroupId(groupId);
+    const cols = GROUP_MOD_FLAGS.join(', ');
+    const vals = GROUP_MOD_FLAGS
+      .map(f => (merged[f as keyof GroupModConfig] === true ? '1' : '0'))
+      .join(', ');
     await db.run(
-      `INSERT INTO group_mod (group_id, antispam, antiestrangeiro, autolink, bemvindo, detectar, remover)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        key,
-        merged.antispam !== false ? 1 : 0,
-        merged.antiestrangeiro !== false ? 1 : 0,
-        merged.autolink !== false ? 1 : 0,
-        merged.bemvindo === true ? 1 : 0,
-        merged.detectar === true ? 1 : 0,
-        merged.remover !== false ? 1 : 0,
-      ]
+      `INSERT OR IGNORE INTO group_mod (group_id, ${cols}) VALUES (?, ${vals})`,
+      [key]
     );
-    logInfo(`[databaseService] Grupo ${key} criado no group_mod com configurações ativas.`);
+    logInfo(`[databaseService] Grupo ${key} criado no group_mod (automações desligadas por padrão).`);
   } else {
+    const key = existing.group_id;
     if (config) {
       for (const [field, value] of Object.entries(config)) {
         if (value === undefined) continue;
         const f = field as keyof GroupModConfig;
+        if (!(GROUP_MOD_FLAGS as readonly string[]).includes(f)) continue;
         await db.run(
           `UPDATE group_mod SET ${f} = ? WHERE group_id = ?`,
           [value ? 1 : 0, key]

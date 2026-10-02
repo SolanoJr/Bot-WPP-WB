@@ -24,20 +24,25 @@ export const menuCommand: ICommand = {
 
     // Formato limpo p/ WhatsApp (sem bordas ASCII que desalexam no mobile).
     // Usa *negrito* (suportado pelo WA) e emojis de seção.
+    //
+    // REGRA: só exibir comandos que EXISTEM no registro (`commands` em index.ts).
+    // Nomes seguem a nomenclatura oficial (Anti-Link, Anti-Cassino, Punição, Anúncio).
     const menu = [
       `🤖 *BOT WARRIORBLACK*`,
       `🕒 ${now}  •  ⏱️ ${uptimeStr}  •  📦 ${hash}`,
       ``,
-      `🛡️ *ADMIN & MODERAÇÃO*`,
-      `▸ $automod · $antispam · $antiestrangeiro · $autolink · $bemvindo · $detectar · $remover`,
-      `▸ $kick · $ban · $mute · $promover · $banidos · $grupos`,
+      `🛡️ *AUTOMOD* _(admin)_`,
+      `▸ $automod status · $antispam · $antilink · $antibot`,
+      `▸ $anticassino · $antiestrangeiro · $punicao · $anuncio · $auditonly`,
+      ``,
+      `⚙️ *AUTOMAÇÕES* _(admin)_`,
+      `▸ $bemvindo · $setwelcome · $apresentacao`,
+      ``,
+      `👮 *ADMINISTRAÇÃO* _(admin)_`,
+      `▸ $kick · $ban · $banidos · $mute · $desmute · $promover · $grupos · $admin`,
       ``,
       `👤 *USUÁRIO*`,
-      `▸ $ping · $alive · $help · $feedback · $ondeestou`,
-      ``,
-      `📋 *LISTAS (por grupo)*`,
-      `▸ $lista1 / $lista2 / $lista3 · $lista1add / $lista2add / $lista3add`,
-      `▸ $lista1edit / $lista2edit / $lista3edit · $lista1del / $lista2del / $lista3del`,
+      `▸ $ping · $alive · $help · $feedback · $ondeestou · $apresentar`,
       ``,
       `🧠 *INTELIGÊNCIA*`,
       `▸ $pergunta (Gemini) · $fakechat · $cantada`,
@@ -46,7 +51,7 @@ export const menuCommand: ICommand = {
       `▸ $jogos · $forca · $velha · $sorteio · $piada · $conselho · $aleatoria · $votar`,
       ``,
       `🔧 *UTILITÁRIOS*`,
-      `▸ $clima · $nick · $gtts · $sendmsg · $addcmd`,
+      `▸ $clima · $nick · $gtts · $sendmsg · $addcmd · $stats · $info`,
       ``,
       `_Use $help para a lista completa e descrições._`,
     ].join('\n');

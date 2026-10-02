@@ -35,6 +35,8 @@ export interface BaileysConnectionOpts {
   onMessagesDelete?: (keys: any[]) => void | Promise<void>;
   onMessagesDeleteAll?: (jid: string, all: boolean) => void | Promise<void>;
   onMessagesUpdate?: (updates: any[]) => void | Promise<void>;
+  /** Entrada/saída de membros (group-participants.update) — welcome + ban-on-rejoin. */
+  onGroupParticipantsUpdate?: (event: any) => void | Promise<void>;
 }
 
 export class BaileysConnection {
@@ -50,6 +52,7 @@ export class BaileysConnection {
   private onMessagesDelete?: (keys: any[]) => void | Promise<void>;
   private onMessagesDeleteAll?: (jid: string, all: boolean) => void | Promise<void>;
   private onMessagesUpdate?: (updates: any[]) => void | Promise<void>;
+  private onGroupParticipantsUpdate?: (event: any) => void | Promise<void>;
 
   // Health/state
   private _ready = false;
@@ -72,6 +75,7 @@ export class BaileysConnection {
     this.onMessagesDelete = opts.onMessagesDelete;
     this.onMessagesDeleteAll = opts.onMessagesDeleteAll;
     this.onMessagesUpdate = opts.onMessagesUpdate;
+    this.onGroupParticipantsUpdate = opts.onGroupParticipantsUpdate;
   }
 
   // ---- Getters / setters usados pela adapter ----
@@ -375,7 +379,7 @@ export class BaileysConnection {
 
         if (!msgs.length) return;
 
-        const { appendCapture } = require('../../../../laboratorio/capture-store.js');
+        const { appendCapture } = require('../../../services/captureStore.js');
         if (typeof appendCapture !== 'function') {
           logWarning('[BaileysConnection] capture-store indisponível — histórico não persistido');
           return;
@@ -435,6 +439,26 @@ export class BaileysConnection {
         logInfo(`[BaileysConnection] ✅ histórico persistido: ${saved}/${msgs.length} mensagens`);
       } catch (e: any) {
         logWarning('[BaileysConnection] messaging-history.set falhou:', e?.message);
+      }
+    });
+
+    // ─── ENTRADA/SAÍDA DE MEMBROS (group-participants.update) ────────────
+    // O Baileys v7 emite este evento quando alguém entra, sai, é promovido ou
+    // rebaixado. SEM este listener, `memberJoinService.handleMemberJoin()`
+    // nunca era chamado (código morto) e não havia gatilho para welcome.
+    //
+    // Shape: { id: groupJid, participants: string[], action: 'add'|'remove'|'promote'|'demote', author?: string }
+    driver.ev.on('group-participants.update', async (event: any) => {
+      try {
+        logInfo('[BaileysConnection] GROUP_PARTICIPANTS_UPDATE', {
+          groupId: event?.id,
+          action: event?.action,
+          participants: event?.participants,
+          author: event?.author,
+        });
+        await this.onGroupParticipantsUpdate?.(event);
+      } catch (e: any) {
+        logWarning('[BaileysConnection] group-participants.update falhou:', e?.message);
       }
     });
 

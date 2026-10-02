@@ -487,7 +487,7 @@ class DiscordClient implements PlatformClient {
 
 /**
  * Captura mensagem do Discord e persiste no JSONL de capturas.
- * Formato compatível com laboratorio/capture-store.ts.
+ * Formato compatível com src/services/captureStore.ts.
  */
 async function captureDiscordMessage(msg: any): Promise<void> {
   if (!msg || !msg.channel) return;
