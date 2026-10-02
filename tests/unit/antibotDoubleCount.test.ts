@@ -27,6 +27,8 @@ vi.mock('../../src/services/databaseService', () => ({
     antispam: false,
     detectar: true,
     audit_only: false,
+    antibot: true,
+    casino: false,
   })),
   banUser: vi.fn(async () => {}),
   recordMemberJoin: vi.fn(async () => {}),

@@ -33,6 +33,8 @@ vi.mock('../../src/services/databaseService', () => ({
     antispam: true,
     detectar: true,
     audit_only: false,
+    antibot: true,
+    casino: true,
   })),
   banUser: vi.fn(async () => {}),
   recordMemberJoin: vi.fn(async () => {}),
@@ -82,6 +84,8 @@ function groupConfig(overrides: Record<string, any> = {}) {
     antispam: true,
     detectar: true,
     audit_only: false,
+    antibot: true,
+    casino: true,
     ...overrides,
   };
 }

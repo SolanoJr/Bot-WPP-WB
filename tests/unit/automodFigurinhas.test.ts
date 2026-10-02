@@ -28,6 +28,7 @@ vi.mock('../../src/services/databaseService', () => ({
   getGroupMod: vi.fn(async () => ({
     antispam: true, antiestrangeiro: false, autolink: true,
     bemvindo: true, detectar: true, remover: true, audit_only: false,
+    antibot: true, casino: true,
   })),
   banUser: vi.fn(async () => {}),
   recordMemberJoin: vi.fn(async () => {}),
@@ -415,7 +416,7 @@ describe('ordem dos guards — admin é reconhecido mesmo em audit_only', () => 
     return await import('../../src/services/autoModEngine');
   }
 
-  const CFG_CASSINO = { antispam: true, antiestrangeiro: false, autolink: true, bemvindo: true, detectar: true, remover: true };
+  const CFG_CASSINO = { antispam: true, antiestrangeiro: false, autolink: true, bemvindo: true, detectar: true, remover: true, casino: true, antibot: true };
 
   it('CASSINO: admin com audit_only=1 → reason "remetente é admin" (não "audit-only")', async () => {
     const { evaluate: ev } = await comAuditOnly(true, CFG_CASSINO);

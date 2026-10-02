@@ -27,7 +27,7 @@ async function loadStore() {
   // teste use o seu próprio CAPTURE_DIR.
   const { vi } = await import('vitest');
   vi.resetModules();
-  return await import('../../laboratorio/capture-store');
+  return await import('../../src/services/captureStore');
 }
 
 describe('capture-store — sanitização', () => {
