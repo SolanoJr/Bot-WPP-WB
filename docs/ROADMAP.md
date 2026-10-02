@@ -1,9 +1,10 @@
 # ROADMAP.md — Planejamento do Projeto
 
 > Estado atual e próximos passos do desenvolvimento.
+> Documentação técnica central: [TECHNICAL.md](TECHNICAL.md).
 
-**Última atualização**: 2026-09-16 17:15 BRT
-**Commit**: a5d0419
+**Última atualização**: 2026-10-02
+**Commit**: ce97635
 
 ---
 
@@ -17,12 +18,36 @@
 - [x] Logger estruturado (Winston)
 - [x] MemoryMonitor com GC automático
 - [x] Graceful shutdown
-- [x] Testes unitários (176+ testes)
+- [x] Testes: 509 (unit + integração) / 35 arquivos
 
 ### Plataformas
 - [x] WhatsApp (Baileys v7 RC14)
 - [x] Telegram (Telegraf)
 - [x] Discord (discord.js)
+
+### Configuração de automações por grupo (2026-10-02)
+- [x] Configuração centralizada em `group_mod` (SQLite)
+- [x] Grupo novo com TODAS as automações desligadas
+- [x] Flags próprias para AntiBot e Casino
+- [x] Comandos `$antibot`, `$casino`, `$auditonly`
+- [x] `$automod status` mostrando moderação + serviços + modo
+- [x] `$automod on/off` restrito à moderação (não mexe em welcome/apresentações)
+
+### Welcome (2026-10-02)
+- [x] Listener real de `group-participants.update`
+- [x] `welcomeService` com placeholders (`{nome}`, `{numero}`, `{grupo}`)
+- [x] `$setwelcome` persistido no SQLite (era Relay InMemory)
+- [x] Padrão: `Bem-vindo @novato 👋`
+- [x] Ban-on-rejoin preservado
+
+### Apresentações (2026-10-02)
+- [x] `presentationService` com sessões e consolidação
+- [x] `presentationPublisher` com edição (não duplica)
+- [x] `presentation_enabled` por grupo (default 0)
+- [x] Identificação da Comunidade 085 via `linkedParent`
+- [x] `message_thread_id` no Telegram
+- [x] Espelho em Fortaleza 085 / tópico Apresentações (thread 2)
+- [x] Retry quando o Telegram falha (não perde a apresentação)
 
 ### Discord Screen Share
 - [x] Arquitetura broadcaster → servidor → viewer
@@ -40,69 +65,56 @@
 - [x] Tailscale Funnel para Screen Share
 - [x] Variáveis de ambiente documentadas
 
-### Correção de Bugs (Sessão 2026-09-16)
-- [x] BUG-006: isForeignNumber falso positivo para JID de grupo
-- [x] BUG-007: Typecheck — adicionado `fromMe?: boolean` em AutoModContext
-- [x] BUG-008: 8 funções dead code removidas
-- [x] BUG-009: Fallback hardcoded `WARRIOR_AUTH_KEY` removido
+### Correção de Bugs
+Ver [KNOWN_ISSUES.md](KNOWN_ISSUES.md) para a lista canônica. Destaques:
+- [x] Grupo novo herdava automações ligadas
+- [x] `setGroupModField` ligava outras flags indiretamente
+- [x] Casino/AntiBot sem flags próprias
+- [x] `$automod` status quebrado
+- [x] LID tratado como número estrangeiro
+- [x] Double-count do AntiBot
+- [x] Admin auth no kick/ban
+- [x] `$setwelcome` persistindo no Relay InMemory
+- [x] history sync não capturado
+- [x] `isForeignNumber` falso positivo para JID de grupo
+- [x] `quoted` no argumento errado do Baileys
+- [x] `isSocketReady` incorreto no Baileys v7
+- [x] Race condition em `handleClose`
 
 ### Documentação
+- [x] TECHNICAL.md — **documentação técnica central**
 - [x] AI_CONTEXT.md — Manual de entrada para LLMs/IDEs
 - [x] KNOWN_ISSUES.md — Bugs conhecidos e resolvidos
-- [x] ROADMAP.md — Planejamento do projeto
-- [x] CHANGELOG.md — Linha do tempo temporal
-- [x] ENDPOINTS.md — Documentação dos endpoints HTTP
+- [x] DECISIONS.md — Decisões arquiteturais
+- [x] CHANGELOG.md — Linha do tempo
+- [x] ENDPOINTS.md — Endpoints HTTP
 - [x] TELEMETRY.md — Métricas do Screen Share
-- [x] PENDING_TESTS.md — Testes pendentes (Discord Web vs Desktop)
+- [x] PENDING_TESTS.md — Testes pendentes
 - [x] SECURITY.md — Política de segurança
-- [x] README.md — Atualizado com estado atual
-- [x] DIAGNOSIS_INCONSISTENCIAS.md — Auditoria de consistência
-
-### Limpeza de Código
-- [x] 8 funções dead code removidas (permissions, loggerService, index, format)
-- [x] console.log residual substituído por loggerService (7 ocorrências)
-- [x] 17 scripts de laboratório arquivados para `laboratorio/ARCHIVE/`
-- [x] Documentação obsoleta arquivada para `docs/ARCHIVE/`
-- [x] .gitignore atualizado (data/, logs/, laboratorio/*.json, nul)
-- [x] .editorconfig criado
+- [x] README.md — Estado atual
 
 ### Dependências e Segurança
-- [x] axios 1.18.1 → 1.20.0
-- [x] dotenv 16.4.5 → 16.6.1
-- [x] tsx 4.22.4 → 4.23.13
-- [x] ws 8.21.0 → 8.21.3
-- [x] @types/node 25.9.4 → 25.9.7
-- [x] esbuild 0.27.x → 0.28.1 (resolve GHSA-g7r4-m6w7-qqqr)
 - [x] npm audit: 0 vulnerabilidades
-
-### Sincronização
-- [x] Windows ↔ GitHub ↔ Linux sincronizados (commit a5d0419)
-
-### Correção de Bugs (Sessão 2026-09-16 Auditoria)
-- [x] BUG-010: SQLITE_BUSY no AutoMod — implementado singleton de conexão e retry
-- [x] BUG-011: Logs de debug [DBG-disp] poluindo produção
-- [x] BUG-012: 33 restarts do bot-wpp por memory limit — ajustado limites PM2
-- [x] BUG-013: 11 restarts do discord-screen por memory limit — ajustado limites PM2
-- [x] BUG-014: Typecheck erros — removido import de capture-store e ajustado WARRIOR_AUTH_KEY
-- [x] BUG-015: tsconfig compatibilidade com TypeScript 6.0 — ajustado paths relativos
 
 ---
 
 ## 🔄 EM ANDAMENTO
 
-### Auditoria e Otimização (Sessão 2026-09-16)
-- [x] Auditoria completa de sincronização Windows/GitHub/Linux
-- [x] Correção de SQLITE_BUSY no AutoMod (singleton + retry)
-- [x] Remoção de logs de debug de produção
-- [x] Ajuste de limites de memória PM2 (redução de restarts)
-- [x] Correção de typecheck (compatibilidade TypeScript 6.0)
-- [x] Limpeza de laboratório (captured-messages.jsonl)
-- [x] Validação de timeouts do Baileys (normal após correções)
+### Validação em produção (aguardando autorização)
+- [ ] Welcome real ao entrar em grupo
+- [ ] `$setwelcome` com persistência após restart
+- [ ] `$apresentar` e publicação no Telegram (thread 2)
+- [ ] `$automod status` no grupo
 
 ### AutoMod Cassino
 - [ ] Validar detecção de cassino em produção
 - [ ] Testar falsos positivos/negativos
 - [ ] Ajustar limiar de confiança se necessário
+
+### Apresentações — pendências conhecidas
+- [ ] Download de mídia do WhatsApp (`downloadMediaMessage`)
+- [ ] Foto de perfil como fallback (`profilePictureUrl`)
+- [ ] Aviso ao novato após publicação bem-sucedida
 
 ---
 
@@ -116,11 +128,12 @@
 - [ ] SS-008 2+ espectadores
 
 ### Testes de Código
-- [ ] testServer.test.ts — Testes dos endpoints HTTP (problemas de mock)
-- [ ] Cobertura de testes para autoModEngine.ts
-- [ ] Cobertura de testes para BaileysAdapter.ts
+- [ ] testServer.test.ts — Testes dos endpoints HTTP
+- [ ] Cobertura adicional para BaileysAdapter.ts
+- [ ] `$kick`/`$ban` em Telegram/Discord (requer adapters com participants)
 
 ### Melhorias
+- [ ] Rate limit por grupo (hoje em memória)
 - [ ] Substituir `X-Frame-Options: ALLOWALL` por configuração mais segura
 - [ ] Adicionar rate limiting ao TestServer
 - [ ] Adicionar testes de integração para Screen Share
@@ -150,5 +163,5 @@
 
 ---
 
-**Última atualização**: 2026-09-16 17:15 BRT
-**Commit**: a5d0419
+**Última atualização**: 2026-10-02
+**Commit**: ce97635

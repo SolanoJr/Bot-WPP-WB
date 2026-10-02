@@ -1,8 +1,145 @@
 # CHANGELOG.md — Linha do Tempo do Projeto Bot-WPP
 
-> **Última atualização**: 2026-09-24 19:30 BRT
-> **Commit**: 25de193
-> **Data/hora em BRT**: 2026-09-24 19:30 BRT
+> **Última atualização**: 2026-10-02
+> **Suíte**: 509 testes / 35 arquivos (unit + integração)
+
+---
+
+## 2026-10-02 (Modo execução: pipeline real, delete, canonicalização)
+
+| Evento | Arquivos |
+|--------|----------|
+| **Harness de integração do pipeline real** (22 testes) | `tests/integration/automodPipeline.test.ts` |
+| **Delete ponta a ponta** com WAMessageKey completa (8 testes) | `tests/integration/deleteKeyPipeline.test.ts` |
+| **Canonicalização de group_id** (11 testes) | `tests/integration/groupModCanonical.test.ts` |
+| **BUG CORRIGIDO**: vazamento de config entre plataformas (`wpp:X` = `tg:X`) | `databaseService.ts` |
+| **BUG CORRIGIDO**: `welcomeService` herdava defaults ligados no INSERT | `welcomeService.ts` |
+| **BUG CORRIGIDO**: engine sem guard de `fromMe` (auto-punição) | `autoModEngine.ts` |
+| **BUG CORRIGIDO**: capture-store em `laboratorio/` (produção dependia de lab) | `captureStore.ts` (novo) |
+| `canonicalGroupId()` + `ensureGroupModRow()` | `databaseService.ts` |
+| Guia de testes | `docs/TESTING.md` (novo) |
+
+**Descoberta por teste:** o fallback de resolução de `group_mod` fazia um grupo
+de **Telegram** ler a configuração de um grupo de **WhatsApp** com o mesmo
+número. O fallback agora só se aplica a JIDs do WhatsApp (contêm `@`).
+
+**Pipeline real:** os testes de integração exercitam `evaluate()` (engine real)
+contra **SQLite real**, com a fronteira externa mockada — cobrindo 19 cenários
+(texto, mídia, sticker, botões, cassino, admin/MASTER/bot/dono, audit_only
+ON/OFF).
+
+**Limitação declarada:** a confirmação **visual** do delete não é automatizável
+(o Baileys v7 não expõe o estado da mensagem no cliente). O que é provado é que
+a key enviada é a correta e recuperável. A confirmação visual permanece MANUAL.
+
+---
+
+## 2026-10-02 (Padronização da interface + nomenclatura oficial)
+
+| Evento | Arquivos |
+|--------|----------|
+| **BUG CORRIGIDO**: `$bemvindo` importado mas nunca registrado (CRÍTICO) | `commands/index.ts` |
+| **BUG CORRIGIDO**: `$menu` exibia 13 comandos inexistentes (`$lista1..3`) | `menu.ts` |
+| Nomenclatura oficial: `$antilink`, `$anticassino`, `$punicao`, `$anuncio` | `modToggle.ts`, `index.ts` |
+| Aliases legados preservados: `$autolink`, `$casino`, `$remover`, `$detectar` | `modToggle.ts` |
+| Status do AutoMod: `DETECTORES` → `AÇÕES / MODO` → `AUTOMAÇÕES` | `modToggle.ts` |
+| `$help` completo (documentava só 7 comandos) | `help.ts` |
+| `$menu` reorganizado por categoria, com marcação `_(admin)_` | `menu.ts` |
+| 48 testes de consistência da interface | `tests/unit/interfaceNaming.test.ts` |
+| Tabela oficial de nomenclatura | `docs/TECHNICAL.md §8`, README, AI_CONTEXT |
+
+**Problema:** o `$bemvindo on/off` **não existia** — era importado mas nunca
+adicionado ao registro, então o serviço de boas-vindas não tinha como ser
+ligado pelo chat. O `$menu` anunciava 13 comandos mortos (`$lista1`…`$lista3del`).
+E a interface misturava nomes (`$autolink`/`$casino`) com rótulos imprecisos.
+
+**Causa raiz:** o registro de comandos era um objeto literal sem verificação; o
+menu/help eram texto estático sem checagem contra o registro real.
+
+**Correção:** registrar `$bemvindo`; remover comandos mortos; adotar
+nomenclatura oficial (PT-BR, prefixo "Anti-") mantendo aliases legados; status
+estruturado; testes que comparam automaticamente menu/help com o registro real.
+
+**Decisão:** **nenhuma migração de banco por estética** — os campos históricos
+(`autolink`, `casino`, `remover`, `detectar`) permanecem; só a interface mudou.
+
+---
+
+## 2026-10-02 (Automações configuráveis por grupo + Welcome + Apresentações)
+
+### Configuração centralizada de automações por grupo
+
+| Evento | Arquivos | Commit |
+|--------|----------|--------|
+| **BUG CORRIGIDO**: grupo novo herdava automações ligadas | `databaseService.ts` | — |
+| **BUG CORRIGIDO**: `setGroupModField` ligava outras flags indiretamente | `databaseService.ts` | — |
+| **BUG CORRIGIDO**: Casino/AntiBot sem flags próprias | `databaseService.ts`, `autoModEngine.ts`, `modToggle.ts` | — |
+| **BUG CORRIGIDO**: `$automod` status quebrado e incompleto | `modToggle.ts`, `databaseService.ts` | — |
+| `$automod status` mostra moderação + serviços + modo | `modToggle.ts` | — |
+| Comandos novos: `$antibot`, `$casino`, `$auditonly` | `modToggle.ts`, `commands/index.ts` | — |
+| `$automod on/off` não mexe mais em welcome/apresentações | `modToggle.ts` | — |
+| 15 testes novos (SQLite real + cenário de banco legado) | `tests/unit/groupAutomationConfig.test.ts` | — |
+
+**Problema:** um grupo novo — ou a primeira vez que uma flag era ligada — passava
+a ter AntiSpam, AntiLink, AntiEstrangeiro e Remover **ligados** sem ninguém
+pedir. `$bemvindo on` ligava quatro módulos de moderação.
+
+**Causa raiz:** `ensureGroupMod()` usava defaults `true`, e o schema tinha
+`DEFAULT 1`. `setGroupModField()` fazia `INSERT` de apenas uma coluna — as demais
+herdavam o `DEFAULT` da tabela. Agravante: `CREATE TABLE IF NOT EXISTS` **não
+altera** tabela existente, então bancos antigos mantêm `DEFAULT 1` no DDL.
+
+**Correção:** `GROUP_MOD_DEFAULTS` com tudo `false`; escrita **explícita** de `0`
+em todas as colunas ao criar a linha (sem depender do `DEFAULT`).
+
+### Welcome configurável por grupo
+
+| Evento | Arquivos |
+|--------|----------|
+| Listener real de `group-participants.update` | `BaileysConnection.ts`, `BaileysAdapter.ts` |
+| `welcomeService.ts` (get/set/resolve + placeholders) | novo |
+| `memberJoinService` envia welcome | `memberJoinService.ts` |
+| `$setwelcome` persistido no SQLite (era Relay InMemory) | `setwelcome.ts` |
+| Migração `group_mod.welcome_message` | `databaseService.ts` |
+| 11 testes | `tests/unit/welcome.test.ts` |
+
+**Problema:** o evento de entrada de membro **não era escutado** — o
+`memberJoinService` era código morto. E `$setwelcome` gravava no
+`InMemoryRepository` do Relay, que reinicia e perde tudo; o bot nunca lia o valor.
+
+**Correção:** listener de `group-participants.update` encadeado até
+`memberJoinService`; welcome persistido em `group_mod.welcome_message`, com
+padrão `Bem-vindo @novato 👋`.
+
+### Sistema de apresentações + espelho no Telegram
+
+| Evento | Arquivos |
+|--------|----------|
+| `presentationService.ts` (sessões, coleta, extração, persistência) | novo |
+| `presentationPublisher.ts` (publicação/edição no Telegram) | novo |
+| `$apresentar` e `$apresentacao on/off/status` | novos |
+| Migração `group_mod.presentation_enabled` + tabelas `presentations`/`community_groups` | `databaseService.ts` |
+| `message_thread_id` no Telegram | `PlatformTypes.ts`, `TelegramAdapter.ts` |
+| Timer de consolidação (2 min / janela de 10 min) | `multiPlatform.ts` |
+| 12 testes | `tests/unit/presentationEnabled.test.ts` |
+
+**Decisão:** SQLite é a fonte oficial; o Telegram (Fortaleza 085, tópico
+Apresentações, thread 2) é espelho. Identificação da Comunidade 085 pelo
+`linkedParent` real do metadata — não por lista de nomes.
+
+---
+
+## 2026-09-30 (Auditoria final do AntiBot / AutoMod)
+
+| Evento | Arquivos | Commit |
+|--------|----------|--------|
+| Guard de admin antes do audit_only + harness sem footer de cassino | `autoModEngine.ts`, `testServer.ts` | ce97635 |
+| Combinação forte de cassino + guard de admin no AntiBot | `autoModEngine.ts` | 1ebaf79 |
+| 25 testes de auditoria do Figurinhas | `tests/unit/automodFigurinhas.test.ts` | 605b901 |
+| restore-member desbloqueia antes de readicionar | `testServer.ts` | 599bef3 |
+| **BUG CORRIGIDO**: LID não carrega DDI — antiestrangeiro baniria o grupo inteiro | `autoModEngine.ts` | 6e75540 |
+| Rota `/lab/antibot-test` (evaluate real com ctx real) | `testServer.ts` | 8de7ef1 |
+| **BUG CORRIGIDO**: mentions vazio no harness (kick/ban nunca executavam) | `testServer.ts` | e694fc8 |
 
 ---
 

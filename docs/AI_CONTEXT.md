@@ -1,10 +1,11 @@
 # AI_CONTEXT.md — Manual de Entrada para LLMs/IDEs
 
 > **LEIA ANTES DE ALTERAR QUALQUER CÓDIGO**
-> Este documento é a fonte primária de verdade sobre o projeto.
+> Este documento é o ponto de entrada. A **fonte central de documentação
+> técnica** é [TECHNICAL.md](TECHNICAL.md) — consulte-a para detalhes.
 
-**Última atualização**: 2026-09-16 13:45 BRT
-**Commit**: b9be3fb
+**Última atualização**: 2026-10-02
+**Suíte de testes**: 420 testes / 31 arquivos (todos passando)
 
 ---
 
@@ -90,13 +91,73 @@
 
 | Serviço | Arquivo | Responsabilidade |
 |---------|---------|------------------|
-| AutoMod | `src/services/autoModEngine.ts` | Moderação automática |
-| Permissions | `src/services/permissions.ts` | Proteção dono/bot/admins |
+| AutoMod | `src/services/autoModEngine.ts` | Engine de moderação (detecção + ação) |
+| Casino Classifier | `src/services/casinoClassifier.ts` | Classificador multi-sinal de cassino |
+| Welcome | `src/services/welcomeService.ts` | Welcome por grupo + config de apresentação + comunidade |
+| Apresentações | `src/services/presentationService.ts` | Sessões de apresentação (Comunidade 085) |
+| Publisher | `src/services/presentationPublisher.ts` | Publicação no Telegram (espelho) |
+| Member Join | `src/services/memberJoinService.ts` | Entrada de membro → welcome / ban-on-rejoin |
+| Group Admin | `src/services/groupAdmin.ts` | **FONTE ÚNICA** de verificação de admin |
+| Group IDs | `src/services/groupIds.ts` | `normGroupId` / `normUserId` |
+| Permissions | `src/services/permissions.ts` | Proteção dono/bot (`isProtectedTarget`) |
 | Infractions | `src/services/infractions.ts` | Registro de infrações |
 | Logger | `src/services/loggerService.ts` | Winston estruturado |
-| Database | `src/services/databaseService.ts` | SQLite (banco de dados) |
+| Database | `src/services/databaseService.ts` | SQLite (schema, migrações, config por grupo) |
 | MemoryMonitor | `src/services/memoryMonitor.ts` | GC automático |
 | TestServer | `src/services/testServer.ts` | Endpoints de laboratório |
+
+---
+
+## 4.1. Configuração de automações por grupo (LEIA ANTES DE MEXER)
+
+Todas as flags vivem na tabela `group_mod` (SQLite) e são consultáveis por
+`$automod status`.
+
+**Regra de arquitetura:** todo recurso automático configurável começa
+**DESLIGADO** em grupo novo. Grupos existentes nunca são resetados.
+
+| Flag | Default | Controla |
+|---|---|---|
+| `antispam` | 0 | Anti-Spam |
+| `antiestrangeiro` | 0 | Anti-Estrangeiro (DDI) |
+| `autolink` | 0 | Anti-Link |
+| `antibot` | 0 | Anti-Bot (≥2 sinais) |
+| `casino` | 0 | Anti-Cassino |
+| `remover` | 0 | Punição (banir/expulsar) |
+| `detectar` | 0 | Anúncio no grupo |
+| `audit_only` | 0 | Modo Auditoria (não age) |
+| `bemvindo` | 0 | Boas-Vindas (serviço) |
+| `presentation_enabled` | 0 | Apresentações (serviço) |
+
+### Nomenclatura oficial (interface ↔ campo interno)
+
+| Conceito | Nome exibido | Comando | Alias legado | Campo interno |
+|---|---|---|---|---|
+| Anti-Spam | Anti-Spam | `$antispam` | — | `antispam` |
+| Anti-Link | Anti-Link | `$antilink` | `$autolink` | `autolink` |
+| Anti-Bot | Anti-Bot | `$antibot` | — | `antibot` |
+| Anti-Cassino | Anti-Cassino | `$anticassino` | `$casino` | `casino` |
+| Anti-Estrangeiro | Anti-Estrangeiro | `$antiestrangeiro` | — | `antiestrangeiro` |
+| Punição | Punição (banir/expulsar) | `$punicao` | `$remover` | `remover` |
+| Anúncio no grupo | Anúncio no grupo | `$anuncio` | `$detectar` | `detectar` |
+| Modo Auditoria | Modo Auditoria | `$auditonly` | — | `audit_only` |
+| Boas-Vindas | Boas-Vindas | `$bemvindo` | — | `bemvindo` |
+| Apresentações | Apresentações | `$apresentacao` | — | `presentation_enabled` |
+
+> **Não migrar o banco por estética.** Os campos históricos (`autolink`,
+> `casino`, `remover`, `detectar`) permanecem internamente; só a interface e a
+> documentação usam os nomes oficiais.
+
+**⚠️ Armadilha:** `CREATE TABLE IF NOT EXISTS` **não altera** tabela existente.
+Bancos antigos mantêm `DEFAULT 1` no DDL. Por isso o código **sempre** escreve as
+colunas explicitamente em `0` ao criar uma linha — nunca confie no `DEFAULT`.
+
+Ao adicionar uma flag nova:
+1. Adicione em `GroupModConfig` e em `GROUP_MOD_FLAGS` (`databaseService.ts`).
+2. Adicione em `GROUP_MOD_DEFAULTS` com `false`.
+3. Adicione a migração `addColumnIfMissing`.
+4. Adicione o comando em `modToggle.ts` (`ALIASES` + export + registro no index).
+5. Se for automação de moderação, inclua em `MODERATION_FLAGS`.
 
 ---
 
@@ -177,6 +238,20 @@ pm2 logs
 3. **Loop AutoMod** — Filtrar `fromMe === true` no normalizer
 4. **WAMessageKey truncada** — Preservar key completa na cadeia de delete
 5. **Admin sofrendo ação** — Verificar `isProtectedTarget()` antes de qualquer ação
+6. **`quoted` no argumento errado** — `sendMessage(jid, content, { quoted })`; o `quoted` vai no **3º** argumento
+7. **isSocketReady na v7** — usar `sock.ws.isOpen`; `sock.socket` não existe
+8. **Race no handleClose** — `reconnectInProgress = true` ANTES do `setTimeout`
+9. **Prefixo `wpp:` no group_mod** — usar `resolveGroupModKey()`, nunca comparação exata de JID
+10. **LID tratado como telefone** — LID não carrega DDI; usar `participantAlt`/PN
+11. **Double-count do AntiBot** — estrutura de mensagem = **UMA** categoria de sinal
+12. **Admin auth no kick/ban** — usar `groupAdmin.ts`; nunca comparar `cleanId(LID)` com `cleanId(PN)`
+13. **setwelcome no Relay InMemory** — persistir no SQLite; o Relay não é fonte de verdade
+14. **Grupo novo com defaults ligados** — `GROUP_MOD_DEFAULTS` tudo `false` + escrita explícita de `0`
+15. **setGroupModField ligando outras flags** — escrever **todas** as colunas ao criar a linha
+16. **Casino/AntiBot sem flag própria** — cada automação tem sua coluna e seu comando
+
+Detalhes completos (sintoma/causa/correção/teste) em
+[TECHNICAL.md §26](TECHNICAL.md) e [KNOWN_ISSUES.md](KNOWN_ISSUES.md).
 
 ---
 
@@ -184,14 +259,18 @@ pm2 logs
 
 **ANTES de alterar código**:
 1. Ler este documento
-2. Verificar `KNOWN_ISSUES.md` se o problema já foi resolvido
-3. Verificar `TROUBLESHOOTING.md` para diagnóstico
-4. Verificar `DECISIONS.md` para entender decisões arquiteturais
+2. Ler [TECHNICAL.md](TECHNICAL.md) — fonte central
+3. Verificar `KNOWN_ISSUES.md` se o problema já foi resolvido
+4. Verificar `TROUBLESHOOTING.md` para diagnóstico
+5. Verificar `DECISIONS.md` para entender decisões arquiteturais
 
 **NUNCA**:
 - Editar `/etc/resolv.conf` manualmente (usar systemd-resolved)
 - Usar `sock.store` (Baileys v7 não tem)
 - Remover proteções de dono/bot/admin
+- Comparar `cleanId()` para verificar admin (usar `groupAdmin.ts`)
+- Confiar no `DEFAULT` do schema para defaults de aplicação
+- Usar o Relay `InMemoryRepository` para dados que precisam persistir
 - Criar endpoints temporários permanentes
 - Assumir que hipótese é fato
 
@@ -200,6 +279,7 @@ pm2 logs
 - Atualizar documentação quando arquitetura mudar
 - Registrar bugs resolvidos em `KNOWN_ISSUES.md`
 - Usar `isProtectedTarget()` antes de ações destrutivas
+- Escrever todas as colunas ao criar uma linha de configuração
 
 ---
 
