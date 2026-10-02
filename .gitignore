@@ -79,3 +79,5 @@ src/.pending-messages.json
 # 🧪 DIAGNÓSTICOS LOCAIS (descartáveis)
 diag_*.cjs
 temp_*.cjs
+# Dumps de laboratório (artefatos de investigação)
+laboratorio/dumps/
