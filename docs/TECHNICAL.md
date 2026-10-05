@@ -515,6 +515,7 @@ de envio — a infraestrutura existente foi estendida.
 | `community_groups` | Relação grupo → comunidade |
 | `banned_users` | Banidos por grupo |
 | `infractions` | Infrações registradas |
+| `ai_history` | Contexto recente por usuário para o Gemini |
 | `member_joins` / `member_removes` | Audit trail de entrada/saída |
 | `message_fingerprints` | Fingerprints para anti-spam |
 

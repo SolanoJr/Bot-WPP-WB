@@ -92,6 +92,23 @@ export async function initDatabase(): Promise<Database> {
     );
   `);
 
+  // Histórico de contexto do Gemini. O aiService lê `timestamp` para compor
+  // as últimas interações e insere sem informar a data, portanto o default é
+  // parte do contrato do schema.
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS ai_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      prompt TEXT NOT NULL,
+      response TEXT NOT NULL,
+      timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_ai_history_user_timestamp
+    ON ai_history(user_id, timestamp DESC);
+  `);
+
   // ─── Usuários banidos ───
   await db.exec(`
     CREATE TABLE IF NOT EXISTS banned_users (
