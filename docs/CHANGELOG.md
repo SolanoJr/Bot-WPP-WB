@@ -37,3 +37,9 @@
 - Foto de apresentação (não implementada).
 - Rate limit por grupo (cooldown global + per-user existe; rate limit ainda memória).
 - Pipeline AutoMod E2E com delete real (requer grupo autorizado + mensagem real de bot).
+
+## [INVENTÁRIO 2026-10-05] Listas ($lista1/$lista2/$lista3)
+- Nenhum arquivo físico, nenhuma tabela SQLite, nenhum código, nenhum arquivo removido no git.
+- Arquitetura do bot (group_mod, presentationService, feedback_events, databaseService, captureStore) SUPORTA listas.
+- Decisão: NÃO implementar nesta fase (não é expansão); NÃO declarar morto — apenas 'não existente, arquitetura suportada'.
+- Nenhuma alteração no código atual necessária para futura ativação.
