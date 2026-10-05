@@ -197,8 +197,33 @@ export class BaileysMessageNormalizer {
       // Captura mensagens de TODOS os usuários em grupos da Comunidade 085,
       // não apenas comandos.
       try {
-              const { handlePresentationCollect } = await import('../../../services/presentationService.js');
-              await handlePresentationCollect(normMsg);
+        const { handlePresentationCollect } = await import('../../../services/presentationService.js');
+        await handlePresentationCollect(normMsg);
+      } catch { /* não bloqueia o fluxo principal */ }
+
+      // ─── Sarcasmo (automação independente do AutoMod)
+      // Responde "tenho nada ver com isso sinhô" quando alguém menciona o bot
+      // ou usa a palavra "bot" (detecção por palavra, não substring).
+      try {
+        const { shouldRespond, canRespond, markResponded, SARCASMO_TEXT } = await import('../../../services/sarcasmoService.js');
+        const { getGroupMod } = await import('../../../services/databaseService.js');
+
+        if (normMsg?.isFromMe !== true && normMsg?.chatId?.includes('@g.us')) {
+          const cfg = await getGroupMod(normMsg.chatId);
+          if (cfg.sarcasmo === true) {
+            const mentionsBot = (normMsg.mentions || []).some((m: any) => m?.isBot);
+            if (shouldRespond({
+              text: normMsg.text || '',
+              fromMe: false,
+              isGroup: true,
+              quotedFromMe: normMsg.quotedFromMe,
+              mentionsBot,
+            }) && canRespond(normMsg.chatId, normMsg.userId)) {
+              markResponded(normMsg.chatId, normMsg.userId);
+              await this.sock?.sendMessage(normMsg.chatId, SARCASMO_TEXT).catch(() => {});
+            }
+          }
+        }
       } catch { /* não bloqueia o fluxo principal */ }
 
       // Dispatch para handlers de comandos normais

@@ -456,9 +456,9 @@ Registrar `bemvindo: bemvindoModCommand` no objeto `commands`.
 **Severidade**: MÉDIA
 
 ### Sintoma
-O `$menu` mostrava uma seção `📋 LISTAS (por grupo)` com `$lista1`, `$lista2`,
-`$lista3`, `$lista1add`…`$lista3del` — **13 comandos que não existem** em
-nenhuma parte de `src/`. Também citava `$bemvindo`, que não estava registrado.
+O `$menu` mostrava uma seção `📋 LISTAS (por grupo)` com comandos de lista
+que **nunca existiram** em `src/` — texto morto de documentação antiga.
+Também citava `$bemvindo`, que não estava registrado.
 
 ### Causa Raiz
 O menu era texto estático, sem nenhuma verificação contra o registro real de

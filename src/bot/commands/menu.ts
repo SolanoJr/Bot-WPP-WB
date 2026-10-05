@@ -36,7 +36,7 @@ export const menuCommand: ICommand = {
       `▸ $anticassino · $antiestrangeiro · $punicao · $anuncio · $auditonly`,
       ``,
       `⚙️ *AUTOMAÇÕES* _(admin)_`,
-      `▸ $bemvindo · $setwelcome · $apresentacao`,
+      `▸ $bemvindo · $setwelcome · $apresentacao · $feedback · $sarcasmo`,
       ``,
       `👮 *ADMINISTRAÇÃO* _(admin)_`,
       `▸ $kick · $ban · $banidos · $mute · $desmute · $promover · $grupos · $admin`,

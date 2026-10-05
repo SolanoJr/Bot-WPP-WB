@@ -41,6 +41,8 @@ import { banidosCommand } from './banidos';
 import { setwelcomeCommand } from './setwelcome';
 import { apresentarCommand } from './apresentar';
 import { apresentacaoCommand } from './apresentacao';
+import { feedbackCommand } from './feedback';
+import { sarcasmoCommand } from './sarcasmo';
 import { cantadaCommand } from './cantada';
 import { fakechatCommand } from './interacao';
 import { sendCommand } from './send';
@@ -112,6 +114,8 @@ const commands: Record<string, ICommand> = {
   anuncio: anuncioModCommand,
   auditonly: auditonlyModCommand,
   bemvindo: bemvindoModCommand,
+  feedback: feedbackCommand,
+  sarcasmo: sarcasmoCommand,
   // Aliases LEGADOS (compatibilidade — mesmo comportamento)
   autolink: autolinkModCommand,
   casino: casinoModCommand,

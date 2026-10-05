@@ -39,7 +39,7 @@ a key enviada é a correta e recuperável. A confirmação visual permanece MANU
 | Evento | Arquivos |
 |--------|----------|
 | **BUG CORRIGIDO**: `$bemvindo` importado mas nunca registrado (CRÍTICO) | `commands/index.ts` |
-| **BUG CORRIGIDO**: `$menu` exibia 13 comandos inexistentes (`$lista1..3`) | `menu.ts` |
+| **BUG CORRIGIDO**: `$menu` exibia comandos de lista inexistentes (texto morto) | `menu.ts` |
 | Nomenclatura oficial: `$antilink`, `$anticassino`, `$punicao`, `$anuncio` | `modToggle.ts`, `index.ts` |
 | Aliases legados preservados: `$autolink`, `$casino`, `$remover`, `$detectar` | `modToggle.ts` |
 | Status do AutoMod: `DETECTORES` → `AÇÕES / MODO` → `AUTOMAÇÕES` | `modToggle.ts` |
@@ -50,7 +50,7 @@ a key enviada é a correta e recuperável. A confirmação visual permanece MANU
 
 **Problema:** o `$bemvindo on/off` **não existia** — era importado mas nunca
 adicionado ao registro, então o serviço de boas-vindas não tinha como ser
-ligado pelo chat. O `$menu` anunciava 13 comandos mortos (`$lista1`…`$lista3del`).
+ligado pelo chat. O `$menu` anunciava comandos de lista que nunca existiram (texto morto).
 E a interface misturava nomes (`$autolink`/`$casino`) com rótulos imprecisos.
 
 **Causa raiz:** o registro de comandos era um objeto literal sem verificação; o

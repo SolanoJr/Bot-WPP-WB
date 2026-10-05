@@ -471,6 +471,43 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
       }
     } catch { /* metadata indisponível — não bloqueia o fluxo */ }
 
+    // ─── SAÍDA de membro → Feedback (automação independente do AutoMod) ───
+    // Registra no SQLite (fonte oficial). O Telegram é apenas espelho.
+    if (action === 'remove') {
+      try {
+        const { recordExitEvent, consolidatePending, isCommunityGroup } = await import('../../services/feedbackService.js');
+        const chat = await this.getChat(groupId).catch(() => null);
+        const meta = (chat as any)?.raw || {};
+        const communityId = meta.linkedParent || null;
+        const communityName = communityId ? 'Fortaleza 085' : null;
+        const groupName = (chat as any)?.name || groupId;
+
+        for (const raw of rawParticipants) {
+          const id = typeof raw === 'string' ? raw : (raw?.id || '');
+          if (!id) continue;
+          const hit = ((chat as any)?.participants || []).find((p: any) => p?.id === id);
+          const eventType = communityId ? 'group_leave' : 'group_leave';
+          await recordExitEvent({
+            platform: 'whatsapp',
+            userId: id,
+            phoneNumber: hit?.phoneNumber,
+            displayName: hit?.name || hit?.pushName,
+            groupId,
+            groupName,
+            communityId: communityId ?? undefined,
+            communityName: communityName ?? undefined,
+            eventType,
+            leftAt: Date.now(),
+          });
+          // Agrupa saídas próximas do mesmo usuário em um único pedido
+          await consolidatePending(id);
+        }
+      } catch (err: any) {
+        logWarning('[Baileys] feedback de saída falhou:', err?.message);
+      }
+      return; // 'remove' não faz welcome
+    }
+
     // Só 'add' interessa para welcome/ban-on-rejoin.
     if (action !== 'add') return;
 

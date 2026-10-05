@@ -111,6 +111,8 @@ export function statusBlock(cfg: GroupModConfig, state: string): string {
     `*AUTOMAÇÕES*`,
     `${onOff(cfg.bemvindo)} Boas-Vindas`,
     `${onOff(cfg.presentation_enabled)} Apresentações`,
+    `${onOff(cfg.feedback)} Feedback`,
+    `${onOff(cfg.sarcasmo)} Sarcasmo`,
     ``,
     `${estadoTxt}`,
   ].join('\n');

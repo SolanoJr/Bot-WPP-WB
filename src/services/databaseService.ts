@@ -30,6 +30,10 @@ export interface GroupModConfig {
   casino?: boolean;
   /** Apresentações (Comunidade 085) — serviço separado do engine. */
   presentation_enabled?: boolean;
+  /** Feedback de saída — automação independente do AutoMod. */
+  feedback?: boolean;
+  /** Sarcasmo — automação independente do AutoMod. */
+  sarcasmo?: boolean;
 }
 
 /**
@@ -51,13 +55,15 @@ export const GROUP_MOD_DEFAULTS: Required<GroupModConfig> = {
   antibot: false,
   casino: false,
   presentation_enabled: false,
+  feedback: false,
+  sarcasmo: false,
 };
 
 /** Colunas de group_mod que representam automações ligáveis. */
 export const GROUP_MOD_FLAGS = [
   'antispam', 'antiestrangeiro', 'autolink', 'bemvindo',
   'detectar', 'remover', 'audit_only', 'antibot', 'casino',
-  'presentation_enabled',
+  'presentation_enabled', 'feedback', 'sarcasmo',
 ] as const;
 
 export type GroupModFlag = typeof GROUP_MOD_FLAGS[number];
@@ -136,6 +142,12 @@ export async function initDatabase() {
     // Apresentações: ativa/desativa por grupo (default 0 = desligado).
     await addColumnIfMissing('group_mod', 'presentation_enabled', 'presentation_enabled INTEGER NOT NULL DEFAULT 0');
 
+    // Feedback: ativa/desativa por grupo (default 0 = desligado).
+    await addColumnIfMissing('group_mod', 'feedback', 'feedback INTEGER NOT NULL DEFAULT 0');
+
+    // Sarcasmo: ativa/desativa por grupo (default 0 = desligado).
+    await addColumnIfMissing('group_mod', 'sarcasmo', 'sarcasmo INTEGER NOT NULL DEFAULT 0');
+
     // AntiBot e Casino: flags PRÓPRIAS. Antes ambos eram gated por `remover`,
     // o que impedia desligar um sem desligar o outro (e o antiestrangeiro).
     await addColumnIfMissing('group_mod', 'antibot', 'antibot INTEGER NOT NULL DEFAULT 0');
@@ -194,6 +206,53 @@ export async function initDatabase() {
       group_name TEXT,
       updated_at INTEGER NOT NULL
     );
+  `);
+
+  // ─── FEEDBACK DE SAÍDA ──────────────────────────────────────────────────
+  // SQLite é a FONTE OFICIAL. O Telegram privado do SolanoJr é apenas espelho
+  // operacional (notificação) — nunca a fonte da verdade.
+  //
+  // Um evento = uma saída detectada. Várias saídas próximas no tempo são
+  // AGRUPADAS em um único pedido (ver feedbackService.consolidatePending).
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS feedback_events (
+      event_id TEXT PRIMARY KEY,
+      platform TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      phone_number TEXT,
+      display_name TEXT,
+      community_id TEXT,
+      community_name TEXT,
+      group_id TEXT,
+      group_name TEXT,
+      involved_group_ids TEXT,
+      involved_group_names TEXT,
+      event_type TEXT NOT NULL,
+      left_at INTEGER NOT NULL,
+      contacted_at INTEGER,
+      status TEXT NOT NULL DEFAULT 'pending',
+      awaiting_response INTEGER NOT NULL DEFAULT 0,
+      response TEXT,
+      responded_at INTEGER,
+      expires_at INTEGER,
+      telegram_notification_id TEXT,
+      telegram_error TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+  `);
+
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_feedback_user
+      ON feedback_events(user_id, status);
+  `);
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_feedback_group
+      ON feedback_events(group_id, status);
+  `);
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_feedback_status
+      ON feedback_events(status, awaiting_response);
   `);
 
   // ─── AUDIT TRAIL: entrada/saída de membros ───
@@ -460,6 +519,8 @@ export async function getGroupMod(groupId: string): Promise<GroupModConfig> {
     antibot: row.antibot === 1 || row.antibot === true,
     casino: row.casino === 1 || row.casino === true,
     presentation_enabled: row.presentation_enabled === 1 || row.presentation_enabled === true,
+    feedback: row.feedback === 1 || row.feedback === true,
+    sarcasmo: row.sarcasmo === 1 || row.sarcasmo === true,
   };
 }
 
