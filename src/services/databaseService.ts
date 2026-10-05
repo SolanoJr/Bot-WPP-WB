@@ -331,6 +331,9 @@ export async function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_command_logs_query 
     ON command_logs(group_id, command_name, timestamp DESC);
   `);
+
+  // Listas (arquitetura suportada — não eram comandos fantasmas, mas funcionalidade viva)
+  await (await import('./listsService')).initListsTable();
 }
 
 // Singleton de conexão para evitar SQLITE_BUSY

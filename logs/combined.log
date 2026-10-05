@@ -11236,3 +11236,169 @@
 2026-10-05 12:04:43 [INFO]: [BaileysSender.sendMessage] Reply: quotedRaw=false, replyTo=original:123, originalKey=NAO 
 2026-10-05 12:04:43 [INFO]: [BaileysSender.sendMessage] Quoted payload construído: keyId=123, hasMessage=true 
 2026-10-05 12:04:49 [INFO]: [Discord] Cliente v14 inicializado com intents, partials e presence 
+2026-10-05 12:16:35 [INFO]: [databaseService] migração: group_mod.welcome_message adicionada 
+2026-10-05 12:16:35 [INFO]: [databaseService] migração: group_mod.presentation_enabled adicionada 
+2026-10-05 12:16:35 [INFO]: [databaseService] migração: group_mod.feedback adicionada 
+2026-10-05 12:16:35 [INFO]: [databaseService] migração: group_mod.sarcasmo adicionada 
+2026-10-05 12:16:35 [INFO]: [databaseService] migração: group_mod.antibot adicionada 
+2026-10-05 12:16:35 [INFO]: [databaseService] migração: group_mod.casino adicionada 
+2026-10-05 12:16:35 [INFO]: [databaseService] Grupo 120363419033272638@g.us criado no group_mod (automações desligadas por padrão). 
+2026-10-05 12:16:36 [INFO]: [databaseService] Grupo 120363499999999999@g.us criado no group_mod (automações desligadas por padrão). 
+2026-10-05 12:16:38 [INFO]: [databaseService] migração: group_mod.welcome_message adicionada 
+2026-10-05 12:16:38 [INFO]: [databaseService] migração: group_mod.presentation_enabled adicionada 
+2026-10-05 12:16:38 [INFO]: [databaseService] migração: group_mod.feedback adicionada 
+2026-10-05 12:16:38 [INFO]: [databaseService] migração: group_mod.sarcasmo adicionada 
+2026-10-05 12:16:38 [INFO]: [databaseService] migração: group_mod.antibot adicionada 
+2026-10-05 12:16:38 [INFO]: [databaseService] migração: group_mod.casino adicionada 
+2026-10-05 12:16:41 [ERROR]: ❌ [Erro no comando $stats:] SQLITE_ERROR: no such table: feedbacks
+2026-10-05 12:16:41 [ERROR]:    Stack: 
+2026-10-05 12:16:42 [INFO]: 🛑 [SHUTDOWN] Comando executado por: 5588998314322@c.us 
+2026-10-05 12:16:42 [ERROR]: ❌ [❌ Erro no $grupos:] ctx.client.getChats is not a function
+2026-10-05 12:16:42 [ERROR]:    Stack: at Object.execute (D:\Desktop\Programas\bot-wpp\src\bot\commands\grupos.ts:18:44)
+2026-10-05 12:16:42 [ERROR]: ❌ [[ScreenCommand] Erro:] connect ECONNREFUSED 127.0.0.1:3002
+2026-10-05 12:16:42 [ERROR]:    Stack: at TCPConnectWrap.afterConnect [as oncomplete] (node:net:2017:16)
+2026-10-05 12:16:42 [INFO]: 🛑 [SHUTDOWN] Comando executado por: 5588998314322@c.us 
+2026-10-05 12:16:44 [ERROR]: [DB] Falha ao registrar infração
+2026-10-05 12:16:44 [ERROR]: [DB] Falha ao registrar infração
+2026-10-05 12:16:45 [ERROR]: [DB] Falha ao registrar infração
+2026-10-05 12:16:45 [ERROR]: [DB] Falha ao registrar infração
+2026-10-05 12:16:45 [ERROR]: [DB] Falha ao registrar infração
+2026-10-05 12:16:45 [ERROR]: [DB] Falha ao registrar infração
+2026-10-05 12:16:45 [ERROR]: [DB] Falha ao registrar infração
+2026-10-05 12:16:45 [ERROR]: [DB] Falha ao registrar infração
+2026-10-05 12:16:45 [ERROR]: [DB] Falha ao registrar infração
+2026-10-05 12:16:45 [ERROR]: [DB] Falha ao registrar infração
+2026-10-05 12:16:47 [INFO]: [TelegramAdapter] Inicializando... 
+2026-10-05 12:16:47 [INFO]: [Telegram] Iniciando launch()... 
+2026-10-05 12:16:47 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-10-05 12:16:47 [INFO]: [TelegramAdapter] Inicializando... 
+2026-10-05 12:16:47 [INFO]: [Telegram] Iniciando launch()... 
+2026-10-05 12:16:47 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-10-05 12:16:47 [INFO]: [TelegramAdapter] Inicializando... 
+2026-10-05 12:16:47 [INFO]: [Telegram] Iniciando launch()... 
+2026-10-05 12:16:47 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-10-05 12:16:47 [INFO]: [TelegramAdapter] Inicializando... 
+2026-10-05 12:16:47 [INFO]: [TelegramAdapter] Já estava pronto 
+2026-10-05 12:16:47 [INFO]: [TelegramAdapter] Inicializando... 
+2026-10-05 12:16:47 [INFO]: [Telegram] Iniciando launch()... 
+2026-10-05 12:16:47 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-10-05 12:16:47 [INFO]: [TelegramAdapter] Inicializando... 
+2026-10-05 12:16:47 [INFO]: [Telegram] Iniciando launch()... 
+2026-10-05 12:16:47 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-10-05 12:16:47 [INFO]: [Discord] Cliente v14 inicializado com intents, partials e presence 
+2026-10-05 12:16:47 [INFO]: [Discord] Iniciando login... 
+2026-10-05 12:16:47 [INFO]: [Discord] ✅ Pronto como TestDiscordBot (1111) 
+2026-10-05 12:16:47 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-10-05 12:16:47 [INFO]: [Discord] Chamada de login concluída 
+2026-10-05 12:16:47 [INFO]: [Discord] Cliente v14 inicializado com intents, partials e presence 
+2026-10-05 12:16:47 [INFO]: [Discord] Iniciando login... 
+2026-10-05 12:16:47 [INFO]: [Discord] ✅ Pronto como TestDiscordBot (1111) 
+2026-10-05 12:16:47 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-10-05 12:16:47 [INFO]: [Discord] Chamada de login concluída 
+2026-10-05 12:16:47 [INFO]: [Discord] Iniciando login... 
+2026-10-05 12:16:47 [INFO]: [Discord] Chamada de login concluída 
+2026-10-05 12:16:47 [INFO]: [Discord] Cliente v14 inicializado com intents, partials e presence 
+2026-10-05 12:16:47 [INFO]: [Discord] Iniciando login... 
+2026-10-05 12:16:47 [INFO]: [Discord] ✅ Pronto como TestDiscordBot (1111) 
+2026-10-05 12:16:47 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-10-05 12:16:47 [INFO]: [Discord] Chamada de login concluída 
+2026-10-05 12:16:52 [INFO]: [DiscordScreenService] Missing required Discord credentials, screen sharing disabled 
+2026-10-05 12:16:52 [INFO]: [DiscordScreenService] Gerenciado externamente (DISCORD_SCREEN_EXTERNAL) — spawn interno desativado 
+2026-10-05 12:16:52 [INFO]: [DiscordScreenService] Gerenciado externamente (DISCORD_SCREEN_EXTERNAL) — spawn interno desativado 
+2026-10-05 12:16:53 [WARN]: [BaileysSender] sendMessage: socket existe mas NÃO está pronto (readyState !== OPEN) 
+2026-10-05 12:16:53 [INFO]: [BaileysSender.sendMessage] Reply: quotedRaw=false, replyTo=original:123, originalKey=NAO 
+2026-10-05 12:16:53 [INFO]: [BaileysSender.sendMessage] Quoted payload construído: keyId=123, hasMessage=true 
+2026-10-05 12:16:53 [WARN]: [BaileysSender] sendMessage: socket existe mas NÃO está pronto (readyState !== OPEN) 
+2026-10-05 12:16:53 [INFO]: [BaileysSender.sendMessage] Reply: quotedRaw=false, replyTo=original:123, originalKey=NAO 
+2026-10-05 12:16:53 [INFO]: [BaileysSender.sendMessage] Quoted payload construído: keyId=123, hasMessage=true 
+2026-10-05 12:16:53 [WARN]: [BaileysSender] sendMessage: socket existe mas NÃO está pronto (readyState !== OPEN) 
+2026-10-05 12:16:53 [INFO]: [BaileysSender.sendMessage] Reply: quotedRaw=false, replyTo=undefined, originalKey=NAO 
+2026-10-05 12:16:53 [WARN]: [BaileysSender] sendMessage: socket existe mas NÃO está pronto (readyState !== OPEN) 
+2026-10-05 12:16:53 [INFO]: [BaileysSender.sendMessage] Reply: quotedRaw=false, replyTo=original:123, originalKey=NAO 
+2026-10-05 12:16:53 [INFO]: [BaileysSender.sendMessage] Quoted payload construído: keyId=123, hasMessage=true 
+2026-10-05 12:16:55 [ERROR]: [memberJoinService] Erro ao processar entrada
+2026-10-05 12:16:57 [INFO]: [keywordHandler] Palavra-chave detectada, resposta enviada
+2026-10-05 12:16:58 [INFO]: [Discord] Cliente v14 inicializado com intents, partials e presence 
+2026-10-05 12:43:54 [INFO]: [databaseService] migração: group_mod.welcome_message adicionada 
+2026-10-05 12:43:54 [INFO]: [databaseService] migração: group_mod.presentation_enabled adicionada 
+2026-10-05 12:43:54 [INFO]: [databaseService] migração: group_mod.feedback adicionada 
+2026-10-05 12:43:54 [INFO]: [databaseService] migração: group_mod.sarcasmo adicionada 
+2026-10-05 12:43:54 [INFO]: [databaseService] migração: group_mod.antibot adicionada 
+2026-10-05 12:43:54 [INFO]: [databaseService] migração: group_mod.casino adicionada 
+2026-10-05 12:43:54 [INFO]: [databaseService] Grupo 120363419033272638@g.us criado no group_mod (automações desligadas por padrão). 
+2026-10-05 12:43:54 [INFO]: [databaseService] Grupo 120363499999999999@g.us criado no group_mod (automações desligadas por padrão). 
+2026-10-05 12:44:00 [INFO]: [databaseService] migração: group_mod.welcome_message adicionada 
+2026-10-05 12:44:00 [INFO]: [databaseService] migração: group_mod.presentation_enabled adicionada 
+2026-10-05 12:44:00 [INFO]: [databaseService] migração: group_mod.feedback adicionada 
+2026-10-05 12:44:00 [INFO]: [databaseService] migração: group_mod.sarcasmo adicionada 
+2026-10-05 12:44:00 [INFO]: [databaseService] migração: group_mod.antibot adicionada 
+2026-10-05 12:44:00 [INFO]: [databaseService] migração: group_mod.casino adicionada 
+2026-10-05 12:44:03 [ERROR]: ❌ [Erro no comando $stats:] SQLITE_ERROR: no such table: feedbacks
+2026-10-05 12:44:03 [ERROR]:    Stack: 
+2026-10-05 12:44:03 [INFO]: 🛑 [SHUTDOWN] Comando executado por: 5588998314322@c.us 
+2026-10-05 12:44:03 [ERROR]: ❌ [❌ Erro no $grupos:] ctx.client.getChats is not a function
+2026-10-05 12:44:03 [ERROR]:    Stack: at Object.execute (D:\Desktop\Programas\bot-wpp\src\bot\commands\grupos.ts:18:44)
+2026-10-05 12:44:03 [ERROR]: ❌ [[ScreenCommand] Erro:] connect ECONNREFUSED 127.0.0.1:3002
+2026-10-05 12:44:03 [ERROR]:    Stack: at TCPConnectWrap.afterConnect [as oncomplete] (node:net:2017:16)
+2026-10-05 12:44:04 [INFO]: 🛑 [SHUTDOWN] Comando executado por: 5588998314322@c.us 
+2026-10-05 12:44:07 [ERROR]: [DB] Falha ao registrar infração
+2026-10-05 12:44:12 [ERROR]: [DB] Falha ao registrar infração
+2026-10-05 12:44:12 [ERROR]: [DB] Falha ao registrar infração
+2026-10-05 12:44:12 [ERROR]: [DB] Falha ao registrar infração
+2026-10-05 12:44:12 [ERROR]: [DB] Falha ao registrar infração
+2026-10-05 12:44:12 [ERROR]: [DB] Falha ao registrar infração
+2026-10-05 12:44:12 [ERROR]: [DB] Falha ao registrar infração
+2026-10-05 12:44:12 [ERROR]: [DB] Falha ao registrar infração
+2026-10-05 12:44:12 [ERROR]: [DB] Falha ao registrar infração
+2026-10-05 12:44:12 [ERROR]: [DB] Falha ao registrar infração
+2026-10-05 12:44:16 [INFO]: [TelegramAdapter] Inicializando... 
+2026-10-05 12:44:16 [INFO]: [Telegram] Iniciando launch()... 
+2026-10-05 12:44:16 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-10-05 12:44:16 [INFO]: [TelegramAdapter] Inicializando... 
+2026-10-05 12:44:16 [INFO]: [Telegram] Iniciando launch()... 
+2026-10-05 12:44:16 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-10-05 12:44:16 [INFO]: [TelegramAdapter] Inicializando... 
+2026-10-05 12:44:16 [INFO]: [Telegram] Iniciando launch()... 
+2026-10-05 12:44:16 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-10-05 12:44:16 [INFO]: [TelegramAdapter] Inicializando... 
+2026-10-05 12:44:16 [INFO]: [TelegramAdapter] Já estava pronto 
+2026-10-05 12:44:16 [INFO]: [TelegramAdapter] Inicializando... 
+2026-10-05 12:44:16 [INFO]: [Telegram] Iniciando launch()... 
+2026-10-05 12:44:16 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-10-05 12:44:16 [INFO]: [TelegramAdapter] Inicializando... 
+2026-10-05 12:44:16 [INFO]: [Telegram] Iniciando launch()... 
+2026-10-05 12:44:16 [INFO]: [Telegram] ✅ Pronto como  () 
+2026-10-05 12:44:16 [INFO]: [Discord] Cliente v14 inicializado com intents, partials e presence 
+2026-10-05 12:44:16 [INFO]: [Discord] Iniciando login... 
+2026-10-05 12:44:16 [INFO]: [Discord] ✅ Pronto como TestDiscordBot (1111) 
+2026-10-05 12:44:16 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-10-05 12:44:16 [INFO]: [Discord] Chamada de login concluída 
+2026-10-05 12:44:16 [INFO]: [Discord] Cliente v14 inicializado com intents, partials e presence 
+2026-10-05 12:44:16 [INFO]: [Discord] Iniciando login... 
+2026-10-05 12:44:16 [INFO]: [Discord] ✅ Pronto como TestDiscordBot (1111) 
+2026-10-05 12:44:16 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-10-05 12:44:16 [INFO]: [Discord] Chamada de login concluída 
+2026-10-05 12:44:16 [INFO]: [Discord] Iniciando login... 
+2026-10-05 12:44:16 [INFO]: [Discord] Chamada de login concluída 
+2026-10-05 12:44:16 [INFO]: [Discord] Cliente v14 inicializado com intents, partials e presence 
+2026-10-05 12:44:16 [INFO]: [Discord] Iniciando login... 
+2026-10-05 12:44:16 [INFO]: [Discord] ✅ Pronto como TestDiscordBot (1111) 
+2026-10-05 12:44:16 [ERROR]: ❌ [[Discord] Erro ao definir presença:] this.client.user?.setPresence is not a function
+2026-10-05 12:44:16 [INFO]: [Discord] Chamada de login concluída 
+2026-10-05 12:44:21 [ERROR]: [memberJoinService] Erro ao processar entrada
+2026-10-05 12:44:22 [INFO]: [DiscordScreenService] Missing required Discord credentials, screen sharing disabled 
+2026-10-05 12:44:22 [INFO]: [DiscordScreenService] Gerenciado externamente (DISCORD_SCREEN_EXTERNAL) — spawn interno desativado 
+2026-10-05 12:44:22 [INFO]: [DiscordScreenService] Gerenciado externamente (DISCORD_SCREEN_EXTERNAL) — spawn interno desativado 
+2026-10-05 12:44:25 [WARN]: [BaileysSender] sendMessage: socket existe mas NÃO está pronto (readyState !== OPEN) 
+2026-10-05 12:44:25 [INFO]: [BaileysSender.sendMessage] Reply: quotedRaw=false, replyTo=original:123, originalKey=NAO 
+2026-10-05 12:44:25 [INFO]: [BaileysSender.sendMessage] Quoted payload construído: keyId=123, hasMessage=true 
+2026-10-05 12:44:25 [WARN]: [BaileysSender] sendMessage: socket existe mas NÃO está pronto (readyState !== OPEN) 
+2026-10-05 12:44:25 [INFO]: [BaileysSender.sendMessage] Reply: quotedRaw=false, replyTo=original:123, originalKey=NAO 
+2026-10-05 12:44:25 [INFO]: [BaileysSender.sendMessage] Quoted payload construído: keyId=123, hasMessage=true 
+2026-10-05 12:44:25 [WARN]: [BaileysSender] sendMessage: socket existe mas NÃO está pronto (readyState !== OPEN) 
+2026-10-05 12:44:25 [INFO]: [BaileysSender.sendMessage] Reply: quotedRaw=false, replyTo=undefined, originalKey=NAO 
+2026-10-05 12:44:25 [WARN]: [BaileysSender] sendMessage: socket existe mas NÃO está pronto (readyState !== OPEN) 
+2026-10-05 12:44:25 [INFO]: [BaileysSender.sendMessage] Reply: quotedRaw=false, replyTo=original:123, originalKey=NAO 
+2026-10-05 12:44:25 [INFO]: [BaileysSender.sendMessage] Quoted payload construído: keyId=123, hasMessage=true 
+2026-10-05 12:44:28 [INFO]: [Discord] Cliente v14 inicializado com intents, partials e presence 
+2026-10-05 12:44:34 [INFO]: [keywordHandler] Palavra-chave detectada, resposta enviada

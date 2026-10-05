@@ -37,6 +37,7 @@ export const helpCommand: ICommand = {
             '  $feedback on|off|status - feedback de saída',
             '  $feedback lista|recentes|grupo|estatisticas',
             '  $sarcasmo on|off|status - resposta sarcástica',
+            '  $lista - mostra as listas persistentes do grupo',
             '',
             '👮 *ADMINISTRAÇÃO* _(apenas administradores)_',
             '  $kick @membro - remove do grupo',
