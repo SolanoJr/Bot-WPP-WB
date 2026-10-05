@@ -650,3 +650,42 @@ bundle (`dist/services/captureStore.js`).
 ---
 
 **Última atualização**: 2026-10-02
+
+---
+## Estado pós-auditoria (2026-10-05, d153f10)
+
+Verificado no código real, não na documentação:
+
+| Recurso | Status | Evidência |
+|---|---|---|
+| $feedback / automação Feedback | ✅ PASS | feedbackService.ts, feedback_events SQLite, 26 testes |
+| $sarcasmo / automação Sarcasmo | ✅ PASS | sarcasmoService.ts, 32 testes, integrado no normalizer |
+| $menu / $help / comandos registrados | ✅ PASS | 64 comandos registrados; $lista1-3 removidos (nunca existiram) |
+| $automod status (blocos separados) | ✅ PASS | AutoMod ≠ automações (Welcome/Apresentações/Feedback/Sarcasmo) |
+| health endpoint / BUG-017, BUG-020 | ✅ PASS | BaileysHealth.syncToStore(); `/health` retorna `wpp: connected` |
+| group_mod / defaults OFF | ✅ PASS | GROUP_MOD_DEFAULTS todos OFF; ensureGroupModRow() escreve 0 explícito |
+| Welcome real (membro real) | ⏳ PENDENTE | Listener group-participants.update implementado; não testado com entrada real |
+| Apresentações Telegram (thread 2) | ⏳ PENDENTE | presentationPublisher implementado; não publicado real confirmada |
+| Foto de apresentação | ⏳ PENDENTE | downloadMediaMessage/profilePictureUrl não integrado |
+| Rate limit por grupo | ⏳ PENDENTE | Cooldown global + por grupo+usuário implementado; rate limit ainda memória |
+| Pipeline AutoMod E2E (delete real) | ⏳ PENDENTE | Delete key pipeline testado; prova visual não obtida |
+| Testes destrutivos em grupos autorizados | ⏳ PENDENTE | Não realizado nesta fase (sem autorização explícita) |
+
+**Resultado final dos testes (576/576, 38 arquivos):** ✅ PASS
+**Estado Git (Windows = GitHub = Linux):** ✅ PASS (d153f10)
+**Estado PM2 (Linux):** ✅ PASS (online, WhatsApp+Telegram+Discord conectados)
+**Estado Build (Windows + Linux):** ✅ PASS
+**Estado Health endpoint:** ✅ PASS (`healthy`, `wpp: connected`)
+
+**O que você pode testar agora:**
+- $feedback e automação de saída (simulada via harness; E2E real requer saída de membro)
+- $sarcasmo (simulado; responderá com "tenho nada ver com isso sinhô" quando "bot" for detectado)
+- $menu / $help / $automod status
+- Configuração por grupo (group_mod com feedback/sarcasmo)
+
+**O que ainda NÃO pode ser testado sem autorização real:**
+- Welcome com entrada real de membro (não há permissão para adicionar/remover membros no Figurinhas/Teste)
+- Apresentação publicada no Telegram (requer membro real + mensagem de apresentação)
+- Foto de apresentação (não implementada)
+- Delete E2E com prova visual (requer mensagem real no grupo autorizado)
+- Pipeline AutoMod completo (requer mensagem real de bot com sinais estruturais)
