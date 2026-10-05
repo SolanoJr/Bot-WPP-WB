@@ -44,6 +44,10 @@ import { apresentacaoCommand } from './apresentacao';
 import { feedbackCommand } from './feedback';
 import { sarcasmoCommand } from './sarcasmo';
 import { listaCommand } from './lista';
+import { quizCommand } from './quiz';
+import { bomDiaCommand } from './bomDia';
+import { reacaoCommand } from './reacao';
+import { rankingCommand } from './ranking';
 import { cantadaCommand } from './cantada';
 import { fakechatCommand } from './interacao';
 import { sendCommand } from './send';
@@ -118,6 +122,10 @@ const commands: Record<string, ICommand> = {
   feedback: feedbackCommand,
   sarcasmo: sarcasmoCommand,
   lista: listaCommand,
+  quiz: quizCommand,
+  bomdia: bomDiaCommand,
+  reacao: reacaoCommand,
+  ranking: rankingCommand,
   // Aliases LEGADOS (compatibilidade — mesmo comportamento)
   autolink: autolinkModCommand,
   casino: casinoModCommand,

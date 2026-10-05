@@ -48,10 +48,10 @@ export const menuCommand: ICommand = {
       `▸ $pergunta (Gemini) · $fakechat · $cantada`,
       ``,
       `🎮 *JOGOS & DIVERSÃO*`,
-      `▸ $jogos · $forca · $velha · $sorteio · $piada · $conselho · $aleatoria · $votar`,
+      `▸ $jogos · $forca · $velha · $sorteio · $piada · $conselho · $aleatoria · $votar · $quiz · $bomdia`,
       ``,
       `🔧 *UTILITÁRIOS*`,
-      `▸ $clima · $nick · $gtts · $sendmsg · $addcmd · $stats · $info`,
+      `▸ $clima · $nick · $gtts · $sendmsg · $addcmd · $stats · $info · $reacao · $ranking`,
       ``,
       `_Use $help para a lista completa e descrições._`,
     ].join('\n');
