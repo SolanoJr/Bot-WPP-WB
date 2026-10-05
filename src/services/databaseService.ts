@@ -68,7 +68,7 @@ export const GROUP_MOD_FLAGS = [
 
 export type GroupModFlag = typeof GROUP_MOD_FLAGS[number];
 
-export async function initDatabase() {
+export async function initDatabase(): Promise<Database> {
   const db = await open({
     filename: dbPath,
     driver: sqlite3.Database
@@ -332,8 +332,54 @@ export async function initDatabase() {
     ON command_logs(group_id, command_name, timestamp DESC);
   `);
 
+  // Eventos imutáveis de execução de comandos. `command_logs` é mantida por
+  // compatibilidade com o $stats legado; esta tabela é a fonte para auditoria
+  // e relatórios operacionais, pois preserva resultado, plataforma e duração.
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS command_usage_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      command_name TEXT NOT NULL,
+      command_alias TEXT NOT NULL,
+      platform TEXT NOT NULL,
+      bot_id TEXT,
+      chat_id TEXT NOT NULL,
+      chat_type TEXT NOT NULL CHECK (chat_type IN ('group', 'private', 'unknown')),
+      user_id TEXT NOT NULL,
+      occurred_at INTEGER NOT NULL,
+      outcome TEXT NOT NULL CHECK (outcome IN ('success', 'error', 'rejected', 'rate_limited', 'unsupported', 'not_found')),
+      permission_result TEXT NOT NULL CHECK (permission_result IN ('allowed', 'denied', 'not_checked')),
+      duration_ms INTEGER,
+      error_code TEXT,
+      correlation_id TEXT
+    );
+  `);
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_command_usage_summary
+    ON command_usage_events(command_name, outcome, occurred_at DESC);
+  `);
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_command_usage_chat
+    ON command_usage_events(platform, chat_id, occurred_at DESC);
+  `);
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_command_usage_user
+    ON command_usage_events(platform, user_id, occurred_at DESC);
+  `);
+
+  // Retenção é aplicada no boot para impedir crescimento infinito sem exigir
+  // intervenção manual. Eventos recentes continuam disponíveis para operação.
+  const configuredRetention = Number.parseInt(process.env.COMMAND_USAGE_RETENTION_DAYS || '180', 10);
+  const retentionDays = Number.isFinite(configuredRetention) && configuredRetention > 0
+    ? configuredRetention
+    : 180;
+  await db.run(
+    'DELETE FROM command_usage_events WHERE occurred_at < ?',
+    [Date.now() - retentionDays * 24 * 60 * 60 * 1000],
+  );
+
   // Listas (arquitetura suportada — não eram comandos fantasmas, mas funcionalidade viva)
-  await (await import('./listsService')).initListsTable();
+  await (await import('./listsService.js')).initListsTable(db);
+  return db;
 }
 
 // Singleton de conexão para evitar SQLITE_BUSY
@@ -344,14 +390,21 @@ export async function getDb(): Promise<Database> {
   if (dbInstance) return dbInstance;
   if (dbInitPromise) return dbInitPromise;
 
-  dbInitPromise = initDatabase().then(async () => {
-    const db = await open({ filename: dbPath, driver: sqlite3.Database });
+  dbInitPromise = initDatabase().then((db) => {
     dbInstance = db;
     dbInitPromise = null;
     return db;
   });
 
   return dbInitPromise;
+}
+
+/** Fecha a conexão somente para ferramentas de execução curta, como a CLI. */
+export async function closeDatabase(): Promise<void> {
+  if (!dbInstance) return;
+  const db = dbInstance;
+  dbInstance = null;
+  await db.close();
 }
 
 export async function dbExecWithRetry(db: Database, sql: string, params: any[] = []): Promise<void> {
@@ -390,6 +443,105 @@ export async function getCommandMetrics(): Promise<any[]> {
     ORDER BY count DESC
     LIMIT 20
   `);
+}
+
+export type CommandUsageOutcome = 'success' | 'error' | 'rejected' | 'rate_limited' | 'unsupported' | 'not_found';
+export type CommandPermissionResult = 'allowed' | 'denied' | 'not_checked';
+
+export interface CommandUsageEvent {
+  commandName: string;
+  commandAlias: string;
+  platform: string;
+  botId?: string;
+  chatId: string;
+  chatType: 'group' | 'private' | 'unknown';
+  userId: string;
+  outcome: CommandUsageOutcome;
+  permissionResult: CommandPermissionResult;
+  durationMs?: number;
+  errorCode?: string;
+  correlationId?: string;
+}
+
+/**
+ * Persiste telemetria de comando sem incluir conteúdo da mensagem. Falhas de
+ * telemetria nunca devem impedir a resposta do bot, por isso o chamador pode
+ * tratar esta operação como best-effort.
+ */
+export async function recordCommandUsageEvent(event: CommandUsageEvent): Promise<void> {
+  const db = await getDb();
+  await db.run(
+    `INSERT INTO command_usage_events (
+      command_name, command_alias, platform, bot_id, chat_id, chat_type,
+      user_id, occurred_at, outcome, permission_result, duration_ms,
+      error_code, correlation_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      event.commandName,
+      event.commandAlias,
+      event.platform,
+      event.botId || null,
+      event.chatId,
+      event.chatType,
+      event.userId,
+      Date.now(),
+      event.outcome,
+      event.permissionResult,
+      event.durationMs ?? null,
+      event.errorCode?.slice(0, 160) || null,
+      event.correlationId || null,
+    ],
+  );
+}
+
+export interface CommandUsageSummary {
+  command: string;
+  total: number;
+  successes: number;
+  errors: number;
+  lastUsedAt: number;
+}
+
+export async function getCommandUsageSummary(limit = 20): Promise<CommandUsageSummary[]> {
+  const db = await getDb();
+  return db.all(
+    `SELECT command_name AS command,
+      COUNT(*) AS total,
+      SUM(CASE WHEN outcome = 'success' THEN 1 ELSE 0 END) AS successes,
+      SUM(CASE WHEN outcome = 'error' THEN 1 ELSE 0 END) AS errors,
+      MAX(occurred_at) AS lastUsedAt
+     FROM command_usage_events
+     GROUP BY command_name
+     ORDER BY total DESC, lastUsedAt DESC
+     LIMIT ?`,
+    [Math.max(1, Math.min(limit, 100))],
+  );
+}
+
+/** Agregação segura para o relatório operacional, sem SQL dinâmico vindo da CLI. */
+export async function getCommandUsageBreakdown(
+  dimension: 'chat' | 'user' | 'platform',
+  limit = 20,
+): Promise<Array<{ scope: string; total: number; successes: number; errors: number; lastUsedAt: number }>> {
+  const db = await getDb();
+  const column = {
+    chat: "platform || ':' || chat_id",
+    user: "platform || ':' || user_id",
+    platform: 'platform',
+  }[dimension];
+
+  return db.all(
+    `SELECT ${column} AS scope,
+      COUNT(*) AS total,
+      SUM(CASE WHEN outcome = 'success' THEN 1 ELSE 0 END) AS successes,
+      SUM(CASE WHEN outcome = 'error' THEN 1 ELSE 0 END) AS errors,
+      MAX(occurred_at) AS lastUsedAt
+     FROM command_usage_events
+     GROUP BY ${column}
+     ORDER BY total DESC, lastUsedAt DESC
+     LIMIT ?`,
+    [Math.max(1, Math.min(limit, 100))],
+  );
 }
 
 export async function listBanned(limit: number = 10): Promise<any[]> {

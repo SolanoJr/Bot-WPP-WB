@@ -41,7 +41,6 @@ import { banidosCommand } from './banidos';
 import { setwelcomeCommand } from './setwelcome';
 import { apresentarCommand } from './apresentar';
 import { apresentacaoCommand } from './apresentacao';
-import { feedbackCommand } from './feedback';
 import { sarcasmoCommand } from './sarcasmo';
 import { listaCommand } from './lista';
 import { quizCommand } from './quiz';
@@ -119,7 +118,6 @@ const commands: Record<string, ICommand> = {
   anuncio: anuncioModCommand,
   auditonly: auditonlyModCommand,
   bemvindo: bemvindoModCommand,
-  feedback: feedbackCommand,
   sarcasmo: sarcasmoCommand,
   lista: listaCommand,
   quiz: quizCommand,

@@ -26,7 +26,8 @@
     "start": "node dist/relay/server.js",
     "bot:start": "node dist/core/multiPlatform.js",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "report:commands": "tsx scripts/command-usage-report.ts"
   },
   "overrides": {
     "esbuild": "^0.28.1"

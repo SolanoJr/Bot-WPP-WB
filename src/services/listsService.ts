@@ -15,6 +15,7 @@
  */
 
 import { getDb } from './databaseService';
+import type { Database } from 'sqlite';
 
 export interface ListItem {
   list_id: string;
@@ -27,8 +28,10 @@ export interface ListItem {
 }
 
 /** Criar tabela se não existir. */
-export async function initListsTable(): Promise<void> {
-  const db = await getDb();
+export async function initListsTable(existingDb?: Database): Promise<void> {
+  // Durante a migração inicial o databaseService já possui uma conexão aberta.
+  // Reutilizá-la evita a recursão getDb → initDatabase → initListsTable → getDb.
+  const db = existingDb ?? await getDb();
   await db.exec(`
     CREATE TABLE IF NOT EXISTS lists (
       list_id TEXT PRIMARY KEY,

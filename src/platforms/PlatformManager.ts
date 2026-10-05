@@ -317,23 +317,46 @@ export class PlatformManager {
    * Executa comando se encontrado
    */
   private async executeCommand(message: PlatformMessage, adapter: PlatformAdapter): Promise<void> {
+    const startedAt = Date.now();
+    const requestedAlias = message.commandName || 'unknown';
     const command = this.commandRegistry.get(message.commandName!);
 
     if (!command) {
       // Comando não encontrado - poderia buscar no relay (futuro)
       logger.info(`[PlatformManager] Comando não encontrado: ${message.commandName} em ${adapter.platform}`);
+      await this.recordCommandTelemetry(message, adapter, {
+        commandName: requestedAlias,
+        commandAlias: requestedAlias,
+        outcome: 'not_found',
+        permissionResult: 'not_checked',
+        durationMs: Date.now() - startedAt,
+      });
       return;
     }
 
     // Verificar se comando está disponível nesta plataforma
     if (command.platforms && !command.platforms.includes(adapter.platform)) {
       await adapter.client.sendMessage(message.chatId, `⚠️ Comando \`${message.commandName}\` não disponível no ${adapter.platform}.`);
+      await this.recordCommandTelemetry(message, adapter, {
+        commandName: command.name,
+        commandAlias: requestedAlias,
+        outcome: 'unsupported',
+        permissionResult: 'not_checked',
+        durationMs: Date.now() - startedAt,
+      });
       return;
     }
 
     // Verificar permissões
     const hasPermission = await this.checkPermissions(message, command);
     if (!hasPermission) {
+      await this.recordCommandTelemetry(message, adapter, {
+        commandName: command.name,
+        commandAlias: requestedAlias,
+        outcome: 'rejected',
+        permissionResult: 'denied',
+        durationMs: Date.now() - startedAt,
+      });
       return; // Resposta de erro já enviada no checkPermissions
     }
 
@@ -346,6 +369,13 @@ export class PlatformManager {
         message.chatId,
         `⏳ Você excedeu o limite de comandos. Aguarde ~${waitSec}s antes de usar outro comando.`
       );
+      await this.recordCommandTelemetry(message, adapter, {
+        commandName: command.name,
+        commandAlias: requestedAlias,
+        outcome: 'rate_limited',
+        permissionResult: 'allowed',
+        durationMs: Date.now() - startedAt,
+      });
       return;
     }
 
@@ -360,9 +390,56 @@ export class PlatformManager {
       await this.logCommandUsage(message.commandName!, message.userId, message.chatId);
 
       await command.execute(ctx);
+      await this.recordCommandTelemetry(message, adapter, {
+        commandName: command.name,
+        commandAlias: requestedAlias,
+        outcome: 'success',
+        permissionResult: 'allowed',
+        durationMs: Date.now() - startedAt,
+      });
     } catch (error: any) {
       logError(`Command:${message.commandName}`, error);
+      metricsService.recordCommandError(command.name, 'execution_error', adapter.platform);
+      await this.recordCommandTelemetry(message, adapter, {
+        commandName: command.name,
+        commandAlias: requestedAlias,
+        outcome: 'error',
+        permissionResult: 'allowed',
+        durationMs: Date.now() - startedAt,
+        errorCode: 'execution_error',
+      });
       await ctx.reply('⚠️ Ocorreu um erro interno ao executar este comando.');
+    } finally {
+      metricsService.recordCommandExecutionDuration(command.name, Date.now() - startedAt);
+    }
+  }
+
+  /** Persiste a trilha de uso sem deixar uma falha de observabilidade afetar o bot. */
+  private async recordCommandTelemetry(
+    message: PlatformMessage,
+    adapter: PlatformAdapter,
+    event: {
+      commandName: string;
+      commandAlias: string;
+      outcome: 'success' | 'error' | 'rejected' | 'rate_limited' | 'unsupported' | 'not_found';
+      permissionResult: 'allowed' | 'denied' | 'not_checked';
+      durationMs: number;
+      errorCode?: string;
+    },
+  ): Promise<void> {
+    try {
+      const { recordCommandUsageEvent } = await import('../services/databaseService.js');
+      await recordCommandUsageEvent({
+        ...event,
+        platform: adapter.platform,
+        botId: adapter.client.userId,
+        chatId: message.chatId,
+        chatType: message.raw?.isGroup === true ? 'group' : message.raw?.isGroup === false ? 'private' : 'unknown',
+        userId: message.userId,
+        correlationId: message.correlationId || message.id,
+      });
+    } catch (error) {
+      logError('CommandTelemetry', error);
     }
   }
 
