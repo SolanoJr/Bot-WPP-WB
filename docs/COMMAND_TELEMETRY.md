@@ -8,6 +8,10 @@ duração, correlação e código de erro não sensível.
 `command_logs` permanece apenas para compatibilidade com o relatório legado.
 Consultas novas devem usar `command_usage_events`.
 
+O comando administrativo `$stats` mantém o resumo histórico em `command_logs`
+e contabiliza eventos da tabela `feedback_events`, que é a fonte oficial do
+fluxo de feedback de saída.
+
 ## Consulta local
 
 ```bash

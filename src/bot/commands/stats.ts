@@ -30,9 +30,10 @@ export const statsCommand: ICommand = {
       // 3. Métricas por grupo: quantas vezes cada comando foi usado (com nome do grupo)
       const metrics = await getCommandMetrics();
 
-      // 4. Total de feedbacks
+      // 4. Eventos de feedback. A fonte oficial é feedback_events; a antiga
+      // tabela `feedbacks` nunca fez parte do schema atual e fazia $stats falhar.
       const feedbackCount = await db.get(
-        'SELECT COUNT(*) as total FROM feedbacks'
+        'SELECT COUNT(*) as total FROM feedback_events'
       );
 
       let response = `📊 *ESTATÍSICAS DO BOT-WPP* 📊\n\n`;
@@ -69,7 +70,7 @@ export const statsCommand: ICommand = {
         }
       }
 
-      response += `\n💌 *Feedbacks recebidos:* ${feedbackCount?.total || 0}\n`;
+      response += `\n💌 *Eventos de feedback registrados:* ${feedbackCount?.total || 0}\n`;
       response += `\n_Dados persistidos em SQLite (com nome do grupo)_`;
 
       await ctx.reply(response);
