@@ -238,11 +238,9 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
   }
 
   // ---- Health / QR / Notify ----
-  getHealth(): WppHealth {
-    const h = this.health.getHealth() as WppHealth;
-    setWppHealth(h);
-    return h;
-  }
+    getHealth(): WppHealth {
+      return this.health.getHealth();
+    }
 
   onSocketDisconnect(handler: (reason: string) => void): void {
     this.connection.onSocketDisconnect(handler);

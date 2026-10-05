@@ -43,6 +43,23 @@ export class BaileysHealth {
     this.qrPending = deps.qrPending;
     this.lastActivityTs = deps.lastActivityTs;
     this.lastConnectAttemptTs = deps.lastConnectAttemptTs;
+    this.syncToStore();
+  }
+
+  private syncToStore(): void {
+    const h: WppHealth = {
+      wpp: this.ready
+        ? ('connected' as const)
+        : this.qrPending
+          ? ('awaiting-qr' as const)
+          : ('disconnected' as const),
+      sinceActivitySec: Math.round((Date.now() - this.lastActivityTs) / 1000),
+      sinceConnectSec: Math.round((Date.now() - this.lastConnectAttemptTs) / 1000),
+      qrPending: this.qrPending,
+      pm2: 'online',
+      updatedAt: new Date().toISOString(),
+    };
+    setWppHealth(h);
   }
 
   setSock(sock: any): void {
@@ -51,10 +68,12 @@ export class BaileysHealth {
 
   setReady(ready: boolean): void {
     this.ready = ready;
+    this.syncToStore();
   }
 
   setQrPending(pending: boolean): void {
     this.qrPending = pending;
+    this.syncToStore();
   }
 
   setUserInfo(userId: string, userName: string): void {
