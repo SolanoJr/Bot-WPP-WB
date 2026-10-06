@@ -21,6 +21,18 @@ const CAPTURE_DIR = process.env.CAPTURE_DIR
   ? path.resolve(process.env.CAPTURE_DIR)
   : path.join(process.cwd(), 'laboratorio');
 const CAPTURE_FILE = path.join(CAPTURE_DIR, 'captured-messages.jsonl');
+const MAX_CACHED_MESSAGES = 5000;
+const CACHE_TTL_MS = 60 * 60 * 1000;
+const CACHE_PRUNE_INTERVAL_MS = 60 * 1000;
+
+type CachedMessage = {
+  capture: Record<string, any>;
+  storedAt: number;
+};
+
+const messageCache = new Map<string, CachedMessage>();
+let persistenceQueue: Promise<void> = Promise.resolve();
+let lastCachePruneAt = 0;
 
 /** Campos de payload que NUNCA devem ir para o dump (segredos/binários). */
 const REDACTED_KEYS = new Set([
@@ -73,32 +85,61 @@ export function sanitize(value: any, depth: number = 0): any {
 }
 
 /** Garante que o diretório existe. */
-function ensureDir(): void {
-  try {
-    if (!fs.existsSync(CAPTURE_DIR)) fs.mkdirSync(CAPTURE_DIR, { recursive: true });
-  } catch { /* ignorar */ }
+function messageCacheKey(remoteJid: string, messageId: string): string {
+  return JSON.stringify([remoteJid, messageId]);
+}
+
+function pruneMessageCache(now: number): void {
+  if (now - lastCachePruneAt < CACHE_PRUNE_INTERVAL_MS) return;
+  for (const [key, cached] of messageCache) {
+    if (now - cached.storedAt > CACHE_TTL_MS) messageCache.delete(key);
+  }
+  lastCachePruneAt = now;
 }
 
 /**
  * Anexa uma entrada ao JSONL. Nunca lança.
- * @returns true se gravou, false se falhou.
+ * @returns true se a captura foi sanitizada e enfileirada, false se falhou.
  */
 export function appendCapture(entry: Record<string, any>): boolean {
   try {
-    ensureDir();
-    const line = JSON.stringify(sanitize(entry)) + '\n';
-    fs.appendFileSync(CAPTURE_FILE, line, 'utf-8');
+    const safeEntry = sanitize(entry);
+    const line = JSON.stringify(safeEntry) + '\n';
+    const now = Date.now();
+
+    if (safeEntry.source === 'messages.upsert' && safeEntry.messageId && safeEntry.remoteJid) {
+      pruneMessageCache(now);
+      const key = messageCacheKey(String(safeEntry.remoteJid), String(safeEntry.messageId));
+      const capture = {
+        source: safeEntry.source,
+        messageId: String(safeEntry.messageId),
+        remoteJid: String(safeEntry.remoteJid),
+        key: safeEntry.key || safeEntry.rawPayloadSafe?.key || null,
+      };
+      messageCache.delete(key);
+      messageCache.set(key, { capture, storedAt: now });
+      while (messageCache.size > MAX_CACHED_MESSAGES) {
+        const oldestKey = messageCache.keys().next().value;
+        if (oldestKey === undefined) break;
+        messageCache.delete(oldestKey);
+      }
+    }
+
+    persistenceQueue = persistenceQueue.then(async () => {
+      await fs.promises.mkdir(CAPTURE_DIR, { recursive: true });
+      await fs.promises.appendFile(CAPTURE_FILE, line, 'utf-8');
+    }).catch(() => { /* captura é best-effort */ });
     return true;
   } catch {
     return false;
   }
 }
 
-/** Lê todas as entradas do JSONL. Nunca lança. */
-export function readCaptures(): Array<Record<string, any>> {
+/** Lê todas as entradas persistidas do JSONL sem bloquear o event loop. */
+export async function readCaptures(): Promise<Array<Record<string, any>>> {
   try {
-    if (!fs.existsSync(CAPTURE_FILE)) return [];
-    const text = fs.readFileSync(CAPTURE_FILE, 'utf-8').trim();
+    await persistenceQueue;
+    const text = (await fs.promises.readFile(CAPTURE_FILE, 'utf-8')).trim();
     if (!text) return [];
     return text
       .split('\n')
@@ -110,8 +151,23 @@ export function readCaptures(): Array<Record<string, any>> {
   }
 }
 
+export function findMessageCapture(remoteJid: string, messageId: string): Record<string, any> | null {
+  const key = messageCacheKey(remoteJid, messageId);
+  const cached = messageCache.get(key);
+  if (!cached) return null;
+
+  if (Date.now() - cached.storedAt > CACHE_TTL_MS) {
+    messageCache.delete(key);
+    return null;
+  }
+
+  messageCache.delete(key);
+  messageCache.set(key, cached);
+  return cached.capture;
+}
+
 export function getCaptureFile(): string {
   return CAPTURE_FILE;
 }
 
-export default { appendCapture, readCaptures, sanitize, getCaptureFile };
+export default { appendCapture, readCaptures, findMessageCapture, sanitize, getCaptureFile };

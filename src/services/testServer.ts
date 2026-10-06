@@ -1,11 +1,9 @@
+import { readCaptures as readPersistedCaptures } from './captureStore';
 import http from 'node:http';
 import { PlatformManager } from '../platforms/PlatformManager';
 import { logInfo, logWarning, logError } from './loggerService';
 import fs from 'node:fs';
 import path from 'node:path';
-
-/** Caminho do arquivo de capturas */
-const CAPTURE_FILE = path.join(process.cwd(), 'laboratorio', 'captured-messages.jsonl');
 
 // ─── Contadores de estatísticas ─────────────────────────────────────────────
 let totalAttempts = 0;
@@ -59,15 +57,8 @@ function inspectMessageRecursively(msg: any, path: string = 'message'): any[] {
   return results;
 }
 
-function readCaptures(): Array<Record<string, any>> {
-  if (!fs.existsSync(CAPTURE_FILE)) return [];
-  try {
-    const text = fs.readFileSync(CAPTURE_FILE, 'utf-8').trim();
-    if (!text) return [];
-    return text.split('\n').filter(Boolean).map((line: string) => {
-      try { return JSON.parse(line); } catch { return null as any; }
-    }).filter((r: any): r is Record<string, any> => r != null);
-  } catch { return []; }
+async function readCaptures(): Promise<Array<Record<string, any>>> {
+  return readPersistedCaptures();
 }
 
 /**
@@ -223,7 +214,7 @@ export function startTestServer(port: number = 3004): void {
             };
             groupJid = knownGroups[groupName] || '5585981344211-1772111940@g.us';
           }
-          const entries = readCaptures().filter(
+          const entries = (await readCaptures()).filter(
             (c: any) => c.groupId === groupJid || c.remoteJid === groupJid || c.participant === groupJid
           );
           res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -247,7 +238,7 @@ export function startTestServer(port: number = 3004): void {
             res.end(JSON.stringify({ error: 'Missing platform or groupJid' }));
             return;
           }
-          const entries = readCaptures()
+          const entries = (await readCaptures())
             .filter((c: any) => c.groupId === groupJid || c.remoteJid === groupJid || c.participant === groupJid)
             .slice(0, limit || 200);
           const messages: Array<{ key: any; message: any; receivedAt: number }> = entries.map((e: any) => ({
@@ -289,7 +280,7 @@ export function startTestServer(port: number = 3004): void {
           }
 
           // Busca a mensagem no JSONL para obter a chave completa
-          const entries = readCaptures().filter(
+          const entries = (await readCaptures()).filter(
             (c: any) => c.messageId === messageId && (c.groupId === groupJid || c.remoteJid === groupJid)
           );
           const targetEntry = entries[0] || null;

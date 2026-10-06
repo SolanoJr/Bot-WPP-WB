@@ -17,7 +17,6 @@ import { WAMessage } from '@whiskeysockets/baileys';
 import {
   getGroupMod,
   banUser,
-  recordMemberJoin,
   recordMessageFingerprint,
   getRecentFingerprintCount,
   cleanupOldFingerprintEntries,
@@ -493,20 +492,9 @@ export async function evaluate(
     }
 
     // 3. Auditoria: registrar entrada do membro (se ainda não registrado)
-  try {
-    await recordMemberJoin(groupId, senderJid);
-  } catch (err: any) {
-    ctx.warn('[AutoMod] erro ao registrar entrada do membro:', err?.message);
-  }
-
-  // 4. Limpeza periódica de fingerprints antigos (lazy)
-  if (fp) {
-    try {
-      await cleanupOldFingerprintEntries(3600); // 1h
-    } catch { /* ignorar */ }
-  }
-
-  // 5. Flag de spam: palavra-chave presente?
+  // 3. Flag de spam: palavra-chave presente?
+    // 4. Contexto de spam: link suspeito / fingerprint repetido / foreign
+    // 5. Exibir nome do remetente (para anti-bot)
   const hasSpamKeyword = containsSpamKeyword(text);
   // 6. Contexto de spam: link suspeito / fingerprint repetido / foreign
   let spamContext = false;

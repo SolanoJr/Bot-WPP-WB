@@ -336,24 +336,24 @@ describe('evaluate — antiestrangeiro', () => {
     expect(ctx.removeParticipant).not.toHaveBeenCalled();
   });
 
-  it('registra entrada do membro no banco (audit trail)', async () => {
+  it('não registra entrada do membro para cada mensagem', async () => {
     const db = await mockDb();
     db.getGroupMod.mockResolvedValue(groupConfig({ antiestrangeiro: true, remover: true, detectar: true }));
 
     const ctx = makeCtx();
     const msg = makeWAMessage({ conversation: 'teste' });
     await evaluate(msg, ctx, GROUP_JID, BR_BR_JID, 'Tester');
-    expect(db.recordMemberJoin).toHaveBeenCalledWith(GROUP_JID, BR_BR_JID);
+    expect(db.recordMemberJoin).not.toHaveBeenCalled();
   });
 
-  it('limpa fingerprints antigos quando há fingerprint válido', async () => {
+  it('não limpa fingerprints no fluxo de cada mensagem', async () => {
     const db = await mockDb();
     db.getGroupMod.mockResolvedValue(groupConfig({ antiestrangeiro: true, remover: true, detectar: true }));
 
     const ctx = makeCtx();
     const msg = makeWAMessage({ conversation: 'teste' });
     await evaluate(msg, ctx, GROUP_JID, BR_BR_JID, 'Tester');
-    expect(db.cleanupOldFingerprintEntries).toHaveBeenCalledWith(3600);
+    expect(db.cleanupOldFingerprintEntries).not.toHaveBeenCalled();
   });
 
   it('NÃO ban/remover MASTER estrangeiro (isProtectedTarget)', async () => {

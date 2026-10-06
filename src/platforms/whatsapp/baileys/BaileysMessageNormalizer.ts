@@ -1,3 +1,4 @@
+import { appendCapture } from '../../../services/captureStore';
 /**
  * BaileysMessageNormalizer — Normalização, dispatch e observação de mensagens Baileys.
  * Extraído de BaileysAdapter para separar responsabilidade de normalização.
@@ -77,7 +78,6 @@ export class BaileysMessageNormalizer {
             fromMe: typeof messageKey.fromMe === 'boolean' ? messageKey.fromMe : null,
             originalWAMessageKey: messageKey,
           });
-          const { appendCapture } = require('../../../services/captureStore.js');
           appendCapture({
             captureId: `live-${messageKey.id}-${Date.now()}`,
             capturedAt: new Date().toISOString(),
@@ -208,7 +208,7 @@ export class BaileysMessageNormalizer {
         quotedText,
         hasMedia: false,
         // CORREÇÃO 2026-09-17: Preservar WAMessageKey original do Baileys (sem prefixos)
-        raw: { ...rawMsg, key: key },
+        raw: { ...rawMsg, key: key, isGroup },
         correlationId: `msg-${key.id}-${Date.now()}`,
       };
 
@@ -306,7 +306,6 @@ export class BaileysMessageNormalizer {
           event: 'key_deleted',
           key: key,
         };
-        const { appendCapture } = require('../../../services/captureStore.js');
         if (typeof appendCapture === 'function') {
           appendCapture(captureEntry);
         }
@@ -336,7 +335,6 @@ export class BaileysMessageNormalizer {
       // Se é um protocol message de revoke, captura para o experimento
       if (hasProtocol && (message as any).protocolMessage?.type === 'REVOKE') {
         if (key?.id && key?.remoteJid) {
-          const { appendCapture } = require('../../../services/captureStore.js');
           if (typeof appendCapture === 'function') {
       appendCapture({
               captureId: `proto-revoke-${key.id}-${Date.now()}`,

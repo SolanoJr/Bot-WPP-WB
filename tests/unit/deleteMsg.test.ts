@@ -1,10 +1,10 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  readCaptures: vi.fn(() => [] as any[]),
+  findMessageCapture: vi.fn(() => null as any),
 }));
 
-vi.mock('../../src/services/captureStore', () => ({ readCaptures: mocks.readCaptures }));
+vi.mock('../../src/services/captureStore', () => ({ findMessageCapture: mocks.findMessageCapture }));
 
 import { deleteMsgCommand } from '../../src/bot/commands/deleteMsg';
 import { isMaster } from '../../src/services/permissions';
@@ -17,7 +17,7 @@ const BOT = '558581344211@c.us';
 const ALVO = '559999999999@c.us';              // quem mandou "apague isso"
 
 beforeEach(() => {
-  mocks.readCaptures.mockReset().mockReturnValue([]);
+  mocks.findMessageCapture.mockReset().mockReturnValue(null);
   logInfoSpy.mockClear();
 });
 
@@ -61,9 +61,9 @@ describe('$delete — exclusão autorizada por quote', () => {
       id: 'MSG-ID-123', remoteJid: GROUP, fromMe: false, participant: ALVO,
       participantAlt: '559999999999@s.whatsapp.net', addressingMode: 'lid',
     };
-    mocks.readCaptures.mockReturnValue([{
+    mocks.findMessageCapture.mockReturnValue({
       source: 'messages.upsert', messageId: originalKey.id, remoteJid: GROUP, key: originalKey,
-    }]);
+    });
     const ctx = makeCtx({
       quoted,
       userId: DONO,
@@ -82,7 +82,7 @@ describe('$delete — exclusão autorizada por quote', () => {
 
   it('admin do grupo pode apagar mensagem de usuário comum', async () => {
     const targetKey = { id: 'MSG-ADMIN-1', remoteJid: GROUP, fromMe: false, participant: ALVO };
-    mocks.readCaptures.mockReturnValue([{ source: 'messages.upsert', messageId: targetKey.id, remoteJid: GROUP, key: targetKey }]);
+    mocks.findMessageCapture.mockReturnValue({ source: 'messages.upsert', messageId: targetKey.id, remoteJid: GROUP, key: targetKey });
     const ctx = makeCtx({
       userId: ALVO,
       isAdmin: true,
@@ -97,7 +97,7 @@ describe('$delete — exclusão autorizada por quote', () => {
   it('nega execução para usuário sem papel de dono ou admin', async () => {
     const ctx = makeCtx({ userId: ALVO, isAdmin: false });
     await deleteMsgCommand.execute(ctx);
-    expect(mocks.readCaptures).not.toHaveBeenCalled();
+    expect(mocks.findMessageCapture).not.toHaveBeenCalled();
     expect(ctx.__sendMessage).not.toHaveBeenCalled();
     expect(ctx.replies.join()).toContain('dono ou por um admin');
   });
@@ -115,7 +115,7 @@ describe('$delete — exclusão autorizada por quote', () => {
       author: DONO,
       text: 'msg do dono',
     };
-    mocks.readCaptures.mockReturnValue([{ source: 'messages.upsert', messageId: 'MSG-DONO', remoteJid: GROUP, key: { id: 'MSG-DONO', remoteJid: GROUP, fromMe: false, participant: DONO } }]);
+    mocks.findMessageCapture.mockReturnValue({ source: 'messages.upsert', messageId: 'MSG-DONO', remoteJid: GROUP, key: { id: 'MSG-DONO', remoteJid: GROUP, fromMe: false, participant: DONO } });
     const ctx = makeCtx({ quoted, userId: ALVO, isAdmin: true, raw: { key: { remoteJid: GROUP }, message: { extendedTextMessage: { contextInfo: { stanzaId: 'MSG-DONO' } } } } });
     await deleteMsgCommand.execute(ctx);
     expect(ctx.__sendMessage).not.toHaveBeenCalled();
@@ -129,7 +129,7 @@ describe('$delete — exclusão autorizada por quote', () => {
       text: 'msg do bot',
     };
     const ctx = makeCtx({ quoted, userId: ALVO, isAdmin: true, raw: { key: { remoteJid: GROUP }, message: { extendedTextMessage: { contextInfo: { stanzaId: 'MSG-BOT' } } } } });
-    mocks.readCaptures.mockReturnValue([{ source: 'messages.upsert', messageId: 'MSG-BOT', remoteJid: GROUP, key: { id: 'MSG-BOT', remoteJid: GROUP, fromMe: true } }]);
+    mocks.findMessageCapture.mockReturnValue({ source: 'messages.upsert', messageId: 'MSG-BOT', remoteJid: GROUP, key: { id: 'MSG-BOT', remoteJid: GROUP, fromMe: true } });
     await deleteMsgCommand.execute(ctx);
     expect(ctx.__sendMessage).not.toHaveBeenCalled();
     expect(ctx.replies.join()).toContain('dono ou do próprio bot');

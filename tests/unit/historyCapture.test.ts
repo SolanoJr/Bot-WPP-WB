@@ -5,16 +5,18 @@
  * evento 'messaging-history.set'. Sem handler, o blob PDO era baixado,
  * decriptado e DESCARTADO — tornando mensagens passadas irrecuperáveis.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
 let tmpDir: string;
+let captureStorePromise: Promise<typeof import('../../src/services/captureStore')> | undefined;
 
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-'));
   process.env.CAPTURE_DIR = tmpDir;
+  captureStorePromise = undefined;
 });
 
 afterEach(() => {
@@ -25,9 +27,11 @@ afterEach(() => {
 async function loadStore() {
   // CAPTURE_FILE é resolvido no load do módulo → limpar o cache para que cada
   // teste use o seu próprio CAPTURE_DIR.
-  const { vi } = await import('vitest');
-  vi.resetModules();
-  return await import('../../src/services/captureStore');
+  if (!captureStorePromise) {
+    vi.resetModules();
+    captureStorePromise = import('../../src/services/captureStore');
+  }
+  return captureStorePromise;
 }
 
 describe('capture-store — sanitização', () => {
@@ -81,7 +85,7 @@ describe('capture-store — append/read', () => {
   it('grava e lê de volta', async () => {
     const { appendCapture, readCaptures } = await loadStore();
     expect(appendCapture({ messageId: 'A1', groupId: 'g@g.us' })).toBe(true);
-    const all = readCaptures();
+    const all = await readCaptures();
     expect(all.length).toBe(1);
     expect(all[0].messageId).toBe('A1');
   });
@@ -91,15 +95,15 @@ describe('capture-store — append/read', () => {
     appendCapture({ messageId: 'A' });
     appendCapture({ messageId: 'B' });
     appendCapture({ messageId: 'C' });
-    expect(readCaptures().map(r => r.messageId)).toEqual(['A', 'B', 'C']);
+    expect((await readCaptures()).map(r => r.messageId)).toEqual(['A', 'B', 'C']);
   });
 
   it('linha corrompida não quebra a leitura', async () => {
     const { appendCapture, readCaptures, getCaptureFile } = await loadStore();
     appendCapture({ messageId: 'OK' });
-    fs.appendFileSync(getCaptureFile(), '{lixo nao json\n');
+    await fs.promises.appendFile(getCaptureFile(), '{lixo nao json\n');
     appendCapture({ messageId: 'OK2' });
-    const all = readCaptures();
+    const all = await readCaptures();
     expect(all.map(r => r.messageId)).toEqual(['OK', 'OK2']);
   });
 });
@@ -167,7 +171,7 @@ describe('handler messaging-history.set — persistência do payload real', () =
     expect(saved).toBe(1);
 
     const { readCaptures } = await loadStore();
-    const [e] = readCaptures();
+    const [e] = await readCaptures();
     expect(e.messageId).toBe('3EB0REAL');
     expect(e.groupId).toBe('120363419033272638@g.us');
     expect(e.participant).toBe('33471368028338@lid');
@@ -190,14 +194,14 @@ describe('handler messaging-history.set — persistência do payload real', () =
       })),
     });
     const { readCaptures } = await loadStore();
-    expect(readCaptures().map(e => e.messageType)).toEqual(types);
+    expect((await readCaptures()).map(e => e.messageType)).toEqual(types);
   });
 
   it('não grava nada quando o evento vem vazio', async () => {
     expect(await handleHistorySet({ messages: [] })).toBe(0);
     expect(await handleHistorySet({})).toBe(0);
     const { readCaptures } = await loadStore();
-    expect(readCaptures().length).toBe(0);
+    expect((await readCaptures()).length).toBe(0);
   });
 
   it('ignora chaves de criptografia no dump', async () => {
@@ -209,12 +213,12 @@ describe('handler messaging-history.set — persistência do payload real', () =
       }],
     });
     const { readCaptures } = await loadStore();
-    const e = readCaptures()[0];
+    const e = (await readCaptures())[0];
     expect(e.rawPayloadSafe.message.imageMessage.caption).toBe('spam');
     expect(e.rawPayloadSafe.message.imageMessage.mediaKey).toBe('[redacted]');
     expect(e.rawPayloadSafe.message.imageMessage.jpegThumbnail).toBe('[buffer 2b]');
     // Nenhum segredo no arquivo cru
-    const raw = fs.readFileSync(path.join(tmpDir, 'captured-messages.jsonl'), 'utf-8');
+    const raw = await fs.promises.readFile(path.join(tmpDir, 'captured-messages.jsonl'), 'utf-8');
     expect(raw).not.toContain('SEGREDO');
   });
 });
@@ -238,7 +242,7 @@ describe('evaluate() reprocessa o payload capturado do histórico', () => {
     })();
 
     const { readCaptures } = await loadStore();
-    const entry = readCaptures().find(e => e.messageId === '3EB0REAL')!;
+    const entry = (await readCaptures()).find(e => e.messageId === '3EB0REAL')!;
     const { extractAntiBotSignals, isForeignNumber, containsSpamKeyword } =
       await import('../../src/services/autoModEngine');
 

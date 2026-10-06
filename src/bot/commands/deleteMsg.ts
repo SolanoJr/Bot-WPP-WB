@@ -1,10 +1,10 @@
+import { findMessageCapture } from '../../services/captureStore';
 import { ICommand } from './types';
 import { CommandContext } from '../../platforms/base/PlatformTypes';
-import { readCaptures } from '../../services/captureStore';
 import { isProtectedTarget } from '../../services/permissions';
 import { logInfo, logWarning, logError } from '../../services/loggerService';
 
-// Apaga a mensagem citada com a key original persistida pelo capture-store.
+// Apaga a mensagem citada com a key original retida pelo capture-store.
 // Uso: responda (quote) a uma mensagem e envie "$delete".
 export const deleteMsgCommand: ICommand = {
   name: 'delete',
@@ -34,12 +34,7 @@ export const deleteMsgCommand: ICommand = {
       }
 
       const chatJid = String(msgObj?.key?.remoteJid || ctx.chatId).replace(/^wpp:/, '');
-      const captures = readCaptures();
-      const capture = [...captures].reverse().find((entry) =>
-        entry.source === 'messages.upsert'
-        && entry.messageId === stanzaId
-        && entry.remoteJid === chatJid
-      );
+      const capture = findMessageCapture(chatJid, stanzaId);
       const originalKey = capture?.key || capture?.rawPayloadSafe?.key || null;
       if (!originalKey || originalKey.id !== stanzaId || originalKey.remoteJid !== chatJid) {
         logWarning('[delete] exclusão recusada: captura original exata não encontrada', { stanzaId, chatJid });

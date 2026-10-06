@@ -154,7 +154,27 @@ describe('DELETE — mensagem PRÓPRIA não é alvo', () => {
 });
 
 describe('CAPTURESTORE — persistência e recuperação da key', () => {
-  it('appendCapture grava e readCaptures recupera os campos necessários ao delete', () => {
+  it('indexa mensagens recebidas no cache pelo grupo e ID exatos', () => {
+    const originalKey = {
+      id: 'DEL-CACHE-1',
+      remoteJid: GRUPO_LID,
+      fromMe: false,
+      participant: TERC_LID,
+      participantAlt: TERC_PN_ALT,
+      addressingMode: 'lid',
+    };
+    capture.appendCapture({
+      source: 'messages.upsert',
+      messageId: originalKey.id,
+      remoteJid: originalKey.remoteJid,
+      key: originalKey,
+    });
+
+    expect(capture.findMessageCapture(GRUPO_LID, originalKey.id)?.key).toEqual(originalKey);
+    expect(capture.findMessageCapture(GRUPO, originalKey.id)).toBeNull();
+  });
+
+  it('appendCapture grava e readCaptures recupera os campos necessários ao delete', async () => {
     const entry = {
       captureId: 'cap-1',
       platform: 'whatsapp',
@@ -170,7 +190,7 @@ describe('CAPTURESTORE — persistência e recuperação da key', () => {
     };
     expect(capture.appendCapture(entry)).toBe(true);
 
-    const all = capture.readCaptures();
+    const all = await capture.readCaptures();
     const found = all.find((e: any) => e.messageId === 'DEL-RECOVER-1');
     expect(found).toBeDefined();
     expect(found.remoteJid).toBe(GRUPO_LID);
@@ -181,8 +201,8 @@ describe('CAPTURESTORE — persistência e recuperação da key', () => {
     expect(found.messageType).toBe('extendedTextMessage');
   });
 
-  it('a key recuperada é reconstruível e idêntica à original', () => {
-    const all = capture.readCaptures();
+  it('a key recuperada é reconstruível e idêntica à original', async () => {
+    const all = await capture.readCaptures();
     const e: any = all.find((x: any) => x.messageId === 'DEL-RECOVER-1');
     const rebuilt = {
       id: e.messageId,
@@ -202,14 +222,14 @@ describe('CAPTURESTORE — persistência e recuperação da key', () => {
     });
   });
 
-  it('sanitiza segredos e nunca expõe buffer binário', () => {
+  it('sanitiza segredos e nunca expõe buffer binário', async () => {
     capture.appendCapture({
       messageId: 'cap-secret',
       mediaKey: Buffer.from('segredo'),
       fileEncSha256: Buffer.from('hash'),
       nested: { mediaKey: Buffer.from('x') },
     });
-    const e: any = capture.readCaptures().find((x: any) => x.messageId === 'cap-secret');
+    const e: any = (await capture.readCaptures()).find((x: any) => x.messageId === 'cap-secret');
     // Buffer nunca vaza conteúdo — vira marcador de tamanho
     expect(e.mediaKey).toMatch(/^\[buffer \d+b\]$/);
     expect(e.fileEncSha256).toMatch(/^\[buffer \d+b\]$/);
@@ -220,10 +240,8 @@ describe('CAPTURESTORE — persistência e recuperação da key', () => {
     expect(raw).not.toContain('hash');
   });
 
-  it('readCaptures nunca lança, mesmo com arquivo ausente', () => {
-    const antes = process.env.CAPTURE_DIR;
-    process.env.CAPTURE_DIR = path.join(TMP_DIR, 'nao-existe');
-    expect(() => capture.readCaptures()).not.toThrow();
-    process.env.CAPTURE_DIR = antes;
+  it('readCaptures retorna lista vazia quando o arquivo não existe', async () => {
+    await fs.promises.rm(capture.getCaptureFile(), { force: true });
+    await expect(capture.readCaptures()).resolves.toEqual([]);
   });
 });
