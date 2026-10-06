@@ -98,6 +98,39 @@ describe('capture-store — append/read', () => {
     expect((await readCaptures()).map(r => r.messageId)).toEqual(['A', 'B', 'C']);
   });
 
+  it('recupera uma mensagem recente do JSONL após reload do processo', async () => {
+    const { appendCapture, readCaptures } = await loadStore();
+    const key = {
+      id: 'RELOAD-DELETE-1',
+      remoteJid: '120363410094452673@g.us',
+      fromMe: true,
+      participant: '558581344211@s.whatsapp.net',
+      participantAlt: '558581344211@s.whatsapp.net',
+      remoteJidAlt: '558581344211@s.whatsapp.net',
+      addressingMode: 'lid',
+    };
+    appendCapture({
+      source: 'messages.upsert',
+      messageId: key.id,
+      remoteJid: key.remoteJid,
+      timestamp: Date.now(),
+      messageType: 'conversation',
+      key,
+    });
+    await readCaptures();
+
+    vi.resetModules();
+    captureStorePromise = undefined;
+    const reloadedStore = await loadStore();
+
+    await expect(reloadedStore.findMessageCapture(key.remoteJid, key.id)).resolves.toMatchObject({
+      source: 'messages.upsert',
+      messageId: key.id,
+      remoteJid: key.remoteJid,
+      key,
+    });
+  });
+
   it('linha corrompida não quebra a leitura', async () => {
     const { appendCapture, readCaptures, getCaptureFile } = await loadStore();
     appendCapture({ messageId: 'OK' });

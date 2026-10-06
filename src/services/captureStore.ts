@@ -97,6 +97,23 @@ function pruneMessageCache(now: number): void {
   lastCachePruneAt = now;
 }
 
+function rememberMessageCapture(
+  remoteJid: string,
+  messageId: string,
+  capture: Record<string, any>,
+  storedAt: number,
+): void {
+  pruneMessageCache(storedAt);
+  const key = messageCacheKey(remoteJid, messageId);
+  messageCache.delete(key);
+  messageCache.set(key, { capture, storedAt });
+  while (messageCache.size > MAX_CACHED_MESSAGES) {
+    const oldestKey = messageCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    messageCache.delete(oldestKey);
+  }
+}
+
 /**
  * Anexa uma entrada ao JSONL. Nunca lança.
  * @returns true se a captura foi sanitizada e enfileirada, false se falhou.
@@ -108,21 +125,13 @@ export function appendCapture(entry: Record<string, any>): boolean {
     const now = Date.now();
 
     if (safeEntry.source === 'messages.upsert' && safeEntry.messageId && safeEntry.remoteJid) {
-      pruneMessageCache(now);
-      const key = messageCacheKey(String(safeEntry.remoteJid), String(safeEntry.messageId));
       const capture = {
         source: safeEntry.source,
         messageId: String(safeEntry.messageId),
         remoteJid: String(safeEntry.remoteJid),
         key: safeEntry.key || safeEntry.rawPayloadSafe?.key || null,
       };
-      messageCache.delete(key);
-      messageCache.set(key, { capture, storedAt: now });
-      while (messageCache.size > MAX_CACHED_MESSAGES) {
-        const oldestKey = messageCache.keys().next().value;
-        if (oldestKey === undefined) break;
-        messageCache.delete(oldestKey);
-      }
+      rememberMessageCapture(capture.remoteJid, capture.messageId, capture, now);
     }
 
     persistenceQueue = persistenceQueue.then(async () => {
@@ -151,19 +160,43 @@ export async function readCaptures(): Promise<Array<Record<string, any>>> {
   }
 }
 
-export function findMessageCapture(remoteJid: string, messageId: string): Record<string, any> | null {
+export async function findMessageCapture(remoteJid: string, messageId: string): Promise<Record<string, any> | null> {
   const key = messageCacheKey(remoteJid, messageId);
   const cached = messageCache.get(key);
-  if (!cached) return null;
-
-  if (Date.now() - cached.storedAt > CACHE_TTL_MS) {
+  const now = Date.now();
+  if (cached && now - cached.storedAt <= CACHE_TTL_MS) {
     messageCache.delete(key);
-    return null;
+    messageCache.set(key, cached);
+    return cached.capture;
   }
+  if (cached) messageCache.delete(key);
 
-  messageCache.delete(key);
-  messageCache.set(key, cached);
-  return cached.capture;
+  const entries = await readCaptures();
+  for (let index = entries.length - 1; index >= 0; index--) {
+    const entry = entries[index];
+    if (!['messages.upsert', 'messaging-history.set'].includes(entry.source)
+      || String(entry.messageId || '') !== messageId
+      || String(entry.remoteJid || '') !== remoteJid) {
+      continue;
+    }
+
+    const recordedAt = Number(entry.timestamp) || Date.parse(entry.capturedAt || '');
+    const timestamp = recordedAt > 0 && recordedAt < 1e12 ? recordedAt * 1000 : recordedAt;
+    if (!timestamp || now - timestamp > CACHE_TTL_MS || timestamp > now + 30000) return null;
+
+    const originalKey = entry.key || entry.rawPayloadSafe?.key;
+    if (!originalKey || originalKey.id !== messageId || originalKey.remoteJid !== remoteJid) return null;
+
+    const capture = {
+      source: entry.source,
+      messageId,
+      remoteJid,
+      key: originalKey,
+    };
+    rememberMessageCapture(remoteJid, messageId, capture, timestamp);
+    return capture;
+  }
+  return null;
 }
 
 export function getCaptureFile(): string {

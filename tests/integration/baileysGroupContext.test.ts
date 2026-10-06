@@ -98,4 +98,37 @@ describe('Baileys group context integration', () => {
     expect(context.isGroup).toBe(false);
     expect(context.msg.raw.isGroup).toBe(false);
   });
+
+  it('captures a bot-authored marker but never dispatches it as another command', async () => {
+    const previousLabMode = process.env.WPP_LAB_MODE;
+    delete process.env.WPP_LAB_MODE;
+    let dispatched = false;
+    const normalizer = new BaileysMessageNormalizer({
+      sock: { waitForMessage: async () => null },
+      platform: 'whatsapp',
+      userId: '558581344211@s.whatsapp.net',
+      getChat: async () => ({ name: 'Teste', participants: [], raw: {} }),
+      sendMessage: async () => ({}),
+      removeParticipant: async () => {},
+    });
+    normalizer.setMessageHandler(async () => { dispatched = true; });
+
+    try {
+      await normalizer.dispatchMessage({
+        key: {
+          id: 'LAB-LOOP-GUARD',
+          remoteJid: '120363410094452673@g.us',
+          fromMe: true,
+          participant: '558581344211@s.whatsapp.net',
+        },
+        message: { conversation: '[LAB_DELETE_TEST:unit] marcador' },
+        messageTimestamp: Math.floor(Date.now() / 1000),
+      });
+    } finally {
+      if (previousLabMode === undefined) delete process.env.WPP_LAB_MODE;
+      else process.env.WPP_LAB_MODE = previousLabMode;
+    }
+
+    expect(dispatched).toBe(false);
+  });
 });

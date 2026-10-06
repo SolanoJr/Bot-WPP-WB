@@ -1,4 +1,7 @@
-import { readCaptures as readPersistedCaptures } from './captureStore';
+import { randomUUID } from 'node:crypto';
+import { findMessageCapture, readCaptures as readPersistedCaptures } from './captureStore';
+import { isMaster, MASTER_USER } from './permissions';
+import { matchDeleteRevoke, matchMessagesDelete } from './deleteE2EConfirmation';
 import http from 'node:http';
 import { PlatformManager } from '../platforms/PlatformManager';
 import { logInfo, logWarning, logError } from './loggerService';
@@ -59,6 +62,66 @@ function inspectMessageRecursively(msg: any, path: string = 'message'): any[] {
 
 async function readCaptures(): Promise<Array<Record<string, any>>> {
   return readPersistedCaptures();
+}
+
+function waitForOutgoingMarker(sock: any, groupJid: string, marker: string, timeoutMs: number) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let settled = false;
+  let resolvePromise: (message: any | null) => void = () => {};
+  const cleanup = () => {
+    if (timer) clearTimeout(timer);
+    sock.ev.off('messages.upsert', onUpsert);
+  };
+  const finish = (message: any | null) => {
+    if (settled) return;
+    settled = true;
+    cleanup();
+    resolvePromise(message);
+  };
+  const onUpsert = (event: any) => {
+    const match = (event?.messages || []).find((message: any) => {
+      const key = message?.key || {};
+      const body = message?.message?.conversation
+        || message?.message?.extendedTextMessage?.text
+        || '';
+      return key.remoteJid === groupJid && key.fromMe === true && String(body).includes(marker);
+    });
+    if (match) finish(match);
+  };
+  const promise = new Promise<any | null>((resolve) => { resolvePromise = resolve; });
+  sock.ev.on('messages.upsert', onUpsert);
+  timer = setTimeout(() => finish(null), timeoutMs);
+  return { promise, dispose: () => finish(null) };
+}
+
+function waitForDeleteConfirmation(sock: any, targetKey: any, correlationId: string, timeoutMs: number) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let settled = false;
+  let resolvePromise: (confirmation: any | null) => void = () => {};
+  const cleanup = () => {
+    if (timer) clearTimeout(timer);
+    sock.ev.off('messages.update', onUpdate);
+    sock.ev.off('messages.delete', onDelete);
+  };
+  const finish = (confirmation: any | null) => {
+    if (settled) return;
+    settled = true;
+    cleanup();
+    resolvePromise(confirmation ? { ...confirmation, correlationId } : null);
+  };
+  const onUpdate = (event: any) => {
+    const confirmation = matchDeleteRevoke(targetKey, event);
+    if (confirmation) finish(confirmation);
+  };
+  const onDelete = (event: any) => {
+    const confirmation = matchMessagesDelete(targetKey, event);
+    if (confirmation) finish(confirmation);
+  };
+  const promise = new Promise<any | null>((resolve) => { resolvePromise = resolve; });
+  sock.ev.on('messages.update', onUpdate);
+  sock.ev.on('messages.delete', onDelete);
+  timer = setTimeout(() => finish(null), timeoutMs);
+  return { promise, dispose: () => finish(null) };
 }
 
 /**
@@ -248,6 +311,180 @@ export function startTestServer(port: number = 3004): void {
           }));
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: true, messages, count: messages.length, groupJid }));
+          return;
+        }
+
+        if (req.url === '/lab/delete-e2e') {
+          const groupJid = '120363410094452673@g.us';
+          const chatId = `wpp:${groupJid}`;
+          const correlationId = randomUUID();
+          const marker = `[LAB_DELETE_TEST:${correlationId}] mensagem temporaria de teste`;
+          const { adapter, sock } = getAdapterAndSock('whatsapp');
+          if (!adapter || !sock?.ev || !adapter.client?.isReady) {
+            res.writeHead(503, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'DELETE E2E FAIL', cause: 'Adapter/socket WhatsApp indisponivel' }));
+            return;
+          }
+          if (!isMaster(MASTER_USER)) {
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'DELETE E2E FAIL', cause: 'MASTER_USER configurado nao e reconhecido como MASTER' }));
+            return;
+          }
+
+          let targetKey: any = null;
+          let sentMessageId: string | null = null;
+          let messageCreated = false;
+          let capture: any = null;
+          let commandState: { stage: string; details?: any } = { stage: 'not-dispatched' };
+          let confirmation: any = null;
+          let cleanupConfirmation: any = null;
+          let cleanupAttempted = false;
+          let failureCause = '';
+          const markerWaiter = waitForOutgoingMarker(sock, groupJid, marker, 10000);
+
+          try {
+            const sent = await adapter.client.sendMessage(chatId, marker);
+            messageCreated = true;
+            const sentRaw: any = sent?.raw || null;
+            const sentKey: any = sentRaw?.key || null;
+            sentMessageId = sentKey?.id || null;
+            if (!sentKey?.id || sentKey.remoteJid !== groupJid || sentKey.fromMe !== true) {
+              throw new Error('Baileys nao retornou a WAMessageKey real esperada para a mensagem de teste');
+            }
+            targetKey = sentKey;
+
+            const upsertMessage = await markerWaiter.promise;
+            if (!upsertMessage) throw new Error('Timeout aguardando messages.upsert da mensagem UUID');
+            if (upsertMessage.key?.id !== sentKey.id || upsertMessage.key?.remoteJid !== groupJid) {
+              throw new Error('messages.upsert nao corresponde a WAMessageKey retornada pelo envio');
+            }
+
+            capture = await findMessageCapture(groupJid, sentKey.id);
+            if (!capture || capture.source !== 'messages.upsert' || !capture.key) {
+              throw new Error('Mensagem UUID nao entrou no capture-store usado pelo $delete');
+            }
+            targetKey = capture.key;
+            if (targetKey.id !== sentKey.id || targetKey.remoteJid !== groupJid || targetKey.fromMe !== true) {
+              throw new Error('A key capturada diverge da key real retornada pelo Baileys');
+            }
+            const comparedFields = new Set([...Object.keys(sentKey), ...Object.keys(targetKey)]);
+            for (const field of comparedFields) {
+              if (JSON.stringify(targetKey[field]) !== JSON.stringify(sentKey[field])) {
+                throw new Error(`A key capturada diverge no campo ${field}`);
+              }
+            }
+
+            const commandRaw = {
+              key: {
+                id: `LAB_DELETE_COMMAND:${correlationId}`,
+                remoteJid: groupJid,
+                fromMe: false,
+                participant: MASTER_USER,
+              },
+              message: {
+                extendedTextMessage: {
+                  text: '$delete',
+                  contextInfo: {
+                    stanzaId: targetKey.id,
+                    participant: targetKey.participant || adapter.client.userId,
+                    quotedMessage: upsertMessage.message,
+                  },
+                },
+              },
+              messageTimestamp: Math.floor(Date.now() / 1000),
+              isGroup: true,
+            };
+            const commandMessage: any = {
+              id: `whatsapp:LAB_DELETE_COMMAND:${correlationId}`,
+              platform: 'whatsapp',
+              chatId: groupJid,
+              userId: MASTER_USER,
+              userName: 'Lab MASTER',
+              text: '$delete',
+              timestamp: new Date(),
+              isFromMe: false,
+              isCommand: false,
+              raw: commandRaw,
+              hasMedia: false,
+              correlationId,
+              metadata: {
+                deleteE2EObserver: (stage: string, details?: any) => {
+                  commandState = { stage, details };
+                },
+              },
+            };
+
+            const deleteWaiter = waitForDeleteConfirmation(sock, targetKey, correlationId, 10000);
+            await pm.handleIncomingMessage(commandMessage);
+            confirmation = await deleteWaiter.promise;
+            deleteWaiter.dispose();
+            if (!confirmation) failureCause = `Sem REVOKE/messages.delete para ${targetKey.id}; etapa do comando: ${commandState.stage}`;
+          } catch (err: any) {
+            failureCause = err?.message || String(err);
+          } finally {
+            markerWaiter.dispose();
+          }
+
+          if (!confirmation && targetKey?.id && targetKey.remoteJid === groupJid && targetKey.fromMe === true) {
+            cleanupAttempted = true;
+            const cleanupWaiter = waitForDeleteConfirmation(sock, targetKey, `${correlationId}:cleanup`, 5000);
+            try {
+              await adapter.client.sendMessage(chatId, '', { delete: targetKey });
+              cleanupConfirmation = await cleanupWaiter.promise;
+            } catch (err: any) {
+              failureCause ||= `Limpeza unica falhou: ${err?.message || String(err)}`;
+            } finally {
+              cleanupWaiter.dispose();
+            }
+          }
+
+          const passed = !!confirmation && commandState.stage === 'delete-accepted';
+          const keySummary = targetKey ? {
+            remoteJid: targetKey.remoteJid,
+            id: targetKey.id,
+            fromMe: targetKey.fromMe,
+            participant: targetKey.participant ?? null,
+            participantAlt: targetKey.participantAlt ?? null,
+            remoteJidAlt: targetKey.remoteJidAlt ?? null,
+            addressingMode: targetKey.addressingMode ?? null,
+            additionalFields: Object.keys(targetKey).filter((field: string) => ![
+              'id', 'remoteJid', 'fromMe', 'participant', 'participantAlt', 'remoteJidAlt', 'addressingMode',
+            ].includes(field)),
+          } : null;
+          const result = {
+            status: passed ? 'DELETE E2E PASS' : 'DELETE E2E FAIL',
+            correlationId,
+            marker,
+            groupJid,
+            messageCreated,
+            sentMessageId,
+            messageType: capture?.messageType || null,
+            timestamp: capture?.timestamp || null,
+            targetKey: keySummary,
+            quotedKey: targetKey ? {
+              remoteJid: groupJid,
+              stanzaId: targetKey.id,
+              participant: targetKey.participant ?? null,
+            } : null,
+            command: '$delete',
+            commandOrigin: 'loopback harness via PlatformManager.handleIncomingMessage; configured MASTER principal',
+            authorization: isMaster(MASTER_USER) ? 'authorized as configured MASTER' : 'denied',
+            commandStage: commandState.stage,
+            deleteMessageCalled: commandState.stage === 'delete-started' || commandState.stage === 'delete-accepted',
+            revokeConfirmed: confirmation?.type === 'messages.update' && confirmation?.protocolMessageType === 'REVOKE',
+            confirmationType: confirmation?.type || null,
+            cleanupAttempted,
+            cleanupConfirmed: !!cleanupConfirmation,
+            pendingMessage: messageCreated && !confirmation && !cleanupConfirmation,
+            pendingMessageId: !confirmation && !cleanupConfirmation ? (targetKey?.id || sentMessageId) : null,
+            failureCause: passed ? null : (failureCause || 'Baileys nao confirmou a exclusao real'),
+            loopGuard: 'mensagem alvo fromMe e ignorada pelo normalizer; comando de laboratorio despachado uma vez',
+          };
+          if (passed) totalSuccess++;
+          totalAttempts++;
+          logInfo('[TestServer] /lab/delete-e2e result', result);
+          res.writeHead(passed ? 200 : 502, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(result));
           return;
         }
 
@@ -1291,6 +1528,6 @@ export function startTestServer(port: number = 3004): void {
 
   server.listen(port, '127.0.0.1', () => {
     logInfo(`[TestServer] Servidor de testes iniciado`, { port });
-    logInfo(`[TestServer] endpoints: /test, /lab/find-message, /lab/messages, /lab/delete-message, /lab/adapter, /lab/groups, /lab/stats, /lab/test1/isolated-quote, /lab/test3/compare-quotes`);
+    logInfo(`[TestServer] endpoints: /test, /lab/find-message, /lab/messages, /lab/delete-message, /lab/delete-e2e, /lab/adapter, /lab/groups, /lab/stats, /lab/test1/isolated-quote, /lab/test3/compare-quotes`);
   });
 }

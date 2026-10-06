@@ -1,5 +1,5 @@
 /**
- * INTEGRAÇÃO — delete ponta a ponta (WAMessageKey completa).
+ * UNIT/INTEGRATION — captura, resolução e encaminhamento da WAMessageKey.
  *
  * Prova a cadeia REAL de construção da chave de delete, com o código de
  * produção (`buildDeleteKey` do engine + `captureStore`), para:
@@ -9,12 +9,9 @@
  *   - mensagem própria (protegida)
  *   - persistência e RECUPERAÇÃO da key a partir do captureStore
  *
- * LIMITAÇÃO DECLARADA: a confirmação VISUAL de que a mensagem desapareceu no
- * cliente do WhatsApp não é automatizável por este projeto — o Baileys v7 não
- * expõe o estado da mensagem no cliente. O que este teste prova é que a key
- * enviada ao delete é a CORRETA (id, remoteJid, participant, participantAlt,
- * addressingMode) e que ela é recuperável do armazenamento. A confirmação
- * visual permanece MANUAL (ver docs/TESTING.md).
+ * Estes testes usam SQLite/socket isolados e NÃO são um WhatsApp E2E real.
+ * Eles provam que a captura e a key completa são preservadas até o adapter;
+ * somente o endpoint loopback /lab/delete-e2e pode confirmar um REVOKE real.
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import fs from 'fs';
@@ -154,7 +151,38 @@ describe('DELETE — mensagem PRÓPRIA não é alvo', () => {
 });
 
 describe('CAPTURESTORE — persistência e recuperação da key', () => {
-  it('indexa mensagens recebidas no cache pelo grupo e ID exatos', () => {
+  it('BaileysMessageSender encaminha a WAMessageKey completa sem reconstruí-la', async () => {
+    const { BaileysMessageSender } = await import('../../src/platforms/whatsapp/baileys/BaileysMessageSender');
+    const originalKey = {
+      id: 'DEL-ADAPTER-1',
+      remoteJid: GRUPO_LID,
+      fromMe: true,
+      participant: TERC_LID,
+      participantAlt: TERC_PN_ALT,
+      remoteJidAlt: GRUPO,
+      addressingMode: 'lid',
+      server_id: 'server-1',
+      participantUsername: 'lab-user',
+    };
+    const sock = {
+      ws: { isOpen: true },
+      sendMessage: vi.fn(async () => ({ key: { id: 'revoke-response' }, message: { protocolMessage: { type: 'REVOKE' } } })),
+    };
+    const sender = new BaileysMessageSender({
+      sock,
+      platform: 'whatsapp',
+      userId: '558581344211@s.whatsapp.net',
+      userName: 'Bot',
+      getNumberId: async () => null,
+      getContactById: async () => null,
+    });
+
+    await sender.sendMessage(`wpp:${GRUPO_LID}`, '', { delete: originalKey });
+
+    expect(sock.sendMessage).toHaveBeenCalledWith(GRUPO_LID, { delete: originalKey });
+  });
+
+  it('indexa mensagens recebidas no cache pelo grupo e ID exatos', async () => {
     const originalKey = {
       id: 'DEL-CACHE-1',
       remoteJid: GRUPO_LID,
@@ -170,8 +198,8 @@ describe('CAPTURESTORE — persistência e recuperação da key', () => {
       key: originalKey,
     });
 
-    expect(capture.findMessageCapture(GRUPO_LID, originalKey.id)?.key).toEqual(originalKey);
-    expect(capture.findMessageCapture(GRUPO, originalKey.id)).toBeNull();
+    expect((await capture.findMessageCapture(GRUPO_LID, originalKey.id))?.key).toEqual(originalKey);
+    expect(await capture.findMessageCapture(GRUPO, originalKey.id)).toBeNull();
   });
 
   it('appendCapture grava e readCaptures recupera os campos necessários ao delete', async () => {

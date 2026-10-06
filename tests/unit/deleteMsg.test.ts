@@ -31,6 +31,7 @@ function makeCtx(over: any = {}) {
       getQuotedMessage: over.getQuotedMessage || (async () => over.quoted || null),
       quotedMsg: over.quotedMsg,
       raw: over.raw || {},
+      metadata: over.metadata,
       key: over.key || { id: 'cmd-key', remoteJid: GROUP, fromMe: true },
     },
     client: { sendMessage },
@@ -94,6 +95,24 @@ describe('$delete — exclusão autorizada por quote', () => {
     expect(ctx.__sendMessage).toHaveBeenCalledWith(GROUP, '', { delete: targetKey });
   });
 
+  it('reporta os estágios do comando ao observador exclusivo de laboratório', async () => {
+    const targetKey = { id: 'MSG-E2E-OBS', remoteJid: GROUP, fromMe: false, participant: ALVO };
+    const observer = vi.fn();
+    mocks.findMessageCapture.mockReturnValue({ key: targetKey });
+    const ctx = makeCtx({
+      metadata: { deleteE2EObserver: observer },
+      raw: { key: { remoteJid: GROUP }, message: { extendedTextMessage: { contextInfo: { stanzaId: targetKey.id } } } },
+    });
+
+    await deleteMsgCommand.execute(ctx);
+
+    expect(observer).toHaveBeenNthCalledWith(1, 'delete-started', expect.objectContaining({
+      stanzaId: targetKey.id,
+      originalKey: targetKey,
+    }));
+    expect(observer).toHaveBeenNthCalledWith(2, 'delete-accepted', expect.objectContaining({ stanzaId: targetKey.id }));
+  });
+
   it('nega execução para usuário sem papel de dono ou admin', async () => {
     const ctx = makeCtx({ userId: ALVO, isAdmin: false });
     await deleteMsgCommand.execute(ctx);
@@ -103,10 +122,12 @@ describe('$delete — exclusão autorizada por quote', () => {
   });
 
   it('NÃO apaga se não houver mensagem citada (pede para citar)', async () => {
-    const ctx = makeCtx({ quoted: null });
+    const observer = vi.fn();
+    const ctx = makeCtx({ quoted: null, metadata: { deleteE2EObserver: observer } });
     await deleteMsgCommand.execute(ctx);
     expect(ctx.__sendMessage).not.toHaveBeenCalled();
     expect(ctx.replies.join()).toContain('Responda');
+    expect(observer).toHaveBeenCalledWith('missing-quote');
   });
 
   it('admin não pode apagar mensagem de alvo protegido', async () => {
@@ -120,6 +141,20 @@ describe('$delete — exclusão autorizada por quote', () => {
     await deleteMsgCommand.execute(ctx);
     expect(ctx.__sendMessage).not.toHaveBeenCalled();
     expect(ctx.replies.join()).toContain('dono ou do próprio bot');
+  });
+
+  it('MASTER pode apagar mensagem própria do bot pelo fluxo normal do comando', async () => {
+    const targetKey = { id: 'MSG-MASTER-SELF', remoteJid: GROUP, fromMe: true };
+    mocks.findMessageCapture.mockReturnValue({ key: targetKey });
+    const ctx = makeCtx({
+      userId: DONO,
+      raw: { key: { remoteJid: GROUP }, message: { extendedTextMessage: { contextInfo: { stanzaId: targetKey.id } } } },
+    });
+
+    await deleteMsgCommand.execute(ctx);
+
+    expect(ctx.__sendMessage).toHaveBeenCalledWith(GROUP, '', { delete: targetKey });
+    expect(ctx.replies).toEqual([]);
   });
 
   it('não executa ação contra mensagem do próprio bot', async () => {
