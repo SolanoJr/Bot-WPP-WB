@@ -78,7 +78,7 @@ function makeQuotedMessage() {
 }
 
 describe('BaileysAdapter — linha de reply (citação de mensagem)', () => {
-  it('suprime delete em dry-run e nunca chama o socket', async () => {
+  it('envia ao socket a chave de delete original completa', async () => {
     const { adapter } = makeBaileysAdapter();
     const mockSend = (adapter as any).sock.sendMessage as ReturnType<typeof vi.fn>;
     const key = {
@@ -92,8 +92,8 @@ describe('BaileysAdapter — linha de reply (citação de mensagem)', () => {
 
     const result = await (adapter as any).sendMessage(key.remoteJid, '', { delete: key });
 
-    expect(mockSend).not.toHaveBeenCalled();
-    expect(result.raw).toEqual({ dryRun: true, key });
+    expect(mockSend).toHaveBeenCalledWith(key.remoteJid, { delete: key });
+    expect(result.raw).toEqual(await mockSend.mock.results[0].value);
   });
 
   it('sendMessage com replyToMessageId monta quoted corretamente (citação de msg de terceiro)', async () => {

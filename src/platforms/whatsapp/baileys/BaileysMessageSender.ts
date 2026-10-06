@@ -70,8 +70,7 @@ export class BaileysMessageSender {
     if (options?.delete) {
       const del = options.delete;
 
-      logInfo('[BaileysSender] DELETE DRY-RUN — chamada ao socket suprimida', {
-        mode: 'log-only',
+      logInfo('[BaileysSender] delete request — complete original key', {
         stanzaId: del.id || null,
         remoteJid: del.remoteJid || jid,
         participant: del.participant || null,
@@ -79,8 +78,19 @@ export class BaileysMessageSender {
         originalWAMessageKey: del,
       });
 
+      if (!del.id || !del.remoteJid) {
+        throw new Error('Delete Baileys recusado: WAMessageKey sem id ou remoteJid');
+      }
+
+      const res = await this.sock.sendMessage(jid, { delete: del });
+      logInfo('[BaileysSender] delete response', {
+        stanzaId: del.id,
+        key: res?.key,
+        protocolMessageType: res?.message?.protocolMessage?.type ?? null,
+        status: res?.status ?? null,
+      });
       return {
-        id: `${this.platform}:dry-run:${del.id || 'unknown'}`,
+        id: `${this.platform}:${res?.key?.id || del.id}`,
         platform: this.platform,
         chatId,
         userId: this.userId,
@@ -90,9 +100,8 @@ export class BaileysMessageSender {
         isCommand: false,
         hasMedia: false,
         timestamp: new Date(),
-        raw: { dryRun: true, key: del },
+        raw: res,
       };
-
     }
 
     // Reply handling — preservar WAMessageKey original sem reconstrução

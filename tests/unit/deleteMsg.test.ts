@@ -24,6 +24,7 @@ beforeEach(() => {
 function makeCtx(over: any = {}) {
   const replies: string[] = [];
   const sendMessage = vi.fn(async () => ({ id: 'wpp:deleted', raw: {} }));
+  const userId = over.userId ?? DONO;
   const ctx: any = {
     msg: {
       // Quem o $delete está respondendo (citando)
@@ -36,11 +37,11 @@ function makeCtx(over: any = {}) {
     args: over.args ?? [],
     platform: 'whatsapp',
     chatId: over.chatId ?? GROUP,
-    userId: over.userId ?? DONO,
+    userId,
     userName: 'SolanoJr',
     isGroup: true,
-    isMaster: isMaster(over.userId ?? DONO),
-    isAdmin: true,
+    isMaster: over.isMaster ?? isMaster(userId),
+    isAdmin: over.isAdmin ?? false,
     reply: async (t: string) => { replies.push(t); return {} as any; },
     replyPrivate: async () => {},
     replies,
@@ -49,8 +50,8 @@ function makeCtx(over: any = {}) {
   return ctx;
 }
 
-describe('$delete — dry-run por quote', () => {
-  it('registra a chave candidata e não executa exclusão', async () => {
+describe('$delete — exclusão autorizada por quote', () => {
+  it('dono envia ao sender a WAMessageKey original capturada', async () => {
     const quoted = {
       key: { id: 'MSG-ID-123', remoteJid: GROUP, participant: ALVO },
       author: ALVO,
@@ -63,22 +64,42 @@ describe('$delete — dry-run por quote', () => {
     mocks.readCaptures.mockReturnValue([{
       source: 'messages.upsert', messageId: originalKey.id, remoteJid: GROUP, key: originalKey,
     }]);
-    const ctx = makeCtx({ quoted, userId: DONO });
+    const ctx = makeCtx({
+      quoted,
+      userId: DONO,
+      raw: { key: { id: 'command', remoteJid: GROUP }, message: { extendedTextMessage: { contextInfo: { stanzaId: originalKey.id, participant: ALVO } } } },
+    });
 
     await deleteMsgCommand.execute(ctx);
 
-    expect(ctx.__sendMessage).not.toHaveBeenCalled();
+    expect(ctx.__sendMessage).toHaveBeenCalledWith(GROUP, '', { delete: originalKey });
     expect(ctx.replies).toEqual([]);
-    expect(logInfoSpy).toHaveBeenCalledWith('[delete] DRY-RUN quote key capture', expect.objectContaining({
-      mode: 'log-only',
-      keySource: 'captured-original',
-      keyComplete: true,
+    expect(logInfoSpy).toHaveBeenCalledWith('[delete] mensagem removida', expect.objectContaining({
       stanzaId: originalKey.id,
-      remoteJid: GROUP,
-      participant: ALVO,
-      fromMe: false,
       originalWAMessageKey: originalKey,
     }));
+  });
+
+  it('admin do grupo pode apagar mensagem de usuário comum', async () => {
+    const targetKey = { id: 'MSG-ADMIN-1', remoteJid: GROUP, fromMe: false, participant: ALVO };
+    mocks.readCaptures.mockReturnValue([{ source: 'messages.upsert', messageId: targetKey.id, remoteJid: GROUP, key: targetKey }]);
+    const ctx = makeCtx({
+      userId: ALVO,
+      isAdmin: true,
+      raw: { key: { remoteJid: GROUP }, message: { extendedTextMessage: { contextInfo: { stanzaId: targetKey.id } } } },
+    });
+
+    await deleteMsgCommand.execute(ctx);
+
+    expect(ctx.__sendMessage).toHaveBeenCalledWith(GROUP, '', { delete: targetKey });
+  });
+
+  it('nega execução para usuário sem papel de dono ou admin', async () => {
+    const ctx = makeCtx({ userId: ALVO, isAdmin: false });
+    await deleteMsgCommand.execute(ctx);
+    expect(mocks.readCaptures).not.toHaveBeenCalled();
+    expect(ctx.__sendMessage).not.toHaveBeenCalled();
+    expect(ctx.replies.join()).toContain('dono ou por um admin');
   });
 
   it('NÃO apaga se não houver mensagem citada (pede para citar)', async () => {
@@ -88,16 +109,17 @@ describe('$delete — dry-run por quote', () => {
     expect(ctx.replies.join()).toContain('Responda');
   });
 
-  it('mantém alvo protegido em inspeção sem executar ação', async () => {
+  it('admin não pode apagar mensagem de alvo protegido', async () => {
     const quoted = {
       key: { id: 'MSG-DONO', remoteJid: GROUP, participant: DONO },
       author: DONO,
       text: 'msg do dono',
     };
-    const ctx = makeCtx({ quoted, userId: ALVO }); // quem manda o $delete NÃO é dono
+    mocks.readCaptures.mockReturnValue([{ source: 'messages.upsert', messageId: 'MSG-DONO', remoteJid: GROUP, key: { id: 'MSG-DONO', remoteJid: GROUP, fromMe: false, participant: DONO } }]);
+    const ctx = makeCtx({ quoted, userId: ALVO, isAdmin: true, raw: { key: { remoteJid: GROUP }, message: { extendedTextMessage: { contextInfo: { stanzaId: 'MSG-DONO' } } } } });
     await deleteMsgCommand.execute(ctx);
     expect(ctx.__sendMessage).not.toHaveBeenCalled();
-    expect(ctx.replies).toEqual([]);
+    expect(ctx.replies.join()).toContain('dono ou do próprio bot');
   });
 
   it('não executa ação contra mensagem do próprio bot', async () => {
@@ -106,21 +128,22 @@ describe('$delete — dry-run por quote', () => {
       author: BOT,
       text: 'msg do bot',
     };
-    const ctx = makeCtx({ quoted, userId: ALVO });
+    const ctx = makeCtx({ quoted, userId: ALVO, isAdmin: true, raw: { key: { remoteJid: GROUP }, message: { extendedTextMessage: { contextInfo: { stanzaId: 'MSG-BOT' } } } } });
+    mocks.readCaptures.mockReturnValue([{ source: 'messages.upsert', messageId: 'MSG-BOT', remoteJid: GROUP, key: { id: 'MSG-BOT', remoteJid: GROUP, fromMe: true } }]);
     await deleteMsgCommand.execute(ctx);
     expect(ctx.__sendMessage).not.toHaveBeenCalled();
-    expect(ctx.replies).toEqual([]);
+    expect(ctx.replies.join()).toContain('dono ou do próprio bot');
   });
 
-  it('também mantém a exclusão desativada para o dono', async () => {
+  it('não usa id solto quando não há captura original exata', async () => {
     const quoted = {
       key: { id: 'MSG-TERCEIRO', remoteJid: GROUP, participant: ALVO },
       author: ALVO,
       text: 'qualquer',
     };
-    const ctx = makeCtx({ quoted, userId: DONO });
+    const ctx = makeCtx({ quoted, userId: DONO, raw: { key: { remoteJid: GROUP }, message: { extendedTextMessage: { contextInfo: { stanzaId: 'MSG-TERCEIRO' } } } } });
     await deleteMsgCommand.execute(ctx);
     expect(ctx.__sendMessage).not.toHaveBeenCalled();
-    expect(ctx.replies).toEqual([]);
+    expect(ctx.replies.join()).toContain('captura original');
   });
 });
