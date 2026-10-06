@@ -73,7 +73,7 @@ function makeCtx(opts: { admins?: string[]; superAdmins?: string[]; deleteThrows
     ...(opts.superAdmins || []).map(id => ({ id, isAdmin: true, isSuperAdmin: true })),
   ];
   const ctx = {
-    log: (m: string) => logs.push(m),
+    log: (...args: any[]) => logs.push(JSON.stringify(args)),
     warn: (m: string, e?: any) => logs.push(`[WARN] ${m}`),
     getChat: async (gid: string) => ({
       id: gid, isGroup: true, name: 'Grupo Teste',
@@ -125,7 +125,7 @@ describe('PIPELINE — 1-5. Mensagens legítimas NÃO são punidas', () => {
   it('1. texto normal → nada acontece', async () => {
     await configurar({ antibot: true, casino: true, remover: true, detectar: true });
     resetInfractions();
-    const { ctx, calls } = makeCtx();
+    const { ctx, calls, logs } = makeCtx();
     const r = await engine.evaluate(waMessage({ message: { conversation: 'Bom dia pessoal!' } }), ctx as any, GRUPO, NORMAL_JID, 'João');
     expect(r.acted).toBe(false);
     expect(calls.filter(c => c.step === 'remove' || c.step === 'delete')).toEqual([]);
@@ -133,7 +133,7 @@ describe('PIPELINE — 1-5. Mensagens legítimas NÃO são punidas', () => {
 
   it('2. texto com link normal → nada acontece', async () => {
     resetInfractions();
-    const { ctx, calls } = makeCtx();
+    const { ctx, calls, logs } = makeCtx();
     const r = await engine.evaluate(waMessage({ message: { conversation: 'Olha o vídeo: https://youtube.com/watch?v=abc' } }), ctx as any, GRUPO, NORMAL_JID, 'João');
     expect(r.acted).toBe(false);
     expect(calls.filter(c => c.step === 'remove')).toEqual([]);
@@ -192,10 +192,10 @@ describe('PIPELINE — 6-10. Estruturas de bot', () => {
     }
   });
 
-  it('6b. buttonsMessage + DDI estrangeiro (participantAlt) → BANE (2 sinais)', async () => {
+  it('6b. buttonsMessage + DDI estrangeiro → registra sinais sem punir', async () => {
     await configurar({ antibot: true, casino: false, remover: true, detectar: true });
     resetInfractions();
-    const { ctx, calls } = makeCtx();
+    const { ctx, calls, logs } = makeCtx();
     const r = await engine.evaluate(
       waMessage({
         message: { buttonsMessage: { contentText: 'Promoção', buttons: [] } },
@@ -205,27 +205,28 @@ describe('PIPELINE — 6-10. Estruturas de bot', () => {
       }),
       ctx as any, GRUPO, FOREIGN_LID, 'Daniel',
     );
-    expect(r.acted).toBe(true);
-    expect(calls.some(c => c.step === 'remove')).toBe(true);
-    expect(calls.some(c => c.step === 'delete')).toBe(true);
-    expect(infractions.length).toBeGreaterThan(0);
+    expect(r.acted).toBe(false);
+    expect(r.reason).toContain('audit-only');
+    expect(calls).toEqual([]);
+    expect(infractions).toHaveLength(0);
+    expect(logs.join('\n')).toContain('DRY-RUN message key capture');
   });
 });
 
 describe('PIPELINE — 11-13. Cassino e independência de nacionalidade', () => {
-  it('11. cassino (domínio + keywords) → detecta e pune', async () => {
+  it('11. cassino (domínio + keywords) → detecta sem executar punição', async () => {
     await configurar({ casino: true, antibot: false, remover: true, detectar: true });
     resetInfractions();
-    const { ctx, calls } = makeCtx();
+    const { ctx, calls, logs } = makeCtx();
     const r = await engine.evaluate(
       waMessage({ message: { extendedTextMessage: { text: 'Taxa de vitórias 98%! Recolha contínua 777-7777 bônus https://kl7.games/?c=10103' } } }),
       ctx as any, GRUPO, NORMAL_JID, 'Promoter',
     );
-    expect(r.acted).toBe(true);
-    expect(calls.some(c => c.step === 'delete')).toBe(true);
-    expect(calls.some(c => c.step === 'remove')).toBe(true);
-    expect(infractions.length).toBeGreaterThan(0);
-    expect(calls.some(c => c.step === 'announce')).toBe(true);
+    expect(r.acted).toBe(false);
+    expect(r.reason).toContain('audit-only');
+    expect(calls).toEqual([]);
+    expect(infractions).toHaveLength(0);
+    expect(logs.join('\n')).toContain('DRY-RUN message key capture');
   });
 
   it('12. cassino com remetente BRASILEIRO → também detecta (não depende de nacionalidade)', async () => {
@@ -236,8 +237,9 @@ describe('PIPELINE — 11-13. Cassino e independência de nacionalidade', () => 
       waMessage({ message: { extendedTextMessage: { text: 'Taxa de vitórias 98%! Recolha contínua 777-7777 bônus https://kl7.games/?c=10103' } } }),
       ctx as any, GRUPO, NORMAL_JID, 'Promoter BR',
     );
-    expect(r.acted).toBe(true);
-    expect(calls.some(c => c.step === 'remove')).toBe(true);
+    expect(r.acted).toBe(false);
+    expect(r.reason).toContain('audit-only');
+    expect(calls).toEqual([]);
   });
 
   it('13. ESTRANGEIRO sem conteúdo de cassino → NÃO é punido (independência)', async () => {
@@ -305,7 +307,7 @@ describe('PIPELINE — 14-17. Proteções (admin/MASTER/bot/dono)', () => {
   });
 });
 
-describe('PIPELINE — 18-19. audit_only ON / OFF', () => {
+describe('PIPELINE — modo dry-run obrigatório', () => {
   it('18. audit_only=1 → detecta e loga, mas NÃO apaga/banir/remover', async () => {
     await configurar({ casino: true, antibot: false, remover: true, detectar: true, audit_only: true });
     resetInfractions();
@@ -323,7 +325,7 @@ describe('PIPELINE — 18-19. audit_only ON / OFF', () => {
     expect(logs.some(l => l.includes('AUDIT-ONLY'))).toBe(true);  // MAS registra a detecção
   });
 
-  it('19. audit_only=0 → mesma mensagem executa TODAS as ações', async () => {
+  it('19. audit_only=0 → as ações continuam desativadas pelo dry-run global', async () => {
     await configurar({ casino: true, antibot: false, remover: true, detectar: true, audit_only: false });
     resetInfractions();
     const { ctx, calls } = makeCtx();
@@ -331,11 +333,10 @@ describe('PIPELINE — 18-19. audit_only ON / OFF', () => {
       waMessage({ message: { extendedTextMessage: { text: 'Taxa de vitórias 98%! Recolha contínua 777-7777 https://kl7.games/?c=10103' } } }),
       ctx as any, GRUPO, NORMAL_JID, 'Promoter',
     );
-    expect(r.acted).toBe(true);
-    expect(calls.some(c => c.step === 'delete')).toBe(true);
-    expect(calls.some(c => c.step === 'remove')).toBe(true);
-    expect(calls.some(c => c.step === 'announce')).toBe(true);
-    expect(infractions.length).toBeGreaterThan(0);
+    expect(r.acted).toBe(false);
+    expect(r.reason).toContain('audit-only');
+    expect(calls).toEqual([]);
+    expect(infractions).toHaveLength(0);
   });
 });
 
@@ -348,7 +349,8 @@ describe('PIPELINE — AntiBot/Casino independentes de AntiEstrangeiro', () => {
       waMessage({ message: { buttonsMessage: { contentText: 'X', buttons: [] } }, participant: FOREIGN_LID, participantAlt: FOREIGN_JID, addressingMode: 'lid' }),
       ctx as any, GRUPO, FOREIGN_LID, 'Bot',
     );
-    expect(r.acted).toBe(true);
+    expect(r.acted).toBe(false);
+    expect(r.reason).toContain('audit-only');
   });
 
   it('casino funciona com antiestrangeiro=0', async () => {
@@ -359,7 +361,8 @@ describe('PIPELINE — AntiBot/Casino independentes de AntiEstrangeiro', () => {
       waMessage({ message: { extendedTextMessage: { text: 'Taxa de vitórias 98%! 777-7777 https://kl7.games/?c=10103' } } }),
       ctx as any, GRUPO, NORMAL_JID, 'X',
     );
-    expect(r.acted).toBe(true);
+    expect(r.acted).toBe(false);
+    expect(r.reason).toContain('audit-only');
   });
 
   it('nada ligado → engine ignora (nada ligado)', async () => {
@@ -377,27 +380,28 @@ describe('PIPELINE — AntiBot/Casino independentes de AntiEstrangeiro', () => {
   });
 });
 
-describe('PIPELINE — delete usa a WAMessageKey COMPLETA', () => {
-  it('a key enviada ao delete contém participant + participantAlt + addressingMode', async () => {
+describe('PIPELINE — dry-run registra a WAMessageKey COMPLETA', () => {
+  it('registra participant + participantAlt + addressingMode sem chamar delete', async () => {
     await configurar({ casino: true, remover: true, detectar: true, audit_only: false });
     resetInfractions();
-    const { ctx, calls } = makeCtx();
+    const { ctx, calls, logs } = makeCtx();
     await engine.evaluate(
       waMessage({
         message: { extendedTextMessage: { text: 'Taxa de vitórias 98%! 777-7777 https://kl7.games/?c=10103' } },
         participant: FOREIGN_LID, participantAlt: FOREIGN_JID, addressingMode: 'lid',
+        id: 'DRY-RUN-KEY-1',
       }),
       ctx as any, GRUPO, FOREIGN_LID, 'Promoter',
     );
-    const del = calls.find(c => c.step === 'delete');
-    expect(del).toBeDefined();
-    expect(del!.payload.key.participant).toBe(FOREIGN_LID);
-    expect(del!.payload.key.participantAlt).toBe(FOREIGN_JID);
-    expect(del!.payload.key.addressingMode).toBe('lid');
-    expect(del!.payload.key.remoteJid).toBe(GRUPO);
+    expect(calls).toEqual([]);
+    expect(logs.join('\n')).toContain('DRY-RUN message key capture');
+    expect(logs.join('\n')).toContain('DRY-RUN-KEY-1');
+    expect(logs.join('\n')).toContain(FOREIGN_LID);
+    expect(logs.join('\n')).toContain(FOREIGN_JID);
+    expect(logs.join('\n')).toContain('addressingMode');
   });
 
-  it('falha no delete não impede o ban/remove (e é logada)', async () => {
+  it('mantém delete, ban e remove inativos sem depender de audit_only do grupo', async () => {
     await configurar({ casino: true, remover: true, detectar: true, audit_only: false });
     resetInfractions();
     const { ctx, calls } = makeCtx({ deleteThrows: true });
@@ -405,7 +409,8 @@ describe('PIPELINE — delete usa a WAMessageKey COMPLETA', () => {
       waMessage({ message: { extendedTextMessage: { text: 'Taxa de vitórias 98%! 777-7777 https://kl7.games/?c=10103' } } }),
       ctx as any, GRUPO, NORMAL_JID, 'Promoter',
     );
-    expect(r.acted).toBe(true);
-    expect(calls.some(c => c.step === 'remove')).toBe(true);  // remove aconteceu
+    expect(r.acted).toBe(false);
+    expect(r.reason).toContain('audit-only');
+    expect(calls).toEqual([]);
   });
 });

@@ -76,41 +76,43 @@ function makeMsg(opts: {
 
 function makeCtx() {
   const calls: any[] = [];
+  const logs: string[] = [];
   return {
     calls,
+    logs,
     ctx: {
-      log: () => {},
+      log: (...args: any[]) => logs.push(JSON.stringify(args)),
       warn: () => {},
       getChat: async (gid: string) => ({ id: gid, isGroup: true, name: 'G', participants: [], raw: { participants: [] } }),
-      removeParticipant: async () => {},
+      removeParticipant: async (groupId: string, userId: string) => calls.push({ action: 'remove', groupId, userId }),
       sendMessage: async (gid: string, text: string, options?: any) => {
-        if (options?.delete) calls.push({ groupId: gid, key: options.delete });
+        if (options?.delete) calls.push({ action: 'delete', groupId: gid, key: options.delete });
       },
     },
   };
 }
 
 describe('DELETE — PN (participante sem LID)', () => {
-  it('a key preserva id, remoteJid, participant e fromMe=false', async () => {
+  it('registra a key original no log sem executar ações destrutivas', async () => {
     await db.setGroupModAll(GRUPO, { casino: true, remover: true, detectar: false, audit_only: false } as any);
-    const { ctx, calls } = makeCtx();
+    const { ctx, calls, logs } = makeCtx();
     await engine.evaluate(
       makeMsg({ id: 'DEL-PN-1', remoteJid: GRUPO, participant: TERC }),
       ctx as any, GRUPO, TERC, 'Promoter',
     );
-    expect(calls.length).toBeGreaterThan(0);
-    const k = calls[0].key;
-    expect(k.id).toBe('DEL-PN-1');
-    expect(k.remoteJid).toBe(GRUPO);
-    expect(k.participant).toBe(TERC);
-    expect(k.fromMe).toBe(false);
+    expect(calls).toEqual([]);
+    expect(logs.join('\n')).toContain('DRY-RUN message key capture');
+    expect(logs.join('\n')).toContain('DEL-PN-1');
+    expect(logs.join('\n')).toContain(GRUPO);
+    expect(logs.join('\n')).toContain(TERC);
+    expect(logs.join('\n')).toContain('"fromMe":false');
   });
 });
 
 describe('DELETE — LID (grupo com addressingMode lid)', () => {
-  it('a key preserva participant (LID), participantAlt (PN) e addressingMode', async () => {
+  it('registra a key completa em log-only sem exclusão', async () => {
     await db.setGroupModAll(GRUPO_LID, { casino: true, remover: true, detectar: false, audit_only: false } as any);
-    const { ctx, calls } = makeCtx();
+    const { ctx, calls, logs } = makeCtx();
     await engine.evaluate(
       makeMsg({
         id: 'DEL-LID-1', remoteJid: GRUPO_LID, participant: TERC_LID,
@@ -118,13 +120,13 @@ describe('DELETE — LID (grupo com addressingMode lid)', () => {
       }),
       ctx as any, GRUPO_LID, TERC_LID, 'Promoter',
     );
-    expect(calls.length).toBeGreaterThan(0);
-    const k = calls[0].key;
-    expect(k.id).toBe('DEL-LID-1');
-    expect(k.remoteJid).toBe(GRUPO_LID);
-    expect(k.participant).toBe(TERC_LID);
-    expect(k.participantAlt).toBe(TERC_PN_ALT);
-    expect(k.addressingMode).toBe('lid');
+    expect(calls).toEqual([]);
+    expect(logs.join('\n')).toContain('DRY-RUN message key capture');
+    expect(logs.join('\n')).toContain('DEL-LID-1');
+    expect(logs.join('\n')).toContain(GRUPO_LID);
+    expect(logs.join('\n')).toContain(TERC_LID);
+    expect(logs.join('\n')).toContain(TERC_PN_ALT);
+    expect(logs.join('\n')).toContain('"addressingMode":"lid"');
   });
 
   it('sem participantAlt, o campo NÃO é inventado (fica undefined)', async () => {

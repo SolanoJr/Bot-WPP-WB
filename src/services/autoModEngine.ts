@@ -427,6 +427,16 @@ export async function evaluate(
   senderJid: string,
   senderName: string,
 ): Promise<AutoModResult> {
+  const messageKey = (msg as any)?.key || {};
+  ctx.log('[AutoMod] DRY-RUN message key capture', {
+    mode: 'log-only',
+    stanzaId: messageKey.id || null,
+    remoteJid: messageKey.remoteJid || null,
+    participant: messageKey.participant || null,
+    fromMe: typeof messageKey.fromMe === 'boolean' ? messageKey.fromMe : null,
+    originalWAMessageKey: messageKey,
+  });
+
   // Pular mensagens do próprio bot (evita loop de autoMod)
   const botId = (ctx.userId || '').replace(/:.*/, '');
   const senderId = (senderJid || '').replace(/:.*/, '');
@@ -476,8 +486,8 @@ export async function evaluate(
       return { acted:false, reason:'nada ligado', action:'none' };
     }
 
-    // Audit-only mode: detectar e logar, NÃO executar ações destrutivas
-    const isAuditOnly = config.audit_only === true;
+    // Keep moderation inspection-only until destructive actions are explicitly approved.
+    const isAuditOnly = true;
     if (isAuditOnly) {
       ctx.log(`[AutoMod] grupo ${groupId}: MODO AUDITORIA — apenas detectar e registrar`);
     }

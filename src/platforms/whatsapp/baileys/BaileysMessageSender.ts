@@ -70,41 +70,19 @@ export class BaileysMessageSender {
     if (options?.delete) {
       const del = options.delete;
 
-      // Log completo da chave antes de enviar — para auditoria do experimento.
-      logInfo('[BaileysSender] delete request — complete key (antes de sock.sendMessage)', {
-        id: del.id,
-        remoteJid: del.remoteJid,
-        fromMe: del.fromMe,
-        participant: del.participant,
-        participantAlt: del.participantAlt,
-        addressingMode: del.addressingMode,
-      });
-
-      // validaremoteJid obrigatório para grupos
-      if (!del.remoteJid) {
-        logWarning('[BaileysSender] delete key SEM remoteJid — o revoke pode ser rejeitado pelo servidor');
-      }
-
-      // WARN: não converter participant LID→PN; usar del.participant como está.
-      // O Baileys v7 rc14 aceita participant no formato LID para grupos.
-      const deletePayload: any = { delete: del };
-
-      const res = await this.sock.sendMessage(jid, deletePayload);
-
-      logInfo('[BaileysSender] delete response', {
-        key: res?.key,
-        protocolMessage: res?.message?.protocolMessage
-          ? {
-              type: res.message.protocolMessage.type,
-            }
-          : null,
-        status: res?.status,
+      logInfo('[BaileysSender] DELETE DRY-RUN — chamada ao socket suprimida', {
+        mode: 'log-only',
+        stanzaId: del.id || null,
+        remoteJid: del.remoteJid || jid,
+        participant: del.participant || null,
+        fromMe: typeof del.fromMe === 'boolean' ? del.fromMe : null,
+        originalWAMessageKey: del,
       });
 
       return {
-        id: `${this.platform}:${res.key?.id || del.id}`,
+        id: `${this.platform}:dry-run:${del.id || 'unknown'}`,
         platform: this.platform,
-        chatId: chatId,
+        chatId,
         userId: this.userId,
         userName: '',
         text: '',
@@ -112,8 +90,9 @@ export class BaileysMessageSender {
         isCommand: false,
         hasMedia: false,
         timestamp: new Date(),
-        raw: res,
+        raw: { dryRun: true, key: del },
       };
+
     }
 
     // Reply handling — preservar WAMessageKey original sem reconstrução

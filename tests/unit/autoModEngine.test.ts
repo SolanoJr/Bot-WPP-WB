@@ -292,7 +292,7 @@ describe('evaluate — antiestrangeiro', () => {
     vi.clearAllMocks();
   });
 
-  it('ban+remove+delete quando membro estrangeiro envia mensagem (antiestrangeiro ativo)', async () => {
+  it('detecta membro estrangeiro mas mantém ban/remove/delete desativados em dry-run', async () => {
     const db = await mockDb();
     db.getGroupMod.mockResolvedValue(groupConfig({ antiestrangeiro: true, remover: true, detectar: true }));
 
@@ -302,11 +302,11 @@ describe('evaluate — antiestrangeiro', () => {
 
     const result = await evaluate(msg, ctx, GROUP_JID, FOREIGN_JID, 'Estrangeiro');
 
-    expect(result.acted).toBe(true);
-    expect(result.action).toContain('ban');
-    expect(db.banUser).toHaveBeenCalledWith(expect.objectContaining({ groupId: GROUP_JID, userId: FOREIGN_JID }));
-    expect(ctx.removeParticipant).toHaveBeenCalledWith(GROUP_JID, FOREIGN_JID);
-    expect(ctx.sendMessage).toHaveBeenCalledWith(GROUP_JID, '', expect.objectContaining({ delete: expect.any(Object) }));
+    expect(result.acted).toBe(false);
+    expect(result.reason).toContain('audit-only');
+    expect(db.banUser).not.toHaveBeenCalled();
+    expect(ctx.removeParticipant).not.toHaveBeenCalled();
+    expect(ctx.sendMessage).not.toHaveBeenCalled();
   });
 
   it('NÃO age quando antiestrangeiro desativado', async () => {
@@ -321,7 +321,7 @@ describe('evaluate — antiestrangeiro', () => {
     expect(ctx.removeParticipant).not.toHaveBeenCalled();
   });
 
-  it('age mesmo com detectar=false (sem announce)', async () => {
+  it('mantém ações desativadas mesmo com detectar=false', async () => {
     const db = await mockDb();
     db.getGroupMod.mockResolvedValue(groupConfig({ antiestrangeiro: true, remover: true, detectar: false }));
 
@@ -330,9 +330,10 @@ describe('evaluate — antiestrangeiro', () => {
     msg.key.participant = FOREIGN_JID;
 
     const result = await evaluate(msg, ctx, GROUP_JID, FOREIGN_JID, 'Estr');
-    expect(result.acted).toBe(true);
-    expect(db.banUser).toHaveBeenCalled();
-    expect(ctx.removeParticipant).toHaveBeenCalled();
+    expect(result.acted).toBe(false);
+    expect(result.reason).toContain('audit-only');
+    expect(db.banUser).not.toHaveBeenCalled();
+    expect(ctx.removeParticipant).not.toHaveBeenCalled();
   });
 
   it('registra entrada do membro no banco (audit trail)', async () => {
@@ -385,7 +386,7 @@ describe('evaluate — antiestrangeiro', () => {
     expect(ctx.sendMessage).not.toHaveBeenCalledWith(GROUP_JID, '', expect.objectContaining({ delete: expect.any(Object) }));
   });
 
-  it('usuário estrangeiro normal → regra continua funcionando (ban+remove+delete)', async () => {
+  it('registra detecção de usuário estrangeiro sem executar punições', async () => {
     const db = await mockDb();
     db.getGroupMod.mockResolvedValue(groupConfig({ antiestrangeiro: true, remover: true, detectar: true }));
 
@@ -394,10 +395,11 @@ describe('evaluate — antiestrangeiro', () => {
     msg.key.participant = '1234567890@c.us'; // estrangeiro genérico
     const result = await evaluate(msg, ctx, GROUP_JID, '1234567890@c.us', 'Estrangeiro');
 
-    expect(result.acted).toBe(true);
-    expect(result.action).toContain('ban');
-    expect(db.banUser).toHaveBeenCalledWith(expect.objectContaining({ groupId: GROUP_JID, userId: '1234567890@c.us' }));
-    expect(ctx.removeParticipant).toHaveBeenCalledWith(GROUP_JID, '1234567890@c.us');
+    expect(result.acted).toBe(false);
+    expect(result.reason).toContain('audit-only');
+    expect(db.banUser).not.toHaveBeenCalled();
+    expect(ctx.removeParticipant).not.toHaveBeenCalled();
+    expect(ctx.sendMessage).not.toHaveBeenCalled();
   });
 });
 
@@ -424,8 +426,11 @@ describe('evaluate — anti-bot', () => {
     msg.key.participant = FOREIGN_JID;
 
     const result = await evaluate(msg, ctx, GROUP_JID, FOREIGN_JID, 'Bot');
-    expect(result.acted).toBe(true);
-    expect(result.action).toContain('ban');
+    expect(result.acted).toBe(false);
+    expect(result.reason).toContain('audit-only');
+    expect(db.banUser).not.toHaveBeenCalled();
+    expect(ctx.removeParticipant).not.toHaveBeenCalled();
+    expect(ctx.sendMessage).not.toHaveBeenCalled();
   });
 
   it('detecta bot com foreign + nome vazio (>=2 sinais)', async () => {
@@ -437,8 +442,11 @@ describe('evaluate — anti-bot', () => {
     msg.key.participant = FOREIGN_JID;
 
     const result = await evaluate(msg, ctx, GROUP_JID, FOREIGN_JID, '');
-    expect(result.acted).toBe(true);
-    expect(result.action).toContain('ban');
+    expect(result.acted).toBe(false);
+    expect(result.reason).toContain('audit-only');
+    expect(db.banUser).not.toHaveBeenCalled();
+    expect(ctx.removeParticipant).not.toHaveBeenCalled();
+    expect(ctx.sendMessage).not.toHaveBeenCalled();
   });
 
   it('detecta bot com mensagem interativa + nome vazio (2 sinais)', async () => {
@@ -452,7 +460,11 @@ describe('evaluate — anti-bot', () => {
     msg.key.participant = BR_BR_JID;
 
     const result = await evaluate(msg, ctx, GROUP_JID, BR_BR_JID, '');
-    expect(result.acted).toBe(true);
+    expect(result.acted).toBe(false);
+    expect(result.reason).toContain('audit-only');
+    expect(db.banUser).not.toHaveBeenCalled();
+    expect(ctx.removeParticipant).not.toHaveBeenCalled();
+    expect(ctx.sendMessage).not.toHaveBeenCalled();
   });
 
   it('NÃO age com apenas 1 sinal (ex: foreign sem outros sinais)', async () => {
@@ -505,7 +517,7 @@ describe('evaluate — anti-bot', () => {
     expect(ctx.removeParticipant).not.toHaveBeenCalled();
   });
 
-  it('usuário estrangeiro normal com 2+ sinais → anti-bot continua funcionando', async () => {
+  it('registra sinais anti-bot sem banir ou remover', async () => {
     const db = await mockDb();
     db.getGroupMod.mockResolvedValue(groupConfig({ antiestrangeiro: false, remover: true, autolink: true, antispam: true, detectar: true }));
 
@@ -519,10 +531,11 @@ describe('evaluate — anti-bot', () => {
     msg.key.participant = '1234567890@c.us'; // estrangeiro genérico
 
     const result = await evaluate(msg, ctx, GROUP_JID, '1234567890@c.us', 'Bot');
-    expect(result.acted).toBe(true);
-    expect(result.action).toContain('ban');
-    expect(db.banUser).toHaveBeenCalledWith(expect.objectContaining({ groupId: GROUP_JID, userId: '1234567890@c.us' }));
-    expect(ctx.removeParticipant).toHaveBeenCalledWith(GROUP_JID, '1234567890@c.us');
+    expect(result.acted).toBe(false);
+    expect(result.reason).toContain('audit-only');
+    expect(db.banUser).not.toHaveBeenCalled();
+    expect(ctx.removeParticipant).not.toHaveBeenCalled();
+    expect(ctx.sendMessage).not.toHaveBeenCalled();
   });
 });
 
@@ -535,7 +548,7 @@ describe('evaluate — anti-link', () => {
     vi.clearAllMocks();
   });
 
-  it('remove mensagem com link de domínio suspeito (sem ban)', async () => {
+  it('detecta link suspeito sem excluir mensagem em dry-run', async () => {
     const db = await mockDb();
     db.getGroupMod.mockResolvedValue(groupConfig({ antiestrangeiro: false, remover: false, autolink: true, antispam: false, detectar: true }));
 
@@ -545,10 +558,9 @@ describe('evaluate — anti-link', () => {
     });
 
     const result = await evaluate(msg, ctx, GROUP_JID, BR_BR_JID, 'João');
-    expect(result.acted).toBe(true);
-    expect(result.action).toContain('delete');
-    expect(result.action).not.toContain('ban');
-    expect(ctx.sendMessage).toHaveBeenCalledWith(GROUP_JID, '', expect.objectContaining({ delete: expect.any(Object) }));
+    expect(result.acted).toBe(false);
+    expect(result.reason).toContain('audit-only');
+    expect(ctx.sendMessage).not.toHaveBeenCalled();
   });
 
   it('NÃO age com link legítimo', async () => {
@@ -616,7 +628,7 @@ describe('evaluate — anti-spam', () => {
     expect(result.acted).toBe(false);
   });
 
-  it('age quando palavra-chave + contexto (link suspeito)', async () => {
+  it('detecta palavra-chave e contexto sem excluir em dry-run', async () => {
     const db = await mockDb();
     db.getGroupMod.mockResolvedValue(groupConfig({ antiestrangeiro: false, remover: false, autolink: false, antispam: true, detectar: true }));
 
@@ -629,11 +641,12 @@ describe('evaluate — anti-spam', () => {
     });
 
     const result = await evaluate(msg, ctx, GROUP_JID, BR_BR_JID, 'Spammer');
-    expect(result.acted).toBe(true);
-    expect(result.action).toContain('delete');
+    expect(result.acted).toBe(false);
+    expect(result.reason).toContain('audit-only');
+    expect(ctx.sendMessage).not.toHaveBeenCalled();
   });
 
-  it('age quando palavra-chave + contexto (foreign)', async () => {
+  it('detecta palavra-chave e remetente estrangeiro sem ação destrutiva', async () => {
     const db = await mockDb();
     db.getGroupMod.mockResolvedValue(groupConfig({ antiestrangeiro: false, remover: false, autolink: false, antispam: true, detectar: true }));
 
@@ -642,7 +655,10 @@ describe('evaluate — anti-spam', () => {
     msg.key.participant = FOREIGN_JID;
 
     const result = await evaluate(msg, ctx, GROUP_JID, FOREIGN_JID, 'Spammer');
-    expect(result.acted).toBe(true);
+    expect(result.acted).toBe(false);
+    expect(result.reason).toContain('audit-only');
+    expect(ctx.sendMessage).not.toHaveBeenCalled();
+    expect(ctx.removeParticipant).not.toHaveBeenCalled();
   });
 
   it('NÃO deleta mensagem do MASTER (isProtectedTarget)', async () => {

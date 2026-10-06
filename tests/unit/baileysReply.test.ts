@@ -78,6 +78,24 @@ function makeQuotedMessage() {
 }
 
 describe('BaileysAdapter — linha de reply (citação de mensagem)', () => {
+  it('suprime delete em dry-run e nunca chama o socket', async () => {
+    const { adapter } = makeBaileysAdapter();
+    const mockSend = (adapter as any).sock.sendMessage as ReturnType<typeof vi.fn>;
+    const key = {
+      id: 'delete-test-1',
+      remoteJid: '120363410094452673@g.us',
+      fromMe: false,
+      participant: '6289562706508@lid',
+      participantAlt: '6289562706508@s.whatsapp.net',
+      addressingMode: 'lid',
+    };
+
+    const result = await (adapter as any).sendMessage(key.remoteJid, '', { delete: key });
+
+    expect(mockSend).not.toHaveBeenCalled();
+    expect(result.raw).toEqual({ dryRun: true, key });
+  });
+
   it('sendMessage com replyToMessageId monta quoted corretamente (citação de msg de terceiro)', async () => {
     const { adapter, calls } = makeBaileysAdapter();
     const { sendMessage } = adapter as any;

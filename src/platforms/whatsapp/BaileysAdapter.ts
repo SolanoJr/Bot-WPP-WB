@@ -609,7 +609,14 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
       userId: normMsg.userId,
       raw: {
         delete: async () => {
-          await this.connection.getSock()?.sendMessage(normMsg.chatId, { delete: normMsg.raw?.key });
+          const key = normMsg.raw?.key || {};
+          logInfo('[BaileysAdapter] MUTED DELETE DRY-RUN — chamada ao socket suprimida', {
+            stanzaId: key.id || null,
+            remoteJid: key.remoteJid || normMsg.chatId,
+            participant: key.participant || null,
+            fromMe: typeof key.fromMe === 'boolean' ? key.fromMe : null,
+            originalWAMessageKey: key,
+          });
         },
       },
     });

@@ -66,6 +66,38 @@ export class BaileysMessageNormalizer {
 
   async dispatchMessage(rawMsg: any): Promise<void> {
     try {
+      const messageKey = rawMsg?.key || {};
+      if (messageKey.id && messageKey.remoteJid) {
+        try {
+          logInfo('[BaileysNormalizer] DRY-RUN original WAMessageKey captured', {
+            mode: 'log-only',
+            stanzaId: messageKey.id,
+            remoteJid: messageKey.remoteJid,
+            participant: messageKey.participant || null,
+            fromMe: typeof messageKey.fromMe === 'boolean' ? messageKey.fromMe : null,
+            originalWAMessageKey: messageKey,
+          });
+          const { appendCapture } = require('../../../services/captureStore.js');
+          appendCapture({
+            captureId: `live-${messageKey.id}-${Date.now()}`,
+            capturedAt: new Date().toISOString(),
+            source: 'messages.upsert',
+            groupId: messageKey.remoteJid.endsWith('@g.us') ? messageKey.remoteJid : '',
+            messageId: messageKey.id,
+            remoteJid: messageKey.remoteJid,
+            participant: messageKey.participant || '',
+            fromMe: !!messageKey.fromMe,
+            timestamp: Number(rawMsg.messageTimestamp || 0) * 1000 || Date.now(),
+            messageType: Object.keys(rawMsg.message || {})[0] || 'empty',
+            isGroup: messageKey.remoteJid.endsWith('@g.us'),
+            key: messageKey,
+            rawPayloadSafe: rawMsg,
+          });
+        } catch (captureError: any) {
+          logWarning('[BaileysNormalizer] captura de mensagem falhou:', captureError?.message);
+        }
+      }
+
       // capture(rawMsg, this.userId); // Movido para ARCHIVE
 
       // Observação opcional
@@ -187,7 +219,13 @@ export class BaileysMessageNormalizer {
               userId: normId(sender),
               raw: {
                 delete: async () => {
-                  await this.sock?.sendMessage(from, { delete: key });
+                  logInfo('[BaileysNormalizer] MUTED DELETE DRY-RUN — chamada ao socket suprimida', {
+                    stanzaId: key.id || null,
+                    remoteJid: key.remoteJid || from,
+                    participant: key.participant || null,
+                    fromMe: typeof key.fromMe === 'boolean' ? key.fromMe : null,
+                    originalWAMessageKey: key,
+                  });
                 },
               },
       });

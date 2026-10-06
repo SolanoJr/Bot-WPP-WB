@@ -1,15 +1,12 @@
 import { ICommand } from './types';
 import { CommandContext } from '../../platforms/base/PlatformTypes';
-import { isMaster, isProtectedTarget } from '../../services/permissions';
-import { logInfo, logWarning, logError } from '../../services/loggerService';
+import { readCaptures } from '../../services/captureStore';
+import { logInfo, logError } from '../../services/loggerService';
 
 // Comando OCULTO (só dono/bot). Apaga a mensagem que foi marcada/comentada.
 // Uso: responda (quote) a uma mensagem e envie "$delete".
 //
-// FUNCIONA NO BAILEYS (engine ativo): lê o `key` da mensagem citada e usa
-// ctx.client.sendMessage(jid, { delete: { id, fromMe: false, participant } }),
-// que o BaileysAdapter repassa ao sock. Não usa a API do WWebJS (target.delete),
-// que não existe no Baileys.
+// DRY-RUN: registra a chave original/candidata e não executa exclusão.
 export const deleteMsgCommand: ICommand = {
   name: 'delete',
   description: 'OCULTO: apaga a mensagem marcada (apenas dono/bot).',
@@ -65,60 +62,35 @@ export const deleteMsgCommand: ICommand = {
         return;
       }
 
-      // PROTEÇÃO: nunca apagar mensagem do MASTER (dono) nem do próprio bot,
-      // exceto quando é o próprio dono pedindo (ele pode apagar o que quiser).
       const quotedKey: any = target.key || target;
-      const targetAuthor = String(
-        quotedKey.participant ||
-        quotedKey.remoteJid ||
-        target.author ||
-        target.from ||
-        target?.id?.participant ||
-        ''
-      ).split('@')[0];
-      const targetFull = String(
-        quotedKey.participant || quotedKey.remoteJid || target.author || target.from || ''
+      const stanzaId = cinfo.stanzaId || quotedKey.id || '';
+      const chatJid = msgObj?.key?.remoteJid || ctx.chatId.replace(/^wpp:/, '');
+      const captures = readCaptures();
+      const capture = [...captures].reverse().find((entry) =>
+        entry.source === 'messages.upsert'
+        && entry.messageId === stanzaId
+        && entry.remoteJid === chatJid
       );
-      if (targetFull && isProtectedTarget(targetFull) && !isMaster(ctx.userId)) {
-        await ctx.reply('🛡️ Você não pode apagar mensagens do dono (MASTER) ou do próprio bot.');
-        return;
-      }
+      const originalKey = capture?.key || capture?.rawPayloadSafe?.key || null;
+      const observedKey = originalKey || {
+        id: stanzaId || null,
+        remoteJid: quotedKey.remoteJid || chatJid || null,
+        participant: quotedKey.participant || cinfo.participant || cinfo.quotedMessage?.participant || null,
+        fromMe: typeof quotedKey.fromMe === 'boolean' ? quotedKey.fromMe : null,
+      };
 
-      // Extrai o key da mensagem a ser apagada
-      const msgId = quotedKey.id;
-      const participant = quotedKey.participant || quotedKey.remoteJid;
-      if (!msgId) {
-        await ctx.reply('⚠️ Não consegui localizar o ID da mensagem citada.');
-        return;
-      }
-
-      // fromMe: a mensagem citada é do próprio bot? (WhatsApp exige fromMe:true
-      // para apagar mensagem própria, false para apagar de terceiro como admin)
-      const botId = (ctx.client as any)?.userId || (ctx as any).botUserId || '';
-      const quotedAuthorRaw = String(quotedKey.participant || quotedKey.remoteJid || '');
-      const quotedIsFromBot =
-        !!quotedKey.fromMe ||
-        (botId && quotedAuthorRaw.split('@')[0] === String(botId).split('@')[0]) ||
-        quotedAuthorRaw.includes('558581344211');
-      const fromMe = !!quotedKey.fromMe || quotedIsFromBot;
-
-      // Baileys: apaga via sendMessage(jid, { delete: { id, fromMe, participant } })
-      const chatId = ctx.chatId;
-      try {
-        await ctx.client.sendMessage(chatId, '', {
-          delete: { id: msgId, fromMe, participant: fromMe ? undefined : participant },
-        } as any);
-        // Silencioso: não confirma (igual ao comportamento anterior do WWebJS)
-      } catch (e: any) {
-        // Fallback WWebJS (caso rode em adapter legado)
-        if (typeof target.delete === 'function') {
-          await target.delete(true);
-        } else if (target.raw && typeof target.raw.delete === 'function') {
-          await target.raw.delete(true);
-        } else {
-          await ctx.reply(`⚠️ Não consegui apagar: ${e?.message || e}`);
-        }
-      }
+      logInfo('[delete] DRY-RUN quote key capture', {
+        mode: 'log-only',
+        keySource: originalKey ? 'captured-original' : 'quote-context-candidate',
+        keyComplete: !!originalKey,
+        stanzaId: stanzaId || null,
+        remoteJid: observedKey.remoteJid ?? null,
+        participant: observedKey.participant ?? null,
+        fromMe: typeof observedKey.fromMe === 'boolean' ? observedKey.fromMe : null,
+        originalWAMessageKey: originalKey,
+        observedKey,
+      });
+      return;
     } catch (e: any) {
       logError('[delete] erro:', e?.message);
       await ctx.reply(`⚠️ Erro ao apagar: ${e?.message || e}`);

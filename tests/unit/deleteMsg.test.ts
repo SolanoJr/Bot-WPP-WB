@@ -1,11 +1,25 @@
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  readCaptures: vi.fn(() => [] as any[]),
+}));
+
+vi.mock('../../src/services/captureStore', () => ({ readCaptures: mocks.readCaptures }));
+
 import { deleteMsgCommand } from '../../src/bot/commands/deleteMsg';
-import { isMaster, isProtectedTarget } from '../../src/services/permissions';
+import { isMaster } from '../../src/services/permissions';
+import * as loggerService from '../../src/services/loggerService';
+const logInfoSpy = vi.spyOn(loggerService, 'logInfo');
 
 const GROUP = '120363410094452673@g.us';      // grupo Teste
 const DONO = '5588998314322@c.us';
 const BOT = '558581344211@c.us';
 const ALVO = '559999999999@c.us';              // quem mandou "apague isso"
+
+beforeEach(() => {
+  mocks.readCaptures.mockReset().mockReturnValue([]);
+  logInfoSpy.mockClear();
+});
 
 function makeCtx(over: any = {}) {
   const replies: string[] = [];
@@ -35,24 +49,36 @@ function makeCtx(over: any = {}) {
   return ctx;
 }
 
-describe('$delete — integração (bot digita, bot apaga)', () => {
-  it('apaga a mensagem citada usando sendMessage(jid, {delete}) no Baileys', async () => {
+describe('$delete — dry-run por quote', () => {
+  it('registra a chave candidata e não executa exclusão', async () => {
     const quoted = {
       key: { id: 'MSG-ID-123', remoteJid: GROUP, participant: ALVO },
       author: ALVO,
       text: 'apague isso',
     };
+    const originalKey = {
+      id: 'MSG-ID-123', remoteJid: GROUP, fromMe: false, participant: ALVO,
+      participantAlt: '559999999999@s.whatsapp.net', addressingMode: 'lid',
+    };
+    mocks.readCaptures.mockReturnValue([{
+      source: 'messages.upsert', messageId: originalKey.id, remoteJid: GROUP, key: originalKey,
+    }]);
     const ctx = makeCtx({ quoted, userId: DONO });
 
     await deleteMsgCommand.execute(ctx);
 
-    expect(ctx.__sendMessage).toHaveBeenCalledTimes(1);
-    const [jid, text, opts] = ctx.__sendMessage.mock.calls[0];
-    expect(jid).toBe(GROUP);
-    expect(opts.delete).toBeDefined();
-    expect(opts.delete.id).toBe('MSG-ID-123');
-    expect(opts.delete.fromMe).toBe(false);
-    expect(opts.delete.participant).toContain('559999999999');
+    expect(ctx.__sendMessage).not.toHaveBeenCalled();
+    expect(ctx.replies).toEqual([]);
+    expect(logInfoSpy).toHaveBeenCalledWith('[delete] DRY-RUN quote key capture', expect.objectContaining({
+      mode: 'log-only',
+      keySource: 'captured-original',
+      keyComplete: true,
+      stanzaId: originalKey.id,
+      remoteJid: GROUP,
+      participant: ALVO,
+      fromMe: false,
+      originalWAMessageKey: originalKey,
+    }));
   });
 
   it('NÃO apaga se não houver mensagem citada (pede para citar)', async () => {
@@ -62,7 +88,7 @@ describe('$delete — integração (bot digita, bot apaga)', () => {
     expect(ctx.replies.join()).toContain('Responda');
   });
 
-  it('protege mensagem do dono (terceiro não apaga o MASTER)', async () => {
+  it('mantém alvo protegido em inspeção sem executar ação', async () => {
     const quoted = {
       key: { id: 'MSG-DONO', remoteJid: GROUP, participant: DONO },
       author: DONO,
@@ -71,10 +97,10 @@ describe('$delete — integração (bot digita, bot apaga)', () => {
     const ctx = makeCtx({ quoted, userId: ALVO }); // quem manda o $delete NÃO é dono
     await deleteMsgCommand.execute(ctx);
     expect(ctx.__sendMessage).not.toHaveBeenCalled();
-    expect(ctx.replies.join()).toContain('🛡️');
+    expect(ctx.replies).toEqual([]);
   });
 
-  it('protege mensagem do próprio bot', async () => {
+  it('não executa ação contra mensagem do próprio bot', async () => {
     const quoted = {
       key: { id: 'MSG-BOT', remoteJid: GROUP, participant: BOT },
       author: BOT,
@@ -83,10 +109,10 @@ describe('$delete — integração (bot digita, bot apaga)', () => {
     const ctx = makeCtx({ quoted, userId: ALVO });
     await deleteMsgCommand.execute(ctx);
     expect(ctx.__sendMessage).not.toHaveBeenCalled();
-    expect(ctx.replies.join()).toContain('🛡️');
+    expect(ctx.replies).toEqual([]);
   });
 
-  it('dono pode apagar mensagem de terceiro', async () => {
+  it('também mantém a exclusão desativada para o dono', async () => {
     const quoted = {
       key: { id: 'MSG-TERCEIRO', remoteJid: GROUP, participant: ALVO },
       author: ALVO,
@@ -94,22 +120,7 @@ describe('$delete — integração (bot digita, bot apaga)', () => {
     };
     const ctx = makeCtx({ quoted, userId: DONO });
     await deleteMsgCommand.execute(ctx);
-    expect(ctx.__sendMessage).toHaveBeenCalledTimes(1);
-    expect(ctx.__sendMessage.mock.calls[0][2].delete.id).toBe('MSG-TERCEIRO');
-  });
-});
-
-describe('$delete silencioso (sem comando no grupo, via key direto)', () => {
-  it('mesma API serve para o autoMod apagar em tempo real', async () => {
-    // Prova que o caminho é: pegar key da mensagem suspeita + chamar sendMessage(jid,{delete})
-    const suspectKey = { id: 'SPAM-999', remoteJid: GROUP, participant: ALVO };
-    const sendMessage = vi.fn(async () => ({ id: 'wpp:ok', raw: {} }));
-    // Simula o autoMod chamando a MESMA rota do $delete
-    await sendMessage(GROUP, '', {
-      delete: { id: suspectKey.id, fromMe: false, participant: suspectKey.participant },
-    });
-    expect(sendMessage).toHaveBeenCalledWith(GROUP, '', {
-      delete: { id: 'SPAM-999', fromMe: false, participant: ALVO },
-    });
+    expect(ctx.__sendMessage).not.toHaveBeenCalled();
+    expect(ctx.replies).toEqual([]);
   });
 });
