@@ -554,7 +554,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
   private async handlePresentationCollect(normMsg: any): Promise<void> {
     try {
       const { getOrCreateSession, getActiveSession, collectMessage, isCommunity085Group, DEFAULT_IDLE_MS } =
-        await import('../../services/presentationService');
+        await import('../../services/presentationService.js');
 
       const chatId = normMsg?.chatId || '';
       const senderId = normMsg?.senderId || '';
@@ -578,7 +578,7 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
       const replyTo = normMsg?.replyToMessageId || normMsg?.quotedMessageId;
       if (replyTo) {
         // Se a mensagem respondida foi o welcome do bot, abre sessão
-        const { getWelcomeMessage } = await import('../../services/welcomeService');
+        const { getWelcomeMessage } = await import('../../services/welcomeService.js');
         const welcome = await getWelcomeMessage(chatId);
         // Heurística: se o texto da mensagem respondida contém "Bem-vindo" ou o welcome customizado
         const quotedText = normMsg?.quotedText || '';

@@ -407,10 +407,11 @@ export async function listPending(): Promise<PresentationRecord[]> {
 /** Busca por usuário+grupo (para evitar duplicata). */
 export async function findByUser(groupId: string, userId: string): Promise<PresentationRecord | null> {
   const db = await getDb();
-  return await db.get(
+  const row = await db.get(
     `SELECT * FROM presentations WHERE group_id=? AND user_id=? ORDER BY created_at DESC LIMIT 1`,
     [groupId, userId]
   );
+  return row || null;
 }
 
 // ─── Comunidade 085 ────────────────────────────────────────────────────────

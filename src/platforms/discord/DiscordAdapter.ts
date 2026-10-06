@@ -70,8 +70,8 @@ class DiscordClient implements PlatformClient {
       await this.client.login(this.token);
       if (!this.isReady) {
         await new Promise<void>((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error('timeout aguardando clientReady')), 10000);
-          this.client.once('clientReady', () => {
+          const timeout = setTimeout(() => reject(new Error('timeout aguardando ready')), 10000);
+          this.client.once('ready', () => {
             clearTimeout(timeout);
             resolve();
           });
@@ -94,15 +94,18 @@ class DiscordClient implements PlatformClient {
   }
 
   private setupEventHandlers() {
-    const readyEvent = 'clientReady';
-    this.client.once(readyEvent as any, () => {
+    // discord.js v14 usa o evento 'ready' (não 'clientReady').
+    // Usar 'clientReady' fazia o handler nunca disparar, deixando isReady=false
+    // e userId/userName vazios, e causando erros de setPresence em reconexões.
+    this.client.once('ready', (readyClient) => {
       this.isReady = true;
-      this.userId = this.client.user?.id ?? '';
-      this.userName = this.client.user?.username ?? 'DiscordBot';
+      this.userId = readyClient.user.id;
+      this.userName = readyClient.user.username;
       logInfo(`[Discord] ✅ Pronto como ${this.userName} (${this.userId})`);
       
+      // setPresence via readyClient.user garante que o objeto existe (ClientUser)
       try {
-        this.client.user?.setPresence({
+        readyClient.user.setPresence({
           status: 'online',
           activities: [{ name: 'Bot-WPP Multi-Platform', type: 0 }]
         });
@@ -679,7 +682,7 @@ export class DiscordAdapter implements PlatformAdapter {
       await new Promise<void>((resolve) => {
         const check = () => {
           if (this.client.isReady) { resolve(); return; }
-          this.client.once('clientReady', resolve);
+          this.client.once('ready', resolve);
         };
         check();
         setTimeout(resolve, 15000);

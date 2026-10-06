@@ -22,7 +22,7 @@ export async function recordInfraction(groupId: string, userId: string): Promise
          count = count + 1, last_infraction = ?`,
       [g, u, Date.now(), Date.now()]
     );
-    const row: any = await db.get ? db.get(`SELECT count FROM infractions WHERE group_id = ? AND user_id = ?`, g, u) : null;
+    const row: any = await db.get(`SELECT count FROM infractions WHERE group_id = ? AND user_id = ?`, [g, u]);
     return row?.count || 1;
   } catch (e: any) {
     logger.error('[DB] Falha ao registrar infração', { groupId: g, userId: u, error: e?.message });

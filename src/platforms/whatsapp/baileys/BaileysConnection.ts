@@ -564,7 +564,7 @@ export class BaileysConnection {
     }
     try {
       await this.sock.waitForConnectionUpdate(
-        (state) => state.connection === 'open',
+        (state: any) => state.connection === 'open',
         timeoutMs
       );
       return true;

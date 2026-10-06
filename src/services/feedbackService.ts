@@ -250,7 +250,7 @@ export function formatFeedbackRequest(event: {
   involvedGroupNames?: string | null;
 }): string {
   const groups: string[] = JSON.parse(event.involvedGroupNames || '[]');
-  const community = event.communidade_name || event.communityName;
+  const community = event.communityName;
 
   let onde: string;
   switch (event.eventType) {

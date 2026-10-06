@@ -66,7 +66,7 @@ export async function getWelcomeMessage(groupId: string): Promise<string | null>
  * @param text  texto novo; `null` restaura o padrão
  */
 export async function setWelcomeMessage(groupId: string, text: string | null): Promise<void> {
-  const { ensureGroupModRow } = await import('./databaseService');
+  const { ensureGroupModRow } = await import('./databaseService.js');
   const key = await ensureGroupModRow(groupId);
   const db = await getDb();
   await db.run(`UPDATE group_mod SET welcome_message = ? WHERE group_id = ?`, [text, key]);
@@ -151,7 +151,7 @@ export async function isPresentationEnabled(groupId: string): Promise<boolean> {
 
 /** Define se as apresentações estão ativas no grupo. */
 export async function setPresentationEnabled(groupId: string, enabled: boolean): Promise<void> {
-  const { ensureGroupModRow } = await import('./databaseService');
+  const { ensureGroupModRow } = await import('./databaseService.js');
   const key = await ensureGroupModRow(groupId);
   const db = await getDb();
   await db.run(`UPDATE group_mod SET presentation_enabled = ? WHERE group_id = ?`, [enabled ? 1 : 0, key]);
