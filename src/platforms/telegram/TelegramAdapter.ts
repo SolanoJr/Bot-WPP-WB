@@ -376,7 +376,7 @@ class TelegramClient implements PlatformClient {
     // ─── Handler de disconnect do socket Telegram ─────────────────────────
     // O Telegraf emite 'telegramError' quando o socket sofre falha de conexão.
     // Usamos isso para detectar desconexão e iniciar reconexão automática.
-    this.bot.on('telegramError', (err: any) => {
+    (this.bot as any).on('telegramError', (err: any) => {
       logWarning(`[Telegram] ⚠️ Erro de conexão: ${err?.message || err}`);
       this.isReady = false;
       if (this.disconnectedHandler) this.disconnectedHandler(err?.message || String(err));
@@ -619,6 +619,14 @@ class TelegramClient implements PlatformClient {
 export class TelegramAdapter implements PlatformAdapter {
   readonly platform: PlatformType = 'telegram';
   readonly client: PlatformClient;
+
+  get bot(): Telegraf<TgMessage> {
+    return (this.client as any).bot;
+  }
+
+  async getChat(chatId: string): Promise<PlatformChat> {
+    return (this.client as any).getChat(chatId);
+  }
 
   constructor(token: string) {
     this.client = new TelegramClient(token);

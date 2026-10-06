@@ -107,6 +107,8 @@ export type MessageHandler = (message: PlatformMessage) => Promise<void>;
 
 export interface SendOptions {
   replyToMessageId?: string;
+  quotedFromMe?: boolean;
+  quotedParticipant?: string;
   parseMode?: 'markdown' | 'html' | 'none';
   disablePreview?: boolean;
   buttons?: ButtonOptions[];

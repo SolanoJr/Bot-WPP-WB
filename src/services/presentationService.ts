@@ -217,7 +217,7 @@ export async function handlePresentationCollect(normMsg: any): Promise<void> {
 }
 
 /** Conta sinais de apresentação no texto (idade, trabalho, hobbies, etc.) */
-function countPresentationSignals(text: string): number {
+export function countPresentationSignals(text: string): number {
   if (!text) return 0;
   const t = text.toLowerCase();
   let count = 0;

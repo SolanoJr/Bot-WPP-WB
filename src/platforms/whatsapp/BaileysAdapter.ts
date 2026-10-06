@@ -36,6 +36,7 @@ import { BaileysMessageSender } from './baileys/BaileysMessageSender';
 import { BaileysChatManager } from './baileys/BaileysChatManager';
 import { BaileysMemberManager } from './baileys/BaileysMemberManager';
 import { BaileysHealth } from './baileys/BaileysHealth';
+import { countPresentationSignals } from '../../services/presentationService';
 
 export class BaileysAdapter implements PlatformAdapter, PlatformClient {
   platform: PlatformType = 'whatsapp';

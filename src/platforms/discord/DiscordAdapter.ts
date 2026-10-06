@@ -22,15 +22,6 @@ class DiscordClient implements PlatformClient {
   private client: Client;
   public userId: string = '';
   public userName: string = '';
-
-  getUserId(): string {
-    return this.userId;
-  }
-
-  getUserName(): string {
-    return this.userName;
-  }
-
   public isReady: boolean = false;
 
   private messageHandler: MessageHandler | null = null;
@@ -151,7 +142,7 @@ class DiscordClient implements PlatformClient {
           sendMessage: async (jid: any, text: any, opts: any) => {
             try {
               if (opts?.delete) {
-                await this.deleteMessage(jid, opts.delete.id?.toString() || '');
+                await this.deleteMessageInternal(jid, opts.delete.id?.toString() || '');
               } else {
                 await this.sendMessage(jid, text, opts);
               }
@@ -198,7 +189,7 @@ class DiscordClient implements PlatformClient {
       logWarning(`[DiscordAdapter] ⚠️ Discord desconectado: ${event?.code || event?.reason || 'desconhecido'}`);
       this.isReady = false;
       if (this.disconnectedHandler) this.disconnectedHandler(event?.code || event?.reason || 'desconectado');
-      this.client.scheduleReconnect();
+      this.scheduleReconnect();
     });
   }
 
@@ -374,7 +365,7 @@ class DiscordClient implements PlatformClient {
     await guild.members.ban(cleanUserId, { reason: 'Banido por comando do bot' });
   }
 
-  async deleteMessage(chatId: string, messageId: string): Promise<void> {
+  private async deleteMessageInternal(chatId: string, messageId: string): Promise<void> {
     if (!messageId) throw new Error('messageId vazio para deleteMessage');
     const cleanChatId = chatId.replace(/^dc:/, '');
     const cleanMessageId = messageId.split(':').pop() || messageId;
@@ -383,6 +374,10 @@ class DiscordClient implements PlatformClient {
     const msg = await (channel as TextChannel).messages.fetch(cleanMessageId).catch(() => null);
     if (!msg) throw new Error(`Discord: mensagem não encontrada: ${messageId}`);
     await msg.delete();
+  }
+
+  async deleteMessage(chatId: string, messageId: string): Promise<void> {
+    await this.deleteMessageInternal(chatId, messageId);
   }
 
   async react(messageId: string, emoji: string, _chatId?: string, _originalKey?: any): Promise<void> {
@@ -406,46 +401,13 @@ class DiscordClient implements PlatformClient {
     this.disconnectedHandler = handler;
   }
 
-  // Métodos opcionais do PlatformClient (não aplicáveis ao Discord)
-  async getNumberId(_phone: string): Promise<string> {
-    return '';
+  // Método opcional do PlatformClient (não aplicável ao Discord)
+  async getNumberId(_phone: string): Promise<{ serialized: string; lid?: string } | null> {
+    return null;
   }
 
   async getContactById(_id: string): Promise<any> {
     return null;
-  }
-
-  // Métodos não aplicáveis ao Discord — stubs para compatibilidade com PlatformManager
-  onSocketDisconnect(_handler: (reason: string) => void): void {
-    // não aplicável
-  }
-
-  onCredsUpdate(_handler: () => void): void {
-    // não aplicável
-  }
-
-  getHealth(): WppHealth {
-    return {
-      platform: 'discord',
-      isConnected: this.isReady,
-      isConnectedRaw: this.isReady ? 1 : 0,
-    };
-  }
-
-  onMessagesUpsert(_handler: (messages: any[]) => void): void {
-    // não aplicável
-  }
-
-  onMessagesDelete(_handler: (keys: any[]) => void): void {
-    // não aplicável
-  }
-
-  onMessagesDeleteAll(_handler: (jid: string, all: boolean) => void): void {
-    // não aplicável
-  }
-
-  onMessagesUpdate(_handler: (updates: any[]) => void): void {
-    // não aplicável
   }
 
   private shuttingDown = false;
@@ -677,12 +639,12 @@ export class DiscordAdapter implements PlatformAdapter {
   }
 
   async initialize(): Promise<void> {
-    await this.client.login();
+    await (this.client as DiscordClient).login();
     if (!this.client.isReady) {
       await new Promise<void>((resolve) => {
         const check = () => {
           if (this.client.isReady) { resolve(); return; }
-          this.client.once('ready', resolve);
+          this.client.onReady(resolve);
         };
         check();
         setTimeout(resolve, 15000);
@@ -690,106 +652,7 @@ export class DiscordAdapter implements PlatformAdapter {
     }
   }
 
-  // ─── Métodos públicos do PlatformClient ────────────────────────────────────
-
-  getUserId(): string {
-    return this.client.getUserId();
-  }
-
-  getUserName(): string {
-    return this.client.getUserName();
-  }
-
   async shutdown(): Promise<void> {
     await this.client.shutdown();
   }
-
-  async reconnect(): Promise<void> {
-    await this.client.reconnect();
-  }
-
-  private scheduleReconnect(): void {
-    this.client.scheduleReconnect();
-  }
-
-  getChats(): any[] {
-    return this.client.getChats();
-  }
-
-  async getChat(chatId: string): Promise<any> {
-    return this.client.getChat(chatId);
-  }
-
-  async getUser(userId: string): Promise<any> {
-    return this.client.getUser(userId);
-  }
-
-  async getNumberId(phone: string): Promise<string> {
-    return this.client.getNumberId(phone);
-  }
-
-  async getContactById(id: string): Promise<any> {
-    return this.client.getContactById(id);
-  }
-
-  async removeParticipant(chatId: string, userId: string): Promise<void> {
-    return this.client.removeParticipant(chatId, userId);
-  }
-
-  async banParticipant(chatId: string, userId: string): Promise<void> {
-    return this.client.banParticipant(chatId, userId);
-  }
-
-  async deleteMessage(chatId: string, messageId: string, fromMe?: boolean, participant?: string): Promise<void> {
-    return this.client.deleteMessage(chatId, messageId, fromMe, participant);
-  }
-
-  async sendMedia(chatId: string, media: DiscordMedia, caption?: string): Promise<PlatformMessage> {
-    return this.client.sendMedia(chatId, media, caption);
-  }
-
-  async react(messageId: string, emoji: string, _chatId?: string, _originalKey?: any): Promise<void> {
-    return this.client.react(messageId, emoji, _chatId, _originalKey);
-  }
-
-  onSocketDisconnect(handler: (reason: string) => void): void {
-    this.client.onSocketDisconnect(handler);
-  }
-
-  onCredsUpdate(handler: () => void): void {
-    this.client.onCredsUpdate(handler);
-  }
-
-  getHealth(): WppHealth {
-    return this.client.getHealth();
-  }
-
-  setOnReady(handler: () => void): void {
-    this.client.onReady(handler);
-  }
-
-  setOnMessage(handler: (msg: PlatformMessage) => void): void {
-    this.client.onMessage(handler);
-  }
-
-  setOnDisconnected(handler: (reason: string) => void): void {
-    this.client.onDisconnected(handler);
-  }
-
-  onMessagesUpsert(handler: (messages: any[]) => void): void {
-    this.client.onMessagesUpsert(handler);
-  }
-
-  onMessagesDelete(handler: (keys: any[]) => void): void {
-    this.client.onMessagesDelete(handler);
-  }
-
-  onMessagesDeleteAll(handler: (jid: string, all: boolean) => void): void {
-    this.client.onMessagesDeleteAll(handler);
-  }
-
-  onMessagesUpdate(handler: (updates: any[]) => void): void {
-    this.client.onMessagesUpdate(handler);
-  }
-
 }

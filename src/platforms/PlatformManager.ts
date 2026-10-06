@@ -282,7 +282,7 @@ export class PlatformManager {
   /**
    * Processa mensagem recebida de qualquer plataforma
    */
-  private async handleIncomingMessage(message: PlatformMessage): Promise<void> {
+  async handleIncomingMessage(message: PlatformMessage): Promise<void> {
     // Ignorar mensagens do próprio bot
     if (message.isFromMe) return;
     

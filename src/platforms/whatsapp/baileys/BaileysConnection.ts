@@ -53,6 +53,7 @@ export class BaileysConnection {
   private onMessagesDeleteAll?: (jid: string, all: boolean) => void | Promise<void>;
   private onMessagesUpdate?: (updates: any[]) => void | Promise<void>;
   private onGroupParticipantsUpdate?: (event: any) => void | Promise<void>;
+  private socketDisconnectHandlers: Array<(reason: string) => void> = [];
 
   // Health/state
   private _ready = false;
@@ -81,6 +82,10 @@ export class BaileysConnection {
   // ---- Getters / setters usados pela adapter ----
   getSock(): any { return this.sock; }
   setSock(sock: any): void { this.sock = sock; }
+
+  onSocketDisconnect(handler: (reason: string) => void): void {
+    this.socketDisconnectHandlers.push(handler);
+  }
 
   getUserId(): string { return this._userId; }
   getUserName(): string { return this._userName; }
@@ -296,6 +301,13 @@ export class BaileysConnection {
     (driver.ev as any).on('disconnected', (reason: string) => {
       logInfo(`[Baileys] 🔌 Desconectado: ${reason}`);
       this.onDisconnected?.(reason);
+      for (const handler of this.socketDisconnectHandlers) {
+        try {
+          handler(reason);
+        } catch (e: any) {
+          logWarning('[BaileysConnection] handler de desconexão falhou:', e?.message);
+        }
+      }
     });
 
     // messages.upsert — está no BaileysEventMap.

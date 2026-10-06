@@ -699,7 +699,8 @@ export function startTestServer(port: number = 3004): void {
 
           // Configura captura persistente do adapter Baileys para eventos upsert
           const adapterForCapture = pm.getAdapter(platform as any);
-          const sockForCapture = adapterForCapture ? (adapterForCapture.connection?.getSock?.() || adapterForCapture.sock || null) : null;
+          const adapterForCaptureAny = adapterForCapture as any;
+          const sockForCapture = adapterForCapture ? (adapterForCaptureAny.connection?.getSock?.() || adapterForCaptureAny.sock || null) : null;
           if (sockForCapture && sockForCapture.ev) {
             // Listener único (não duplicar se já existia) — apenas adiciona se ainda não está registrado
             // Não removemos o listener anterior para evitar conflitos; adicionamos outro se necessário
@@ -811,7 +812,8 @@ export function startTestServer(port: number = 3004): void {
             res.end(JSON.stringify({ error: `Plataforma não encontrada: ${platform}` }));
             return;
           }
-          const sock = adapter.connection?.getSock?.() || (adapter as any).sock || null;
+          const adapterAny = adapter as any;
+          const sock = adapterAny.connection?.getSock?.() || adapterAny.sock || null;
           if (!sock) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Socket não disponível' }));
@@ -872,7 +874,7 @@ export function startTestServer(port: number = 3004): void {
 
           // --- TESTE 1B: COM QUOTE USANDO WAMessage REAL ---
           const markerB = `LAB_QUOTE_ORIGINAL_${Date.now()}`;
-          let sentB = null;
+          let sentB: any = null;
           let replyB = null;
           let sentB_error = null;
           let replyB_error = null;
@@ -1025,7 +1027,8 @@ export function startTestServer(port: number = 3004): void {
             res.end(JSON.stringify({ error: `Plataforma não encontrada: ${platform}` }));
             return;
           }
-          const sock = adapter.connection?.getSock?.() || (adapter as any).sock || null;
+          const adapterAny = adapter as any;
+          const sock = adapterAny.connection?.getSock?.() || adapterAny.sock || null;
           if (!sock) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Socket não disponível' }));
