@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { findMessageCapture, readCaptures as readPersistedCaptures } from './captureStore';
 import { isMaster, MASTER_USER } from './permissions';
-import { matchDeleteRevoke, matchMessagesDelete } from './deleteE2EConfirmation';
+import { createDeleteConfirmationWaiter, type DeleteConfirmation } from './deleteE2EConfirmation';
+import { persistDeleteE2EResult } from './deleteE2EResult';
 import http from 'node:http';
 import { PlatformManager } from '../platforms/PlatformManager';
 import { logInfo, logWarning, logError } from './loggerService';
@@ -90,36 +91,6 @@ function waitForOutgoingMarker(sock: any, groupJid: string, marker: string, time
   };
   const promise = new Promise<any | null>((resolve) => { resolvePromise = resolve; });
   sock.ev.on('messages.upsert', onUpsert);
-  timer = setTimeout(() => finish(null), timeoutMs);
-  return { promise, dispose: () => finish(null) };
-}
-
-function waitForDeleteConfirmation(sock: any, targetKey: any, correlationId: string, timeoutMs: number) {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  let settled = false;
-  let resolvePromise: (confirmation: any | null) => void = () => {};
-  const cleanup = () => {
-    if (timer) clearTimeout(timer);
-    sock.ev.off('messages.update', onUpdate);
-    sock.ev.off('messages.delete', onDelete);
-  };
-  const finish = (confirmation: any | null) => {
-    if (settled) return;
-    settled = true;
-    cleanup();
-    resolvePromise(confirmation ? { ...confirmation, correlationId } : null);
-  };
-  const onUpdate = (event: any) => {
-    const confirmation = matchDeleteRevoke(targetKey, event);
-    if (confirmation) finish(confirmation);
-  };
-  const onDelete = (event: any) => {
-    const confirmation = matchMessagesDelete(targetKey, event);
-    if (confirmation) finish(confirmation);
-  };
-  const promise = new Promise<any | null>((resolve) => { resolvePromise = resolve; });
-  sock.ev.on('messages.update', onUpdate);
-  sock.ev.on('messages.delete', onDelete);
   timer = setTimeout(() => finish(null), timeoutMs);
   return { promise, dispose: () => finish(null) };
 }
@@ -336,7 +307,8 @@ export function startTestServer(port: number = 3004): void {
           let messageCreated = false;
           let capture: any = null;
           let commandState: { stage: string; details?: any } = { stage: 'not-dispatched' };
-          let confirmation: any = null;
+          let confirmation: DeleteConfirmation | null = null;
+          let confirmationTimedOut = false;
           let cleanupConfirmation: any = null;
           let cleanupAttempted = false;
           let failureCause = '';
@@ -414,9 +386,10 @@ export function startTestServer(port: number = 3004): void {
               },
             };
 
-            const deleteWaiter = waitForDeleteConfirmation(sock, targetKey, correlationId, 10000);
+            const deleteWaiter = createDeleteConfirmationWaiter(sock, targetKey, correlationId, 10000);
             await pm.handleIncomingMessage(commandMessage);
             confirmation = await deleteWaiter.promise;
+            confirmationTimedOut = deleteWaiter.didTimeout();
             deleteWaiter.dispose();
             if (!confirmation) failureCause = `Sem REVOKE/messages.delete para ${targetKey.id}; etapa do comando: ${commandState.stage}`;
           } catch (err: any) {
@@ -427,7 +400,7 @@ export function startTestServer(port: number = 3004): void {
 
           if (!confirmation && targetKey?.id && targetKey.remoteJid === groupJid && targetKey.fromMe === true) {
             cleanupAttempted = true;
-            const cleanupWaiter = waitForDeleteConfirmation(sock, targetKey, `${correlationId}:cleanup`, 5000);
+            const cleanupWaiter = createDeleteConfirmationWaiter(sock, targetKey, `${correlationId}:cleanup`, 5000);
             try {
               await adapter.client.sendMessage(chatId, '', { delete: targetKey });
               cleanupConfirmation = await cleanupWaiter.promise;
@@ -438,7 +411,11 @@ export function startTestServer(port: number = 3004): void {
             }
           }
 
-          const passed = !!confirmation && commandState.stage === 'delete-accepted';
+          const deleteRequested = commandState.stage === 'delete-started' || commandState.stage === 'delete-accepted';
+          const deleteAccepted = commandState.stage === 'delete-accepted';
+          const deleteConfirmed = !!confirmation;
+          const passed = deleteConfirmed && deleteAccepted;
+          const finalState = passed ? 'PASS' : confirmationTimedOut ? 'TIMEOUT' : 'FAIL';
           const keySummary = targetKey ? {
             remoteJid: targetKey.remoteJid,
             id: targetKey.id,
@@ -452,10 +429,12 @@ export function startTestServer(port: number = 3004): void {
             ].includes(field)),
           } : null;
           const result = {
-            status: passed ? 'DELETE E2E PASS' : 'DELETE E2E FAIL',
+            status: finalState === 'PASS' ? 'DELETE E2E PASS' : finalState === 'TIMEOUT' ? 'DELETE E2E TIMEOUT' : 'DELETE E2E FAIL',
+            finalState,
             correlationId,
             marker,
             groupJid,
+            remoteJid: targetKey?.remoteJid || groupJid,
             messageCreated,
             sentMessageId,
             messageType: capture?.messageType || null,
@@ -470,19 +449,33 @@ export function startTestServer(port: number = 3004): void {
             commandOrigin: 'loopback harness via PlatformManager.handleIncomingMessage; configured MASTER principal',
             authorization: isMaster(MASTER_USER) ? 'authorized as configured MASTER' : 'denied',
             commandStage: commandState.stage,
-            deleteMessageCalled: commandState.stage === 'delete-started' || commandState.stage === 'delete-accepted',
-            revokeConfirmed: confirmation?.type === 'messages.update' && confirmation?.protocolMessageType === 'REVOKE',
+            deleteRequested,
+            deleteAccepted,
+            deleteConfirmed,
+            deleteMessageCalled: deleteRequested,
+            revokeConfirmed: confirmation?.protocolMessageType === 'REVOKE',
             confirmationType: confirmation?.type || null,
+            confirmationSource: confirmation?.confirmationSource || null,
+            protocolMessageType: confirmation?.protocolMessageType || null,
+            envelopeMessageId: confirmation?.envelopeMessageId || null,
+            targetMessageId: targetKey?.id || sentMessageId,
+            confirmationTimestamp: confirmation?.timestamp || null,
+            confirmationTargetKey: confirmation?.targetKey || null,
             cleanupAttempted,
             cleanupConfirmed: !!cleanupConfirmation,
-            pendingMessage: messageCreated && !confirmation && !cleanupConfirmation,
-            pendingMessageId: !confirmation && !cleanupConfirmation ? (targetKey?.id || sentMessageId) : null,
+            pendingMessage: finalState === 'TIMEOUT' && messageCreated && !confirmation && !cleanupConfirmation,
+            pendingMessageId: finalState === 'TIMEOUT' && !confirmation && !cleanupConfirmation ? (targetKey?.id || sentMessageId) : null,
             failureCause: passed ? null : (failureCause || 'Baileys nao confirmou a exclusao real'),
             loopGuard: 'mensagem alvo fromMe e ignorada pelo normalizer; comando de laboratorio despachado uma vez',
           };
           if (passed) totalSuccess++;
           totalAttempts++;
           logInfo('[TestServer] /lab/delete-e2e result', result);
+          try {
+            persistDeleteE2EResult(result);
+          } catch (err: any) {
+            logWarning('[TestServer] não foi possível persistir resultado delete-e2e:', err?.message || String(err));
+          }
           res.writeHead(passed ? 200 : 502, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(result));
           return;
