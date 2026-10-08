@@ -12,6 +12,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { evaluate } from '../../src/services/autoModEngine';
 
+vi.mock('../../src/services/deleteConfirmationService', () => ({
+  requestConfirmedDelete: vi.fn(async ({ sendDelete }: any) => {
+    const response = await sendDelete();
+    return { requested: true, accepted: response !== undefined, confirmed: true, finalState: 'PASS' };
+  }),
+}));
+
 // Config REAL do grupo Figurinhas após a auditoria:
 // antiestrangeiro=0, antispam/autolink/remover=1, detectar=1, audit_only=1
 const FIGURINHAS_CONFIG = {

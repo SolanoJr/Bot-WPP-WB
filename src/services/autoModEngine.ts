@@ -14,6 +14,7 @@
  *          a remoção do participante (ban) ainda funciona se bot for admin.
  */
 import { WAMessage } from '@whiskeysockets/baileys';
+import { randomUUID } from 'node:crypto';
 import {
   getGroupMod,
   banUser,
@@ -26,6 +27,7 @@ import { recordInfraction } from './infractions.js';
 import { isProtectedTarget } from '../services/permissions.js';
 import { isSenderGroupAdmin } from './groupAdmin.js';
 import { logInfo, logWarning, logError } from './loggerService';
+import { requestConfirmedDelete, type DeleteOutcome } from './deleteConfirmationService';
 
 // ─── Cassino Classifier ─────────────────────────────────────────────────
 import { classifyCasino } from './casinoClassifier.js';
@@ -417,6 +419,39 @@ export interface AutoModResult {
   acted: boolean;
   reason: string;
   action: string;
+  moderationState: AutoModModerationState;
+}
+
+export type AutoModFinalState = 'NONE' | 'AUDIT_ONLY' | 'PASS' | 'FAIL' | 'TIMEOUT';
+
+export interface AutoModModerationState {
+  detected: boolean;
+  actionPlanned: boolean;
+  deleteRequested: boolean;
+  deleteAccepted: boolean;
+  deleteConfirmed: boolean;
+  finalState: AutoModFinalState;
+}
+
+function makeModerationState(overrides: Partial<AutoModModerationState> = {}): AutoModModerationState {
+  return {
+    detected: false,
+    actionPlanned: false,
+    deleteRequested: false,
+    deleteAccepted: false,
+    deleteConfirmed: false,
+    finalState: 'NONE',
+    ...overrides,
+  };
+}
+
+export function moderationStateFromDeleteOutcome(outcome: DeleteOutcome): Pick<AutoModModerationState, 'deleteRequested' | 'deleteAccepted' | 'deleteConfirmed' | 'finalState'> {
+  return {
+    deleteRequested: outcome.requested,
+    deleteAccepted: outcome.accepted,
+    deleteConfirmed: outcome.confirmed,
+    finalState: outcome.finalState,
+  };
 }
 
 export async function evaluate(
@@ -440,17 +475,17 @@ export async function evaluate(
   const botId = (ctx.userId || '').replace(/:.*/, '');
   const senderId = (senderJid || '').replace(/:.*/, '');
   if (senderId === botId || senderJid.toLowerCase().includes('558581344211')) {
-    return { acted:false, reason:'mensagem do próprio bot — ignorada', action:'none' };
+    return { acted:false, reason:'mensagem do próprio bot — ignorada', action:'none', moderationState: makeModerationState() };
   }
 
   // Validação: senderJid não pode ser o JID do próprio grupo (evita false positive de foreign)
   if (senderJid && groupId && senderJid === groupId) {
-    return { acted:false, reason:'senderJid igual ao groupId — ignorando', action:'none' };
+    return { acted:false, reason:'senderJid igual ao groupId — ignorando', action:'none', moderationState: makeModerationState() };
   }
 
   // Validação: senderJid deve ter participant/remoteJid válido (não pode ser só o grupo)
   if (senderJid && !senderJid.includes('@')) {
-    return { acted:false, reason:'senderJid inválido (sem @) — ignorando', action:'none' };
+    return { acted:false, reason:'senderJid inválido (sem @) — ignorando', action:'none', moderationState: makeModerationState() };
   }
 
   // 1. Extração de conteúdo
@@ -465,7 +500,7 @@ export async function evaluate(
   // poderia ser avaliada e punida — criando loop ou auto-punição.
   if ((msg as any)?.key?.fromMe === true) {
     ctx.log('[AutoMod] mensagem do próprio bot — ignorando (anti-loop)');
-    return { acted: false, reason: 'mensagem do próprio bot', action: 'none' };
+    return { acted: false, reason: 'mensagem do próprio bot', action: 'none', moderationState: makeModerationState() };
   }
 
   // 2. Config do grupo
@@ -473,8 +508,8 @@ export async function evaluate(
   try {
     config = await getGroupMod(groupId);
   } catch (err: any) {
-    ctx.warn('[AutoMod] erro ao carregar config do grupo:', err?.message);
-    return { acted:false, reason:'erro ao carregar config', action:'none' };
+    ctx.warn('[AutoMod] erro ao carregar config:', err?.message);
+    return { acted:false, reason:'erro ao carregar config', action:'none', moderationState: makeModerationState({ finalState: 'FAIL' }) };
   }
 
   // Nada ligado → return
@@ -482,14 +517,34 @@ export async function evaluate(
       || config.antispam || config.antibot === true || config.casino === true;
     if (!anyOn) {
       ctx.log(`[AutoMod] grupo ${groupId}: nada ligado — ignorando`);
-      return { acted:false, reason:'nada ligado', action:'none' };
+      return { acted:false, reason:'nada ligado', action:'none', moderationState: makeModerationState() };
     }
 
-    // Keep moderation inspection-only until destructive actions are explicitly approved.
-    const isAuditOnly = true;
+    // A política de execução é persistida por grupo; grupos novos começam com
+    // audit_only=false, mas sem nenhuma regra ligada. Não usar bloqueio global.
+    const isAuditOnly = config.audit_only === true;
     if (isAuditOnly) {
       ctx.log(`[AutoMod] grupo ${groupId}: MODO AUDITORIA — apenas detectar e registrar`);
     }
+
+    const requestModerationDelete = async (targetKey: any): Promise<DeleteOutcome> => {
+      const correlationId = randomUUID();
+      ctx.log('[AutoMod] delete confirmation request', {
+        correlationId,
+        targetMessageId: targetKey?.id || null,
+        remoteJid: targetKey?.remoteJid || groupId,
+      });
+      const outcome = await requestConfirmedDelete({
+        platform: 'whatsapp',
+        chatId: groupId,
+        targetKey,
+        correlationId,
+        sock: ctx.sock,
+        sendDelete: () => ctx.sendMessage(groupId, '', { delete: targetKey }),
+      });
+      ctx.log('[AutoMod] delete confirmation outcome', { correlationId, ...moderationStateFromDeleteOutcome(outcome) });
+      return outcome;
+    };
 
     // 3. Auditoria: registrar entrada do membro (se ainda não registrado)
   // 3. Flag de spam: palavra-chave presente?
@@ -532,13 +587,13 @@ export async function evaluate(
         // Blindagem: ID protegido não é banido/removido/deletado
         if (isProtectedTarget(senderJid)) {
           ctx.log(`[AutoMod] antiestrangeiro ignorado — ID protegido: ${senderJid}`);
-          return { acted: false, reason: 'antiestrangeiro: ID protegido', action: 'none' };
+          return { acted: false, reason: 'antiestrangeiro: ID protegido', action: 'none', moderationState: makeModerationState({ detected: true }) };
         }
 
         // Audit-only mode: apenas registrar, não executar ações
         if (isAuditOnly) {
           ctx.log(`[AutoMod] AUDIT-ONLY antiestrangeiro: ${senderJid} seria banido/removido/deletado`);
-          return { acted: false, reason: 'antiestrangeiro: audit-only', action: 'none' };
+          return { acted: false, reason: 'antiestrangeiro: audit-only', action: 'none', moderationState: makeModerationState({ detected: true, actionPlanned: true, finalState: 'AUDIT_ONLY' }) };
         }
 
       // Ban persistente
@@ -560,21 +615,18 @@ export async function evaluate(
       }
 
       // Delete mensagem (se bot for admin) — antiestrangeiro sempre deleta
-      let deleteSuccess = false;
-            try { 
-                await ctx.sendMessage(groupId, '', { delete: buildDeleteKey(msg, senderJid) });
-                ctx.log(`[AutoMod] mensagem deletada de ${senderJid}`);
-                reportedActions.push(`MSGMENSAGEMAPAGADA`);
-                deleteSuccess = true;
-              } catch (err: any) {
-                ctx.warn(`[AutoMod] erro ao deletar mensagem:`, err?.message);
-            }
-      
-            // Registrar infração
-            await recordInfraction(groupId, senderJid).catch(err => ctx.warn('[AutoMod] erro ao registrar infração:', err?.message));
+      const deleteOutcome = await requestModerationDelete(buildDeleteKey(msg, senderJid));
+      const deleteSuccess = deleteOutcome.finalState === 'PASS';
+      if (deleteSuccess) {
+        ctx.log(`[AutoMod] mensagem deletada e confirmada de ${senderJid}`);
+        reportedActions.push(`MSGMENSAGEMAPAGADA`);
+        await recordInfraction(groupId, senderJid).catch(err => ctx.warn('[AutoMod] erro ao registrar infração:', err?.message));
+      } else {
+        ctx.warn(`[AutoMod] delete não confirmado (${deleteOutcome.finalState})`, deleteOutcome.error);
+      }
 
-            // Anunciar se detectar on — só se houve ação real
-            if (config.detectar === true) {
+            // Anunciar somente quando o delete foi confirmado.
+            if (config.detectar === true && deleteSuccess) {
               const hasRealAction = reportedActions.some(a => a === 'REMOVIDO' || a === 'MSGMENSAGEMAPAGADA');
               if (hasRealAction) {
                 const ann = reportedActions.join(' | ');
@@ -585,9 +637,10 @@ export async function evaluate(
             }
 
             return {
-              acted:true,
+              acted: deleteSuccess,
               reason:`antiestrangeiro: ${reportedActions.join('; ')}`,
               action:'ban+remove+delete+announce',
+              moderationState: { ...makeModerationState({ detected: true, actionPlanned: true }), ...moderationStateFromDeleteOutcome(deleteOutcome) },
             };
           }
 
@@ -647,7 +700,7 @@ export async function evaluate(
     // Blindagem: ID protegido não é banido/removido/deletado
     if (isProtectedTarget(senderJid)) {
       ctx.log(`[AutoMod] cassino ignorado — ID protegido: ${senderJid}`);
-      return { acted: false, reason: 'cassino: ID protegido', action: 'none' };
+      return { acted: false, reason: 'cassino: ID protegido', action: 'none', moderationState: makeModerationState({ detected: true }) };
     }
 
     // Admin do grupo: nunca é punido automaticamente. Verificado ANTES do
@@ -656,13 +709,13 @@ export async function evaluate(
       const chat = await ctx.getChat(groupId);
       if (isSenderGroupAdmin(chat, senderJid)) {
         ctx.log(`[AutoMod] cassino ignorado — remetente é admin: ${senderJid}`);
-        return { acted: false, reason: 'cassino: remetente é admin', action: 'none' };
+        return { acted: false, reason: 'cassino: remetente é admin', action: 'none', moderationState: makeModerationState({ detected: true }) };
       }
     } catch { /* ignorar */ }
 
     if (isAuditOnly) {
       ctx.log(`[AutoMod] AUDIT-ONLY cassino: ${senderJid} seria banido/removido/deletado (sinais: ${casinoDetection.signals.join(', ')})`);
-      return { acted: false, reason: 'cassino: audit-only', action: 'none' };
+      return { acted: false, reason: 'cassino: audit-only', action: 'none', moderationState: makeModerationState({ detected: true, actionPlanned: true, finalState: 'AUDIT_ONLY' }) };
     }
 
     // Ban persistente
@@ -682,19 +735,18 @@ export async function evaluate(
     }
 
     // Delete mensagem
-    let casinoDeleteSuccess = false;
-    try {
-      await ctx.sendMessage(groupId, '', { delete: buildDeleteKey(msg, senderJid) });
-      ctx.log(`[AutoMod] mensagem deletada (cassino): ${senderJid}`);
+    const casinoDeleteOutcome = await requestModerationDelete(buildDeleteKey(msg, senderJid));
+    const casinoDeleteSuccess = casinoDeleteOutcome.finalState === 'PASS';
+    if (casinoDeleteSuccess) {
+      ctx.log(`[AutoMod] mensagem deletada e confirmada (cassino): ${senderJid}`);
       reportedActions.push(`MSGMENSAGEMAPAGADA`);
-      casinoDeleteSuccess = true;
-    } catch (err: any) { ctx.warn('[AutoMod] erro ao deletar (cassino):', err?.message); }
-
-    // Registrar infração
-    await recordInfraction(groupId, senderJid).catch(err => ctx.warn('[AutoMod] erro ao registrar infração (cassino):', err?.message));
+      await recordInfraction(groupId, senderJid).catch(err => ctx.warn('[AutoMod] erro ao registrar infração (cassino):', err?.message));
+    } else {
+      ctx.warn(`[AutoMod] delete cassino não confirmado (${casinoDeleteOutcome.finalState})`, casinoDeleteOutcome.error);
+    }
 
     // Anunciar — só se houve ação real
-    if (config.detectar === true) {
+    if (config.detectar === true && casinoDeleteSuccess) {
       const hasRealAction = reportedActions.some(a => a === 'REMOVIDO' || a === 'MSGMENSAGEMAPAGADA');
       if (hasRealAction) {
         try {
@@ -704,9 +756,10 @@ export async function evaluate(
     }
 
     return {
-      acted: true,
+      acted: casinoDeleteSuccess,
       reason: `cassino-alta-probabilidade: ${casinoDetection.signals.join(', ')} → ${reportedActions.join('; ')}`,
       action: 'ban+remove+delete+announce',
+      moderationState: { ...makeModerationState({ detected: true, actionPlanned: true }), ...moderationStateFromDeleteOutcome(casinoDeleteOutcome) },
     };
   }
 
@@ -719,7 +772,7 @@ export async function evaluate(
         // Blindagem: ID protegido não é banido/removido/deletado
         if (isProtectedTarget(senderJid)) {
           ctx.log(`[AutoMod] antibot ignorado — ID protegido: ${senderJid}`);
-          return { acted: false, reason: 'antibot: ID protegido', action: 'none' };
+          return { acted: false, reason: 'antibot: ID protegido', action: 'none', moderationState: makeModerationState({ detected: true }) };
         }
 
         // Admin do grupo: nunca é punido automaticamente. Verificado ANTES do
@@ -727,16 +780,16 @@ export async function evaluate(
         // não pode ser banido por mandar uma mensagem estruturada.
         try {
           const chat = await ctx.getChat(groupId);
-          if (isSenderGroupAdmin(chat, senderJid)) {
-            ctx.log(`[AutoMod] antibot ignorado — remetente é admin: ${senderJid}`);
-            return { acted: false, reason: 'antibot: remetente é admin', action: 'none' };
-          }
+        if (isSenderGroupAdmin(chat, senderJid)) {
+          ctx.log(`[AutoMod] antibot ignorado — remetente é admin: ${senderJid}`);
+          return { acted: false, reason: 'antibot: remetente é admin', action: 'none', moderationState: makeModerationState({ detected: true }) };
+        }
         } catch { /* ignorar */ }
 
         // Audit-only mode: apenas registrar, não executar ações
         if (isAuditOnly) {
           ctx.log(`[AutoMod] AUDIT-ONLY antibot: ${senderJid} seria banido/removido/deletado (sinais: ${botSignals.join(', ')})`);
-          return { acted: false, reason: 'antibot: audit-only', action: 'none' };
+          return { acted: false, reason: 'antibot: audit-only', action: 'none', moderationState: makeModerationState({ detected: true, actionPlanned: true, finalState: 'AUDIT_ONLY' }) };
         }
 
       // Ban persistente
@@ -756,19 +809,18 @@ export async function evaluate(
       }
 
       // Delete mensagem
-      let antibotDeleteSuccess = false;
-            try {
-              await ctx.sendMessage(groupId, '', { delete: buildDeleteKey(msg, senderJid) });
-              ctx.log(`[AutoMod] mensagem deletada de ${senderJid}`);
-              reportedActions.push(`MSGMENSAGEMAPAGADA`);
-              antibotDeleteSuccess = true;
-            } catch (err: any) { ctx.warn('[AutoMod] erro ao deletar:', err?.message); }
+      const antibotDeleteOutcome = await requestModerationDelete(buildDeleteKey(msg, senderJid));
+      const antibotDeleteSuccess = antibotDeleteOutcome.finalState === 'PASS';
+      if (antibotDeleteSuccess) {
+        ctx.log(`[AutoMod] mensagem deletada e confirmada de ${senderJid}`);
+        reportedActions.push(`MSGMENSAGEMAPAGADA`);
+        await recordInfraction(groupId, senderJid).catch(err => ctx.warn('[AutoMod] erro ao registrar infração:', err?.message));
+      } else {
+        ctx.warn(`[AutoMod] delete AntiBot não confirmado (${antibotDeleteOutcome.finalState})`, antibotDeleteOutcome.error);
+      }
 
-            // Registrar infração
-            await recordInfraction(groupId, senderJid).catch(err => ctx.warn('[AutoMod] erro ao registrar infração:', err?.message));
-
-            // Anunciar se detectar on — só se houve ação real
-            if (config.detectar === true) {
+            // Anunciar — só se houve ação real
+            if (config.detectar === true && antibotDeleteSuccess) {
               const hasRealAction = reportedActions.some(a => a === 'REMOVIDO' || a === 'MSGMENSAGEMAPAGADA');
               if (hasRealAction) {
                 const ann = reportedActions.join(' | ');
@@ -779,9 +831,10 @@ export async function evaluate(
             }
 
             return {
-              acted: true,
+              acted: antibotDeleteSuccess,
               reason: `antibot: ${botSignals.join(', ')} → ${reportedActions.join('; ')}`,
               action: 'ban+remove+delete+announce',
+              moderationState: { ...makeModerationState({ detected: true, actionPlanned: true }), ...moderationStateFromDeleteOutcome(antibotDeleteOutcome) },
             };
           }
 
@@ -793,25 +846,26 @@ export async function evaluate(
         // Blindagem: ID protegido não tem mensagem deletada
         if (isProtectedTarget(senderJid)) {
           ctx.log(`[AutoMod] antilink ignorado — ID protegido: ${senderJid}`);
-          return { acted: false, reason: 'antilink: ID protegido', action: 'none' };
+          return { acted: false, reason: 'antilink: ID protegido', action: 'none', moderationState: makeModerationState({ detected: true }) };
         }
 
         // Audit-only mode: apenas registrar, não executar ações
         if (isAuditOnly) {
           ctx.log(`[AutoMod] AUDIT-ONLY antilink: mensagem de ${senderJid} seria deletada (domínios: ${urlList})`);
-          return { acted: false, reason: 'antilink: audit-only', action: 'none' };
+          return { acted: false, reason: 'antilink: audit-only', action: 'none', moderationState: makeModerationState({ detected: true, actionPlanned: true, finalState: 'AUDIT_ONLY' }) };
         }
       reportedActions.push(`ANTILINK: domínio(s) suspeito(s) ${urlList} em ${senderJid}`);
       ctx.log(`[AutoMod] antilink ativado: domínios ${urlList} de ${senderJid}`);
 
       // Delete mensagem
-      let antilinkDeleteSuccess = false;
-      try {
-        await ctx.sendMessage(groupId, '', { delete: buildDeleteKey(msg, senderJid) });
-        ctx.log(`[AutoMod] mensagem deletada por antilink: ${senderJid}`);
+      const antilinkDeleteOutcome = await requestModerationDelete(buildDeleteKey(msg, senderJid));
+      const antilinkDeleteSuccess = antilinkDeleteOutcome.finalState === 'PASS';
+      if (antilinkDeleteSuccess) {
+        ctx.log(`[AutoMod] mensagem deletada e confirmada por antilink: ${senderJid}`);
         reportedActions.push(`MSGMENSAGEMAPAGADA`);
-        antilinkDeleteSuccess = true;
-      } catch (err: any) { ctx.warn('[AutoMod] erro ao deletar mensagem:', err?.message); }
+      } else {
+        ctx.warn(`[AutoMod] delete antilink não confirmado (${antilinkDeleteOutcome.finalState})`, antilinkDeleteOutcome.error);
+      }
 
       // Anunciar se detectar on — só se deletou com sucesso
       if (config.detectar === true && antilinkDeleteSuccess) {
@@ -824,9 +878,10 @@ export async function evaluate(
       }
 
       return {
-        acted:true,
+        acted: antilinkDeleteSuccess,
         reason:`antilink: domínios ${urlList}`,
         action:'delete+announce',
+        moderationState: { ...makeModerationState({ detected: true, actionPlanned: true }), ...moderationStateFromDeleteOutcome(antilinkDeleteOutcome) },
       };
     }
 
@@ -836,13 +891,13 @@ export async function evaluate(
       // Blindagem: ID protegido não tem mensagem deletada
             if (isProtectedTarget(senderJid)) {
               ctx.log(`[AutoMod] antispam ignorado — ID protegido: ${senderJid}`);
-              return { acted: false, reason: 'antispam: ID protegido', action: 'none' };
+              return { acted: false, reason: 'antispam: ID protegido', action: 'none', moderationState: makeModerationState({ detected: true }) };
             }
 
             // Audit-only mode: apenas registrar, não executar ações
             if (isAuditOnly) {
               ctx.log(`[AutoMod] AUDIT-ONLY antispam: mensagem de ${senderJid} seria deletada`);
-              return { acted: false, reason: 'antispam: audit-only', action: 'none' };
+              return { acted: false, reason: 'antispam: audit-only', action: 'none', moderationState: makeModerationState({ detected: true, actionPlanned: true, finalState: 'AUDIT_ONLY' }) };
             }
 
       const snippet = text.slice(0, 40);
@@ -850,14 +905,17 @@ export async function evaluate(
       ctx.log(`[AutoMod] antispam ativado: anti-spam keyword + contexto → delete+announce`);
 
       // Delete mensagem
-      try {
-        await ctx.sendMessage(groupId, '', { delete: buildDeleteKey(msg, senderJid) });
-        ctx.log(`[AutoMod] mensagem deletada por antispam: ${senderJid}`);
+      const antispamDeleteOutcome = await requestModerationDelete(buildDeleteKey(msg, senderJid));
+      const antispamDeleteSuccess = antispamDeleteOutcome.finalState === 'PASS';
+      if (antispamDeleteSuccess) {
+        ctx.log(`[AutoMod] mensagem deletada e confirmada por antispam: ${senderJid}`);
         reportedActions.push(`MSGUPDELETE`);
-      } catch (err: any) { ctx.warn('[AutoMod] erro ao deletar mensagem:', err?.message); }
+      } else {
+        ctx.warn(`[AutoMod] delete antispam não confirmado (${antispamDeleteOutcome.finalState})`, antispamDeleteOutcome.error);
+      }
 
       // Anunciar se detectar on
-            if (config.detectar === true) {
+            if (config.detectar === true && antispamDeleteSuccess) {
               const ann = reportedActions.join(' | ');
               try {
                 await ctx.sendMessage(
@@ -867,19 +925,22 @@ export async function evaluate(
               } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar:', err?.message); }
             }
 
-            // Registrar infração
-            await recordInfraction(groupId, senderJid).catch(err => ctx.warn('[AutoMod] erro ao registrar infração:', err?.message));
+            // Registrar infração somente após confirmação real.
+            if (antispamDeleteSuccess) {
+              await recordInfraction(groupId, senderJid).catch(err => ctx.warn('[AutoMod] erro ao registrar infração:', err?.message));
+            }
 
             return {
-              acted:true,
+              acted: antispamDeleteSuccess,
               reason:`antispam: ${reportedActions.join('; ')}`,
               action:'delete+announce',
+              moderationState: { ...makeModerationState({ detected: true, actionPlanned: true }), ...moderationStateFromDeleteOutcome(antispamDeleteOutcome) },
             };
           }
 
   // Nada ativado que precise agir
   ctx.log(`[AutoMod] sem ações: config=${JSON.stringify(config)} foreign=${isForeignNumber(senderJid)} spamKW=${hasSpamKeyword} spamCtx=${spamContext} domain=${isSuspiciousDomain(domains)} botSig=${botSignals.length}`);
-  return { acted:false, reason:'sem ações', action:'none' };
+  return { acted:false, reason:'sem ações', action:'none', moderationState: makeModerationState() };
 }
 
 // ─── Cleanup periódico (chamar a cada N min via setInterval no entry point) ──

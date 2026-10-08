@@ -14,6 +14,7 @@ export type TargetKey = {
 export interface DeleteConfirmation {
   type: DeleteConfirmationSource;
   confirmationSource: DeleteConfirmationSource;
+  correlationId?: string;
   targetId: string;
   remoteJid: string;
   protocolMessageType?: 'REVOKE';

@@ -91,7 +91,7 @@ function makeCtx() {
 
 describe('DELETE — PN (participante sem LID)', () => {
   it('registra a key original no log sem executar ações destrutivas', async () => {
-    await db.setGroupModAll(GRUPO, { casino: true, remover: true, detectar: false, audit_only: false } as any);
+    await db.setGroupModAll(GRUPO, { casino: true, remover: true, detectar: false, audit_only: true } as any);
     const { ctx, calls, logs } = makeCtx();
     await engine.evaluate(
       makeMsg({ id: 'DEL-PN-1', remoteJid: GRUPO, participant: TERC }),
@@ -108,7 +108,7 @@ describe('DELETE — PN (participante sem LID)', () => {
 
 describe('DELETE — LID (grupo com addressingMode lid)', () => {
   it('registra a key completa em log-only sem exclusão', async () => {
-    await db.setGroupModAll(GRUPO_LID, { casino: true, remover: true, detectar: false, audit_only: false } as any);
+    await db.setGroupModAll(GRUPO_LID, { casino: true, remover: true, detectar: false, audit_only: true } as any);
     const { ctx, calls, logs } = makeCtx();
     await engine.evaluate(
       makeMsg({

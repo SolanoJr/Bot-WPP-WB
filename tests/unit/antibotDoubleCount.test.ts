@@ -19,6 +19,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { evaluate } from '../../src/services/autoModEngine';
 
+vi.mock('../../src/services/deleteConfirmationService', () => ({
+  requestConfirmedDelete: vi.fn(async ({ sendDelete }: any) => {
+    const response = await sendDelete();
+    return { requested: true, accepted: response !== undefined, confirmed: true, finalState: 'PASS' };
+  }),
+}));
+
 vi.mock('../../src/services/databaseService', () => ({
   getGroupMod: vi.fn(async () => ({
     antiestrangeiro: false,   // isolando o anti-bot (foreign contaria como sinal)

@@ -212,6 +212,14 @@ describe('Fix 1 â€” integraÃ§Ã£o com evaluate() (caminho de produÃ§Ã£o)', () => 
       cleanupOldJoinEntries: async () => {},
     }));
 
+    // O teste prova lookup/canonicalização; a confirmação Baileys é mockada
+    // para não transformar este caso em E2E real.
+    vi.doMock('../../src/services/deleteConfirmationService', () => ({
+      requestConfirmedDelete: async ({ sendDelete }: any) => {
+        const response = await sendDelete();
+        return { requested: true, accepted: response !== undefined, confirmed: true, finalState: 'PASS' };
+      },
+    }));
     const { evaluate } = await import('../../src/services/autoModEngine');
 
     const ctx: any = {
@@ -354,6 +362,14 @@ describe('Fix 1 â€” audit_only bloqueia aÃ§Ã£o destrutiva', () => {
       cleanupOldFingerprintEntries: async () => {}, cleanupOldJoinEntries: async () => {},
     }));
 
+    // O teste prova lookup/canonicalização; a confirmação Baileys é mockada
+    // para não transformar este caso em E2E real.
+    vi.doMock('../../src/services/deleteConfirmationService', () => ({
+      requestConfirmedDelete: async ({ sendDelete }: any) => {
+        const response = await sendDelete();
+        return { requested: true, accepted: response !== undefined, confirmed: true, finalState: 'PASS' };
+      },
+    }));
     const { evaluate } = await import('../../src/services/autoModEngine');
     const logs: string[] = [];
     const sendMessage = vi.fn(async () => ({ id: 's1' }));

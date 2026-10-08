@@ -128,6 +128,14 @@ describe('PIPELINE — 1-5. Mensagens legítimas NÃO são punidas', () => {
     const { ctx, calls, logs } = makeCtx();
     const r = await engine.evaluate(waMessage({ message: { conversation: 'Bom dia pessoal!' } }), ctx as any, GRUPO, NORMAL_JID, 'João');
     expect(r.acted).toBe(false);
+    expect(r.moderationState).toEqual({
+      detected: false,
+      actionPlanned: false,
+      deleteRequested: false,
+      deleteAccepted: false,
+      deleteConfirmed: false,
+      finalState: 'NONE',
+    });
     expect(calls.filter(c => c.step === 'remove' || c.step === 'delete')).toEqual([]);
   });
 
@@ -193,7 +201,7 @@ describe('PIPELINE — 6-10. Estruturas de bot', () => {
   });
 
   it('6b. buttonsMessage + DDI estrangeiro → registra sinais sem punir', async () => {
-    await configurar({ antibot: true, casino: false, remover: true, detectar: true });
+    await configurar({ antibot: true, casino: false, remover: true, detectar: true, audit_only: true });
     resetInfractions();
     const { ctx, calls, logs } = makeCtx();
     const r = await engine.evaluate(
@@ -215,7 +223,7 @@ describe('PIPELINE — 6-10. Estruturas de bot', () => {
 
 describe('PIPELINE — 11-13. Cassino e independência de nacionalidade', () => {
   it('11. cassino (domínio + keywords) → detecta sem executar punição', async () => {
-    await configurar({ casino: true, antibot: false, remover: true, detectar: true });
+    await configurar({ casino: true, antibot: false, remover: true, detectar: true, audit_only: true });
     resetInfractions();
     const { ctx, calls, logs } = makeCtx();
     const r = await engine.evaluate(
@@ -230,7 +238,7 @@ describe('PIPELINE — 11-13. Cassino e independência de nacionalidade', () => 
   });
 
   it('12. cassino com remetente BRASILEIRO → também detecta (não depende de nacionalidade)', async () => {
-    await configurar({ casino: true, antibot: false, remover: true, detectar: true });
+    await configurar({ casino: true, antibot: false, remover: true, detectar: true, audit_only: true });
     resetInfractions();
     const { ctx, calls } = makeCtx();
     const r = await engine.evaluate(
@@ -243,7 +251,7 @@ describe('PIPELINE — 11-13. Cassino e independência de nacionalidade', () => 
   });
 
   it('13. ESTRANGEIRO sem conteúdo de cassino → NÃO é punido (independência)', async () => {
-    await configurar({ casino: true, antibot: false, antiestrangeiro: false, remover: true, detectar: true });
+    await configurar({ casino: true, antibot: false, antiestrangeiro: false, remover: true, detectar: true, audit_only: true });
     resetInfractions();
     const { ctx, calls } = makeCtx();
     const r = await engine.evaluate(
@@ -318,6 +326,14 @@ describe('PIPELINE — modo dry-run obrigatório', () => {
     );
     expect(r.acted).toBe(false);
     expect(r.reason).toContain('audit-only');
+    expect(r.moderationState).toMatchObject({
+      detected: true,
+      actionPlanned: true,
+      deleteRequested: false,
+      deleteAccepted: false,
+      deleteConfirmed: false,
+      finalState: 'AUDIT_ONLY',
+    });
     expect(calls.filter(c => c.step === 'delete')).toEqual([]);
     expect(calls.filter(c => c.step === 'remove')).toEqual([]);
     expect(calls.filter(c => c.step === 'announce')).toEqual([]);
@@ -325,7 +341,7 @@ describe('PIPELINE — modo dry-run obrigatório', () => {
     expect(logs.some(l => l.includes('AUDIT-ONLY'))).toBe(true);  // MAS registra a detecção
   });
 
-  it('19. audit_only=0 → as ações continuam desativadas pelo dry-run global', async () => {
+  it('19. audit_only=0 → alcança o serviço, mas FAIL sem socket Baileys real', async () => {
     await configurar({ casino: true, antibot: false, remover: true, detectar: true, audit_only: false });
     resetInfractions();
     const { ctx, calls } = makeCtx();
@@ -334,15 +350,18 @@ describe('PIPELINE — modo dry-run obrigatório', () => {
       ctx as any, GRUPO, NORMAL_JID, 'Promoter',
     );
     expect(r.acted).toBe(false);
-    expect(r.reason).toContain('audit-only');
-    expect(calls).toEqual([]);
+    expect(r.reason).not.toContain('audit-only');
+    expect(r.reason).toContain('cassino');
+    expect(r.moderationState.finalState).toBe('FAIL');
+    expect(calls.filter(c => c.step === 'remove')).toHaveLength(1);
+    expect(calls.filter(c => c.step === 'delete')).toEqual([]);
     expect(infractions).toHaveLength(0);
   });
 });
 
 describe('PIPELINE — AntiBot/Casino independentes de AntiEstrangeiro', () => {
   it('antibot funciona com antiestrangeiro=0', async () => {
-    await configurar({ antibot: true, casino: false, antiestrangeiro: false, remover: true, detectar: true });
+    await configurar({ antibot: true, casino: false, antiestrangeiro: false, remover: true, detectar: true, audit_only: true });
     resetInfractions();
     const { ctx } = makeCtx();
     const r = await engine.evaluate(
@@ -354,7 +373,7 @@ describe('PIPELINE — AntiBot/Casino independentes de AntiEstrangeiro', () => {
   });
 
   it('casino funciona com antiestrangeiro=0', async () => {
-    await configurar({ casino: true, antibot: false, antiestrangeiro: false, remover: true, detectar: true });
+    await configurar({ casino: true, antibot: false, antiestrangeiro: false, remover: true, detectar: true, audit_only: true });
     resetInfractions();
     const { ctx } = makeCtx();
     const r = await engine.evaluate(
@@ -382,7 +401,7 @@ describe('PIPELINE — AntiBot/Casino independentes de AntiEstrangeiro', () => {
 
 describe('PIPELINE — dry-run registra a WAMessageKey COMPLETA', () => {
   it('registra participant + participantAlt + addressingMode sem chamar delete', async () => {
-    await configurar({ casino: true, remover: true, detectar: true, audit_only: false });
+    await configurar({ casino: true, remover: true, detectar: true, audit_only: true });
     resetInfractions();
     const { ctx, calls, logs } = makeCtx();
     await engine.evaluate(
@@ -402,7 +421,7 @@ describe('PIPELINE — dry-run registra a WAMessageKey COMPLETA', () => {
   });
 
   it('mantém delete, ban e remove inativos sem depender de audit_only do grupo', async () => {
-    await configurar({ casino: true, remover: true, detectar: true, audit_only: false });
+    await configurar({ casino: true, remover: true, detectar: true, audit_only: true });
     resetInfractions();
     const { ctx, calls } = makeCtx({ deleteThrows: true });
     const r = await engine.evaluate(

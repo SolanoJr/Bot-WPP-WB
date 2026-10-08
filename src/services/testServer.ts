@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { findMessageCapture, readCaptures as readPersistedCaptures } from './captureStore';
 import { isMaster, MASTER_USER } from './permissions';
-import { createDeleteConfirmationWaiter, type DeleteConfirmation } from './deleteE2EConfirmation';
+import { type DeleteConfirmation } from './deleteE2EConfirmation';
+import { requestConfirmedDelete } from './deleteConfirmationService';
 import { persistDeleteE2EResult } from './deleteE2EResult';
 import http from 'node:http';
 import { PlatformManager } from '../platforms/PlatformManager';
@@ -309,8 +310,7 @@ export function startTestServer(port: number = 3004): void {
           let commandState: { stage: string; details?: any } = { stage: 'not-dispatched' };
           let confirmation: DeleteConfirmation | null = null;
           let confirmationTimedOut = false;
-          let cleanupConfirmation: any = null;
-          let cleanupAttempted = false;
+          let deleteOutcome: Awaited<ReturnType<typeof requestConfirmedDelete>> | null = null;
           let failureCause = '';
           const markerWaiter = waitForOutgoingMarker(sock, groupJid, marker, 10000);
 
@@ -386,33 +386,32 @@ export function startTestServer(port: number = 3004): void {
               },
             };
 
-            const deleteWaiter = createDeleteConfirmationWaiter(sock, targetKey, correlationId, 10000);
-            await pm.handleIncomingMessage(commandMessage);
-            confirmation = await deleteWaiter.promise;
-            confirmationTimedOut = deleteWaiter.didTimeout();
-            deleteWaiter.dispose();
-            if (!confirmation) failureCause = `Sem REVOKE/messages.delete para ${targetKey.id}; etapa do comando: ${commandState.stage}`;
+            const deletePromise = requestConfirmedDelete({
+              platform: 'whatsapp',
+              chatId,
+              targetKey,
+              correlationId,
+              timeoutMs: 10000,
+              sock,
+              sendDelete: async () => {
+                await pm.handleIncomingMessage(commandMessage);
+                return commandState.stage === 'delete-accepted' ? { accepted: true } : null;
+              },
+            });
+            deleteOutcome = await deletePromise;
+            confirmation = deleteOutcome.confirmation || null;
+            confirmationTimedOut = deleteOutcome.finalState === 'TIMEOUT';
+            if (!confirmation) {
+              failureCause = `${deleteOutcome.error || `Sem REVOKE/messages.delete para ${targetKey.id}`}; etapa do comando: ${commandState.stage}`;
+            }
           } catch (err: any) {
             failureCause = err?.message || String(err);
           } finally {
             markerWaiter.dispose();
           }
 
-          if (!confirmation && targetKey?.id && targetKey.remoteJid === groupJid && targetKey.fromMe === true) {
-            cleanupAttempted = true;
-            const cleanupWaiter = createDeleteConfirmationWaiter(sock, targetKey, `${correlationId}:cleanup`, 5000);
-            try {
-              await adapter.client.sendMessage(chatId, '', { delete: targetKey });
-              cleanupConfirmation = await cleanupWaiter.promise;
-            } catch (err: any) {
-              failureCause ||= `Limpeza unica falhou: ${err?.message || String(err)}`;
-            } finally {
-              cleanupWaiter.dispose();
-            }
-          }
-
-          const deleteRequested = commandState.stage === 'delete-started' || commandState.stage === 'delete-accepted';
-          const deleteAccepted = commandState.stage === 'delete-accepted';
+          const deleteRequested = deleteOutcome?.requested === true;
+          const deleteAccepted = deleteOutcome?.accepted === true;
           const deleteConfirmed = !!confirmation;
           const passed = deleteConfirmed && deleteAccepted;
           const finalState = passed ? 'PASS' : confirmationTimedOut ? 'TIMEOUT' : 'FAIL';
@@ -461,10 +460,10 @@ export function startTestServer(port: number = 3004): void {
             targetMessageId: targetKey?.id || sentMessageId,
             confirmationTimestamp: confirmation?.timestamp || null,
             confirmationTargetKey: confirmation?.targetKey || null,
-            cleanupAttempted,
-            cleanupConfirmed: !!cleanupConfirmation,
-            pendingMessage: finalState === 'TIMEOUT' && messageCreated && !confirmation && !cleanupConfirmation,
-            pendingMessageId: finalState === 'TIMEOUT' && !confirmation && !cleanupConfirmation ? (targetKey?.id || sentMessageId) : null,
+            cleanupAttempted: false,
+            cleanupConfirmed: false,
+            pendingMessage: finalState === 'TIMEOUT' && messageCreated && !confirmation,
+            pendingMessageId: finalState === 'TIMEOUT' && !confirmation ? (targetKey?.id || sentMessageId) : null,
             failureCause: passed ? null : (failureCause || 'Baileys nao confirmou a exclusao real'),
             loopGuard: 'mensagem alvo fromMe e ignorada pelo normalizer; comando de laboratorio despachado uma vez',
           };
