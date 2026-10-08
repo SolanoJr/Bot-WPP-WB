@@ -389,7 +389,7 @@ class DiscordClient implements PlatformClient {
     await msg.react(emoji);
   }
 
-  async onMessage(handler: MessageHandler): Promise<void> {
+  onMessage(handler: MessageHandler): void {
     this.messageHandler = handler;
   }
 
@@ -640,16 +640,6 @@ export class DiscordAdapter implements PlatformAdapter {
 
   async initialize(): Promise<void> {
     await (this.client as DiscordClient).login();
-    if (!this.client.isReady) {
-      await new Promise<void>((resolve) => {
-        const check = () => {
-          if (this.client.isReady) { resolve(); return; }
-          this.client.onReady(resolve);
-        };
-        check();
-        setTimeout(resolve, 15000);
-      });
-    }
   }
 
   async shutdown(): Promise<void> {
