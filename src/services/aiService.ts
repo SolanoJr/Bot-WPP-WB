@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { getDb } from './databaseService';
 import { logInfo, logWarning, logError } from './loggerService';
+import { circuitBreakerManager } from './circuitBreaker';
+import { retryApiCall } from './retryWithBackoff';
 
 /**
  * Envia uma pergunta para a IA do Gemini com suporte a memória de contexto
@@ -49,22 +51,32 @@ Data/Hora atual: ${dateTimeStr}
 Contexto da conversa anterior:
 ${context}`;
 
-        const response = await axios.post(url, {
-            contents: [
-                {
-                    parts: [{ text: `${systemInstruction}\n\nPergunta atual: ${prompt}` }]
-                }
-            ],
-            generationConfig: {
-                temperature: 0.7,
-                topK: 40,
-                topP: 0.95,
-                maxOutputTokens: 1024,
-            }
-        }, {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 15000
+        // Circuit Breaker + Retry wrapper
+        const breaker = circuitBreakerManager.get('gemini-api', {
+            failureThreshold: 3,
+            successThreshold: 2,
+            timeout: 90000,
+            resetTimeout: 60000
         });
+
+        const response = await breaker.execute(async () =>
+            await retryApiCall(async () => await axios.post(url, {
+                contents: [
+                    {
+                        parts: [{ text: `${systemInstruction}\n\nPergunta atual: ${prompt}` }]
+                    }
+                ],
+                generationConfig: {
+                    temperature: 0.7,
+                    topK: 40,
+                    topP: 0.95,
+                    maxOutputTokens: 1024,
+                }
+            }, {
+                headers: { 'Content-Type': 'application/json' },
+                timeout: 15000
+            }))
+        );
 
         if (response.data && response.data.candidates && response.data.candidates[0].content && response.data.candidates[0].content.parts) {
             const aiResponse = response.data.candidates[0].content.parts[0].text;

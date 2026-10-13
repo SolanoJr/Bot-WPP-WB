@@ -13,6 +13,16 @@ vi.mock('axios', () => ({
   },
 }));
 
+vi.mock('../../src/services/circuitBreaker', () => ({
+  circuitBreakerManager: {
+    get: vi.fn(() => ({ execute: vi.fn((fn: any) => fn()) })),
+  },
+}));
+
+vi.mock('../../src/services/retryWithBackoff', () => ({
+  retryApiCall: vi.fn(async (fn: any) => await fn()),
+}));
+
 afterAll(() => {
   try { fs.rmSync(TMP_DIR, { recursive: true, force: true }); } catch { /* SQLite may retain handles briefly on Windows. */ }
 });
