@@ -24,6 +24,12 @@ export interface CircuitBreakerConfig {
   successThreshold?: number;    // Sucessos consecutivos para fechar circuito (default: 2)
   timeout?: number;             // Timeout em ms para considerar falha (default: 10000)
   resetTimeout?: number;        // Tempo em ms para tentar HALF_OPEN após OPEN (default: 60000)
+  /**
+   * Retorna false para erros que NÃO representam indisponibilidade do
+   * provider (ex.: 4xx não-recuperável). Não contam para abrir o circuito
+   * nem para reabri-lo em HALF_OPEN.
+   */
+  shouldCountFailure?: (error: any) => boolean;
 }
 
 export interface CircuitBreakerStats {
@@ -51,6 +57,7 @@ export class CircuitBreaker {
   private readonly successThreshold: number;
   private readonly timeout: number;
   private readonly resetTimeout: number;
+  private readonly shouldCountFailure: (error: any) => boolean;
 
   constructor(name: string, config: CircuitBreakerConfig = {}) {
     this.name = name;
@@ -58,6 +65,7 @@ export class CircuitBreaker {
     this.successThreshold = config.successThreshold ?? 2;
     this.timeout = config.timeout ?? 10000;
     this.resetTimeout = config.resetTimeout ?? 60000;
+    this.shouldCountFailure = config.shouldCountFailure ?? (() => true);
   }
 
   /**
@@ -129,6 +137,13 @@ export class CircuitBreaker {
    * Handler de falha
    */
   private onFailure(error: any): void {
+    if (!this.shouldCountFailure(error)) {
+      logger.warn(`[CircuitBreaker:${this.name}] Erro de cliente ignorado (não conta para o circuito)`, {
+        error: error?.message
+      });
+      return;
+    }
+
     this.failureCount++;
     this.lastFailureTime = Date.now();
 

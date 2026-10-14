@@ -56,7 +56,13 @@ ${context}`;
             failureThreshold: 3,
             successThreshold: 2,
             timeout: 90000,
-            resetTimeout: 60000
+            resetTimeout: 60000,
+            // 4xx não-recuperável (prompt inválido, key errada) não é falha de
+            // disponibilidade do provider — não deve abrir o circuito.
+            shouldCountFailure: (err: any) => {
+                const s = err?.response?.status;
+                return !(s && s >= 400 && s < 500 && s !== 429);
+            }
         });
 
         const response = await breaker.execute(async () =>

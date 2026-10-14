@@ -31,6 +31,16 @@ const PROD_CONFIG = {
   resetTimeout: 60000,
 };
 
+const FILTER_4XX = (err: any) => {
+  const s = err?.response?.status;
+  return !(s && s >= 400 && s < 500 && s !== 429);
+};
+
+const PROD_CONFIG_FILTERED = {
+  ...PROD_CONFIG,
+  shouldCountFailure: FILTER_4XX,
+};
+
 const fail = () => Promise.reject(new Error('boom'));
 const ok = () => Promise.resolve('ok');
 const never = () => new Promise<never>(() => {});
@@ -194,20 +204,44 @@ describe('CircuitBreaker × retryApiCall — o que o retry absorve antes do brea
     expect(b.getStats().state).toBe(CircuitState.OPEN);
   });
 
-  it('400 NÃO é retentado, mas CONTA como falha do breaker', async () => {
-    const b = new CircuitBreaker('t-retry-400', PROD_CONFIG);
+  it('400 NÃO é retentado e NÃO conta como falha do breaker', async () => {
+    const b = new CircuitBreaker('t-retry-400', PROD_CONFIG_FILTERED);
     const attempt = vi.fn().mockRejectedValue(httpError(400));
 
     await settleWithClock(b.execute(() => retryApiCall(attempt)));
     expect(attempt).toHaveBeenCalledTimes(1); // 400 não está na lista de retryable
-    expect(b.getStats().failures).toBe(1); // ...mas o breaker conta assim mesmo
+    expect(b.getStats().failures).toBe(0); // 4xx não-recuperável não conta
+    expect(b.getStats().state).toBe(CircuitState.CLOSED);
 
-    // consequência: 3 prompts malformados abrem o circuito e bloqueiam
-    // chamadas legítimas por 60s
+    // 3 prompts malformados NÃO abrem o circuito
     for (let i = 0; i < 2; i++) {
       await settleWithClock(b.execute(() => retryApiCall(attempt)));
     }
-    expect(b.getStats().state).toBe(CircuitState.OPEN);
+    expect(b.getStats().state).toBe(CircuitState.CLOSED);
+  });
+
+  it('400 em HALF_OPEN NÃO reabre o circuito', async () => {
+    const b = new CircuitBreaker('t-retry-400-halfopen', PROD_CONFIG_FILTERED);
+    await abrir(b);
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(b.getStats().state).toBe(CircuitState.HALF_OPEN);
+
+    const failuresAntes = b.getStats().failures; // 3, do abrir(b)
+    const attempt = vi.fn().mockRejectedValue(httpError(400));
+    await settleWithClock(b.execute(() => retryApiCall(attempt)));
+
+    expect(b.getStats().state).toBe(CircuitState.HALF_OPEN); // não reabriu
+    expect(b.getStats().failures).toBe(failuresAntes); // 400 filtrado não incrementa
+  });
+
+  it('429 continua contando como falha (só 4xx é ignorado)', async () => {
+    const b = new CircuitBreaker('t-retry-429-counts', PROD_CONFIG);
+    const attempt = vi.fn().mockRejectedValue(httpError(429));
+
+    await settleWithClock(b.execute(() => retryApiCall(attempt)));
+
+    expect(b.getStats().failures).toBe(1); // 429 é indisponibilidade — conta
+    expect(b.getStats().state).toBe(CircuitState.CLOSED);
   });
 
   it('erro de rede (ECONNRESET) é retentado igual ao 429', async () => {
