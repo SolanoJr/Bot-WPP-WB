@@ -7,8 +7,13 @@
 import logger from './loggerService';
 
 // Configuração de usuários
-const MASTER_USER = process.env.MASTER_USER || '5588998314322@c.us';
-const MASTER_NUMBER = process.env.MASTER_NUMBER || '5588998314322';
+// MASTER_USER é obrigatório — sem fallback hardcoded.
+const masterUserEnv = process.env.MASTER_USER;
+if (!masterUserEnv) {
+    throw new Error('MASTER_USER environment variable is required');
+}
+const MASTER_USER: string = masterUserEnv;
+const MASTER_NUMBER = process.env.MASTER_NUMBER ?? '';
 const ADMINS = new Set((process.env.ADMINS || '').split(',').filter(Boolean));
 const BOT_NUMBER = process.env.BOT_NUMBER || '558581344211';
 const BOT_LID = process.env.BOT_LID || '2592935567439';
