@@ -1,1 +1,0 @@
-export { loadCommands } from './commands';
