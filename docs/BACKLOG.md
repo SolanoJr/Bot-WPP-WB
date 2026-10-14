@@ -35,5 +35,27 @@ Consumidos principalmente na Rodada 4 (Comandos + Automações).
 - Verificar: muta o alvo? deleta mensagens dele durante o mute? expira sozinho?
 - Evidência esperada: mensagens apagadas durante janela + log de expiração
 
+## Arquitetura (Rodada 2 discovery)
+
+- Vazamento SDK: `autoModEngine.ts:16` importa `WAMessage` de baileys. Fix real
+  precisa derivar shape dos 6 call sites (`autoModEngine.ts:80,131,154,392,458,492`).
+  Rodada 3.
+- Interface errada: `promote`/`demote` precisam de `chatId`. Rodada 3 (junto com o
+  refactor de PlatformTypes).
+- Fantasmas: `mute?`/`unmute?`/`promote?`/`demote?` na interface sem implementação.
+  Decisão: implementar ou remover. Rodada 3.
+- Ciclo: `databaseService.ts:398` ↔ `listsService.ts:17` (`await import()` lazy,
+  não quebra boot). Rodada 3.
+- 8 arquivos mortos (lista na Rodada 2 discovery). Rodada 3.
+- 13 sites `platform ===` para mover a capacity. Rodada 3.
+- God classes `testServer.ts` (1526), `databaseService.ts` (969), `autoModEngine.ts`
+  (955). Rodada 5+.
+- 5 sites `member.isAdmin || member.isSuperAdmin` cru → usar
+  `groupAdmin.findParticipant`. Rodada 3.
+- `promote`/`demote` reais nos 3 adapters (precisa lab). Rodada 4.
+- Persistir mute (hoje `Map` in-memory). Rodada 4.
+- Reconciliação dos "37 sites" originais da Rodada 1 vs os ~12 refinados —
+  item em aberto pra quando a Rodada 1 for revisitada. Não bloqueia.
+
 ## Rodada planejada
 Rodada 4 (Comandos + Automações) — após Rodadas 2 e 3.
