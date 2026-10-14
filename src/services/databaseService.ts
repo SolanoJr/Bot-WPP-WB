@@ -400,6 +400,20 @@ export async function initDatabase(): Promise<Database> {
 
   // Listas (arquitetura suportada — não eram comandos fantasmas, mas funcionalidade viva)
   await (await import('./listsService.js')).initListsTable(db);
+
+  // Guard: bancos criados antes da correção de defaults têm DEFAULT 1 gravado
+  // no DDL. O app não depende disso (todo INSERT lista as flags explicitamente),
+  // mas um INSERT parcial passaria a ligar a moderação sozinha num grupo novo.
+  // Denuncia no boot; o rebuild da tabela exige janela com backup validado.
+  try {
+    const gmSql: any = await db.get(
+      `SELECT sql FROM sqlite_master WHERE name='group_mod'`
+    );
+    if (gmSql?.sql && /(antispam|antiestrangeiro|autolink|remover)\s+BOOLEAN\s+DEFAULT\s+1/i.test(gmSql.sql)) {
+      logWarning('[databaseService] group_mod com DEFAULT 1 legado no DDL — INSERT parcial pode ligar moderação sozinha');
+    }
+  } catch { /* inspeção é best-effort; não impede o boot */ }
+
   return db;
 }
 
