@@ -432,6 +432,20 @@ export async function checkpointWal(): Promise<void> {
   await db.exec("PRAGMA wal_checkpoint(PASSIVE);");
 }
 
+/**
+ * Backup consistente do banco.
+ *
+ * `VACUUM INTO` materializa o conteúdo do WAL no destino — copiar só o .db
+ * perde tudo que ainda não sofreu checkpoint (no incidente de 14/out eram
+ * 6 dias de escrita). Gera um arquivo único, sem -wal/-shm.
+ */
+export async function backupDatabase(destPath: string): Promise<void> {
+  const db = await getDb();
+  // VACUUM INTO não aceita bind de parâmetro; escapa aspas simples do path.
+  const safe = destPath.replace(/'/g, "''");
+  await db.exec(`VACUUM INTO '${safe}'`);
+}
+
 /** Fecha a conexão somente para ferramentas de execução curta, como a CLI. */
 export async function closeDatabase(): Promise<void> {
   if (!dbInstance) return;
