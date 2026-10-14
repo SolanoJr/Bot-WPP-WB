@@ -57,5 +57,33 @@ Consumidos principalmente na Rodada 4 (Comandos + Automações).
 - Reconciliação dos "37 sites" originais da Rodada 1 vs os ~12 refinados —
   item em aberto pra quando a Rodada 1 for revisitada. Não bloqueia.
 
+## Banco + DDL + Integridade (Rodada 3a)
+
+Resolvido em 3b: checkpoint do WAL (`f6423c8`), `backupDatabase` via VACUUM INTO
+(`8234a96`), guard de DDL legado (`c905460`).
+
+Pendente:
+- Rebuild de `group_mod` com `DEFAULT 0` — prod ainda tem `DEFAULT 1` em
+  `antispam/antiestrangeiro/autolink/remover`. Só depois do backup novo rodar
+  por alguns dias. Janela com backup validado.
+- TTL para `command_logs` e `ai_history` (este último guarda prompt+response inteiros).
+- TTL/expurgo real para `feedback_events` — `expires_at` só filtra a query
+  (`feedbackService.ts:184`), nunca deleta.
+- `presentations` sem TTL.
+- Trilha persistente para `$delete` (`deleteMsg.ts:75`) e `removeParticipant`
+  (`BaileysMemberManager.ts:24`). Rodada 3c ou 4.
+- Decidir `infractions`: implementar os 3 strikes (`MAX_INFRACTIONS`,
+  `getInfractionCount`, `resetInfractions` — todos sem chamador) ou deletar o módulo.
+- Limpar `data.preD2B/` e `ecosystem.config.js.preD2B` da VPS.
+- Reconferir `discord-screen` no PM2 (hoje só `bot-wpp` online).
+- Crontab da VPS: o `find` aponta pra `~/bot-wpp/backup`, que não existe — o real
+  é `~/bot-wpp/data/backups`. Aplicar manualmente.
+
+Correções de relatórios anteriores:
+- `command_usage_events` **tem** retenção (180d, `databaseService.ts:392-399`).
+  O relatório 3a listou como sem TTL — errado.
+- `data.preD2B/` **existe na VPS** (`~/bot-wpp/data.preD2B/`). O "0 achados" da
+  Rodada 2 valia só pro clone Windows.
+
 ## Rodada planejada
 Rodada 4 (Comandos + Automações) — após Rodadas 2 e 3.
