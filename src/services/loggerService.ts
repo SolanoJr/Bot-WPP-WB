@@ -65,22 +65,40 @@ const platformLogger = winston.createLogger({
   ],
 });
 
+const REDACTION_PATTERNS: Array<[RegExp, string]> = [
+  // ORDEM IMPORTA: JID primeiro, senão "5588998314322@s.whatsapp.net"
+  // vira "[REDACTED_PHONE]@s.whatsapp.net" e o número escapa.
+  [/\d+@(?:s\.whatsapp\.net|c\.us|g\.us|lid|newsletter|broadcast)/g, '[REDACTED_JID]'],
+  // (\b não funciona como início: entre espaço e + não há word boundary,
+  // o + fica órfão → +[REDACTED_PHONE]. Lookbehind de dígito resolve.)
+  [/(?<![\d])(?:\+?55)?\d{2}(?:9\d{8}|[2-5]\d{7})\b/g, '[REDACTED_PHONE]'],
+  [/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[REDACTED_EMAIL]'],
+];
+
+export function redactValue(value: string): string {
+  let out = value;
+  for (const [pattern, replacement] of REDACTION_PATTERNS) {
+    out = out.replace(pattern, replacement);
+  }
+  return out;
+}
+
 /**
  * Registra erro com contexto completo
  */
 export function logError(context: string, error: any, extra?: Record<string, any>): void {
   const msg = error?.message || String(error);
   const stack = error?.stack;
-  logger.error(`❌ [${context}] ${msg}${extra ? ' | ' + JSON.stringify(extra) : ''}`);
+  logger.error(redactValue(`❌ [${context}] ${msg}${extra ? ' | ' + JSON.stringify(extra) : ''}`));
   if (stack) logger.error(`   Stack: ${stack.split('\n')[1]?.trim() ?? ''}`);
 }
 
 export function logInfo(message: string, meta: any = {}): void {
-  logger.info(`${message} ${Object.keys(meta).length ? JSON.stringify(meta) : ''}`);
+  logger.info(redactValue(`${message} ${Object.keys(meta).length ? JSON.stringify(meta) : ''}`));
 }
 
 export function logWarning(message: string, meta: any = {}): void {
-  logger.warn(`${message} ${Object.keys(meta).length ? JSON.stringify(meta) : ''}`);
+  logger.warn(redactValue(`${message} ${Object.keys(meta).length ? JSON.stringify(meta) : ''}`));
 }
 
 export default logger;
