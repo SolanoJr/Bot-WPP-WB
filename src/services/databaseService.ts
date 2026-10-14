@@ -79,6 +79,10 @@ export async function initDatabase(): Promise<Database> {
   await db.exec("PRAGMA busy_timeout=10000;");
   await db.exec("PRAGMA foreign_keys=ON;");
   await db.exec("PRAGMA wal_autocheckpoint=1000;");
+  // Sem journal_size_limit o WAL nunca encolhe depois do checkpoint e o .db
+  // fica defasado — o arquivo principal não recebia checkpoint desde 08/out e
+  // todo o dado vivo dos últimos dias morava no -wal.
+  await db.exec("PRAGMA journal_size_limit=4194304;"); // 4MB
 
   // ─── Logs de comandos ───
   await db.exec(`
@@ -414,6 +418,18 @@ export async function getDb(): Promise<Database> {
   });
 
   return dbInitPromise;
+}
+
+/**
+ * Força o merge do WAL no arquivo principal.
+ *
+ * PASSIVE: nunca bloqueia — faz o merge que conseguir, sem esperar leitores.
+ * TRUNCATE seria mais agressivo, mas pode dar lock com o bot rodando.
+ * Chamado pelo cleanupService a cada 6h.
+ */
+export async function checkpointWal(): Promise<void> {
+  const db = await getDb();
+  await db.exec("PRAGMA wal_checkpoint(PASSIVE);");
 }
 
 /** Fecha a conexão somente para ferramentas de execução curta, como a CLI. */

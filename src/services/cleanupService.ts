@@ -11,7 +11,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import logger from './loggerService';
-import { cleanupOldFingerprintEntries, cleanupOldJoinEntries } from './databaseService';
+import { cleanupOldFingerprintEntries, cleanupOldJoinEntries, checkpointWal } from './databaseService';
 
 export interface CleanupStats {
   logsDeleted: number;
@@ -64,7 +64,16 @@ export class CleanupService {
       await cleanupOldJoinEntries(2592000); // 30 dias
       stats.joinEntriesDeleted = 1; // Não temos count exato, marcar como feito
 
-      // 4. Limpar arquivos temporários
+      // 4. Checkpoint do WAL — garante que o arquivo principal em disco reflita
+      // o estado real. Sem isso o .db fica defasado e um backup só do .db perde
+      // tudo que ainda está no -wal. Best-effort: falha não aborta a limpeza.
+      try {
+        await checkpointWal();
+      } catch (e: any) {
+        logger.warn('[Cleanup] checkpoint do WAL falhou (não bloqueia)', { err: String(e?.message || e) });
+      }
+
+      // 5. Limpar arquivos temporários
       const tempStats = await this.cleanupTempFiles();
       stats.tempFilesDeleted = tempStats.filesDeleted;
       stats.bytesFreed += tempStats.bytesFreed;
