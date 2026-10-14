@@ -724,13 +724,48 @@ export async function ensureGroupModRow(groupId: string): Promise<string> {
     `INSERT OR IGNORE INTO group_mod (group_id, ${cols}) VALUES (?, ${zeros})`,
     [key]
   );
+  invalidateGroupModCache();
   return key;
 }
 
+// ─── Cache NEGATIVO de group_mod ───
+//
+// Grupos que nunca ligaram automação não têm linha em group_mod, e o AutoMod
+// chama getGroupMod() no caminho quente (1x por mensagem). O resultado "não
+// existe linha" é estável e barato de cachear — evita até 3 queries por
+// mensagem nesses grupos (observado: ~750 e ~490 evaluate() "nada ligado").
+//
+// Só o caso NEGATIVO é cacheado. Qualquer INSERT em group_mod limpa o cache
+// inteiro, então a invalidação é trivial e nunca se serve config desatualizada
+// de um grupo que TEM linha. O TTL cobre alteração feita por fora do processo.
+const NEGATIVE_GROUP_MOD_TTL_MS = 30_000;
+const negativeGroupMod = new Map<string, number>();
+
+/** True se o grupo é sabidamente ausente de group_mod e o TTL não venceu. */
+function isKnownMissingGroupMod(groupId: string): boolean {
+  const expiresAt = negativeGroupMod.get(groupId);
+  if (expiresAt === undefined) return false;
+  if (expiresAt <= Date.now()) {
+    negativeGroupMod.delete(groupId); // TTL vencido: volta a consultar o banco
+    return false;
+  }
+  return true;
+}
+
+/** Limpa o cache negativo. Chamado em TODO INSERT em group_mod. */
+export function invalidateGroupModCache(): void {
+  negativeGroupMod.clear();
+}
+
 export async function getGroupMod(groupId: string): Promise<GroupModConfig> {
+  if (isKnownMissingGroupMod(groupId)) return {};
+
   const db = await getDb();
   const row = await getGroupModRow(db, groupId);
-  if (!row) return {};
+  if (!row) {
+    negativeGroupMod.set(groupId, Date.now() + NEGATIVE_GROUP_MOD_TTL_MS);
+    return {};
+  }
   return {
     antispam: row.antispam === 1 || row.antispam === true,
     antiestrangeiro: row.antiestrangeiro === 1 || row.antiestrangeiro === true,
@@ -859,6 +894,7 @@ export async function ensureGroupMod(
       `INSERT OR IGNORE INTO group_mod (group_id, ${cols}) VALUES (?, ${vals})`,
       [key]
     );
+    invalidateGroupModCache();
     logInfo(`[databaseService] Grupo ${key} criado no group_mod (automações desligadas por padrão).`);
   } else {
     const key = existing.group_id;
