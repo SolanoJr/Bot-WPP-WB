@@ -19,7 +19,11 @@ export const promoteCommand: ICommand = {
         }
         
         const userToPromote = mentioned[0].id;
-        await ctx.client.promote!(userToPromote);
+        if (typeof ctx.client.promote !== 'function') {
+            await ctx.reply('❌ Promoção não suportada nesta plataforma.');
+            return;
+        }
+        await ctx.client.promote(userToPromote);
         await ctx.reply(`✅ Usuário promovido a administrador.${groupTag(ctx)}`);
     }
 };

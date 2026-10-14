@@ -34,7 +34,6 @@
  * Apresentações são serviços separados e NÃO são alterados por ele.
  */
 import { ICommand } from './types';
-import { isMaster } from '../../services/permissions';
 import { groupTag } from './format';
 import {
   setGroupModField, setGroupModAll, getGroupAutomationStatus, GroupModConfig
@@ -129,7 +128,7 @@ export function buildModToggle(name: string): ICommand {
       : `Ativa/desativa ${alias?.label ?? name} no grupo. Uso: $${name} on|off`,
     async execute(ctx: any) {
       const args = ctx.args || [];
-      const isAdmin = ctx.isMaster || ctx.isAdmin || isMaster(ctx.userId);
+      const isAdmin = ctx.isMaster || ctx.isAdmin;
       if (!isAdmin) {
         return ctx.reply('🚫 Apenas administradores podem usar este comando.');
       }

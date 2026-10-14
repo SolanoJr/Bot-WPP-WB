@@ -1,5 +1,4 @@
 import { ICommand } from './types';
-import { isMaster } from '../../services/permissions';
 import { findParticipant } from '../../services/groupAdmin';
 import { setGroupModField, getGroupAutomationStatus } from '../../services/databaseService';
 import { groupTag } from './format';
@@ -23,7 +22,7 @@ export const sarcasmoCommand: ICommand = {
       return ctx.reply('⚠️ A configuração de sarcasmo só pode ser feita em grupos.');
     }
 
-    const isAdmin = ctx.isMaster || ctx.isAdmin || isMaster(ctx.userId);
+    const isAdmin = ctx.isMaster || ctx.isAdmin;
     if (!isAdmin) {
       const member = findParticipant(chat, ctx.userId);
       if (!member || (!member.isAdmin && !member.isSuperAdmin)) {

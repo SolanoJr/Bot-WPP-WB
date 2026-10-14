@@ -1,5 +1,4 @@
 import { ICommand } from './types';
-import { isMaster } from '../../services/permissions';
 import { listLists } from '../../services/listsService';
 import { groupTag } from './format';
 
@@ -17,7 +16,7 @@ export const listaCommand: ICommand = {
     if (!chat.isGroup) {
       return ctx.reply(`⚠️ O comando $lista só funciona em grupos.${groupTag(ctx)}`);
     }
-    const isAdmin = ctx.isMaster || ctx.isAdmin || isMaster(ctx.userId);
+    const isAdmin = ctx.isMaster || ctx.isAdmin;
     if (!isAdmin) {
       return ctx.reply(`🚫 Apenas administradores podem consultar listas.${groupTag(ctx)}`);
     }

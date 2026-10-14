@@ -1,5 +1,4 @@
 import { ICommand } from './types';
-import { isMaster } from '../../services/permissions';
 import { findParticipant } from '../../services/groupAdmin';
 import { setGroupModField, getGroupAutomationStatus } from '../../services/databaseService';
 import { listFeedback, stats } from '../../services/feedbackService';
@@ -26,7 +25,7 @@ export const feedbackCommand: ICommand = {
 
     // ─── Consultas (admin) ───
     if (['lista', 'recentes', 'grupo', 'estatisticas'].includes(sub)) {
-      const isAdmin = ctx.isMaster || ctx.isAdmin || isMaster(ctx.userId);
+      const isAdmin = ctx.isMaster || ctx.isAdmin;
       if (!isAdmin) {
         return ctx.reply('🚫 Apenas administradores podem consultar feedbacks.');
       }
@@ -64,7 +63,7 @@ export const feedbackCommand: ICommand = {
     if (!chat.isGroup) {
       return ctx.reply('⚠️ A configuração de feedback só pode ser feita em grupos.');
     }
-    const isAdmin = ctx.isMaster || ctx.isAdmin || isMaster(ctx.userId);
+    const isAdmin = ctx.isMaster || ctx.isAdmin;
     if (!isAdmin) {
       const member = findParticipant(chat, ctx.userId);
       if (!member || (!member.isAdmin && !member.isSuperAdmin)) {

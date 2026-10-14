@@ -96,8 +96,13 @@ export interface PlatformClient {
   getNumberId?(phone: string): Promise<{ serialized: string; lid?: string } | null>;
   getContactById?(id: string): Promise<PlatformUser | null>;
   // Gestão de moderação (multiplataforma) — usados por comandos destrutivos.
+  // TODO(rodada-3): fantasmas — nenhum adapter implementa mute/unmute.
+  // O $mute real usa Map in-memory em commands/mute.ts. Decidir: implementar ou remover.
   mute?(userId: string, durationMs: number): Promise<void>;
   unmute?(userId: string): Promise<void>;
+  // TODO(rodada-3): assinatura está errada para operação de grupo —
+  // falta chatId. Implementação real exige groupParticipantsUpdate(jid,
+  // [user], 'promote'). Ver promover.ts e PlatformTypes.ts:101.
   promote?(userId: string): Promise<void>;
   demote?(userId: string): Promise<void>;
   shutdown(): Promise<void>;

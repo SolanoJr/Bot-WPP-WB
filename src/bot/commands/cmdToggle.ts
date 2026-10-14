@@ -6,7 +6,6 @@
  */
 import { ICommand } from './types';
 import { commandConfigService } from '../../services/commandConfigService';
-import { isMaster } from '../../services/permissions';
 
 export const cmdToggleCommand: ICommand = {
   name: 'cmd',
@@ -24,7 +23,7 @@ export const cmdToggleCommand: ICommand = {
     const enable = action === 'on' || action === 'enable';
 
     // Apenas MASTER ou admin do grupo pode usar
-    const isAdmin = ctx.isMaster || ctx.isAdmin || isMaster(ctx.userId);
+    const isAdmin = ctx.isMaster || ctx.isAdmin;
     if (!isAdmin) {
       return ctx.reply('🚫 Apenas administradores podem usar este comando.');
     }
