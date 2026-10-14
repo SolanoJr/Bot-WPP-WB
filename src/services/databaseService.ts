@@ -399,6 +399,13 @@ export async function initDatabase(): Promise<Database> {
   );
 
   // Listas (arquitetura suportada — não eram comandos fantasmas, mas funcionalidade viva)
+  // CICLO CONSCIENTE (databaseService ↔ listsService): listsService importa
+  // getDb deste módulo e este módulo importa initListsTable de lá. O
+  // `await import()` mantém o ciclo LAZY — resolvido só em runtime, dentro de
+  // initDatabase, já com `db` aberto. Não é ciclo de módulo estático: nada
+  // quebra no boot. Passar `db` evita a recursão
+  // getDb → initDatabase → initListsTable → getDb (ver listsService.ts:31-34).
+  // Decisão: documentar em vez de extrair um terceiro módulo — não há ganho real.
   await (await import('./listsService.js')).initListsTable(db);
 
   // Guard: bancos criados antes da correção de defaults têm DEFAULT 1 gravado
