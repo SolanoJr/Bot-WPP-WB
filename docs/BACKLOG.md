@@ -129,12 +129,29 @@ Restore: antibot=0, audit_only=0 (confirmado).
   cassino). O teste de 4d rodou mas o fake não triggou heurística —
   resultado foi "nada detectado", não "antibot funciona".
 
+- Comandos ocultos (2026-10-15): 11 comandos existem em estado OCULTO
+  (alarme, lembrete, shutdown, noticias, apresentacao, autolink, casino,
+  remover, detectar, delete, screen). Alguns podem ser úteis no futuro se
+  melhorados. Estado atual mantido — nada muda agora. Revisitar depois de
+  fechar as 3 automações prioritárias (apresentação, antibot, notícias).
+
+- $aleatorio vs $aleatoria: dois comandos com nomes quase idênticos.
+  aleatorio.ts (responde com %) não está no menu. aleatoria.ts (manda
+  mensagem aleatória) está no menu em "jogo". Spec futura do dono vai
+  decidir o que cada um deve ser. Nada muda agora.
+
 ### Status das Investigadas (Tarefa 2 — 45afa50)
 - **aleatorio.ts** → MANTER: comando 'aleatorio' chama getAleatorio (serviço existente). Revertado.
 - **index.ts** → MANTER: hub de comandos (`loadCommands`), referenciado por tests.
 - **argParser.ts** → MANTER: splitArgs é utilitário sem equivalente no main.
 - **validationService.ts** → MANTER: validação de números (getNumberId) importante.
-- **locationPoller.ts** → DELETAR: rastreamento de localização via relay, sem referências, invasivo. Não restaura.
+## locationPoller.ts (deletado em 45afa50, mantido fora)
+- O que é: poller de localização contínua via relay (GPS streaming)
+- Por que foi deletado: zero referências no código, nenhum consumidor
+- Deveria existir? Ambíguo. $ondeestou atual é under-demand (envia
+  quando pedido). Se um dia quiser streaming contínuo, é a base.
+- Decisão: MANTER FORA por ora. Reavaliar se/quando pedido.
+- Como recuperar: git show 45afa50~1:src/services/locationPoller.ts
 
 ## Rodada planejada
 
