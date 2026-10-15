@@ -228,7 +228,12 @@ export async function withLabMode<T>(fn: () => Promise<T>): Promise<T> {
  * bundle corrente não compartilhar o mesmo escopo. Isso garante que o testServer
  * sempre opera sobre a instância real.
  */
-export function startTestServer(port: number = 3004): void {
+/**
+ * Sobe o servidor de laboratório. Retorna o `http.Server` para que testes possam
+ * fechá-lo (server.close()) — sem isso o handle ficaria aberto entre suítes.
+ * `port = 0` faz o SO escolher uma porta efêmera; leia de `server.address()`.
+ */
+export function startTestServer(port: number = 3004): http.Server {
   const server = http.createServer((req, res) => {
     // Somente POST e GET
     if (req.method !== 'POST' && req.method !== 'GET') {
@@ -1642,4 +1647,6 @@ export function startTestServer(port: number = 3004): void {
     logInfo(`[TestServer] Servidor de testes iniciado`, { port });
     logInfo(`[TestServer] endpoints: /test, /lab/find-message, /lab/messages, /lab/delete-message, /lab/delete-e2e, /lab/adapter, /lab/groups, /lab/stats, /lab/test1/isolated-quote, /lab/test3/compare-quotes`);
   });
+
+  return server;
 }
