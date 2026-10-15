@@ -92,7 +92,7 @@ export async function injectMessage(
       ? {
           extendedTextMessage: {
             text: body.text,
-            contextInfo: { mentionedJid: body.mentions },
+            contextInfo: { mentionedJidList: body.mentions },
           },
         }
       : { conversation: body.text };
