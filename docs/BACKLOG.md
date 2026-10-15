@@ -19,6 +19,13 @@ Consumidos principalmente na Rodada 4 (Comandos + Automações).
 ## Listas
 - Verificar: criação, edição, remoção, persistência entre reinícios
 - Tabela envolvida: lists (existe, 0 rows em prod)
+- **ACHADO (Rodada 4a): o caminho de escrita está MORTO.** `saveList()`
+  (listsService.ts:51) e `getList()` (listsService.ts:76) não têm nenhum
+  chamador em `src/`. Só `listLists()` é usado (lista.ts:24) — ou seja,
+  `$lista` só lê. Não existe comando que crie/edite/remova lista; é por isso
+  que a tabela tem 0 rows.
+- **Backlog item: implementar `$lista add/remove/del`** (write path).
+  Escopo: comando + wiring de `saveList`/`getList` + persistência.
 
 ## Feedback de saída
 - Trigger: alguém sai do grupo
