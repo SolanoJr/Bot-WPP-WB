@@ -102,8 +102,20 @@ Correções de relatórios anteriores:
 - `data.preD2B/` **existe na VPS** (`~/bot-wpp/data.preD2B/`). O "0 achados" da
   Rodada 2 valia só pro clone Windows.
 
+## Rodada 4d — Mute e Antibot
+
+### Mute — PARTIAL (cenário β)
+- DRY-RUN vem de `src/platforms/whatsapp/baileys/BaileysMessageNormalizer.ts:222` (e `.ts:613`): o `raw.delete` do `handleMutedMessage` é um **stub que suprime o socket**, não flag de env.
+- Resultado: o mute registra o alvo corretamente, mas a deleção foi suprimida por design (evitar send real em teste). Mute = PARTIAL.
+
+### Antibot — PARTIAL
+- Teste executado: `antibot=0 → 1`, `/lab/antibot-test`, aguardar 5s, restaurar.
+- Resultado: `acted: false`, `moderationState: NONE`. Nenhum kick.
+- O antibot não detectou o fake; o teste não confirmou kick.
+
+Restore: antibot=0, audit_only=0 (confirmado).
+
 ## Rodada planejada
-Rodada 4 (Comandos + Automações) — após Rodadas 2 e 3.
 
 ---
 
