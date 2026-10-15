@@ -10,6 +10,92 @@ import { logInfo, logWarning, logError } from './loggerService';
 import fs from 'node:fs';
 import path from 'node:path';
 
+// ─── Lab: endpoints de injeção (Rodada 4a) ──────────────────────────────────
+// Grupo único autorizado. Hardcoded de propósito: é lab, não feature. Qualquer
+// outro JID é rejeitado com 403 ANTES de tocar em adapter/socket — impede uso
+// acidental contra grupo real.
+export const LAB_GROUP_ID = '120363410094452673@g.us';
+
+export class LabError extends Error {
+  constructor(message: string, public readonly status: 400 | 403 | 404 | 500) {
+    super(message);
+    this.name = 'LabError';
+  }
+}
+
+/** Superfície mínima do adapter que os endpoints de injeção precisam. */
+export interface LabAdapterLike {
+  handleGroupParticipantsUpdate?: (event: any) => Promise<void> | void;
+  normalizer?: { dispatchMessage?: (rawMsg: any) => Promise<void> | void };
+}
+
+/**
+ * Endpoint A — injeta um evento de participante no MESMO handler de produção
+ * (BaileysAdapter.handleGroupParticipantsUpdate).
+ *   action='add'    → memberJoinService (bem-vindo)
+ *   action='remove' → feedbackService.recordExitEvent (feedback de saída)
+ */
+export async function injectParticipantEvent(
+  adapter: LabAdapterLike | null | undefined,
+  body: { groupId?: unknown; userId?: unknown; action?: unknown },
+): Promise<{ ok: true }> {
+  if (body.groupId !== LAB_GROUP_ID) {
+    throw new LabError(`Grupo não permitido. Lab só aceita ${LAB_GROUP_ID}`, 403);
+  }
+  if (!body.userId || (body.action !== 'add' && body.action !== 'remove')) {
+    throw new LabError('Missing userId ou action inválida (use add|remove)', 400);
+  }
+  if (!adapter || typeof adapter.handleGroupParticipantsUpdate !== 'function') {
+    throw new LabError('Adapter WhatsApp não encontrado', 404);
+  }
+  await adapter.handleGroupParticipantsUpdate({
+    id: body.groupId,
+    action: body.action,
+    participants: [body.userId],
+  });
+  return { ok: true };
+}
+
+/**
+ * Endpoint B — injeta uma mensagem pelo NORMALIZER real
+ * (BaileysMessageNormalizer.dispatchMessage), o mesmo pipeline de produção.
+ * Passa por: mute check → coleta de apresentações → sarcasmo → comandos.
+ *
+ * fromMe=false de propósito: simula usuário comum, nunca o bot.
+ *
+ * DESVIO DE DESENHO: o spec pedia PlatformManager.handleIncomingMessage, mas
+ * esse caminho retorna cedo para texto sem prefixo '$' (PlatformManager.ts:291)
+ * e por isso NÃO alcançaria sarcasmo nem mute. O normalizer é o ponto de entrada
+ * que cobre os três (sarcasmo, mute e comandos) numa única chamada.
+ *
+ * ATENÇÃO: o normalizer também dispara o AutoMod (fire-and-forget) e grava no
+ * capture-store. Mensagens injetadas passam por TUDO, como uma real.
+ */
+export async function injectMessage(
+  adapter: LabAdapterLike | null | undefined,
+  body: { groupId?: unknown; senderId?: unknown; text?: unknown },
+): Promise<{ ok: true; messageId: string }> {
+  if (body.groupId !== LAB_GROUP_ID) {
+    throw new LabError(`Grupo não permitido. Lab só aceita ${LAB_GROUP_ID}`, 403);
+  }
+  if (!body.senderId || !body.text) {
+    throw new LabError('Missing senderId ou text', 400);
+  }
+  const normalizer = adapter?.normalizer;
+  if (!normalizer || typeof normalizer.dispatchMessage !== 'function') {
+    throw new LabError('Normalizer do adapter WhatsApp indisponível', 404);
+  }
+  const dispatch = normalizer.dispatchMessage;
+  const messageId = `lab-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  await dispatch.call(normalizer, {
+    key: { id: messageId, remoteJid: body.groupId, fromMe: false, participant: body.senderId },
+    message: { conversation: body.text },
+    messageTimestamp: Math.floor(Date.now() / 1000),
+    pushName: 'LabInject',
+  });
+  return { ok: true, messageId };
+}
+
 // ─── Contadores de estatísticas ─────────────────────────────────────────────
 let totalAttempts = 0;
 let totalSuccess = 0;
@@ -1512,7 +1598,41 @@ export function startTestServer(port: number = 3004): void {
         const result = await pm.sendMessageAndProcess(platform, parsedBody.chatId, command, true, parsedBody.asUserId);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, platform, command, result }));
-      } catch (err: any) {
+        return;
+
+      // ─── Endpoint de injeção de evento de participante (lab) ────────────
+      // Dispara o handler de produção com evento sintético.
+      //   action='add' → bem-vindo · action='remove' → feedback de saída.
+      if (req.url === '/lab/inject-participant-event') {
+        try {
+          const { adapter } = getAdapterAndSock('whatsapp');
+          const out = await injectParticipantEvent(adapter, parsedBody);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(out));
+        } catch (err: any) {
+          const status = err instanceof LabError ? err.status : 500;
+          res.writeHead(status, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+      }
+
+      // ─── Endpoint de injeção de mensagem (lab) ──────────────────────────
+      // Despacha mensagem sintética pelo normalizer real (sarcasmo/mute/comandos).
+      if (req.url === '/lab/inject-message') {
+        try {
+          const { adapter } = getAdapterAndSock('whatsapp');
+          const out = await injectMessage(adapter, parsedBody);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(out));
+        } catch (err: any) {
+          const status = err instanceof LabError ? err.status : 500;
+          res.writeHead(status, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+      }
+    } catch (err: any) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
       }
