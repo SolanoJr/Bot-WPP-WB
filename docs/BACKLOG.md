@@ -115,6 +115,27 @@ Correções de relatórios anteriores:
 
 Restore: antibot=0, audit_only=0 (confirmado).
 
+## Tarefas estruturais pendentes
+
+- Inventário de comandos: classificar cada comando registrado em
+  VISÍVEL / OCULTO / DESABILITADO. Ver docs/RULES.md Regra 2.
+- Revisão geral de docs: ler todos os .md em docs/, ver o que está
+  desatualizado / faltando / desorganizado, atualizar e indexar.
+- Investigar DRY-RUN do mute: BaileysMessageNormalizer.ts:222 e
+  BaileysAdapter.ts:613. Hermes reportou "stub hardcoded", mas produção
+  deleta mensagens — confirmar onde está o gate real (env? condição?
+  caminho alternativo?). Ver docs/RULES.md Regra 4.
+- Antibot: teste de detecção com payload realista (card/button, link de
+  cassino). O teste de 4d rodou mas o fake não triggou heurística —
+  resultado foi "nada detectado", não "antibot funciona".
+
+### Status das Investigadas (Tarefa 2 — 45afa50)
+- **aleatorio.ts** → MANTER: comando 'aleatorio' chama getAleatorio (serviço existente). Revertado.
+- **index.ts** → MANTER: hub de comandos (`loadCommands`), referenciado por tests.
+- **argParser.ts** → MANTER: splitArgs é utilitário sem equivalente no main.
+- **validationService.ts** → MANTER: validação de números (getNumberId) importante.
+- **locationPoller.ts** → DELETAR: rastreamento de localização via relay, sem referências, invasivo. Não restaura.
+
 ## Rodada planejada
 
 ---
