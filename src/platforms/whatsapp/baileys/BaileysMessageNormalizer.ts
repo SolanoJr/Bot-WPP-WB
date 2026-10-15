@@ -258,7 +258,12 @@ export class BaileysMessageNormalizer {
               mentionsBot,
             }) && canRespond(normMsg.chatId, normMsg.userId)) {
               markResponded(normMsg.chatId, normMsg.userId);
-              await this.sock?.sendMessage(normMsg.chatId, SARCASMO_TEXT).catch(() => {});
+              await this.sock?.sendMessage(normMsg.chatId, { text: SARCASMO_TEXT }).catch((e: any) => {
+                // Rodada 4c: o sendMessage antigo passava string crua — Baileys lança
+                // "Cannot use 'in' operator to search for 'image' in ..." e o catch
+                // vazio engolia. Sarcasmo nunca disparou em produção até este fix.
+                logWarning('[sarcasmo] envio falhou', { err: String(e?.message || e) });
+              });
             }
           }
         }
