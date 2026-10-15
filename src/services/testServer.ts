@@ -1566,6 +1566,39 @@ export function startTestServer(port: number = 3004): void {
           return;
         }
 
+        // ─── Endpoint de injeção de evento de participante (lab) ────────────
+        // Dispara o handler de produção com evento sintético.
+        //   action='add' → bem-vindo · action='remove' → feedback de saída.
+        if (req.url === '/lab/inject-participant-event') {
+          try {
+            const { adapter } = getAdapterAndSock('whatsapp');
+            const out = await injectParticipantEvent(adapter, parsedBody);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(out));
+          } catch (err: any) {
+            const status = err instanceof LabError ? err.status : 500;
+            res.writeHead(status, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+          }
+          return;
+        }
+
+        // ─── Endpoint de injeção de mensagem (lab) ──────────────────────────
+        // Despacha mensagem sintética pelo normalizer real (sarcasmo/mute/comandos).
+        if (req.url === '/lab/inject-message') {
+          try {
+            const { adapter } = getAdapterAndSock('whatsapp');
+            const out = await injectMessage(adapter, parsedBody);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(out));
+          } catch (err: any) {
+            const status = err instanceof LabError ? err.status : 500;
+            res.writeHead(status, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+          }
+          return;
+        }
+
         // ─── Endpoint de comando de teste (existente) ───
         const { platform, command } = parsedBody;
         if (!platform || !command) {
@@ -1598,40 +1631,6 @@ export function startTestServer(port: number = 3004): void {
         const result = await pm.sendMessageAndProcess(platform, parsedBody.chatId, command, true, parsedBody.asUserId);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, platform, command, result }));
-        return;
-
-      // ─── Endpoint de injeção de evento de participante (lab) ────────────
-      // Dispara o handler de produção com evento sintético.
-      //   action='add' → bem-vindo · action='remove' → feedback de saída.
-      if (req.url === '/lab/inject-participant-event') {
-        try {
-          const { adapter } = getAdapterAndSock('whatsapp');
-          const out = await injectParticipantEvent(adapter, parsedBody);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify(out));
-        } catch (err: any) {
-          const status = err instanceof LabError ? err.status : 500;
-          res.writeHead(status, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: err.message }));
-        }
-        return;
-      }
-
-      // ─── Endpoint de injeção de mensagem (lab) ──────────────────────────
-      // Despacha mensagem sintética pelo normalizer real (sarcasmo/mute/comandos).
-      if (req.url === '/lab/inject-message') {
-        try {
-          const { adapter } = getAdapterAndSock('whatsapp');
-          const out = await injectMessage(adapter, parsedBody);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify(out));
-        } catch (err: any) {
-          const status = err instanceof LabError ? err.status : 500;
-          res.writeHead(status, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: err.message }));
-        }
-        return;
-      }
     } catch (err: any) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
