@@ -7,12 +7,24 @@
 import logger from './loggerService';
 
 // Configuração de usuários
-// MASTER_USER é obrigatório — sem fallback hardcoded.
-const masterUserEnv = process.env.MASTER_USER;
-if (!masterUserEnv) {
-    throw new Error('MASTER_USER environment variable is required');
+/**
+ * MASTER_USER é obrigatório — sem fallback hardcoded.
+ *
+ * Lazy: o valor é lido no USO, não no load do módulo. Se faltar, a falha
+ * acontece na hora de AUTORIZAR, não no import. Isso evita que qualquer import
+ * transitivo (CLI, worker, teste de integração) exploda antes do dotenv ter
+ * chance de rodar — foi o que causou o crash loop de 14/out.
+ *
+ * Sem cache: cada chamada relê process.env (barato, e mantém determinísticos
+ * os testes que mexem no env).
+ */
+function getMasterUser(): string {
+    const v = process.env.MASTER_USER;
+    if (!v) {
+        throw new Error('MASTER_USER environment variable is required');
+    }
+    return v;
 }
-const MASTER_USER: string = masterUserEnv;
 const MASTER_NUMBER = process.env.MASTER_NUMBER ?? '';
 const ADMINS = new Set((process.env.ADMINS || '').split(',').filter(Boolean));
 const BOT_NUMBER = process.env.BOT_NUMBER || '558581344211';
@@ -96,7 +108,7 @@ function hasPermission(userId: string, requiredLevel: PermissionLevel): boolean 
     if (requiredLevel !== PERMISSIONS.USER) {
         logger.debug('[PERMISSÃO] Verificação', {
             user: userClean,
-            master: cleanId(MASTER_USER),
+            master: cleanId(getMasterUser()),
             hasPermission: hasPerm
         });
     }
@@ -117,7 +129,7 @@ function isMaster(userId: string): boolean {
     if (isBotTarget(userId)) return false;
 
     const clean = userClean;
-    const masterClean = cleanId(MASTER_USER);
+    const masterClean = cleanId(getMasterUser());
     const masterNumClean = cleanId(MASTER_NUMBER);
         const ownerLid = cleanId(OWNER_LID);
 
@@ -209,7 +221,7 @@ export {
     isMaster,
     isAdmin,
     requirePermission,
-    MASTER_USER,
+    getMasterUser,
     MASTER_NUMBER,
     ADMINS,
     cleanId,

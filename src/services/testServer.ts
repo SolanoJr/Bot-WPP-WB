@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { findMessageCapture, readCaptures as readPersistedCaptures } from './captureStore';
-import { isMaster, MASTER_USER } from './permissions';
+import { isMaster, getMasterUser } from './permissions';
 import { type DeleteConfirmation } from './deleteE2EConfirmation';
 import { requestConfirmedDelete } from './deleteConfirmationService';
 import { persistDeleteE2EResult } from './deleteE2EResult';
@@ -297,7 +297,8 @@ export function startTestServer(port: number = 3004): void {
             res.end(JSON.stringify({ status: 'DELETE E2E FAIL', cause: 'Adapter/socket WhatsApp indisponivel' }));
             return;
           }
-          if (!isMaster(MASTER_USER)) {
+          const master = process.env.MASTER_USER;
+          if (!master || !isMaster(master)) {
             res.writeHead(403, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ status: 'DELETE E2E FAIL', cause: 'MASTER_USER configurado nao e reconhecido como MASTER' }));
             return;
@@ -351,7 +352,7 @@ export function startTestServer(port: number = 3004): void {
                 id: `LAB_DELETE_COMMAND:${correlationId}`,
                 remoteJid: groupJid,
                 fromMe: false,
-                participant: MASTER_USER,
+                participant: getMasterUser(),
               },
               message: {
                 extendedTextMessage: {
@@ -370,7 +371,7 @@ export function startTestServer(port: number = 3004): void {
               id: `whatsapp:LAB_DELETE_COMMAND:${correlationId}`,
               platform: 'whatsapp',
               chatId: groupJid,
-              userId: MASTER_USER,
+              userId: getMasterUser(),
               userName: 'Lab MASTER',
               text: '$delete',
               timestamp: new Date(),
@@ -446,7 +447,7 @@ export function startTestServer(port: number = 3004): void {
             } : null,
             command: '$delete',
             commandOrigin: 'loopback harness via PlatformManager.handleIncomingMessage; configured MASTER principal',
-            authorization: isMaster(MASTER_USER) ? 'authorized as configured MASTER' : 'denied',
+            authorization: isMaster(getMasterUser()) ? 'authorized as configured MASTER' : 'denied',
             commandStage: commandState.stage,
             deleteRequested,
             deleteAccepted,
