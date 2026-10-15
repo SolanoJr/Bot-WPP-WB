@@ -237,6 +237,10 @@ export async function initDatabase(): Promise<Database> {
   // AGRUPADAS em um único pedido (ver feedbackService.consolidatePending).
   await db.exec(`
     CREATE TABLE IF NOT EXISTS feedback_events (
+      -- ATENÇÃO: event_id é TEXT e contém timestamp embutido, então
+      -- ORDER BY event_id ordena LEXICOGRAFICAMENTE, não cronologicamente
+      -- (ex.: 'whatsapp|55...' < 'whatsapp|99...'). Para ordem temporal use
+      -- ORDER BY left_at ou created_at.
       event_id TEXT PRIMARY KEY,
       platform TEXT NOT NULL,
       user_id TEXT NOT NULL,
