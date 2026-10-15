@@ -34,8 +34,18 @@ Consumidos principalmente na Rodada 4 (Comandos + Automações).
 
 ## Sarcasmo
 - Trigger: mensagem contém "bot" | menciona o bot | marca o bot
-- Verificar: responde? anti-loop funciona (não responde a si mesmo)?
-- Config: sarcasmo=0 no Figurinhas — ativar no grupo teste antes
+- **RESOLVIDO em b3e46ce** — envio quebrava: `sock.sendMessage(jid, string)` lança no Baileys e o `.catch(() => {})` engolia. Fix: `{ text: SARCASMO_TEXT }` + `logWarning` no catch. Verificado em produção (13:15–13:19, MESSAGES_UPSERT com `fromMe=true` e texto "nada ver com isso sinhô").
+- **Nota:** anti-loop funciona (SARCASMO_COOLDOWN_MS = 30_000 em sarcasmoService.ts:29; chave `(groupId|userId)`; testado em produção). Dois injets de teste de 4c tiveram 210s de intervalo — além do TTL; mérito de medição, não bug.
+
+## Auditoria de catches silenciosos
+- Trigger: manter consistência de erros visíveis
+- **Rodada 4c-fix, Parte 0** — auditou `.catch(() => {})` silencioso em src/. 6 ocorrências em 3 arquivos:
+  - BaileysAdapter.ts:306 (notifyOwner), :312 (syncSubmodulesWithNewSocket),
+    :318 (selfTest), :319 — caminho quente de reconnect/autoMod
+  - BaileysMessageNormalizer.ts:261 — sarcasmo (fixado em b3e46ce)
+  - BaileysMemberManager.ts:36 (updateBlockStatus) — caminho quente de ban
+- **Backlog item:** analisar syncSubmodulesWithNewSocket e updateBlockStatus
+  (2 em caminhos quentes). Rodada 5.
 
 ## Mute
 - Trigger: comando de mute com duração
