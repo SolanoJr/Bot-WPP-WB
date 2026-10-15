@@ -155,6 +155,33 @@ describe('lab inject — happy path: mensagem', () => {
     expect(dispatchMessage.mock.calls[0][0].key.fromMe).toBe(false);
   });
 
+  it('passes mentions via extendedTextMessage.contextInfo.mentionedJid', async () => {
+    const dispatchMessage = vi.fn().mockResolvedValue(undefined);
+    await injectMessage(
+      { normalizer: { dispatchMessage } },
+      { groupId: GROUP, senderId: USER, text: '$mute', mentions: [USER] },
+    );
+
+    expect(dispatchMessage).toHaveBeenCalledTimes(1);
+    const raw = dispatchMessage.mock.calls[0][0];
+    expect(raw.message).toEqual({
+      extendedTextMessage: {
+        text: '$mute',
+        contextInfo: { mentionedJid: [USER] },
+      },
+    });
+  });
+
+  it('keeps conversation when mentions is empty', async () => {
+    const dispatchMessage = vi.fn().mockResolvedValue(undefined);
+    await injectMessage(
+      { normalizer: { dispatchMessage } },
+      { groupId: GROUP, senderId: USER, text: '$mute' },
+    );
+
+    expect(dispatchMessage.mock.calls[0][0].message).toEqual({ conversation: '$mute' });
+  });
+
   it('LAB_GROUP_ID aponta para o grupo de teste', () => {
     expect(LAB_GROUP_ID).toBe(GROUP);
   });

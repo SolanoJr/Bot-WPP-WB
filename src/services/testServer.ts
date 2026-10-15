@@ -73,7 +73,7 @@ export async function injectParticipantEvent(
  */
 export async function injectMessage(
   adapter: LabAdapterLike | null | undefined,
-  body: { groupId?: unknown; senderId?: unknown; text?: unknown },
+  body: { groupId?: unknown; senderId?: unknown; text?: unknown; mentions?: string[] },
 ): Promise<{ ok: true; messageId: string }> {
   if (body.groupId !== LAB_GROUP_ID) {
     throw new LabError(`Grupo não permitido. Lab só aceita ${LAB_GROUP_ID}`, 403);
@@ -87,9 +87,18 @@ export async function injectMessage(
   }
   const dispatch = normalizer.dispatchMessage;
   const messageId = `lab-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const message: Record<string, unknown> =
+    body.mentions && body.mentions.length > 0
+      ? {
+          extendedTextMessage: {
+            text: body.text,
+            contextInfo: { mentionedJid: body.mentions },
+          },
+        }
+      : { conversation: body.text };
   await dispatch.call(normalizer, {
     key: { id: messageId, remoteJid: body.groupId, fromMe: false, participant: body.senderId },
-    message: { conversation: body.text },
+    message,
     messageTimestamp: Math.floor(Date.now() / 1000),
     pushName: 'LabInject',
   });
