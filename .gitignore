@@ -83,3 +83,11 @@ diag_*.cjs
 temp_*.cjs
 # Dumps de laboratório (artefatos de investigação)
 laboratorio/dumps/
+
+# 🗑️ ARQUIVOS OPERACIONAIS (runtime nativos — não versionar)
+data.backup/
+*.preD2B
+lab-flip.js
+probe-*.js
+laboratorio/test-reconnect.sh
+group-lists.json
