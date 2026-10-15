@@ -104,3 +104,71 @@ Correções de relatórios anteriores:
 
 ## Rodada planejada
 Rodada 4 (Comandos + Automações) — após Rodadas 2 e 3.
+
+---
+
+## Features pedidas (2026-10-15)
+
+Spec bruta do dono. Cada item vira rodada quando priorizado.
+
+### Antibot — melhoria de detecção
+- Hoje: `group_mod.antibot` existe, `autoModEngine` age. Verificar heurística.
+- Toggle on/off por grupo (default off) — já existe.
+- Sinais observados: card/button (não renderiza no web.whats);
+  imagem/texto + link de cassino/aposta; número estrangeiro.
+- Ação preferida: DELETAR MENSAGEM primeiro. Expulsar só com confirmação.
+- IMPORTANTE (dono): não quer excluir estrangeiro que não é bot, nem
+  novato. Quer ideia de SOMATÓRIA (score acumulando sinais) antes de decidir
+  expulsar.
+- Limitação conhecida: às vezes o texto/link da mensagem não é capturável.
+- Aberto: qual score mínimo pra expulsar? Aviso ao invés de expulsão?
+
+### Telemetria — só gravar, sem comando
+- Hoje: `command_usage_events` existe (retenção 180d), quase nada
+  instrumentado (5 rows em 5 dias).
+- Instrumentar TODOS os comandos: quantas vezes, em quais grupos/privados,
+  por quem. Só gravar no DB por enquanto.
+- NÃO quer comando `$telemetria` agora. Coleta pra estudar depois.
+
+### Feedback — dois modos
+- Hoje: `feedback_events` grava saída; `$feedback <texto>` existe.
+- A (comando): `$feedback <texto>` salva no DB + manda no Telegram do dono.
+  Verificar se já existe.
+- B (DM de follow-up — NOVO):
+  - Toggle on/off por grupo (default off).
+  - Quem sai do grupo/comunidade (ou é removido): bot manda DM educada.
+  - Saudação por horário. Diz que observou a saída. Pergunta opinião/motivo,
+    afirma ser anônimo. Resposta gravada com grupo/comunidade, número, nome.
+    Manda no Telegram do dono.
+  - JANELA: esperar 10 min antes de mandar (pode sair e voltar; pode sair
+    de vários grupos da comunidade ao mesmo tempo; pode sair da comunidade
+    toda). Não floodar.
+  - DM fechada: dono disse que qualquer um pode mandar mensagem pra
+    qualquer um. Verificar no WhatsApp atual. Se falhar, logar e seguir.
+
+### Bem-vindo + Apresentação (split, com quote)
+- Hoje: `memberJoinService` + `welcomeService` + `$setwelcome`. Sem split.
+- `$bemvindo on/off` (default off): marca novatos; 1ª linha imutável
+  "Sejam bem-vindos @..."; admin edita linhas abaixo.
+- `$apresentacao on/off` (default off): template. Admin edita; reset default.
+- DUAS MENSAGENS SEPARADAS:
+  Msg 1 = bem-vindo (menciona novatos) · Msg 2 = apresentação.
+- Msg 2 TEM QUE CONTER obrigatoriamente:
+  - Aviso: "Para salvar sua apresentação no Telegram, RESPONDA ESTA
+    MENSAGEM (quote)."
+  - Link das regras (atual:
+    https://docs.google.com/document/d/1QCSdfBa3bSjwJ4ski9EaLJI2OE-Pct-vq5Ykd_Uzc1s/edit )
+  - Template default (foto sem view-once, nome, idade, orientação,
+    estado civil, o que faz, bairro, nick/redes, favoritos).
+- Template default editável pelo admin. Reset pro default disponível.
+- Captura: só respostas QUOTANDO a Msg 2 (via quotedMessageId).
+- Quando alguém se apresenta: salva no grupo Telegram Fortaleza 085,
+  tópico "apresentação", dizendo de qual grupo veio.
+
+### Listas — pendente de brainstorm (NÃO implementar)
+- Hoje: `$lista` só LÊ. `saveList`/`getList` são código morto (Rodada 4a).
+- Proposta anterior (2 tipos evento/check) foi considerada complicada demais
+  pelo dono. Pessoas normais não entendem.
+- Salvo pra repensar com calma. Sem spec.
+- Único ponto confirmado: qualquer membro pode adicionar/remover o próprio
+  nome numa lista de rolê. Criar/deletar/editar a lista inteira = só admins.
