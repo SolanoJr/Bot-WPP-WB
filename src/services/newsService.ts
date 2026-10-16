@@ -101,16 +101,18 @@ const PREFIX_TO_PLATFORM: Record<string, string> = {
  * `PlatformManager.sendMessage` faz match EXATO de chave (sem fallback por
  * prefixo), então `'whatsapp'` não acha um adapter registrado como
  * `'whatsapp:558581344211'` (multi-número). Aqui o prefixo vira a plataforma
- * base e a chave registrada é escolhida: exata primeiro, depois a primeira que
- * comece com `base:`.
+ * base e a chave registrada é escolhida: a mais específica primeiro (a que tem
+ * sufixo de número), senão a chave simples.
  *
  * Retorna `null` quando não há adapter — o caller decide o que logar.
  */
 export function resolveAdapterKey(activePlatforms: string[], groupId: string): string | null {
   const prefix = String(groupId ?? '').split(':')[0].toLowerCase();
   const base = PREFIX_TO_PLATFORM[prefix] || prefix;
+  const specific = activePlatforms.find((p) => p.startsWith(`${base}:`));
+  if (specific) return specific;
   if (activePlatforms.includes(base)) return base;
-  return activePlatforms.find((p) => p.startsWith(`${base}:`)) || null;
+  return null;
 }
 
 /**
