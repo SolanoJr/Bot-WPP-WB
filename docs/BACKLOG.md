@@ -222,3 +222,26 @@ Spec bruta do dono. Cada item vira rodada quando priorizado.
 - Salvo pra repensar com calma. Sem spec.
 - Único ponto confirmado: qualquer membro pode adicionar/remover o próprio
   nome numa lista de rolê. Criar/deletar/editar a lista inteira = só admins.
+
+### Notícias — RESOLVIDO em e61ff75
+- Comando `$noticias <tema> [N]` (on-demand via IA) + agendador
+  `$noticias on [HH:MM] [tema]` / `off` / `status`. `on`/`off`/`status` só
+  admin do grupo ou master; on-demand é livre.
+- Schema `group_news` (9d4f088) — `last_sent_at` em hora LOCAL
+  (`YYYY-MM-DDTHH:MM:SS`, sem `Z`). Nunca `toISOString()`: às 22:00 local o UTC
+  já é o dia seguinte e o scheduler concluiria "já enviou hoje" cedo demais.
+- Scheduler `newsScheduler.ts` — tick 60s, retry sem marcar `last_sent_at`
+  quando o envio falha, kill switch `WPP_NEWS_ENABLED=false`.
+- `resolveAdapterKey` mapeia o `group_id` prefixado (`wpp:`/`tg:`/`dc:`) para a
+  chave EXATA do adapter: `PlatformManager.sendMessage` não tem fallback por
+  prefixo, então `'whatsapp'` não acha um adapter `whatsapp:558581344211`.
+  Os 3 adapters removem o próprio prefixo antes de enviar (`toJid`, `^tg:`, `^dc:`).
+- Comando continua OCULTO no menu (decisão de visibilidade adiada — ver item
+  "Comandos ocultos" acima).
+
+**Lição aprendida (P3.2):** o mock de teste deve espelhar o shape REAL do
+accessor (camelCase: `groupId`, `scheduleTime`), não o shape do banco
+(snake_case: `group_id`, `schedule_time`). `listEnabledNewsGroups()` retorna
+camelCase e o scheduler lê `row.scheduleTime` — com o mock em snake_case o
+campo era `undefined`, `'07:59' < undefined` dava `false` e o grupo enviava em
+vez de pular. O teste pegou; sem ele, o bug passaria despercebido em produção.
