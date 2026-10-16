@@ -103,33 +103,10 @@ export async function initializePlatforms() {
     logger.warn('⚠️ Discord não configurado (DISCORD_BOT_TOKEN não definido ou inválido)');
   }
 
-  // Inicializar todas as plataformas E configurar handlers de mensagem (registra o messageHandler
-    // que despacha os comandos). O startAll() faz adapter.initialize() + setupAdapterHandlers() para cada adapter.
-    await platformManager.startAll();
-
-    // Inicializar Discord Screen Sharing (Activity) se credenciais estiverem configuradas
-      try {
-        discordScreenService = createDiscordScreenServiceFromEnv();
-        if (discordScreenService) {
-          await discordScreenService.start();
-          logger.info('[DiscordScreenService] Screen sharing iniciado com sucesso');
-        } else {
-          logger.info('[DiscordScreenService] Não configurado (credenciais ausentes)');
-        }
-      } catch (error) {
-        logError('DiscordScreenService', error);
-      }
-
-    // Listar plataformas ativas
-  const activePlatforms = platformManager.getActivePlatforms();
-  logger.info(`📊 Plataformas ativas: ${activePlatforms.join(', ') || 'Nenhuma'}`);
-
-  // Handler de desconexão
-  platformManager.onDisconnected((platform, reason) => {
-    logger.warn(`⚠️ ${platform} desconectado: ${reason}`);
-  });
-
-  // Handler de pronto
+  // Registra o onReady ANTES de startAll: se o WhatsApp conectar rápido
+  // (sessão em cache), o evento 'ready' dispara durante startAll(). Registrar
+  // depois perderia o evento — race que deixava scheduler/cleanup/memory
+  // monitor sem iniciar. Ver Rodada notícias P5.
     platformManager.onReady(() => {
       logger.info('🎉 Todas as plataformas prontas!');
       // Iniciar cleanup periódico do autoMod (fingerprints + audit trail)
@@ -170,6 +147,35 @@ export async function initializePlatforms() {
         }
       }, 2 * 60 * 1000).unref();
     });
+
+    await platformManager.startAll();
+
+    // Inicializar Discord Screen Sharing (Activity) se credenciais estiverem configuradas
+      try {
+        discordScreenService = createDiscordScreenServiceFromEnv();
+        if (discordScreenService) {
+          await discordScreenService.start();
+          logger.info('[DiscordScreenService] Screen sharing iniciado com sucesso');
+        } else {
+          logger.info('[DiscordScreenService] Não configurado (credenciais ausentes)');
+        }
+      } catch (error) {
+        logError('DiscordScreenService', error);
+      }
+
+    // Listar plataformas ativas
+  const activePlatforms = platformManager.getActivePlatforms();
+  logger.info(`📊 Plataformas ativas: ${activePlatforms.join(', ') || 'Nenhuma'}`);
+
+  // Handler de desconexão
+  platformManager.onDisconnected((platform, reason) => {
+    logger.warn(`⚠️ ${platform} desconectado: ${reason}`);
+  });
+
+  // Handler de desconexão
+  platformManager.onDisconnected((platform, reason) => {
+    logger.warn(`⚠️ ${platform} desconectado: ${reason}`);
+  });
 
   // P1.2: Graceful shutdown melhorado
   setupGracefulShutdown();
