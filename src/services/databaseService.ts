@@ -402,6 +402,26 @@ export async function initDatabase(): Promise<Database> {
     [Date.now() - retentionDays * 24 * 60 * 60 * 1000],
   );
 
+  // ─── Notícias por grupo (on-demand + agendado) ───
+  // `group_id` é a chave natural (não há id próprio): um grupo tem no máximo
+  // uma config de notícias. `last_sent_at` guarda hora LOCAL do servidor
+  // (YYYY-MM-DDTHH:MM:SS, sem Z) — o scheduler compara com a data local para
+  // decidir "já enviou hoje". Ver docs/BACKLOG.md: o agendamento segue o fuso
+  // do dono (America/Fortaleza, -03), não o UTC do host.
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS group_news (
+      group_id TEXT PRIMARY KEY,
+      enabled INTEGER DEFAULT 0,
+      schedule_time TEXT DEFAULT '08:00',
+      topic TEXT DEFAULT '',
+      item_count INTEGER DEFAULT 5,
+      last_sent_at TEXT DEFAULT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_group_news_enabled
+      ON group_news(enabled, schedule_time);
+  `);
+
   // Listas (arquitetura suportada — não eram comandos fantasmas, mas funcionalidade viva)
   // CICLO CONSCIENTE (databaseService ↔ listsService): listsService importa
   // getDb deste módulo e este módulo importa initListsTable de lá. O
@@ -1056,4 +1076,106 @@ export async function cleanupOldJoinEntries(maxAgeSeconds: number = 2592000): Pr
   } catch (err: any) {
     logWarning('[mod_member_joins] cleanupOldJoinEntries falhou:', err?.message);
   }
+}
+
+// ─── Notícias por grupo (on-demand + agendado) ───────────────────────────────
+//
+// `group_news` guarda a config do agendador de notícias de cada grupo. O
+// comando `$noticias` escreve aqui; o `newsScheduler` lê a cada tick.
+//
+// `lastSentAt` é gravado em hora LOCAL do servidor (YYYY-MM-DDTHH:MM:SS, sem
+// Z). O scheduler compara com a data local para decidir "já enviou hoje" — o
+// agendamento segue o fuso do dono, não o UTC do host.
+
+export interface GroupNewsConfig {
+  enabled: boolean;
+  scheduleTime: string;
+  topic: string;
+  itemCount: number;
+  lastSentAt: string | null;
+}
+
+export interface GroupNewsPatch {
+  enabled?: boolean;
+  scheduleTime?: string;
+  topic?: string;
+  itemCount?: number;
+}
+
+/** Normaliza uma linha crua do SQLite para o shape público. */
+function rowToGroupNews(row: any): GroupNewsConfig {
+  return {
+    enabled: row.enabled === 1 || row.enabled === true,
+    scheduleTime: String(row.schedule_time ?? '08:00'),
+    topic: String(row.topic ?? ''),
+    itemCount: Number(row.item_count ?? 5),
+    lastSentAt: row.last_sent_at == null ? null : String(row.last_sent_at),
+  };
+}
+
+/** Lê a config de notícias de um grupo. `null` se o grupo nunca configurou. */
+export async function getGroupNews(groupId: string): Promise<GroupNewsConfig | null> {
+  const db = await getDb();
+  const row = await db.get(
+    `SELECT * FROM group_news WHERE group_id = ? LIMIT 1`,
+    [String(groupId)]
+  );
+  return row ? rowToGroupNews(row) : null;
+}
+
+/**
+ * Cria ou atualiza a config de notícias do grupo.
+ *
+ * Campos ausentes no patch NÃO são alterados (preserva o que já está no banco).
+ * A linha nova nasce com os defaults do schema (enabled=0, 08:00, item_count=5)
+ * via `INSERT OR IGNORE`, que não toca em nada se a linha já existir.
+ */
+export async function upsertGroupNews(groupId: string, patch: GroupNewsPatch): Promise<void> {
+  const db = await getDb();
+  const id = String(groupId);
+
+  await db.run(`INSERT OR IGNORE INTO group_news (group_id) VALUES (?)`, [id]);
+
+  const sets: string[] = [];
+  const params: any[] = [];
+  if (patch.enabled !== undefined) { sets.push('enabled = ?'); params.push(patch.enabled ? 1 : 0); }
+  if (patch.scheduleTime !== undefined) { sets.push('schedule_time = ?'); params.push(patch.scheduleTime); }
+  if (patch.topic !== undefined) { sets.push('topic = ?'); params.push(patch.topic); }
+  if (patch.itemCount !== undefined) { sets.push('item_count = ?'); params.push(patch.itemCount); }
+
+  if (sets.length === 0) return; // nada a atualizar — a linha já foi garantida acima
+
+  params.push(id);
+  await db.run(`UPDATE group_news SET ${sets.join(', ')} WHERE group_id = ?`, params);
+}
+
+/**
+ * Marca o último envio. `sentAt` vem do caller (hora local, sem Z) para ficar
+ * testável — o formato é decisão de quem chama, não do banco.
+ */
+export async function markNewsSent(groupId: string, sentAt: string): Promise<void> {
+  const db = await getDb();
+  await db.run(
+    `UPDATE group_news SET last_sent_at = ? WHERE group_id = ?`,
+    [sentAt, String(groupId)]
+  );
+}
+
+/** Grupos com notícias habilitadas — é o que o scheduler varre a cada tick. */
+export async function listEnabledNewsGroups(): Promise<Array<{
+  groupId: string; scheduleTime: string; topic: string;
+  itemCount: number; lastSentAt: string | null;
+}>> {
+  const db = await getDb();
+  const rows = await db.all(`SELECT * FROM group_news WHERE enabled = 1`);
+  return (rows || []).map((row: any) => {
+    const cfg = rowToGroupNews(row);
+    return {
+      groupId: String(row.group_id),
+      scheduleTime: cfg.scheduleTime,
+      topic: cfg.topic,
+      itemCount: cfg.itemCount,
+      lastSentAt: cfg.lastSentAt,
+    };
+  });
 }
