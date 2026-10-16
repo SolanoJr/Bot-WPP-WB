@@ -167,7 +167,7 @@ describe('lab inject — happy path: mensagem', () => {
     expect(raw.message).toEqual({
       extendedTextMessage: {
         text: '$mute',
-        contextInfo: { mentionedJid: [USER] },
+        contextInfo: { mentionedJidList: [USER] },
       },
     });
   });
