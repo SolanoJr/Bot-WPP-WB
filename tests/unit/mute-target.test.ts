@@ -89,10 +89,11 @@ describe('$mute — ciclo completo mute -> handler apaga -> desmute', () => {
     const apagou = await handleMutedMessage({
       chatId: GROUP,
       userId: ALVO_LID,
-      raw: { delete: del },
+      originalKey: { id: 'msg-1' },
+      sendDelete: async (chatId, key) => { await del(chatId, key); },
     });
     expect(apagou).toBe(true);
-    expect(del).toHaveBeenCalledWith(true);
+    expect(del).toHaveBeenCalledWith(GROUP, { id: 'msg-1' });
   });
 
   it('não apaga mensagem de quem não está mutado', async () => {

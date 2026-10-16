@@ -2,6 +2,7 @@ import { ICommand, CommandContext } from './types';
 import { groupTag } from './format';
 import { getMentionedIds, normalizeTargetId } from './targetResolver';
 import { isProtectedTarget } from '../../services/permissions';
+import { logError } from '../../services/loggerService';
 
 const mutedUsers = new Map<string, number>();
 
@@ -39,8 +40,8 @@ export const muteCommand: ICommand = {
             return;
         }
 
-        mutedUsers.set(key, Date.now() + 8 * 60 * 60 * 1000);
-        await ctx.reply(`✅ Usuário silenciado por 8 horas.${groupTag(ctx)}`);
+        mutedUsers.set(key, Date.now() + 10 * 60 * 1000);
+        await ctx.reply(`✅ Usuário silenciado por 10 minutos.${groupTag(ctx)}`);
     }
 };
 
@@ -61,7 +62,8 @@ export async function unmuteUser(targetIdOrChatId: string, ctxOrTarget: CommandC
 export async function handleMutedMessage(input: {
     chatId: string;
     userId: string;
-    raw?: { delete?: (force?: boolean) => Promise<unknown> };
+    originalKey?: any;
+    sendDelete?: (chatId: string, key: any) => Promise<unknown>;
 }): Promise<boolean> {
     const key = muteKey(input.chatId, input.userId);
     const expiresAt = mutedUsers.get(key);
@@ -70,6 +72,17 @@ export async function handleMutedMessage(input: {
         mutedUsers.delete(key);
         return false;
     }
-    if (typeof input.raw?.delete === 'function') await input.raw.delete(true);
+    // Delete via callback — o caller decide o caminho (adapter ou normalizer).
+    // O stub raw.delete(true) que suprimia o socket foi removido.
+    if (input.originalKey !== undefined && input.sendDelete) {
+        try {
+            await input.sendDelete(input.chatId, input.originalKey);
+        } catch (e) {
+            logError('[mute] falha ao deletar mensagem', {
+                chatId: input.chatId,
+                error: String((e as Error)?.message),
+            });
+        }
+    }
     return true;
 }

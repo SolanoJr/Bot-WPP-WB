@@ -607,18 +607,8 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
     const muted = await handleMutedMessage({
       chatId: normMsg.chatId,
       userId: normMsg.userId,
-      raw: {
-        delete: async () => {
-          const key = normMsg.raw?.key || {};
-          logInfo('[BaileysAdapter] MUTED DELETE DRY-RUN — chamada ao socket suprimida', {
-            stanzaId: key.id || null,
-            remoteJid: key.remoteJid || normMsg.chatId,
-            participant: key.participant || null,
-            fromMe: typeof key.fromMe === 'boolean' ? key.fromMe : null,
-            originalWAMessageKey: key,
-          });
-        },
-      },
+      originalKey: normMsg.raw?.key,
+      sendDelete: (chatId, key) => this.client.sendMessage(chatId, '', { delete: key }),
     });
     return muted;
   }

@@ -217,17 +217,8 @@ export class BaileysMessageNormalizer {
       const muted = await handleMutedMessage({
               chatId: normId(from),
               userId: normId(sender),
-              raw: {
-                delete: async () => {
-                  logInfo('[BaileysNormalizer] MUTED DELETE DRY-RUN — chamada ao socket suprimida', {
-                    stanzaId: key.id || null,
-                    remoteJid: key.remoteJid || from,
-                    participant: key.participant || null,
-                    fromMe: typeof key.fromMe === 'boolean' ? key.fromMe : null,
-                    originalWAMessageKey: key,
-                  });
-                },
-              },
+              originalKey: key,
+              sendDelete: (chatId, k) => this.sendMessage(chatId, '', { delete: k }),
       });
       if (muted) return;
 
