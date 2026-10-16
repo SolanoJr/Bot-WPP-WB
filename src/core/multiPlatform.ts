@@ -17,6 +17,7 @@ import logger, { logError } from '../services/loggerService';
 import { runPeriodicCleanup } from '../services/autoModEngine';
 import { memoryMonitor } from '../services/memoryMonitor';
 import { startPeriodicCleanup } from '../services/cleanupService';
+import { startNewsScheduler } from '../services/newsScheduler';
 import { createDiscordScreenServiceFromEnv } from '../services/discord-screen/DiscordScreenService';
 import { consolidateStale, listPending } from '../services/presentationService';
 import { publishToTelegram, retryPending, TG_CHAT_ID, TG_THREAD_ID } from '../services/presentationPublisher';
@@ -137,6 +138,8 @@ export async function initializePlatforms() {
       memoryMonitor.start(60000);
       // P2.3: Iniciar limpeza periódica (a cada 6h)
       startPeriodicCleanup();
+      // Agendador de notícias (tick 60s, envia no horário configurado por grupo)
+      startNewsScheduler();
 
       // ─── Consolidação de apresentações (Comunidade 085) ───
       // A cada 2 minutos: verifica sessões inativas há 10 min, consolida no SQLite

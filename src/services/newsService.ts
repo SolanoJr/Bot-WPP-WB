@@ -88,21 +88,48 @@ export function formatNewsMessage(
   ].join('\n');
 }
 
+/** Prefixo do `group_id` → plataforma base do adapter. */
+const PREFIX_TO_PLATFORM: Record<string, string> = {
+  wpp: 'whatsapp',
+  tg: 'telegram',
+  dc: 'discord',
+};
+
+/**
+ * Resolve a chave EXATA do adapter a partir do `group_id` prefixado.
+ *
+ * `PlatformManager.sendMessage` faz match EXATO de chave (sem fallback por
+ * prefixo), então `'whatsapp'` não acha um adapter registrado como
+ * `'whatsapp:558581344211'` (multi-número). Aqui o prefixo vira a plataforma
+ * base e a chave registrada é escolhida: exata primeiro, depois a primeira que
+ * comece com `base:`.
+ *
+ * Retorna `null` quando não há adapter — o caller decide o que logar.
+ */
+export function resolveAdapterKey(activePlatforms: string[], groupId: string): string | null {
+  const prefix = String(groupId ?? '').split(':')[0].toLowerCase();
+  const base = PREFIX_TO_PLATFORM[prefix] || prefix;
+  if (activePlatforms.includes(base)) return base;
+  return activePlatforms.find((p) => p.startsWith(`${base}:`)) || null;
+}
+
 /**
  * Busca + formata + envia pelo `PlatformManager`.
  *
- * `platform` é a chave do adapter (ex.: `whatsapp:558581344211`) e `chatId` o
- * destino. Quem chama resolve a chave — o scheduler parte do `group_id`
- * prefixado de `group_news`.
+ * Recebe o `group_id` prefixado (como está em `group_news`): a chave do adapter
+ * é resolvida aqui, e o próprio adapter remove o prefixo antes de enviar
+ * (Baileys `toJid`, Telegram `^tg:`, Discord `^dc:`).
  */
-export async function sendNewsToGroup(
-  platform: string,
-  chatId: string,
-  topic: string,
-  count: number,
-): Promise<void> {
+export async function sendNewsToGroup(groupId: string, topic: string, count: number): Promise<void> {
+  const pm = PlatformManager.getInstance();
+  const active = pm.getActivePlatforms();
+  const platform = resolveAdapterKey(active, groupId);
+  if (!platform) {
+    throw new Error(
+      `[news] nenhum adapter para "${groupId}" (ativos: ${active.join(', ') || 'nenhum'})`,
+    );
+  }
   const body = await fetchNews(topic, count);
   const text = formatNewsMessage(topic, count, body);
-  const pm = PlatformManager.getInstance();
-  await pm.sendMessage(platform, chatId, text);
+  await pm.sendMessage(platform, groupId, text);
 }
