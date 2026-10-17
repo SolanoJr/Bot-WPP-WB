@@ -68,5 +68,13 @@
     "tsx": "^4.23.13",
     "typescript": "^7.0.2",
     "vitest": "^3.2.7"
+  },
+  "allowScripts": {
+    "@parcel/watcher@2.6.0": true,
+    "@whiskeysockets/baileys@7.0.0-rc14": true,
+    "esbuild@0.28.2": true,
+    "protobufjs@7.6.6": true,
+    "sqlite3@6.0.1": true,
+    "unrs-resolver@1.12.2": true
   }
 }
