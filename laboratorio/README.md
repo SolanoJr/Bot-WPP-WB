@@ -1,9 +1,28 @@
-# Laboratório comportamental
+# laboratorio/ — casa dos testes exploratórios (docs/RULES.md, Regra 6)
 
-O laboratório reúne apenas testes comportamentais que interagem com o bot real.
-Testes unitários e de integração continuam em `tests/`.
+Testes comportamentais que interagem com o bot real + probes de API,
+self-tests, scripts de investigação e log de incidentes. Testes unitários
+e de integração continuam em `tests/`.
 
-## 📁 Arquivos
+## O que tem aqui
+
+- `probe-ai-providers.js` — probe direto das IAs das notícias (Groq→Gemini),
+  com o prompt real. Rodar no VPS:
+  `cd ~/bot-wpp && node laboratorio/probe-ai-providers.js`
+- `BUGS.md` — incidentes (sintoma→causa→fix→detecção→prevenção) e
+  aprendizados
+- `captured-messages.jsonl`, `delete-e2e-results.jsonl`, `dumps/`, `state/` —
+  saídas de execução (não editar à mão)
+- `selftest.ts` — auto-teste comportamental (ver abaixo)
+- `test-menu-production.sh` — teste de menu em produção
+- `ARCHIVE/`, `_audit.cjs` — artefatos de auditoria/arquivo
+
+## Convenções
+
+- Script novo: cabeçalho com o comando exato (rodam no VPS, da raiz do
+  projeto).
+- Saída que importa vira arquivo aqui, não só terminal.
+- Bug novo/resolvido → entrada em BUGS.md.
 
 ## Auto-teste
 
@@ -31,4 +50,4 @@ canônico da sessão, não um grupo real.
 
 ---
 
-**Última atualização:** 2026-09-01
+**Última atualização:** 2026-10-17

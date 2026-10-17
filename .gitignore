@@ -87,7 +87,6 @@ laboratorio/dumps/
 # 🗑️ ARQUIVOS OPERACIONAIS (runtime nativos — não versionar)
 data.backup/
 *.preD2B
-lab-flip.js
-probe-*.js
-laboratorio/test-reconnect.sh
+/lab-flip.js
+/probe-*.js
 group-lists.json
