@@ -67,4 +67,41 @@ Para cada item (comando, tabela, campo, fluxo):
 
 "Código morto" é hipótese até investigação. Pode ser código adormecido
 com valor, ou código esquecido que ainda serve.
+
+## Regra 5 — Features com dependência externa: pirâmide antes do E2E
+
+Feature que fala com API/provider/serviço externo (IA, HTTP, banco remoto)
+passa por esta ordem, do mais barato ao mais caro. E2E em grupo real é o
+ÚLTIMO passo, nunca o primeiro:
+
+1. **Probe direto** (segundos, zero deploy): script em laboratorio/ chamando
+   a API real com key real — valida key, modelo, formato da resposta e o
+   prompt. Pega 404/401/429 e "modelo descontinuado" antes de qualquer build.
+2. **Unit com mock**: lógica de fallback, parsing, formatação. Mock prova
+   lógica — NUNCA prova conectividade.
+3. **Integração por script**: função real (ex.: askAINews) rodando no VPS com
+   o prompt real, sem passar pelo bot.
+4. **Pipeline sem send**: comando via /lab/inject-message, verificar no log
+   até o ponto do sendMessage (sem mensagem no grupo).
+5. **E2E no grupo**: uma vez, com gente vendo, só quando 1–4 passarem.
+
+Regra de bolso: se o erro podia ser pego com um probe de 5s, ele não pode
+aparecer num grupo real.
+
+## Regra 6 — laboratorio/ é o lar dos testes exploratórios
+
+laboratorio/ existe para: probes de API/serviço, self-tests, scripts que
+reproduzem bugs, log de incidentes (laboratorio/BUGS.md) e notas de
+aprendizado. Criar à vontade — é para isso que a pasta existe.
+
+- Todo script é reproduzível: cabeçalho com o comando exato de execução
+  (ex.: `cd ~/bot-wpp && node laboratorio/probe-ai-providers.js`).
+- Resultado que importa vira arquivo (jsonl/md em laboratorio/), não só
+  output de terminal.
+- Todo bug/incidente vira entrada em laboratorio/BUGS.md: sintoma → causa
+  raiz → fix (commit) → como detectar rápido de novo → prevenção. Se o bug
+  voltar, a entrada já diz o caminho.
+- Scripts do laboratório são versionados (git) — duram entre máquinas e
+  sessões. Scratch de execução na raiz (lab-flip.js, e2e-*.js) continua
+  ignorado no .gitignore.
 ---

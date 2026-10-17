@@ -238,6 +238,13 @@ Spec bruta do dono. Cada item vira rodada quando priorizado.
   Os 3 adapters removem o próprio prefixo antes de enviar (`toJid`, `^tg:`, `^dc:`).
 - Comando continua OCULTO no menu (decisão de visibilidade adiada — ver item
   "Comandos ocultos" acima).
+- **Pós-resolução (2026-10-17):** modelos descontinuados nos 2 providers →
+  fix b094b42 (NEWS_PROVIDERS: `qwen/qwen3.8-27b` + `gemini-3.8-flash`);
+  detalhes em laboratorio/BUGS.md INC-001.
+- **Prompt pede "notícias de HOJE" a LLM sem browsing** (newsService.ts:60)
+  — o conteúdo vem do treino, não de fonte real; em tema estranho pode
+  voltar disclaimer. Melhoria futura: prompt honesto ("acontecimentos
+  recentes que você conhece") OU fonte real (RSS/NewsAPI). Rodada própria.
 
 **Lição aprendida (P3.2):** o mock de teste deve espelhar o shape REAL do
 accessor (camelCase: `groupId`, `scheduleTime`), não o shape do banco
@@ -245,3 +252,11 @@ accessor (camelCase: `groupId`, `scheduleTime`), não o shape do banco
 camelCase e o scheduler lê `row.scheduleTime` — com o mock em snake_case o
 campo era `undefined`, `'07:59' < undefined` dava `false` e o grupo enviava em
 vez de pular. O teste pegou; sem ele, o bug passaria despercebido em produção.
+
+### askAI/$pergunta — modelo deprecado (ABERTO)
+- `askAI` (aiService.ts) usa o endpoint NATIVO do Gemini com
+  `gemini-2.5-flash` — descontinuado para contas novas ("no longer
+  available to new users") → provável 404 em produção no `$pergunta`.
+- Rodada própria (não junto do kick fix). Ordem: probe direto (Regra 5)
+  com `gemini-3.8-flash` no endpoint nativo → fix → gates → deploy.
+- Detalhes: laboratorio/BUGS.md INC-002.
