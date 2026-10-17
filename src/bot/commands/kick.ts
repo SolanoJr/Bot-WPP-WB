@@ -24,6 +24,14 @@ export const kickCommand: ICommand = {
       // nunca de conversão artificial.
       const botAdmin = isBotGroupAdmin(chat, ctx.client.userId);
       if (!botAdmin.verified) {
+        // INC-004: metadata do grupo falhou AGORA (ex.: timeout do groupMetadata
+        // no BaileysChatManager, socket degradado) — chega aqui como
+        // participants:[] + isPermissionsVerified:false. NÃO é "plataforma sem
+        // lista" (TG/DC não setam o campo): pedir retry curto.
+        if (chat.isPermissionsVerified === false) {
+          await ctx.reply('⏳ Não consegui carregar a lista de membros agora. Tente novamente em alguns segundos.');
+          return;
+        }
         // Telegram/Discord não expõem a lista de membros → autorização por role
         // é impossível nesses adapters. Mensagem precisa, não "bot não é admin".
         await ctx.reply(

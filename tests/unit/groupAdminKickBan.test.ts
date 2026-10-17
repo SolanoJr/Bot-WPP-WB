@@ -340,6 +340,9 @@ describe('$kick — caminho real de autorização e execução', () => {
     vi.doUnmock('../../src/services/loggerService');
   });
 
+  // Este caso simula TG/DC (isPermissionsVerified undefined por design):
+  // participants=[] sem o campo → mensagem de plataforma. O caso WA com
+  // metadata transiente está em "INC-004 (a)".
   it('RECUSA quando o metadata é indisponível (não assume admin)', async () => {
     vi.resetModules();
     vi.doMock('../../src/services/loggerService', () => ({
@@ -354,6 +357,50 @@ describe('$kick — caminho real de autorização e execução', () => {
 
     expect(ctx.client.removeParticipant).not.toHaveBeenCalled();
     expect(ctx.reply.mock.calls.map((c: any[]) => String(c[0])).join()).toContain('não está disponível nesta plataforma');
+    vi.doUnmock('../../src/services/loggerService');
+  });
+
+  it('INC-004 (a): isPermissionsVerified=false (metadata falhou AGORA) → retry curto, não mensagem de plataforma', async () => {
+    vi.resetModules();
+    vi.doMock('../../src/services/loggerService', () => ({
+      logInfo: () => {}, logWarning: () => {}, logError: () => {},
+    }));
+    const { kickCommand } = await import('../../src/bot/commands/kick');
+
+    const ctx = makeCtx({
+      getChat: vi.fn(async () => ({
+        participants: [], isPermissionsVerified: false,
+        id: '120363410094452673@g.us', isGroup: true, name: 'Teste',
+      })),
+    });
+    await kickCommand.execute(ctx as any);
+
+    expect(ctx.client.removeParticipant).not.toHaveBeenCalled();
+    const r = ctx.reply.mock.calls.map((c: any[]) => String(c[0])).join(' | ');
+    expect(r).toContain('Tente novamente em alguns segundos');
+    expect(r).not.toContain('não está disponível nesta plataforma');
+    vi.doUnmock('../../src/services/loggerService');
+  });
+
+  it('INC-004 (b): isPermissionsVerified=true + participants=[] → recusa com mensagem de plataforma', async () => {
+    vi.resetModules();
+    vi.doMock('../../src/services/loggerService', () => ({
+      logInfo: () => {}, logWarning: () => {}, logError: () => {},
+    }));
+    const { kickCommand } = await import('../../src/bot/commands/kick');
+
+    const ctx = makeCtx({
+      getChat: vi.fn(async () => ({
+        participants: [], isPermissionsVerified: true,
+        id: '120363410094452673@g.us', isGroup: true, name: 'Teste',
+      })),
+    });
+    await kickCommand.execute(ctx as any);
+
+    expect(ctx.client.removeParticipant).not.toHaveBeenCalled();
+    const r = ctx.reply.mock.calls.map((c: any[]) => String(c[0])).join(' | ');
+    expect(r).toContain('não está disponível nesta plataforma');
+    expect(r).not.toContain('Tente novamente em alguns segundos');
     vi.doUnmock('../../src/services/loggerService');
   });
 
@@ -426,6 +473,9 @@ describe('$ban — caminho real de autorização e execução', () => {
     vi.doUnmock('../../src/services/loggerService');
   });
 
+  // Este caso simula TG/DC (isPermissionsVerified undefined por design):
+  // participants=[] sem o campo → mensagem de plataforma. O caso WA com
+  // metadata transiente está em "INC-004 (a)".
   it('RECUSA quando o metadata é indisponível (não assume admin)', async () => {
     vi.resetModules();
     vi.doMock('../../src/services/loggerService', () => ({
@@ -438,6 +488,50 @@ describe('$ban — caminho real de autorização e execução', () => {
 
     expect(ctx.client.banParticipant).not.toHaveBeenCalled();
     expect(ctx.reply.mock.calls.map((c: any[]) => String(c[0])).join()).toContain('não está disponível nesta plataforma');
+    vi.doUnmock('../../src/services/loggerService');
+  });
+
+  it('INC-004 (a): isPermissionsVerified=false (metadata falhou AGORA) → retry curto, não mensagem de plataforma', async () => {
+    vi.resetModules();
+    vi.doMock('../../src/services/loggerService', () => ({
+      logInfo: () => {}, logWarning: () => {}, logError: () => {},
+    }));
+    const { banCommand } = await import('../../src/bot/commands/ban');
+
+    const ctx = makeCtx({
+      getChat: vi.fn(async () => ({
+        participants: [], isPermissionsVerified: false,
+        id: '120363410094452673@g.us', isGroup: true, name: 'Teste',
+      })),
+    });
+    await banCommand.execute(ctx as any);
+
+    expect(ctx.client.banParticipant).not.toHaveBeenCalled();
+    const r = ctx.reply.mock.calls.map((c: any[]) => String(c[0])).join(' | ');
+    expect(r).toContain('Tente novamente em alguns segundos');
+    expect(r).not.toContain('não está disponível nesta plataforma');
+    vi.doUnmock('../../src/services/loggerService');
+  });
+
+  it('INC-004 (b): isPermissionsVerified=true + participants=[] → recusa com mensagem de plataforma', async () => {
+    vi.resetModules();
+    vi.doMock('../../src/services/loggerService', () => ({
+      logInfo: () => {}, logWarning: () => {}, logError: () => {},
+    }));
+    const { banCommand } = await import('../../src/bot/commands/ban');
+
+    const ctx = makeCtx({
+      getChat: vi.fn(async () => ({
+        participants: [], isPermissionsVerified: true,
+        id: '120363410094452673@g.us', isGroup: true, name: 'Teste',
+      })),
+    });
+    await banCommand.execute(ctx as any);
+
+    expect(ctx.client.banParticipant).not.toHaveBeenCalled();
+    const r = ctx.reply.mock.calls.map((c: any[]) => String(c[0])).join(' | ');
+    expect(r).toContain('não está disponível nesta plataforma');
+    expect(r).not.toContain('Tente novamente em alguns segundos');
     vi.doUnmock('../../src/services/loggerService');
   });
 

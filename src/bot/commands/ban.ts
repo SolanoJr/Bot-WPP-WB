@@ -22,6 +22,13 @@ export const banCommand: ICommand = {
       // Autorização: fonte única (groupAdmin) — mesma lógica do $kick.
       const botAdmin = isBotGroupAdmin(chat, ctx.client.userId);
       if (!botAdmin.verified) {
+        // INC-004: mesma condição do $kick — metadata falhou AGORA (timeout do
+        // groupMetadata) → isPermissionsVerified:false. Retry curto, não a
+        // mensagem de "plataforma sem lista".
+        if (chat.isPermissionsVerified === false) {
+          await ctx.reply('⏳ Não consegui carregar a lista de membros agora. Tente novamente em alguns segundos.');
+          return;
+        }
         await ctx.reply(
           adapterProvidesParticipants(chat)
             ? '❌ Não foi possível identificar o bot na lista de membros. Tente novamente.'
