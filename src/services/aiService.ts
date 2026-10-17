@@ -141,7 +141,73 @@ function getSarcasticResponse(): string {
     return responses[Math.floor(Math.random() * responses.length)];
 }
 
+/**
+ * ─── Notícias (askAINews) ───────────────────────────────────────────────
+ * Pipeline dedicado às notícias, separado do askAI: sem memória de contexto,
+ * sem escrita em ai_history e sem compartilhar o circuit breaker do Gemini —
+ * o breaker abrir por rate limit no askAI não pode derrubar as notícias.
+ */
+
+/** Provider de chat compatível com OpenAI (POST {url}, Authorization Bearer). */
+interface NewsProvider {
+    name: string;
+    url: string;
+    keyEnv: string;
+    model: string;
+}
+
+/**
+ * Ordem = prioridade: Groq primeiro, Gemini como fallback.
+ * O Gemini entra pelo endpoint OpenAI-compat oficial (mesma GEMINI_API_KEY e
+ * mesmo modelo do askAI) porque a URL nativa (:generateContent, payload
+ * contents/generationConfig) não serve neste loop chat/completions.
+ */
+const NEWS_PROVIDERS: NewsProvider[] = [
+    {
+        name: 'groq',
+        url: 'https://api.groq.com/openai/v1/chat/completions',
+        keyEnv: 'GROQ_API_KEY',
+        model: 'llama-3.3-70b-versatile',
+    },
+    {
+        name: 'gemini',
+        url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+        keyEnv: 'GEMINI_API_KEY',
+        model: 'gemini-2.5-flash',
+    },
+];
+
+/**
+ * Busca notícias via IA com fallback entre providers (Groq → Gemini).
+ * Só lança quando TODOS falham — o caller decide como reportar ao usuário.
+ */
+async function askAINews(prompt: string): Promise<string> {
+    const errors: string[] = [];
+    for (const p of NEWS_PROVIDERS) {
+        const key = process.env[p.keyEnv];
+        if (!key) { errors.push(`${p.name}: key ausente`); continue; }
+        try {
+            const res = await axios.post(p.url, {
+                model: p.model,
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0.4,
+                max_tokens: 800,
+            }, {
+                headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+                timeout: 30000,
+            });
+            const content = res.data?.choices?.[0]?.message?.content;
+            if (!content) throw new Error('resposta vazia');
+            return content.trim();
+        } catch (e: any) {
+            errors.push(`${p.name}: ${e.message}`);
+        }
+    }
+    throw new Error(`Todos os providers falharam: ${errors.join(' | ')}`);
+}
+
 export {
     askAI,
+    askAINews,
     getSarcasticResponse
 };

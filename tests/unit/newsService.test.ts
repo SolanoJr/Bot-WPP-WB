@@ -10,6 +10,7 @@ import { resolveAdapterKey } from '../../src/services/newsService';
 
 vi.mock('../../src/services/aiService', () => ({
   askAI: vi.fn(async () => 'ok'),
+  askAINews: vi.fn(async () => 'ok'),
 }));
 
 vi.mock('../../src/platforms/PlatformManager', () => ({

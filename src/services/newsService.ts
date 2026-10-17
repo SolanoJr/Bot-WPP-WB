@@ -1,4 +1,4 @@
-import { askAI } from './aiService';
+import { askAINews } from './aiService';
 import { PlatformManager } from '../platforms/PlatformManager';
 
 /**
@@ -67,7 +67,7 @@ Se não encontrar notícias do dia, use as mais recentes da semana.`;
 
 /** Busca as notícias na IA. Retorna o texto cru (a lista numerada). */
 export async function fetchNews(topic: string, count: number): Promise<string> {
-  return askAI(buildNewsPrompt(topic, count));
+  return askAINews(buildNewsPrompt(topic, count));
 }
 
 /** Monta a mensagem final que vai ao grupo. */
