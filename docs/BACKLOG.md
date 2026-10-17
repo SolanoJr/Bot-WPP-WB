@@ -273,4 +273,14 @@ vez de pular. O teste pegou; sem ele, o bug passaria despercebido em produção.
 - NIM z-ai/glm-5.3-flash e google/gemma-4-31b-it — no catálogo, mas
   timeout 2×20s no probe; re-probrar fora de pico antes de considerar.
 - aliases pesado/forte → nvidia/moonshotai/kimi-k3 — fora do catálogo NIM
-  (morto): repontuar (ex.: nemotron-ultra) ou remover em rodada própria.
+  (morto). **RESOLVIDO 2026-10-17:** repontuados para
+  openrouter/nvidia/nemotron-3-ultra-550b-a55b:free (rodada rápida, via
+  hermes config set model.aliases).
+
+### Kick/ban INC-004 — pós-fix (OPCIONAL)
+- Smoke real do retry ("⏳ Tente novamente em alguns segundos"): exigiria
+  degradar o socket artificialmente num grupo de teste — mock já cobre os
+  2 ramos por comando; só se um dia valer o custo.
+- Nomes dos testes "RECUSA quando o metadata é indisponível" (kick e ban)
+  ficaram com comentário esclarecedor em vez de rename — rename é
+  cosmético, sem urgência.

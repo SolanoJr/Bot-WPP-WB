@@ -58,6 +58,40 @@ Prevenção: Regra 5 antes de qualquer troca de modelo/provider; probe
 versionado no laboratorio/; revisar a chain quando o NIM avisar EOL (410
 com data).
 
+INC-004 — Kick/ban: mensagem de "plataforma sem lista" quando o metadata
+do grupo falha transitoriamente (2026-10-17)
+Sintoma: usuário (Alberto) rodou $kick e recebeu "não está disponível
+nesta plataforma" com WhatsApp operando; ~5s entre "Executando" e a
+resposta; log com "timed out waiting for message" em rajada (socket
+degradado).
+
+Causa raiz: adapterProvidesParticipants (groupAdmin.ts:157) checa DADOS
+(Array.isArray && length>0), não adapter — quando o groupMetadata falha
+ou estoura o race de 5s (BaileysChatManager:56-65), chega participants:[]
++ isPermissionsVerified:false e o comando não distingue disso de
+"plataforma sem lista" (TG/DC). O campo existia desde sempre
+(PlatformTypes.ts:43 — o comentário já previa este uso exato) e nunca
+havia sido consumido.
+
+Fix: 5b7dcfd — kick.ts e ban.ts passam a checar
+chat.isPermissionsVerified === false PRIMEIRO e pedem retry curto
+("⏳ Não consegui carregar a lista de membros agora. Tente novamente em
+alguns segundos."); resto do fluxo intocado. Deploy canary+prod
+2026-10-17, backup /tmp/bw-1792279275.
+
+Detecção rápida: grep no log de reply por "não está disponível nesta
+plataforma" em contexto WA (não-TG/DC) — após o fix, WA só mostra isso
+com o campo ausente/true; e o campo isPermissionsVerified no chat de
+teste.
+
+Prevenção: 4 unit tests novos cobrem os 2 ramos por comando
+(groupAdminKickBan.test.ts, INC-004 a/b); TG/DC cobertos pela regressão
+"REGRESSÃO: TG/DC já recusavam ANTES do fix".
+
+Edge case conhecido: WA + metadata OK + participants=[] cai em "não está
+disponível nesta plataforma" (degenerado — irreal na prática: grupo tem
+≥1 membro; comportamento prescrito no runbook da rodada).
+
 APRENDIZADOS
 Injeção via /lab/inject-message deve respeitar o contrato do comando:
 $noticias <tema> [N] — $noticias 3 tecnologia vira tema
