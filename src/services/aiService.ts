@@ -167,13 +167,13 @@ const NEWS_PROVIDERS: NewsProvider[] = [
         name: 'groq',
         url: 'https://api.groq.com/openai/v1/chat/completions',
         keyEnv: 'GROQ_API_KEY',
-        model: 'llama-3.3-70b-versatile',
+        model: 'qwen/qwen3.8-27b',
     },
     {
         name: 'gemini',
         url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
         keyEnv: 'GEMINI_API_KEY',
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.8-flash',
     },
 ];
 
