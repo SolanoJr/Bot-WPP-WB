@@ -113,6 +113,22 @@ export function createPlayer(canvas, { onError, onTamanho } = {}) {
       return false;
     }
 
+    // INC-005: o configure só rejeita na hora o que o browser já sabe que é
+    // inválido; o caso do celular é pior — aceita o configure e engasga no
+    // primeiro quadro de verdade (High@L4.2 em decoder de hardware). A sonda
+    // assíncrona cobre esse caso sem mudar o contrato síncrono de start: os
+    // chamadores usam o booleano como guarda, e uma Promise aqui seria
+    // sempre truthy — guarda furada. Se a sonda disser não com decoder já
+    // montado, desmonta com a mensagem honesta em vez de tela preta muda.
+    VideoDecoder.isConfigSupported?.(config)
+      .then(({ supported }) => {
+        if (!supported && decoder) {
+          onError?.(`Codec não suportado por este dispositivo: ${config.codec}`);
+          stop();
+        }
+      })
+      .catch(() => {});
+
     needKeyframe = true;
     return true;
   }

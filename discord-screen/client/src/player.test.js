@@ -226,3 +226,66 @@ describe('irregularidade', () => {
     expect(p.getJitter()).toBeLessThanOrEqual(22);
   });
 });
+
+describe('suporte de codec (INC-005)', () => {
+  /** Decoder de mentira com a sonda do INC-005: o start continua síncrono,
+   *  mas depois de configure a sonda assíncrona decide se o dispositivo
+   *  aguenta o codec de verdade — o configure aceitar não é prova. */
+  function decoderComSonda(supported) {
+    return class {
+      static isConfigSupported() {
+        return Promise.resolve({ supported });
+      }
+
+      constructor({ output }) {
+        this.output = output;
+        this.state = 'unconfigured';
+      }
+
+      configure() {
+        this.state = 'configured';
+      }
+
+      decode(chunk) {
+        this.output({
+          timestamp: chunk.timestamp,
+          displayWidth: 1280,
+          displayHeight: 720,
+          close() {},
+        });
+      }
+
+      close() {
+        this.state = 'closed';
+      }
+    };
+  }
+
+  it('sonda diz não: mensagem honesta no lugar de tela preta muda', async () => {
+    globalThis.VideoDecoder = decoderComSonda(false);
+    globalThis.window = { VideoDecoder: globalThis.VideoDecoder };
+    const erros = [];
+    const p = createPlayer(canvasFalso(), { onError: (msg) => erros.push(msg) });
+
+    // O contrato síncrono se mantém: start continua devolvendo booleano.
+    expect(p.start({ codec: 'avc1.4d4028', codedWidth: 1920, codedHeight: 1080 })).toBe(true);
+
+    await vi.waitFor(() => expect(erros).toHaveLength(1));
+    expect(erros[0]).toBe('Codec não suportado por este dispositivo: avc1.4d4028');
+  });
+
+  it('sonda diz sim: o decoder segue no ar e desenhando', async () => {
+    globalThis.VideoDecoder = decoderComSonda(true);
+    globalThis.window = { VideoDecoder: globalThis.VideoDecoder };
+    const erros = [];
+    const p = createPlayer(canvasFalso(), { onError: (msg) => erros.push(msg) });
+
+    expect(p.start({ codec: 'avc1.4d4028', codedWidth: 1920, codedHeight: 1080 })).toBe(true);
+    await vi.waitFor(() => {
+      // Um ciclo de relógio: a sonda já respondeu e não derrubou nada.
+      p.push(pacote(KEYFRAME, 0));
+      avancar(50);
+      expect(erros).toHaveLength(0);
+    });
+  });
+});
