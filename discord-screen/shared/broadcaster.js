@@ -46,13 +46,15 @@ const NIVEIS_H264 = [
 ];
 
 /**
- * Perfis, do que comprime melhor ao que tem encoder em mais lugares.
+ * Perfis, do que decodifica em mais lugares ao que comprime melhor.
  *
- * High entrega mais imagem no mesmo bitrate e é acelerado por hardware em
- * qualquer GPU desta década. Baseline fica por último como rede de segurança:
- * é o que roda onde nada mais roda.
+ * Main (4d40) primeiro: decode por hardware universal — inclusive celular,
+ * onde High pune o decoder e custa reconexão (INC-005). High fica como
+ * segunda opção para desktop com sobra; Baseline por último, rede de
+ * segurança. A perda de CABAC 8x8 é marginal em screenshare com B-frames
+ * já fora (realtime) e bitrate fixo.
  */
-const PERFIS_H264 = ['6400', '4d40', '42e0'];
+const PERFIS_H264 = ['4d40', '6400', '42e0'];
 
 /** O menor nível que aguenta este quadro nesta taxa. */
 export function nivelH264(width, height, fps) {
@@ -245,6 +247,9 @@ export function createBroadcaster({
   onEnd,
   onAviso,
 }) {
+  // Sanity apenas. O cap por nível H.264 não pode viver aqui: a resolução
+  // só é conhecida quando a captura abre, dentro do start(). INC-005.
+  fps = Number(fps) || 30;
   let ws = null;
   let stream = null;
   let encoder = null;
@@ -309,6 +314,16 @@ export function createBroadcaster({
 
     const s = track.getSettings();
     const target = fitWithin(s.width ?? 1280, s.height ?? 720);
+
+    // INC-005: cap condicional por nível. 1080p60 pede o nível 4.2 do
+    // H.264 (avc1.64002a nos logs), que decoder de hardware de celular
+    // não decodifica — era o que derrubava quem assistia pelo celular.
+    // 720p60 fica em 4.0 e passa incólume. A resolução aqui já é a real
+    // (getSettings + fitWithin), antes de o encoder ser configurado —
+    // capar agora evita nascer errado e reconfigurar no primeiro quadro.
+    if (nivelH264(target.width, target.height, fps) > 0x28 && fps > 30) {
+      fps = 30;
+    }
 
     config = await pickConfig(target.width, target.height);
     if (!config) {
@@ -871,9 +886,17 @@ export function createBroadcaster({
       // antigo é pedir um quadro que não cabe no contrato — exatamente o erro
       // que fazia a tela cair para VP8, agora com a transmissão no ar.
       const anterior = config;
+      // INC-005: a janela cresceu no meio da transmissão (ex.: 720p → 1080p
+      // com fps 60): mesma regra do start() — nível acima de 4.0 com fps de
+      // sobra sacrifica o fps antes de subir o nível. Decoder de celular não
+      // decodifica 4.2; 30 fps ele decodifica.
+      if (nivelH264(target.width, target.height, fps) > 0x28 && fps > 30) {
+        fps = 30;
+      }
       config = {
         ...config,
         ...target,
+        framerate: fps,
         codec: comNivel(config.codec, nivelH264(target.width, target.height, fps)),
       };
 

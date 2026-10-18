@@ -107,7 +107,7 @@ let relogioDeCaptura = 0;
  * resolucao do duble muda o nome do codec, e um literal deixaria o teste
  * mentindo sobre o motivo de ter quebrado.
  */
-const H264 = `avc1.6400${nivelH264(1280, 720, 30).toString(16)}`;
+const H264 = `avc1.4d40${nivelH264(1280, 720, 30).toString(16)}`;
 
 const quadro = (
   displayWidth = 1280,
@@ -567,6 +567,18 @@ describe('start', () => {
     await noAr({ onStatus });
 
     expect(onStatus).toHaveBeenCalledWith(expect.objectContaining({ codec: H264, direct: true }));
+  });
+
+  it('1080p a 60 fps cai para 30 para não passar do nível 4.0 do H.264', async () => {
+    const { encoder } = await noAr(
+      { fps: 60 },
+      telaSimples({ width: 1920, height: 1080, displaySurface: 'monitor' }),
+    );
+
+    expect(encoder.configuracoes[0]).toMatchObject({
+      codec: `avc1.4d40${nivelH264(1920, 1080, 30).toString(16)}`,
+      framerate: 30,
+    });
   });
 
   it('reduz uma tela 4K até o teto de 1920x1080, sem cortar', async () => {
