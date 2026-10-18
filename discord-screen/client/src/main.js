@@ -43,6 +43,18 @@ let clientId = null;
 let ws = null;
 let participants = [];
 let reconnectDelay = 1000;
+// INC-005: reconexão armada pelo close handler. Guardada em variável para o
+// visibilitychange poder antecipá-la — celular em background suspende o JS e,
+// ao voltar, quem estava em "Reconectando…" esperava o backoff inteiro (até
+// 15s) antes de tentar de novo, mesmo já estando visível de novo.
+let pendenteRetry = null;
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && pendenteRetry) {
+    clearTimeout(pendenteRetry);
+    pendenteRetry = null;
+    connect();
+  }
+});
 let lagTimer = null;
 // Transmissão nascida aqui dentro, quando o Discord permite capturar no iframe.
 let myBroadcast = null;
@@ -1924,6 +1936,14 @@ function connect() {
   ws.addEventListener('open', () => {
     abriu = true;
     reconnectDelay = 1000;
+    // INC-005: se a reconexão chegou por outro caminho (visibilitychange,
+    // room-gone), o retry pendente precisa morrer aqui — dois sockets abertos
+    // é estado duplicado: dois pongs, duas grids, e o close do velho ainda
+    // armaria outro timer.
+    if (pendenteRetry) {
+      clearTimeout(pendenteRetry);
+      pendenteRetry = null;
+    }
     $('grid').hidden = false;
     setEmpty('Ninguém na sala', 'Aguardando participantes.');
 
@@ -2053,7 +2073,10 @@ function connect() {
 
     setEmpty('Reconectando…', 'A conexão com a sala caiu.');
     // Backoff — evita martelar o servidor se ele estiver fora do ar.
-    setTimeout(connect, reconnectDelay);
+    // INC-005: timer guardado para o visibilitychange poder antecipá-lo;
+    // um close aqui já com retry armado troca o timer velho pelo novo.
+    if (pendenteRetry) clearTimeout(pendenteRetry);
+    pendenteRetry = setTimeout(connect, reconnectDelay);
     reconnectDelay = Math.min(reconnectDelay * 2, 15_000);
   });
 

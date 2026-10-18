@@ -1196,17 +1196,29 @@ function handleViewer(ws, room, auth) {
 }
 
 // Derruba sockets mortos — sem isso o contador de viewers fica mentindo.
-const heartbeat = setInterval(() => {
-  for (const ws of wss.clients) {
+// O corpo vive em função própria (INC-005) para o teste poder chamar um
+// ciclo com sockets falsos, sem esperar 15s reais por tick de setInterval.
+function tickHeartbeat(clients) {
+  for (const ws of clients) {
     if (ws.__alive === false) {
-      ws.terminate();
-      continue;
+      // INC-005: celular em background suspende o JS por mais de um ciclo
+      // de 15s; um único miss derrubava quem ia voltar. Dois misses (30s)
+      // antes do terminate — se o socket morreu de verdade, o cliente
+      // reconecta do mesmo jeito.
+      ws.__misses = (ws.__misses || 0) + 1;
+      if (ws.__misses >= 2) {
+        ws.terminate();
+        continue;
+      }
+    } else {
+      ws.__misses = 0;
     }
     ws.__alive = false;
     ws.__pingSentAt = Date.now();
     ws.ping();
   }
-}, 15_000);
+}
+const heartbeat = setInterval(() => tickHeartbeat(wss.clients), 15_000);
 
 wss.on('connection', (ws) => {
   ws.__alive = true;
@@ -1379,4 +1391,4 @@ server.listen(PORT, () => {
  * o sistema escolhe uma porta livre, e o endereco real sai de
  * `server.address()` — nada aqui precisa saber que esta sob teste.
  */
-export { app, server, wss };
+export { app, server, wss, tickHeartbeat };
