@@ -137,19 +137,33 @@ Notas operacionais:
   (desde 16/10), não sintoma.
 - Aba de captura: fechar e REABRIR após deploy do broadcaster.js
   (script em memória). Recarregar a room não recarrega a aba de captura.
-Pendências (próximas rodadas):
-- App de PC tela preta: SDK/iframe/boot — abrir devtools na Activity no
-  desktop (Ctrl+Shift+I) e logar erros de boot; tela de erro visível no
-  catch do comPrazo (main.js:1807).
-- visibilitychange retry (main.js close handler ~2056): reconexão
-  imediata ao voltar do background (mobile suspend → sem pong → server
-  terminate em 15s → espera do backoff cap 15s).
+Fix parte 2 (2026-10-18, 9c2b06b + cd9fec1, deploy 16:15, restart #6):
+- visibilitychange: retry pendente guardado (pendenteRetry) e antecipado
+  ao voltar do background — mobile não espera mais o backoff inteiro.
+  Cancelamento do pendente no open (não abre 2 sockets). main.js não tem
+  harness de teste (boot roda no import; extração testável = refactor de
+  rodada própria) — cobertura por revisão + smoke.
+- Heartbeat 15s→30s: tick extraído em tickHeartbeat() (exportada para o
+  teste) com contador de misses — terminate só no 2º miss seguido; pong
+  zera. 3 testes unitários (heartbeat.test.js) sem esperar 15s reais.
+- isConfigSupported no player: sonda assíncrona fire-and-forget APÓS o
+  configure — contrato síncrono de start preservado (as 3 guardas
+  `if (!s.player.start(...))` quebrariam com Promise sempre-truthy);
+  suporte negado → onError("não suportado por este dispositivo") +
+  stop() em vez de engasgo mudo. 2 testes no player.test.js (403/403).
+- NÃO aplicado — boot error UI (F2.2 do runbook): o boot JÁ tem UI de
+  erro honesta em 2 níveis (boot().catch → setEmpty('Não foi possível
+  entrar', err.message) em main.js:1246 + try/catch do authDiscord
+  :1270-1281 + vigia de 8s). Se o sdk.ready falhasse, a tela mostraria o
+  motivo. Tela preta infinita do app de PC ⇒ o iframe nem chega a rodar
+  o main.js (rede/CSP/bloqueio do client) — o catch proposto seria
+  código morto. Diagnóstico: devtools na Activity do desktop.
+Pendências restantes (próximas rodadas):
 - Render watchdog (client→server "rendered" a cada 2s; >4s sem →
   requestKeyframe) — freeze do Cauá com bufferedAmount saudável.
-- VideoDecoder.isConfigSupported no player antes do configure (decoder HW
-  que aceita configure e engasga em runtime).
-- Tolerância de heartbeat mobile: 2 pongs perdidos (30s) antes de
-  terminate (index.js:1199) — hoje 15s pune suspend de celular.
+- App de PC tela preta: causa é pré-JS (iframe não carrega o main.js) —
+  abrir devtools na Activity do desktop (Ctrl+Shift+I), conferir erro
+  de console/rede antes de qualquer fix de UI.
 
 APRENDIZADOS
 Injeção via /lab/inject-message deve respeitar o contrato do comando:
