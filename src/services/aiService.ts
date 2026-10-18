@@ -32,8 +32,10 @@ async function askAI(prompt: string, userId: string = 'unknown'): Promise<string
             context = history.reverse().map((h: any) => `Usuário: ${h.prompt}\nIA: ${h.response}`).join('\n\n');
         }
 
-        // Usando gemini-2.5-flash (gemini-1.5-flash foi descontinuado - retorna 404).
-        const model = "gemini-2.5-flash";
+        // INC-002: gemini-2.5-flash foi descontinuado para contas novas (404).
+        // Treadmill: 1.5→2.5→3.8; 3.8 é a recomendação oficial da própria
+        // mensagem de 404. Evidência: laboratorio/probe-gemini-native.js.
+        const model = "gemini-3.8-flash";
         // Usando v1beta para modelos flash mais novos
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
 
@@ -77,6 +79,11 @@ ${context}`;
                     topK: 40,
                     topP: 0.95,
                     maxOutputTokens: 1024,
+                    // 3.x é reasoning-first: sem isto o thinking come o
+                    // orçamento (probe: 200 com parts=0, finish=MAX_TOKENS,
+                    // 27 thought tokens; com thinkingBudget=0 → content
+                    // preenchido). $pergunta é personalidade, não math.
+                    thinkingConfig: { thinkingBudget: 0 },
                 }
             }, {
                 headers: { 'Content-Type': 'application/json' },
@@ -84,7 +91,12 @@ ${context}`;
             }))
         );
 
-        if (response.data && response.data.candidates && response.data.candidates[0].content && response.data.candidates[0].content.parts) {
+        // INC-002: parts:[] é 200-vazio (thinking comeu o budget) — sem o
+        // length>0, parts[0].text lança e o catch devolve a mensagem genérica
+        // em vez de "não gerou uma resposta válida".
+        // Evidência: laboratorio/probe-gemini-native.js.
+        if (response.data && response.data.candidates && response.data.candidates[0].content && response.data.candidates[0].content.parts
+            && response.data.candidates[0].content.parts.length > 0) {
             const aiResponse = response.data.candidates[0].content.parts[0].text;
 
             // 2. Salvar a interação no banco de dados para memória futura
@@ -107,7 +119,7 @@ ${context}`;
             if (status === 429 || (errorData.error && errorData.error.code === 429)) {
                 const isQuotaExceeded = errorData.error?.message?.toLowerCase().includes('quota exceeded');
                 if (isQuotaExceeded) {
-                    return "🤖 Minha cota diária de inteligência para este modelo (Gemini 2.5 Flash) acabou. Volto a responder amanhã ou quando a cota resetar!";
+                    return "🤖 Minha cota diária de inteligência para este modelo (Gemini 3.8 Flash) acabou. Volto a responder amanhã ou quando a cota resetar!";
                 }
                 return "🤖 Estou processando muitas informações no momento. Aguarde uns segundos e tente novamente!";
             }
