@@ -190,6 +190,28 @@ Limitações conhecidas:
 - título = primeiro segmento antes do separador; a descrição fica fora
   do histórico (em-dash interno corta no primeiro).
 
+INC-007 — "3 NOTÍCIAS EM VEZ DE 5" (NÃO É BUG, 18/10)
+Sintoma: "projeto continua com as 3 notícias mesmo eu pedindo 5".
+Diagnóstico: o smoke da INC-006 (19:08/19:09) injetou $noticias
+  tecnologia 3 — N explícito no comando. Nenhum caminho do código
+  produz 3 sem o comando pedir 3.
+Evidência:
+- Código: DEFAULT_ITEMS=5 (noticias.ts:18), MAX_ITEMS=10
+  (newsService.ts:29); parser usa DEFAULT_ITEMS quando N não vem;
+  buildNewsPrompt interpola ${count}, sem hardcode; schema
+  group_news.item_count DEFAULT 5.
+- Banco prod: item_count=5 (único grupo, topic=tecnologia, 00:01);
+  scheduler passa row.itemCount — o 5 do banco.
+- Runtime (inject sem N): $noticias tecnologia → "TOP 5 NOTÍCIAS"
+  no log (19:21); news_history 6→11 rows (+5 títulos).
+Fix: nenhum.
+Detecção de "bug aparente" no futuro: antes de reportar "retorna N
+errado", verificar o comando injetado (tem N explícito?) e o
+item_count do grupo (SELECT em group_news) — os 2 únicos pontos que
+controlam o count.
+Lição: log com "TOP 3" numa janela de smoke ≠ comportamento padrão;
+a evidência de runtime (inject sem N) prova o default.
+
 APRENDIZADOS
 Injeção via /lab/inject-message deve respeitar o contrato do comando:
 $noticias <tema> [N] — $noticias 3 tecnologia vira tema
