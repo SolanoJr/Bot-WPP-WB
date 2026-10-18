@@ -165,6 +165,31 @@ Pendências restantes (próximas rodadas):
   abrir devtools na Activity do desktop (Ctrl+Shift+I), conferir erro
   de console/rede antes de qualquer fix de UI.
 
+INC-006 — DEDUP DE NOTÍCIAS (RESOLVIDO 92ebb78, 18/10)
+Sintoma: $noticias repetia títulos entre chamadas.
+Causa raiz: ausência de histórico; o LLM reemite temas recentes.
+Evidência: probe F1 (laboratorio/probe-news-dedup.js) — sem filtro, o
+  Groq devolveu o título fictício EXATO; com filtro, 3/3 temas sem
+  overlap.
+Fix: news_history (tabela + índice) + buildNewsPrompt(topic, count,
+  recentTitles) com bloco "NUNCA repita"; extractTitles sem fallback
+  (regex sem match → [], dedup falha em silêncio, nunca filtra lixo)
+  com strip de markdown em 2 fases; gravação dentro de fetchNews —
+  cobre comando manual E scheduler, os 2 caminhos passam por lá (F0.6);
+  Set dedup intra-envio; cleanup de 7 dias via cleanupService (cutoff
+  computado em JS: datetime('now') do SQLite formata com espaço e não
+  compara com o "T" do sent_at); falha de banco degrada com logWarning,
+  nunca derruba a notícia.
+Smoke prod: 2x "$noticias tecnologia 3" consecutivos → 6 títulos
+  distintos (0 overlap); news_history com 6 rows (3+3).
+Detecção rápida: rodar 2x seguidas, comparar títulos (0 overlap = OK);
+  news_history cresce N por envio.
+Limitações conhecidas:
+- dedup por string: reformulação semântica ("Apple lança iPhone 17" vs
+  "Novo iPhone 17 da Apple") passa. Embedding é rodada própria.
+- título = primeiro segmento antes do separador; a descrição fica fora
+  do histórico (em-dash interno corta no primeiro).
+
 APRENDIZADOS
 Injeção via /lab/inject-message deve respeitar o contrato do comando:
 $noticias <tema> [N] — $noticias 3 tecnologia vira tema

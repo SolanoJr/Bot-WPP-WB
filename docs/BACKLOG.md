@@ -245,6 +245,15 @@ Spec bruta do dono. Cada item vira rodada quando priorizado.
   — o conteúdo vem do treino, não de fonte real; em tema estranho pode
   voltar disclaimer. Melhoria futura: prompt honesto ("acontecimentos
   recentes que você conhece") OU fonte real (RSS/NewsAPI). Rodada própria.
+- **Dedup de títulos (o "sem repetir") — RESOLVIDO em 92ebb78 (INC-006):**
+  tabela `news_history` + bloco "NUNCA repita" no prompt + `extractTitles`
+  (sem fallback de fragmento); gravação dentro de `fetchNews` cobre comando
+  manual e agendador. Smoke em prod: 2 chamadas consecutivas, 0 overlap,
+  6 rows no histórico. Detalhes: laboratorio/BUGS.md INC-006.
+- **Verificar `$clima` (verificação de runtime)** — mesmo grupo das
+  pendências de verificação do render watchdog e do app de PC
+  (laboratorio/BUGS.md): confirmar em produção o comando, a resposta e a
+  fonte de dados antes de qualquer mudança nele.
 
 **Lição aprendida (P3.2):** o mock de teste deve espelhar o shape REAL do
 accessor (camelCase: `groupId`, `scheduleTime`), não o shape do banco
