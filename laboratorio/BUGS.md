@@ -92,6 +92,65 @@ Edge case conhecido: WA + metadata OK + participants=[] cai em "não está
 disponível nesta plataforma" (degenerado — irreal na prática: grupo tem
 ≥1 membro; comportamento prescrito no runbook da rodada).
 
+INC-005 — Discord screenshare: reconexão mobile + freeze web (RESOLVIDO
+parcialmente, 2026-10-18; fix 58d8f80)
+Sintoma: Janny (mobile) reconecta em ciclo (101 "assistindo"/96 "parou de
+assistir" num dia, saídas code=1001); tela desconecta e pede reconexão
+manual, webcam (High@L3.0) reconecta sozinha. Cauá (web) freeze de imagem
+com áudio fluindo; resolução menor alivia. App de PC do Discord: tela
+preta infinita.
+Causa raiz: encoder H.264 High profile em 1080p60 → nível L4.2
+(avc1.64002a), que decoder de hardware de celular não decodifica — pune
+o viewer mobile. High-first em PERFIS_H264; 60fps selecionável na UI e
+persistido em localStorage empurra 1080p ao nível 4.2 (maxMBPS).
+Evidência: log 17-18/10 (codec=avc1.64002a/640028/64001e), 101 ciclos da
+Janny, DERP relay "sao" no tráfego.
+Fix (58d8f80, deploy prod 18/10 15:07): PERFIS_H264 Main primeiro
+(4d40, decode HW universal; CABAC mantido); cap condicional por nível em
+start() e syncSize(): se nivelH264(w,h,fps) > L4.0 e fps > 30, fps=30
+(1080p60→30fps; 720p60 preservado — teste do tremor verde); framerate
+incluído no re-spread do syncSize; UI da aba sem a opção 60. Teste novo:
+1080p60 pin a 30fps + codec avc1.4d4028 (92/92).
+Detecção rápida: grep "codec=avc1" no bot-wpp-out.log — 64002a = aba de
+captura com broadcaster.js antigo em MEMÓRIA (fechar e reabrir a aba;
+reload da sala não recarrega o script). 4d40* = fix ativo. Contar
+"viewer saiu" code=1001 em janela de 5min (baseline Janny 101/dia).
+CORREÇÃO DE PREMISSA (funnel): a análise inicial concluiu "origem
+tailnet-only" a partir de `tailscale funnel status` = "No serve config".
+FALSO — o status como usuário não-root não vê a config do tailscaled
+(socket exige root). O unit systemd tailscale-funnel.service está
+ativo desde 2026-10-11 com `tailscale funnel --set-path=/ 3002`: DNS
+público anycast (199.38.181.54/209.177.145.137 via 1.1.1.1), curl 200
+com TLS válido do VPS e de cliente externo, CSP frame-ancestors já
+libera discord.com. Origem é PÚBLICA desde 11/10. Consequência: a
+hipótese "app de PC tela preta = DNS" está refutada — causa provável é
+SDK/iframe/boot (pendência). NÃO rodar `tailscale funnel --bg 3002`:
+conflitaria com o path / já servido pelo unit.
+Notas operacionais:
+- `pm2 restart bot-wpp --update-env` DEVE rodar de dentro de ~/bot-wpp:
+  o restart captura o CWD do shell chamador. Rodado do $HOME do ssh
+  (18/10 15:01) trocou o cwd do processo → DiscordScreenService resolveu
+  discord-screen fora do repo → spawn node ENOENT (child morto). Corrigi
+  com restart de ~/bot-wpp (15:07). Sintoma: "Client build not found at
+  /home/solanojr/discord-screen/client/dist" + spawn node ENOENT.
+- "Starting server on port" vazio no log é ruído pré-existente
+  (desde 16/10), não sintoma.
+- Aba de captura: fechar e REABRIR após deploy do broadcaster.js
+  (script em memória). Recarregar a room não recarrega a aba de captura.
+Pendências (próximas rodadas):
+- App de PC tela preta: SDK/iframe/boot — abrir devtools na Activity no
+  desktop (Ctrl+Shift+I) e logar erros de boot; tela de erro visível no
+  catch do comPrazo (main.js:1807).
+- visibilitychange retry (main.js close handler ~2056): reconexão
+  imediata ao voltar do background (mobile suspend → sem pong → server
+  terminate em 15s → espera do backoff cap 15s).
+- Render watchdog (client→server "rendered" a cada 2s; >4s sem →
+  requestKeyframe) — freeze do Cauá com bufferedAmount saudável.
+- VideoDecoder.isConfigSupported no player antes do configure (decoder HW
+  que aceita configure e engasga em runtime).
+- Tolerância de heartbeat mobile: 2 pongs perdidos (30s) antes de
+  terminate (index.js:1199) — hoje 15s pune suspend de celular.
+
 APRENDIZADOS
 Injeção via /lab/inject-message deve respeitar o contrato do comando:
 $noticias <tema> [N] — $noticias 3 tecnologia vira tema
