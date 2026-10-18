@@ -420,6 +420,17 @@ export async function initDatabase(): Promise<Database> {
     );
     CREATE INDEX IF NOT EXISTS idx_group_news_enabled
       ON group_news(enabled, schedule_time);
+
+    -- INC-006: histórico de títulos enviados — insumo do filtro de dedup
+    -- no prompt (newsService.buildNewsPrompt). Título a título, com o
+    -- momento do envio; a tabela é janela: cleanup apaga >7 dias.
+    CREATE TABLE IF NOT EXISTS news_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      sent_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_news_history_sent
+      ON news_history(sent_at);
   `);
 
   // Listas (arquitetura suportada — não eram comandos fantasmas, mas funcionalidade viva)
@@ -1159,6 +1170,53 @@ export async function markNewsSent(groupId: string, sentAt: string): Promise<voi
     `UPDATE group_news SET last_sent_at = ? WHERE group_id = ?`,
     [sentAt, String(groupId)]
   );
+}
+
+/**
+ * INC-006 — dedup de notícias: guarda os títulos de um envio.
+ * `sentAt` no mesmo formato de `last_sent_at` (hora local, sem Z) — formato
+ * é decisão do caller, não do banco. Set remove duplicata intra-envio
+ * (defensivo: a IA pode repetir linha na mesma resposta).
+ */
+export async function recordNewsTitles(titles: string[], sentAt: string): Promise<void> {
+  const uniq = [...new Set(titles.map((t) => String(t || '').trim()).filter(Boolean))];
+  if (!uniq.length) return;
+  const db = await getDb();
+  for (const t of uniq.slice(0, 10)) {
+    await db.run('INSERT INTO news_history (title, sent_at) VALUES (?, ?)', [t, sentAt]);
+  }
+}
+
+/** INC-006 — últimos N títulos enviados (mais recentes primeiro). Insumo do filtro. */
+export async function getRecentNewsTitles(limit: number): Promise<string[]> {
+  const n = Math.max(0, Math.min(Number(limit) || 0, 200));
+  const db = await getDb();
+  const rows = await db.all(
+    'SELECT title FROM news_history ORDER BY sent_at DESC, id DESC LIMIT ?',
+    [n]
+  );
+  return (rows || []).map((r: any) => String(r.title));
+}
+
+/**
+ * INC-006 — apaga títulos anteriores ao corte. `cutoff` no formato do
+ * `localStamp` (YYYY-MM-DDTHH:MM:SS, hora local, sem Z), passado por
+ * parâmetro para o teste ser determinístico; o default é agora menos
+ * `days` dias, computado em JS. Não dá para usar `datetime('now')` do
+ * SQLite: ele formata com espaço ("YYYY-MM-DD HH:MM:SS"), que não
+ * compara direito com o "T" do sent_at.
+ */
+export async function cleanupOldNewsHistory(days: number, cutoff?: string): Promise<number> {
+  const corte =
+    cutoff ??
+    (() => {
+      const d = new Date(Date.now() - Math.max(0, days) * 86_400_000);
+      const p = (n: number) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+    })();
+  const db = await getDb();
+  const res = await db.run('DELETE FROM news_history WHERE sent_at <= ?', [corte]);
+  return res.changes ?? 0;
 }
 
 /** Grupos com notícias habilitadas — é o que o scheduler varre a cada tick. */

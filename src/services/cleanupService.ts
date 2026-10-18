@@ -11,12 +11,13 @@
 import fs from 'fs/promises';
 import path from 'path';
 import logger from './loggerService';
-import { cleanupOldFingerprintEntries, cleanupOldJoinEntries, checkpointWal } from './databaseService';
+import { cleanupOldFingerprintEntries, cleanupOldJoinEntries, cleanupOldNewsHistory, checkpointWal } from './databaseService';
 
 export interface CleanupStats {
   logsDeleted: number;
   fingerprintsDeleted: number;
   joinEntriesDeleted: number;
+  newsHistoryDeleted: number;
   tempFilesDeleted: number;
   bytesFreed: number;
   duration: number;
@@ -45,6 +46,7 @@ export class CleanupService {
       logsDeleted: 0,
       fingerprintsDeleted: 0,
       joinEntriesDeleted: 0,
+      newsHistoryDeleted: 0,
       tempFilesDeleted: 0,
       bytesFreed: 0,
       duration: 0
@@ -63,6 +65,10 @@ export class CleanupService {
       // 3. Limpar join entries antigos (>30 dias no DB)
       await cleanupOldJoinEntries(2592000); // 30 dias
       stats.joinEntriesDeleted = 1; // Não temos count exato, marcar como feito
+
+      // 3.5 Limpar histórico de notícias (INC-006: dedup — a tabela é
+      // janela de 7 dias, senão o filtro do prompt cresce sem fim)
+      stats.newsHistoryDeleted = await cleanupOldNewsHistory(7);
 
       // 4. Checkpoint do WAL — garante que o arquivo principal em disco reflita
       // o estado real. Sem isso o .db fica defasado e um backup só do .db perde

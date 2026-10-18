@@ -1,5 +1,14 @@
 import { askAINews } from './aiService';
 import { PlatformManager } from '../platforms/PlatformManager';
+import { recordNewsTitles, getRecentNewsTitles } from './databaseService';
+import { logWarning } from './loggerService';
+
+/**
+ * INC-006 — quantos títulos recentes entram no filtro do prompt.
+ * 30 cobre ~uma semana de TOP 5 diários sem pesar o prompt (o probe do
+ * laboratorio/probe-news-dedup.js validou o formato do bloco).
+ */
+const RECENT_TITLES_IN_PROMPT = 30;
 
 /**
  * Notícias — busca via IA, formatação e envio.
@@ -54,20 +63,86 @@ export function titleCase(s: string): string {
     .join(' ');
 }
 
-/** Monta o prompt enviado à IA. Separado para ficar testável. */
-export function buildNewsPrompt(topic: string, count: number): string {
+/**
+ * Monta o prompt enviado à IA. Separado para ficar testável.
+ *
+ * `recentTitles` (INC-006) adiciona o bloco de dedup quando há histórico —
+ * formato validado no probe (laboratorio/probe-news-dedup.js): 3/3 temas
+ * sem overlap com o bloco, e sem ele o Groq devolveu o título fictício
+ * literal. Sem histórico (primeiro envio, banco fora do ar) o prompt é
+ * idêntico ao de antes.
+ */
+export function buildNewsPrompt(topic: string, count: number, recentTitles: string[] = []): string {
   const tema = topic ? `"${topic}"` : 'os principais acontecimentos do dia';
+  const filtro = recentTitles.length
+    ? `\nNUNCA repita os títulos abaixo — já foram enviados a este grupo antes:\n${recentTitles
+        .map((t) => `- ${t}`)
+        .join('\n')}`
+    : '';
   return `Liste as ${count} notícias mais relevantes de HOJE sobre ${tema}.
 Formato da resposta (texto puro, sem markdown, sem negrito, sem itálico):
 1. Título curto — 1 frase resumindo
 Não inclua cabeçalho, rodapé, fonte ou introdução.
 Apenas a lista numerada, uma notícia por linha.
-Se não encontrar notícias do dia, use as mais recentes da semana.`;
+Se não encontrar notícias do dia, use as mais recentes da semana.${filtro}`;
 }
 
-/** Busca as notícias na IA. Retorna o texto cru (a lista numerada). */
+/**
+ * INC-006 — extrai os títulos da resposta da IA para o histórico de dedup.
+ *
+ * Sem fallback: se nenhuma linha casar (a IA mudou o formato), devolve [] —
+ * dedup falhando em silêncio é melhor que dedup filtrando lixo: um
+ * disclaimer viraria "título" e bloquearia notícia legítima no prompt
+ * seguinte.
+ *
+ * Strip em duas fases: (a) markdown das pontas da LINHA antes do regex,
+ * para "**1. Título** — resumo" casar; (b) no título capturado, para
+ * "1. **Título** — resumo" devolver "Título". Título = primeiro segmento
+ * antes do separador; a descrição fica fora do histórico (em-dash interno
+ * corta no primeiro — decisão INC-006).
+ *
+ * `cap` alinha com o count pedido: a IA devolver 5 itens num TOP 3 grava 3 —
+ * o header da mensagem e o histórico ficam coerentes entre si.
+ */
+export function extractTitles(aiResponse: string, cap: number): string[] {
+  const titulos = String(aiResponse || '')
+    .split('\n')
+    // (a) markdown das pontas da linha, antes do regex
+    .map((l) => l.replace(/^[*_#\s]+|[*_#]+$/g, '').trim())
+    .map((l) => /^\s*(\d+)[.)]\s+(.+?)(?:\s+[—–]\s+|\s+-\s+)/.exec(l)?.[2])
+    .filter((t): t is string => Boolean(t))
+    // (b) markdown que sobrou dentro do título capturado
+    .map((t) => t.replace(/^[*_#\s]+|[*_#\s]+$/g, '').trim())
+    .filter(Boolean);
+  return titulos.slice(0, Math.max(0, Math.min(Number(cap) || 0, 10)));
+}
+
+/**
+ * Busca as notícias na IA. Retorna o texto cru (a lista numerada).
+ *
+ * INC-006 — o dedup mora AQUI, não no scheduler nem no comando: os dois
+ * caminhos ($noticias manual e agendador via sendNewsToGroup) passam por
+ * esta função (verificado em F0.6). Histórico entra no prompt e a resposta
+ * volta para o histórico. Falha de banco degrada (sem filtro / sem gravação)
+ * com logWarning — nunca derruba a notícia.
+ */
 export async function fetchNews(topic: string, count: number): Promise<string> {
-  return askAINews(buildNewsPrompt(topic, count));
+  const recentes = await getRecentNewsTitles(RECENT_TITLES_IN_PROMPT).catch((e: any) => {
+    logWarning('[news] histórico indisponível — seguindo sem filtro de dedup', {
+      err: String(e?.message || e),
+    });
+    return [] as string[];
+  });
+  const body = await askAINews(buildNewsPrompt(topic, count, recentes));
+  const titles = extractTitles(body, count);
+  if (titles.length) {
+    await recordNewsTitles(titles, localStamp()).catch((e: any) => {
+      logWarning('[news] falha ao gravar títulos no histórico — dedup degradado', {
+        err: String(e?.message || e),
+      });
+    });
+  }
+  return body;
 }
 
 /** Monta a mensagem final que vai ao grupo. */
