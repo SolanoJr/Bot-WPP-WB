@@ -214,6 +214,24 @@ Spec bruta do dono. Cada item vira rodada quando priorizado.
 - Quando alguém se apresenta: salva no grupo Telegram Fortaleza 085,
   tópico "apresentação", dizendo de qual grupo veio.
 
+### Bug: Welcome não taggeia o novato (ABERTO — reportado pelo dono 19/10)
+- Sintoma: o bem-vindo automático não marca (tag) o novato — a
+  menção não renderiza o highlight no WhatsApp.
+- Pistas do código (mini-F0): `memberJoinService.ts:132` JÁ monta
+  `mentions = id.includes('@') ? [id] : []` e repassa ao
+  `ctx.sendMessage` — o array não está ausente na origem. Hipóteses:
+  1. O adapter real (BaileysSender) ignora o 3º param `mentions`
+     (assinatura `sendMessage(groupId, text, mentions?)` — confirmar
+     se chega ao `sock.sendMessage` do Baileys).
+  2. Formato do JID: novato chegando como `@lid` quando o grupo espera
+     `@c.us` (ou vice-versa) — o WhatsApp não destaca mention com JID
+     de formato errado para o grupo.
+  3. O texto do welcome não contém o handle `@numero` correspondente
+     ao JID do array (o cliente casa texto+array para o highlight).
+- Verificação futura (rodada própria): grep do caminho
+  ctx.sendMessage → BaileysSender → sock.sendMessage com mentions;
+  smoke no lab com entrada real de participante.
+
 ### Listas — pendente de brainstorm (NÃO implementar)
 - Hoje: `$lista` só LÊ. `saveList`/`getList` são código morto (Rodada 4a).
 - Proposta anterior (2 tipos evento/check) foi considerada complicada demais
