@@ -73,6 +73,7 @@ ${context}`;
         });
 
         try {
+            const t0 = Date.now();
             const response = await breaker.execute(async () =>
                 await axios.post(p.url, {
                     model: p.model,
@@ -94,6 +95,9 @@ ${context}`;
                 // 200 sem content = falha disfarçada — cai para o próximo provider.
                 throw Object.assign(new Error('resposta vazia'), { isEmpty: true });
             }
+
+            // E2E INC-002: o log precisa mostrar QUEM respondeu e a latência.
+            logInfo(`[askAI] provider ${p.name} respondeu em ${Date.now() - t0}ms (${content.length} chars)`);
 
             // 2. Grava a interação para memória futura — best-effort.
             if (db) {
