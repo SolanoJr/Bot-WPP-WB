@@ -19,7 +19,7 @@ Detecção rápida: cd ~/bot-wpp && node laboratorio/probe-ai-providers.js
 Prevenção: RULES.md Regra 5 (pirâmide) — probe antes de E2E; modelos
 mudam em um único lugar (NEWS_PROVIDERS) e o probe avisa.
 
-INC-002 — askAI/$pergunta no Gemini 2.5 descontinuado (RESOLVIDO em <sha-F3>, 19/10)
+INC-002 — askAI/$pergunta no Gemini 2.5 descontinuado (RESOLVIDO em 4dae5af, 19/10)
 Sintoma esperado: $pergunta respondendo erro em produção (mesma
 depreciação "new users").
 
@@ -31,7 +31,7 @@ Resolução em DOIS passos:
    (3.x é reasoning-first: sem budget, o thinking come o maxOutputTokens e
    devolve parts:[] com HTTP 200) + parser tolerante. Evidência:
    laboratorio/probe-gemini-native.js.
-2. <sha-F3> (19/10): unificação no padrão INC-001 — askAI sai do endpoint
+2. 4dae5af (19/10): unificação no padrão INC-001 — askAI sai do endpoint
    nativo e vai ao pipeline chat/completions ASKAI_PROVIDERS (Groq
    qwen3.8-27b primário → gemini-3.8-flash compat fallback). Probe em prod
    com keys reais: Groq 567ms vs Gemini-compat 19.791ms
@@ -42,6 +42,11 @@ Resolução em DOIS passos:
    padrão do dedup de notícias. Breaker 'gemini-api' extinto com o nativo.
    Suite: tests/unit/aiServiceAskAI.test.ts (8 casos, breaker mockado por
    persistir estado entre casos no vitest).
+   Addendums do E2E: 22b95b0 (log de provider+latência no sucesso) e
+   e02bf49 (max_tokens 800 — o E2E ao vivo pegou 429 real do Groq free:
+   "OTPM: Limit 1000, Requested 1024"; 1024 nunca passaria, 800 = padrão
+   news). E2E final: groq 457ms primário; fallback gemini 4201ms provado
+   na mesma noite.
 
 Lição: memory e docs diziam "2.5 ABERTO" quando o fix 9bb6ba7 já estava em
 prod — premissa de bug desatualizada quase gerou fix duplicado. Verificar

@@ -312,10 +312,13 @@ vez de pular. O teste pegou; sem ele, o bug passaria despercebido em produção.
 
 ### askAI/$pergunta — modelo deprecado — ✅ RESOLVIDO (INC-002, 19/10)
 - 404 do gemini-2.5-flash (descontinuado p/ contas novas): resolvido em
-  9bb6ba7 (3.8 nativo + thinkingBudget 0) e consolidado em <sha-F3> com a
+  9bb6ba7 (3.8 nativo + thinkingBudget 0) e consolidado em 4dae5af
+  (+ 22b95b0, e02bf49) com a
   migração ao pipeline multi-provider (padrão INC-001): ASKAI_PROVIDERS
   Groq qwen3.8-27b → gemini-3.8-flash compat, breaker por provider,
-  memória ai_history preservada (best-effort).
+  memória ai_history preservada (best-effort). E2E no lab: groq 457ms
+  primário, fallback gemini 4201ms provado ao vivo; max_tokens 800 pelo
+  OTPM limit 1000 do Groq free.
 - Nota: cota Groq é compartilhada com as notícias — estourou, o $pergunta
   cai no Gemini-compat (funcional, ~20s de latência de fallback).
 - Detalhes: laboratorio/BUGS.md INC-002.
