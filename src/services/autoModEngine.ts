@@ -26,6 +26,7 @@ import {
 import { recordInfraction } from './infractions.js';
 import { isProtectedTarget } from '../services/permissions.js';
 import { isSenderGroupAdmin } from './groupAdmin.js';
+import { consumeFirstMessage } from './recentJoinTracker.js';
 import { logInfo, logWarning, logError } from './loggerService';
 import { requestConfirmedDelete, type DeleteOutcome } from './deleteConfirmationService';
 
@@ -377,7 +378,8 @@ interface AutoModContext {
  * Extrai sinais estruturais de bot/spammer da mensagem.
  * 
  * NÃO decide se é bot — apenas retorna os SINAIS estruturais encontrados.
- * A decisão final é feita pelo threshold de sinais existente (botSignals.length >= 2).
+ * A decisão final é feita pelo score somatório INC-008 (somaPesos): thresholds
+ * graduados 6/8/10 + combo especial (card + foreign + primeira msg pós-join).
  * 
  * Sinais estruturais detectados:
  * - buttonsMessage: mensagem com botões
@@ -452,6 +454,30 @@ export function moderationStateFromDeleteOutcome(outcome: DeleteOutcome): Pick<A
     deleteConfirmed: outcome.confirmed,
     finalState: outcome.finalState,
   };
+}
+
+// ─── INC-008: pesos e score do antibot ──────────────────────────────
+// Sinais e pesos v1 (design aprovado). O design chamava "link-cassino":
+// a evidência real é o sinal 'link-suspeito' (isSuspiciousDomain).
+// Thresholds: <6 nada · 6-7 delete+infraction · 8-9 delete+announce ·
+// >=10 delete+evidência p/ admin. Ban/kick SÓ no combo especial
+// (estrutura-bot + foreign + primeira msg pós-join).
+export const ANTIBOT_SIGNAL_WEIGHTS: Record<string, number> = {
+  'estrutura-bot': 5,
+  'link-suspeito': 4,
+  'spam-keyword': 3,
+  'repeticao': 3,
+  'nome-suspeito': 2,
+  'foreign': 2,
+};
+
+/** Pura: soma os pesos dos sinais. 'estrutura-bot(buttonsMessage)'
+ *  desconta o sufixo de auditoria antes de pesar. Sinal desconhecido = 0. */
+export function somaPesos(signals: string[]): number {
+  return signals.reduce((acc, s) => {
+    const base = String(s).split('(')[0].trim();
+    return acc + (ANTIBOT_SIGNAL_WEIGHTS[base] ?? 0);
+  }, 0);
 }
 
 export async function evaluate(
@@ -552,21 +578,23 @@ export async function evaluate(
     // 5. Exibir nome do remetente (para anti-bot)
   const hasSpamKeyword = containsSpamKeyword(text);
   // 6. Contexto de spam: link suspeito / fingerprint repetido / foreign
-  let spamContext = false;
-  if (isForeignNumber(senderJid)) spamContext = true;
-  if (isSuspiciousDomain(domains)) spamContext = true;
-  if (fp) {
-    try {
-      const cnt = await getRecentFingerprintCount(groupId, fp, senderJid, 60);
-      if (cnt >= 2) spamContext = true;
-    } catch { /* ignorar */ }
-  }
-  // Registrar fingerprint (para detecção de repetidas futuras)
-  if (fp) {
-    try {
-      await recordMessageFingerprint(groupId, fp, senderJid);
-    } catch { /* ignorar */ }
-  }
+    // INC-008: repetição <60s — computada UMA vez; alimenta o antispam
+    // (spamContext) e o sinal 'repeticao' do score antibot.
+    let recentRepeatCount = 0;
+    if (fp) {
+      try { recentRepeatCount = await getRecentFingerprintCount(groupId, fp, senderJid, 60); }
+      catch { /* ignorar */ }
+    }
+    let spamContext = false;
+    if (isForeignNumber(senderJid)) spamContext = true;
+    if (isSuspiciousDomain(domains)) spamContext = true;
+    if (recentRepeatCount >= 2) spamContext = true;
+    // Registrar fingerprint (para detecção de repetidas futuras)
+    if (fp) {
+      try {
+        await recordMessageFingerprint(groupId, fp, senderJid);
+      } catch { /* ignorar */ }
+    }
 
   // 7. Exibir nome do remetente (para anti-bot)
     const suspiciousName = isSuspiciousDisplayName(senderName);
@@ -662,6 +690,7 @@ export async function evaluate(
     if (isSuspiciousDomain(domains)) botSignals.push('link-suspeito');
     if (suspiciousName) botSignals.push('nome-suspeito');
     if (hasSpamKeyword) botSignals.push('spam-keyword');
+    if (recentRepeatCount >= 2) botSignals.push('repeticao'); // INC-008: repetição <60s
 
     // Estrutura de bot = UMA categoria = NO MÁXIMO UM sinal.
     // structuralSignals pode listar vários tipos, mas todos pertencem à mesma
@@ -763,80 +792,131 @@ export async function evaluate(
     };
   }
 
-  // REGRA 2c: anti-bot padrão (>=2 sinais)
-  if (config.antibot === true && botSignals.length >= 2) {
-        const reasonText = `${senderName || senderJid} — bot detectado (${botSignals.join(', ')}).`;
-        reportedActions.push(`ANTIBOT: ${reasonText}`);
-        ctx.log(`[AutoMod] antibot ativado: ${reasonText}`);
+  // REGRA 2c: anti-bot — SCORE SOMATÓRIO (INC-008) + combo especial.
+  // v0 era `botSignals.length >= 2 → ban+remove+delete+announce`.
+  // v1: somaPesos() com thresholds graduados; ban/remove SÓ no combo
+  // (estrutura-bot + foreign + primeira mensagem pós-join).
+  if (config.antibot === true && botSignals.length > 0) {
+    const score = somaPesos(botSignals);
 
-        // Blindagem: ID protegido não é banido/removido/deletado
-        if (isProtectedTarget(senderJid)) {
-          ctx.log(`[AutoMod] antibot ignorado — ID protegido: ${senderJid}`);
-          return { acted: false, reason: 'antibot: ID protegido', action: 'none', moderationState: makeModerationState({ detected: true }) };
+    // Blindagem: ID protegido não sofre nenhuma ação (nem delete).
+    if (isProtectedTarget(senderJid)) {
+      ctx.log(`[AutoMod] antibot ignorado — ID protegido: ${senderJid}`);
+      return { acted: false, reason: 'antibot: ID protegido', action: 'none', moderationState: makeModerationState({ detected: true }) };
+    }
+
+    // Admin do grupo: nunca é punido automaticamente. Verificado ANTES do
+    // audit_only — mesma blindagem da REGRA 2b (cassino). Um admin legítimo
+    // não pode ser banido por mandar uma mensagem estruturada.
+    try {
+      const chat = await ctx.getChat(groupId);
+      if (isSenderGroupAdmin(chat, senderJid)) {
+        ctx.log(`[AutoMod] antibot ignorado — remetente é admin: ${senderJid}`);
+        return { acted: false, reason: 'antibot: remetente é admin', action: 'none', moderationState: makeModerationState({ detected: true }) };
+      }
+    } catch { /* ignorar */ }
+
+    // Score baixo: calibração — sem ação; segue para as outras regras.
+    if (score < 6) {
+      ctx.log(`[AutoMod] antibot score ${score} < 6 — sem ação (${botSignals.join(', ')})`);
+    } else {
+      // Auditoria: sinais + score sempre no log quando há ação (v0 fazia
+      // isso na entrada; o v1 mantém — antibotDoubleCount depende disso).
+      ctx.log(`[AutoMod] antibot ativado: ${senderName || senderJid} — score ${score} (${botSignals.join(', ')})`);
+
+      // Audit-only: loga (com score), não age em NENHUM threshold.
+      if (isAuditOnly) {
+        ctx.log(`[AutoMod] AUDIT-ONLY antibot: ${senderJid} score ${score} (${botSignals.join(', ')}) — não age`);
+        return { acted: false, reason: `antibot: audit-only (score ${score})`, action: 'none', moderationState: makeModerationState({ detected: true, actionPlanned: true, finalState: 'AUDIT_ONLY' }) };
+      }
+
+      // ─── COMBO ESPECIAL: estrutura-bot + foreign + 1ª msg pós-join ───
+      // Única via de ban/remove automático do antibot v1.
+      const hasEstruturaBot = botSignals.some((s) => s.startsWith('estrutura-bot'));
+      const hasForeign = botSignals.includes('foreign');
+      if (hasEstruturaBot && hasForeign && consumeFirstMessage(groupId, senderJid)) {
+        // Ajuste 1 (aprovado): delete PRIMEIRO. Sem delete confirmado NÃO
+        // há ban/kick — expulsar deixando a mensagem viva piora o grupo.
+        const comboDeleteOutcome = await requestModerationDelete(buildDeleteKey(msg, senderJid));
+        if (comboDeleteOutcome.finalState !== 'PASS') {
+          ctx.warn(`[AutoMod] COMBO: delete não confirmado (${comboDeleteOutcome.finalState}) — NÃO banindo/kickando (admin decide manualmente)`,
+            { senderJid, groupId, sinais: botSignals.join(', ') });
+          reportedActions.push(`ANTIBOT-COMBO: delete falhou (${comboDeleteOutcome.finalState})`);
+          return {
+            acted: false,
+            reason: `antibot combo delete-failed (${comboDeleteOutcome.finalState}): ${botSignals.join(', ')}`,
+            action: 'combo-delete-failed',
+            moderationState: { ...makeModerationState({ detected: true, actionPlanned: true }), ...moderationStateFromDeleteOutcome(comboDeleteOutcome) },
+          };
         }
-
-        // Admin do grupo: nunca é punido automaticamente. Verificado ANTES do
-        // audit_only — mesma blindagem da REGRA 2b (cassino). Um admin legítimo
-        // não pode ser banido por mandar uma mensagem estruturada.
+        ctx.log(`[AutoMod] combo confirmado (score ${score}): delete OK — banindo e removendo ${senderJid}`);
+        reportedActions.push('ANTIBOT-COMBO: card+foreign+primeira-msg');
         try {
-          const chat = await ctx.getChat(groupId);
-        if (isSenderGroupAdmin(chat, senderJid)) {
-          ctx.log(`[AutoMod] antibot ignorado — remetente é admin: ${senderJid}`);
-          return { acted: false, reason: 'antibot: remetente é admin', action: 'none', moderationState: makeModerationState({ detected: true }) };
+          await banUser({ groupId, userId: senderJid, reason: 'banido-antibot-card-foreign-first' });
+          ctx.log(`[AutoMod] ban persistente (combo) registrado para ${senderJid}`);
+        } catch (err: any) { ctx.warn('[AutoMod] erro ao banir (combo):', err?.message); }
+        try {
+          await ctx.removeParticipant(groupId, senderJid);
+          ctx.log(`[AutoMod] removido do grupo (combo): ${senderJid}`);
+          reportedActions.push('REMOVIDO');
+        } catch (err: any) {
+          ctx.warn(`[AutoMod] erro ao remover ${senderJid} (combo):`, err?.message);
+          reportedActions.push(`FALHA AO REMOVER (${err?.message || 'erro'})`);
         }
-        } catch { /* ignorar */ }
-
-        // Audit-only mode: apenas registrar, não executar ações
-        if (isAuditOnly) {
-          ctx.log(`[AutoMod] AUDIT-ONLY antibot: ${senderJid} seria banido/removido/deletado (sinais: ${botSignals.join(', ')})`);
-          return { acted: false, reason: 'antibot: audit-only', action: 'none', moderationState: makeModerationState({ detected: true, actionPlanned: true, finalState: 'AUDIT_ONLY' }) };
+        if (config.detectar === true) {
+          try {
+            await ctx.sendMessage(groupId, `🤖 [AUTOMOD] Bot expulso: ${senderName || senderJid} (${senderJid}) — card + número estrangeiro na primeira mensagem.`);
+          } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar (combo):', err?.message); }
         }
-
-      // Ban persistente
-      try {
-        await banUser({ groupId, userId: senderJid, reason: 'banido-antibot' });
-        ctx.log(`[AutoMod] ban persistente registrado para ${senderJid}`);
-      } catch (err: any) { ctx.warn('[AutoMod] erro ao banir:', err?.message); }
-
-      // Remove do grupo
-      try {
-        await ctx.removeParticipant(groupId, senderJid);
-        ctx.log(`[AutoMod] removido do grupo: ${senderJid}`);
-        reportedActions.push(`REMOVIDO`);
-      } catch (err: any) {
-        ctx.warn(`[AutoMod] erro ao remover ${senderJid}:`, err?.message);
-        reportedActions.push(`FALHA AO REMOVER (${err?.message || 'erro'})`);
+        await recordInfraction(groupId, senderJid).catch((err) => ctx.warn('[AutoMod] erro ao registrar infração (combo):', err?.message));
+        return {
+          acted: true,
+          reason: `antibot combo: ${botSignals.join(', ')}`,
+          action: 'combo-first-message: delete+ban+remove+announce+infraction',
+          moderationState: makeModerationState({ detected: true, actionPlanned: true, deleteConfirmed: true, finalState: 'PASS' }),
+        };
       }
 
-      // Delete mensagem
-      const antibotDeleteOutcome = await requestModerationDelete(buildDeleteKey(msg, senderJid));
-      const antibotDeleteSuccess = antibotDeleteOutcome.finalState === 'PASS';
-      if (antibotDeleteSuccess) {
-        ctx.log(`[AutoMod] mensagem deletada e confirmada de ${senderJid}`);
-        reportedActions.push(`MSGMENSAGEMAPAGADA`);
-        await recordInfraction(groupId, senderJid).catch(err => ctx.warn('[AutoMod] erro ao registrar infração:', err?.message));
+      // ─── THRESHOLDS GRADUADOS (delete + ação por faixa; SEM ban/kick) ───
+      const thresholdDelete = await requestModerationDelete(buildDeleteKey(msg, senderJid));
+      if (thresholdDelete.finalState !== 'PASS') {
+        ctx.warn(`[AutoMod] delete antibot (score ${score}) não confirmado (${thresholdDelete.finalState})`, thresholdDelete.error);
+        return {
+          acted: false,
+          reason: `antibot score ${score}: delete não confirmado (${thresholdDelete.finalState}) — ${botSignals.join(', ')}`,
+          action: `score-${score}: delete-failed`,
+          moderationState: { ...makeModerationState({ detected: true, actionPlanned: true }), ...moderationStateFromDeleteOutcome(thresholdDelete) },
+        };
+      }
+      ctx.log(`[AutoMod] mensagem deletada e confirmada (antibot score ${score}): ${senderJid}`);
+
+      if (score >= 10) {
+        // >=10: evidência completa — admin decide manualmente.
+        ctx.warn(`[AutoMod] ⚠️ ANTIBOT score ${score} ≥ 10 — evidência para admin decidir`,
+          { senderId: senderJid, groupId, senderName, sinais: botSignals.join(', '), score, delete: 'PASS' });
+        reportedActions.push(`ANTIBOT-SCORE${score}: evidência registrada (admin decide)`);
+      } else if (score >= 8) {
+        // 8-9: delete + announce público (sem punição).
+        if (config.detectar === true) {
+          try {
+            await ctx.sendMessage(groupId, `🤖 [AUTOMOD] Mensagem de bot removida: ${senderName || senderJid} (${senderJid}) — sinais: ${botSignals.join(', ')} (score ${score}).`);
+          } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar (score 8-9):', err?.message); }
+        }
+        reportedActions.push(`ANTIBOT-SCORE${score}: delete+announce`);
       } else {
-        ctx.warn(`[AutoMod] delete AntiBot não confirmado (${antibotDeleteOutcome.finalState})`, antibotDeleteOutcome.error);
+        // 6-7: delete + infraction silenciosa.
+        await recordInfraction(groupId, senderJid).catch((err) => ctx.warn('[AutoMod] erro ao registrar infração (score 6-7):', err?.message));
+        reportedActions.push(`ANTIBOT-SCORE${score}: delete+infraction`);
       }
 
-            // Anunciar — só se houve ação real
-            if (config.detectar === true && antibotDeleteSuccess) {
-              const hasRealAction = reportedActions.some(a => a === 'REMOVIDO' || a === 'MSGMENSAGEMAPAGADA');
-              if (hasRealAction) {
-                const ann = reportedActions.join(' | ');
-                try {
-                  await ctx.sendMessage(groupId, `🤖 [AUTOMOD] ${ann}: ${senderName || senderJid} (${senderJid})`);
-                } catch (err: any) { ctx.warn('[AutoMod] erro ao anunciar:', err?.message); }
-              }
-            }
-
-            return {
-              acted: antibotDeleteSuccess,
-              reason: `antibot: ${botSignals.join(', ')} → ${reportedActions.join('; ')}`,
-              action: 'ban+remove+delete+announce',
-              moderationState: { ...makeModerationState({ detected: true, actionPlanned: true }), ...moderationStateFromDeleteOutcome(antibotDeleteOutcome) },
-            };
-          }
+      return {
+        acted: true,
+        reason: `antibot score ${score}: ${botSignals.join(', ')} → ${reportedActions.join('; ')}`,
+        action: `score-${score}: delete${score >= 10 ? '+evidência-admin' : score >= 8 ? '+announce' : '+infraction'}`,
+        moderationState: makeModerationState({ detected: true, actionPlanned: true, deleteConfirmed: true, finalState: 'PASS' }),
+      };
+    }
+  }
 
   // REGRA 3: anti-link (autolink) — delete mensagem + announce (sem ban)
       if (config.autolink && isSuspiciousDomain(domains)) {

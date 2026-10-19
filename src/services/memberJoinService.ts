@@ -18,6 +18,7 @@ import {
 import { resolveWelcome } from './welcomeService.js';
 import logger from './loggerService';
 import { isProtectedTarget } from './permissions.js';
+import { markRecentJoin } from './recentJoinTracker.js';
 
 interface MemberJoinContext {
   removeParticipant: (groupId: string, userId: string) => Promise<void>;
@@ -91,6 +92,8 @@ export async function handleMemberJoin(
     try {
       const id = idOf(member);
       await recordMemberJoin(event.groupId, id);
+      // INC-008: alimenta o combo antibot (card + foreign + 1ª msg pós-join)
+      markRecentJoin(event.groupId, id);
 
       const banned = await isUserBanned(event.groupId, id);
       if (banned) {

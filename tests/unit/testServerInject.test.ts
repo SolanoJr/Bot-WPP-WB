@@ -4,6 +4,7 @@ import {
   LabError,
   injectParticipantEvent,
   injectMessage,
+  buildAntiBotTestMessage,
   type LabAdapterLike,
 } from '../../src/services/testServer';
 
@@ -184,5 +185,41 @@ describe('lab inject — happy path: mensagem', () => {
 
   it('LAB_GROUP_ID aponta para o grupo de teste', () => {
     expect(LAB_GROUP_ID).toBe(GROUP);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INC-008 — buildAntiBotTestMessage (extraText/firstMessage no /lab/antibot-test)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('INC-008 — buildAntiBotTestMessage (extraText no /lab/antibot-test)', () => {
+  it('buttonsMessage + extraText monta conversation junto do card (concatenação F2.5.1)', () => {
+    const m = buildAntiBotTestMessage('buttonsMessage', 'card', 'aposte agora https://casino-x.com');
+    expect(m.buttonsMessage.contentText).toBe('card');
+    expect(m.buttonsMessage.buttons).toHaveLength(1);
+    expect(m.conversation).toContain('casino-x.com');
+  });
+
+  it('sem extraText não adiciona conversation', () => {
+    const m = buildAntiBotTestMessage('buttonsMessage', 'card');
+    expect(m.buttonsMessage.contentText).toBe('card');
+    expect(m.conversation).toBeUndefined();
+  });
+
+  it('conversation + extraText concatena com quebra de linha', () => {
+    const m = buildAntiBotTestMessage('conversation', 'oi', 'veja http://bet-lol.com');
+    expect(m.conversation).toBe('oi\nveja http://bet-lol.com');
+    expect(m.buttonsMessage).toBeUndefined();
+  });
+
+  it('footer explícito preservado (regressão do aviso de cassino)', () => {
+    const m = buildAntiBotTestMessage('buttonsMessage', 'card', undefined, 'play_bet_now');
+    expect(m.buttonsMessage.footerText).toBe('play_bet_now');
+    expect(m.conversation).toBeUndefined();
+  });
+
+  it('messageType padrão é buttonsMessage', () => {
+    const m = buildAntiBotTestMessage(undefined as any, undefined);
+    expect(m.buttonsMessage.contentText).toBe('spam');
   });
 });

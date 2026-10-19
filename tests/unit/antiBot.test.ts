@@ -17,7 +17,7 @@
  * - WarriorBlack / SolanoJr
  */
 import { describe, it, expect } from 'vitest';
-import { extractAntiBotSignals } from '../../src/services/autoModEngine';
+import { extractAntiBotSignals, somaPesos } from '../../src/services/autoModEngine';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fixters sintéticos — reproduzem a estrutura Baileys real
@@ -396,6 +396,60 @@ describe('AntiBot — NÃO sinais (negativos)', () => {
     });
     const signals = extractAntiBotSignals(msg);
     expect(signals).toEqual([]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INC-008 — somaPesos (score somatório do antibot)
+// Pesos: estrutura-bot 5 · link-suspeito 4 · spam-keyword 3 · repetição 3 ·
+// nome-suspeito 2 · foreign 2. Thresholds: <6 nada · 6-7 delete+infraction ·
+// 8-9 delete+announce · >=10 delete+evidência admin. Ban/kick SÓ no combo.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('INC-008 — somaPesos (score somatório)', () => {
+  it('peso de cada sinal individual', () => {
+    expect(somaPesos(['estrutura-bot(buttonsMessage+listMessage)'])).toBe(5);
+    expect(somaPesos(['link-suspeito'])).toBe(4);
+    expect(somaPesos(['spam-keyword'])).toBe(3);
+    expect(somaPesos(['repeticao'])).toBe(3);
+    expect(somaPesos(['nome-suspeito'])).toBe(2);
+    expect(somaPesos(['foreign'])).toBe(2);
+  });
+
+  it('sinal desconhecido = 0; lista vazia = 0', () => {
+    expect(somaPesos([])).toBe(0);
+    expect(somaPesos(['novo-sinal-futuro'])).toBe(0);
+  });
+
+  it('combo card+foreign = 7 (threshold 6-7: delete+infraction; combo é por presença)', () => {
+    expect(somaPesos(['estrutura-bot(buttonsMessage)', 'foreign'])).toBe(7);
+  });
+
+  it('card+link = 9 (threshold 8-9: delete+announce)', () => {
+    expect(somaPesos(['estrutura-bot(buttonsMessage)', 'link-suspeito'])).toBe(9);
+  });
+
+  it('card+foreign+repeticao = 10 (threshold >=10: delete+evidência admin)', () => {
+    expect(somaPesos(['estrutura-bot(buttonsMessage)', 'foreign', 'repeticao'])).toBe(10);
+  });
+
+  it('nome+foreign = 4 — abaixo de 6, sem ação', () => {
+    expect(somaPesos(['nome-suspeito', 'foreign'])).toBe(4);
+  });
+
+  it('card+spam = 8 (threshold 8-9)', () => {
+    expect(somaPesos(['estrutura-bot(buttonsMessage)', 'spam-keyword'])).toBe(8);
+  });
+
+  it('spam+repeticao+nome = 8', () => {
+    expect(somaPesos(['spam-keyword', 'repeticao', 'nome-suspeito'])).toBe(8);
+  });
+
+  it('todos os sinais = 19', () => {
+    expect(somaPesos([
+      'estrutura-bot(buttonsMessage)', 'link-suspeito', 'spam-keyword',
+      'repeticao', 'nome-suspeito', 'foreign',
+    ])).toBe(19);
   });
 });
 

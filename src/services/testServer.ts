@@ -7,6 +7,7 @@ import { persistDeleteE2EResult } from './deleteE2EResult';
 import http from 'node:http';
 import { PlatformManager } from '../platforms/PlatformManager';
 import { logInfo, logWarning, logError } from './loggerService';
+import { markRecentJoin } from './recentJoinTracker.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -15,6 +16,48 @@ import path from 'node:path';
 // outro JID é rejeitado com 403 ANTES de tocar em adapter/socket — impede uso
 // acidental contra grupo real.
 export const LAB_GROUP_ID = '120363410094452673@g.us';
+
+/**
+ * INC-008: montagem da mensagem fake do /lab/antibot-test — pura, testável
+ * sem HTTP. extraText entra como conversation ADICIONAL junto do card: o
+ * extractTextFromWAMessage concatena os tipos (F2.5.1), então link/keyword
+ * no extraText pontuam link-suspeito/spam-keyword no score.
+ */
+export function buildAntiBotTestMessage(
+  messageType: string,
+  text: string | undefined,
+  extraText?: string,
+  footer?: string,
+): any {
+  const msgObj: any = {};
+  const t = messageType || 'buttonsMessage';
+  // ⚠️ NÃO injetar footer de cassino por padrão: isso adicionava
+  // `casino-domain` a TODO buttonsMessage e contaminava os testes
+  // negativos (botão legítimo virava "cassino"). O footer só entra
+  // se o caller passar `footer` explicitamente.
+  if (t === 'buttonsMessage') {
+    msgObj.buttonsMessage = {
+      contentText: text || 'spam',
+      ...(footer ? { footerText: footer } : {}),
+      buttons: [{ buttonId: '1', buttonText: { displayText: 'go' }, type: 1 }],
+    };
+  } else if (t === 'interactiveMessage') {
+    msgObj.interactiveMessage = {
+      body: { text: text || 'spam' },
+      nativeFlowMessage: { buttons: [{ name: 'cta_url', buttonParamsJson: '{"display_text":"go"}' }] },
+    };
+  } else if (t === 'listMessage') {
+    msgObj.listMessage = { title: 'L', description: text || 'spam', buttonText: 'go', sections: [] };
+  } else {
+    msgObj.conversation = text || 'spam';
+  }
+  if (extraText) {
+    msgObj.conversation = msgObj.conversation
+      ? `${msgObj.conversation}\n${extraText}`
+      : extraText;
+  }
+  return msgObj;
+}
 
 export class LabError extends Error {
   constructor(message: string, public readonly status: 400 | 403 | 404 | 500) {
@@ -824,29 +867,9 @@ export function startTestServer(port: number = 3004): http.Server {
               if (hit) { partId = hit.id; partAlt = hit.phoneNumber; }
             } catch { /* usa o valor recebido */ }
 
-            const msgObj: any = {};
-            const t = messageType || 'buttonsMessage';
-            // ⚠️ NÃO injetar footer de cassino por padrão: isso adicionava
-            // `casino-domain` a TODO buttonsMessage e contaminava os testes
-            // negativos (botão legítimo virava "cassino"). O footer só entra
-            // se o caller passar `footer` explicitamente.
+            const extraText = (parsedBody.extraText as string | undefined) || '';
             const footer = parsedBody.footer as string | undefined;
-            if (t === 'buttonsMessage') {
-              msgObj.buttonsMessage = {
-                contentText: text || 'spam',
-                ...(footer ? { footerText: footer } : {}),
-                buttons: [{ buttonId: '1', buttonText: { displayText: 'go' }, type: 1 }],
-              };
-            } else if (t === 'interactiveMessage') {
-              msgObj.interactiveMessage = {
-                body: { text: text || 'spam' },
-                nativeFlowMessage: { buttons: [{ name: 'cta_url', buttonParamsJson: '{"display_text":"go"}' }] },
-              };
-            } else if (t === 'listMessage') {
-              msgObj.listMessage = { title: 'L', description: text || 'spam', buttonText: 'go', sections: [] };
-            } else {
-              msgObj.conversation = text || 'spam';
-            }
+            const msgObj = buildAntiBotTestMessage(messageType, text, extraText, footer);
 
             const waMessage: any = {
               key: { id: `ANTIBOT-${Date.now()}`, remoteJid: groupJid, fromMe: false,
@@ -854,6 +877,13 @@ export function startTestServer(port: number = 3004): http.Server {
               message: msgObj,
               messageTimestamp: Math.floor(Date.now() / 1000),
             };
+
+            // INC-008: simula entrada recente — o combo consome no evaluate
+            // (mesma chave groupJid+partId que o memberJoinService marca).
+            if (parsedBody.firstMessage === true) {
+              markRecentJoin(groupJid, partId);
+              logInfo('[TestServer] /lab/antibot-test firstMessage — join marcado', { groupJid, partId });
+            }
 
             const { evaluate } = await import('../services/autoModEngine.js');
             const result = await evaluate(
@@ -877,9 +907,9 @@ export function startTestServer(port: number = 3004): http.Server {
               pushName || '',
             );
 
-            logInfo('[TestServer] /lab/antibot-test', { messageType: t, partId, partAlt, result });
+            logInfo('[TestServer] /lab/antibot-test', { messageType: messageType || 'buttonsMessage', partId, partAlt, result });
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok: true, messageType: t, participant: partId,
+            res.end(JSON.stringify({ ok: true, messageType: messageType || 'buttonsMessage', participant: partId,
               participantAlt: partAlt, key: waMessage.key, result }, null, 1));
           } catch (err: any) {
             res.writeHead(500, { 'Content-Type': 'application/json' });

@@ -433,7 +433,7 @@ describe('evaluate — anti-bot', () => {
     expect(ctx.sendMessage).not.toHaveBeenCalled();
   });
 
-  it('detecta bot com foreign + nome vazio (>=2 sinais)', async () => {
+  it('foreign + nome vazio → score 4 (<6) — sem ação (INC-008: thresholds por peso)', async () => {
     const db = await mockDb();
     db.getGroupMod.mockResolvedValue(groupConfig({ antiestrangeiro: false, remover: true, autolink: true, antispam: true, detectar: true }));
 
@@ -443,7 +443,7 @@ describe('evaluate — anti-bot', () => {
 
     const result = await evaluate(msg, ctx, GROUP_JID, FOREIGN_JID, '');
     expect(result.acted).toBe(false);
-    expect(result.reason).toContain('audit-only');
+    expect(result.reason).toContain('sem ações');
     expect(db.banUser).not.toHaveBeenCalled();
     expect(ctx.removeParticipant).not.toHaveBeenCalled();
     expect(ctx.sendMessage).not.toHaveBeenCalled();
