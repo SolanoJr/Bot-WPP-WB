@@ -262,6 +262,37 @@ camelCase e o scheduler lê `row.scheduleTime` — com o mock em snake_case o
 campo era `undefined`, `'07:59' < undefined` dava `false` e o grupo enviava em
 vez de pular. O teste pegou; sem ele, o bug passaria despercebido em produção.
 
+### INC-009 — Notícias no Geek + meta de grupos (2026-10-19)
+- **Geek ATIVO (wpp:120363419241913965@g.us):** group_news enabled=1,
+  schedule 08:00 diário, top 5, topic 'mundo geek', dedup da INC-006
+  aplicado (news_history compartilhado entre grupos). Primeira execução
+  real: 19/10 08:00 — validar "TOP 5" no log e +5 títulos no
+  news_history (limitação "HOJE sem browsing" das INC-006/007 vale).
+- **Figurinhas antibot confirmado ATIVO:** 120363419033272638@g.us,
+  antibot=1, audit_only=0. Comportamento v0 (2 sinais → delete+ban)
+  até o INC-008 (score somatório) ir a prod; monitorar kicks errados.
+- **Meta de grupos persistida (deploy 99028c6):** community_groups +
+  coluna description (migration); accessors upsertGroupMeta/
+  getGroupMeta/listGroups/listKnownGroupJids; população 2 caminhos
+  (/lab/groups on-demand + refreshGroupMetas no cleanup boot+6h).
+- **Fix: idempotência no startPeriodicCleanup (ABERTO):** multiPlatform
+  inicializa 2x em todo boot ("Limpeza periódica agendada" 2x;
+  MemoryMonitor "Já está rodando" idem — todo boot histórico). Antes
+  invisível (cleanup <2s); com refreshGroupMetas (~3s) o 2º runCleanup
+  bate no guard isRunning → "[ERROR] Erro na limpeza inicial" (benigno,
+  capturado, limpeza #1 conclui). Guard no startPeriodicCleanup ou
+  eliminar a dupla inicialização. Rodada própria — detalhes em
+  laboratorio/BUGS.md INC-009.
+- **$noticias on após o schedule não seta last_sent_at → dispara
+  imediato (ABERTO):** o handler `on` não bloqueia disparo no mesmo
+  dia; a ativação do Geek fez UPSERT com last_sent_at=now para começar
+  amanhã. Fix opcional: setar last_sent_at no handler. Rodada própria.
+- **Monitorar tempo do runCleanup (ABERTO):** 9+ grupos × getChat no
+  refresh de metas; se o ciclo passar de ~5min (comunidades maiores),
+  mover refresh para job separado. Stat disponível: groupsRefreshed.
+- **Esperam teste real de runtime (herdadas):** $clima, render watchdog,
+  app de PC devtools (verificar antes de qualquer mudança).
+
 ### askAI/$pergunta — modelo deprecado (ABERTO)
 - `askAI` (aiService.ts) usa o endpoint NATIVO do Gemini com
   `gemini-2.5-flash` — descontinuado para contas novas ("no longer

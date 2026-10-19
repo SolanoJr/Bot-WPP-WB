@@ -212,6 +212,48 @@ controlam o count.
 Lição: log com "TOP 3" numa janela de smoke ≠ comportamento padrão;
 a evidência de runtime (inject sem N) prova o default.
 
+INC-009 — Notícias no Geek + meta de grupos persistida (RESOLVIDO 99028c6, 19/10)
+Pedido: ativar $noticias no "grupo geek" e persistir nome/descrição de
+  grupo (group_mod/group_news só têm JID — sem nome, grupos ficam
+  anônimos em rodadas futuras).
+Discovery:
+- "Geek" = 120363419241913965@g.us ("Geek Fortal 085" em community_groups);
+  ≠ Figurinhas (120363419033272638@g.us, antibot=1 audit_only=0).
+- community_groups JÁ existia com group_name (welcomeService) — sem
+  schema novo: só coluna `description` via addColumnIfMissing, chamada
+  APÓS o CREATE da tabela (migrations de :161 rodam antes dela existir).
+Evidência:
+- DB prod: group_news Geek enabled=1, schedule 08:00, 'mundo geek',
+  item_count=5, last_sent_at=2026-10-18T21:27:41 → bloqueia disparo no
+  mesmo dia; primeira execução 19/10 08:00. Figurinhas sem linha em
+  group_news (nada a desativar).
+- Gates: groupsMeta 6/6; tsc exit 0; npm test 779/3 (mesmos 3 flaky
+  crônicos de adapters.test.ts, confirmados isolados).
+- Deploy 99028c6 (backup → stop → reset → build exit 0 → start ~/bot-wpp):
+  "Todas as plataformas prontas", /lab/adapter 200, log
+  "migração: community_groups.description adicionada".
+- População: POST /lab/groups → 9 grupos; dump community_groups com
+  TODOS os nomes ("Geek Fortal 085", "Figurinhas/Stickers", "Polemic",
+  "Uber", "Teste"...); description NULL em todos (getChat do Baileys
+  não expõe descrição — esperado, documentado, upsert preserva).
+Fix: accessors em databaseService (upsertGroupMeta — UPDATE-primeiro
+  preserva community_id do welcomeService; INSERT novo usa community_id=''
+  corrigido depois pelo welcome; getGroupMeta; listGroups;
+  listKnownGroupJids com UNION de 4 tabelas + strip 'wpp:' + dedup);
+  população on-demand no /lab/groups e refreshGroupMetas() no runCleanup
+  (boot + 6h, best-effort, stat groupsRefreshed).
+Nota de bug latente (pré-existente, exposto por esta feature): o boot
+  chama startPeriodicCleanup 2x (multiPlatform inicializa 2x —
+  "Limpeza periódica agendada" aparece 2x em TODO boot histórico;
+  MemoryMonitor "Já está rodando" idem). Antes invisível (cleanup <2s);
+  com refreshGroupMetas (~3s) o 2º runCleanup bate no guard isRunning →
+  throw capturado → "[ERROR] Erro na limpeza inicial". A limpeza #1
+  conclui normal — guard funcionando, benigno, zero impacto. Fix em
+  rodada própria: idempotência no startPeriodicCleanup (backlog).
+Lição: addColumnIfMissing numa tabela criada DEPOIS no mesmo initDatabase
+  deve ficar após o CREATE — senão "no such table" e o helper engole o
+  erro: a coluna nunca nasce e o INSERT do accessor quebraria depois.
+
 APRENDIZADOS
 Injeção via /lab/inject-message deve respeitar o contrato do comando:
 $noticias <tema> [N] — $noticias 3 tecnologia vira tema
