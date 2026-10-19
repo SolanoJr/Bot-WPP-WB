@@ -81,7 +81,8 @@ ${context}`;
                         { role: 'system', content: systemInstruction },
                         { role: 'user', content: `Pergunta atual: ${prompt}` },
                     ],
-                    max_tokens: 1024,
+                    max_tokens: 800, // Groq free: OTPM limit 1000 — 1024 reprova
+                                  // (429 real no E2E 19/10); 800 = padrão do news
                     temperature: 0.7,
                     top_p: 0.95,
                 }, {
