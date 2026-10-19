@@ -254,6 +254,26 @@ Lição: addColumnIfMissing numa tabela criada DEPOIS no mesmo initDatabase
   deve ficar após o CREATE — senão "no such table" e o helper engole o
   erro: a coluna nunca nasce e o INSERT do accessor quebraria depois.
 
+INC-008 — Antibot v1: score somatório + combo de kick (RESOLVIDO be3cb2a, 19/10)
+Antes: `botSignals.length >= 2` → ban+remove+delete+announce (all-or-nothing,
+  expulsava estrangeiro legítimo com 2 sinais fracos, ex. foreign+nome-vazio).
+Agora: `somaPesos()` (estrutura-bot 5 · link-suspeito 4 · spam-keyword 3 ·
+  repetição <60s 3 · nome-suspeito 2 · foreign 2) com thresholds graduados:
+  <6 nada · 6-7 delete+infraction · 8-9 delete+announce · >=10 delete+evidência
+  admin. Ban/remove SÓ no combo: estrutura-bot + foreign + primeira mensagem
+  pós-join (`recentJoinTracker`, janela 60s, consumo único). Ordem do combo:
+  delete primeiro; delete não confirmado → NÃO bane (gate do Ajuste 1).
+Smoke em prod (lab): score 9 → delete+announce; score 7 → delete+infraction;
+  combo → delete PASS + ban ('banido-antibot-card-foreign-first') + remove +
+  announce; 2ª msg pós-consumo → threshold, não combo. Kick NUNCA fora do combo.
+Gates: 801 tests (798 pass, 3 flaky crônicos de adapters), tsc limpo.
+Lições: (1) group_mod usa chave CRUA ('120363...@g.us', sem prefixo 'wpp:')
+  — linha com prefixo não é lida pelo evaluate (config fantasma); UPSERT manual
+  tem que usar a chave crua. (2) pushName vazio conta como nome-suspeito
+  (legado) — em smoke, sempre passar pushName limpo para isolar o score.
+  (3) testServer escuta 127.0.0.1 (hardcoded) — perna de verificação do lab
+  é sempre curl INTERNO via ssh; externo dá 000 por design.
+
 APRENDIZADOS
 Injeção via /lab/inject-message deve respeitar o contrato do comando:
 $noticias <tema> [N] — $noticias 3 tecnologia vira tema

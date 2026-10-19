@@ -161,17 +161,16 @@ Restore: antibot=0, audit_only=0 (confirmado).
 
 Spec bruta do dono. Cada item vira rodada quando priorizado.
 
-### Antibot — melhoria de detecção
-- Hoje: `group_mod.antibot` existe, `autoModEngine` age. Verificar heurística.
-- Toggle on/off por grupo (default off) — já existe.
-- Sinais observados: card/button (não renderiza no web.whats);
-  imagem/texto + link de cassino/aposta; número estrangeiro.
-- Ação preferida: DELETAR MENSAGEM primeiro. Expulsar só com confirmação.
-- IMPORTANTE (dono): não quer excluir estrangeiro que não é bot, nem
-  novato. Quer ideia de SOMATÓRIA (score acumulando sinais) antes de decidir
-  expulsar.
-- Limitação conhecida: às vezes o texto/link da mensagem não é capturável.
-- Aberto: qual score mínimo pra expulsar? Aviso ao invés de expulsão?
+### Antibot — melhoria de detecção — ✅ RESOLVIDO em be3cb2a (INC-008, 19/10)
+- Score somatório `somaPesos()`: estrutura-bot 5 · link-suspeito 4 ·
+  spam-keyword 3 · repetição <60s 3 · nome-suspeito 2 · foreign 2.
+- Thresholds: <6 nada · 6-7 delete+infraction · 8-9 delete+announce ·
+  >=10 delete+evidência admin. Expulsão SÓ no combo
+  (estrutura-bot + foreign + 1ª msg pós-join), com delete confirmado
+  antes de banir (gate deleteOk). Detalhes: laboratorio/BUGS.md INC-008.
+- Pendências menores (futuras): o caminho combo-delete-failed não foi
+  exercitado ao vivo no smoke (delete sempre PASS no lab); limitação
+  de texto não capturável segue existindo.
 
 ### Telemetria — só gravar, sem comando
 - Hoje: `command_usage_events` existe (retenção 180d), quase nada
