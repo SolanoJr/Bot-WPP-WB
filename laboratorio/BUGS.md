@@ -19,17 +19,33 @@ Detecção rápida: cd ~/bot-wpp && node laboratorio/probe-ai-providers.js
 Prevenção: RULES.md Regra 5 (pirâmide) — probe antes de E2E; modelos
 mudam em um único lugar (NEWS_PROVIDERS) e o probe avisa.
 
-INC-002 — askAI/$pergunta com gemini-2.5-flash nativo (ABERTO)
+INC-002 — askAI/$pergunta no Gemini 2.5 descontinuado (RESOLVIDO em <sha-F3>, 19/10)
 Sintoma esperado: $pergunta respondendo erro em produção (mesma
 depreciação "new users").
 
-Causa raiz: aiService.askAI usa endpoint nativo do Gemini com
-gemini-2.5-flash — descontinuado para contas novas.
+Causa raiz: aiService.askAI usava endpoint nativo do Gemini com
+gemini-2.5-flash — descontinuado para contas novas (404).
 
-Fix: rodada própria — probe (Regra 5) com gemini-3.8-flash no
-endpoint nativo primeiro, depois trocar/testar.
+Resolução em DOIS passos:
+1. 9bb6ba7 (17/10): gemini-3.8-flash no endpoint nativo + thinkingBudget 0
+   (3.x é reasoning-first: sem budget, o thinking come o maxOutputTokens e
+   devolve parts:[] com HTTP 200) + parser tolerante. Evidência:
+   laboratorio/probe-gemini-native.js.
+2. <sha-F3> (19/10): unificação no padrão INC-001 — askAI sai do endpoint
+   nativo e vai ao pipeline chat/completions ASKAI_PROVIDERS (Groq
+   qwen3.8-27b primário → gemini-3.8-flash compat fallback). Probe em prod
+   com keys reais: Groq 567ms vs Gemini-compat 19.791ms
+   (probe-askai-migration.js). Breaker POR PROVIDER ('askai-groq'/
+   'askai-gemini', timeout 30s, 4xx-não-429 não conta); retryApiCall
+   interno removido — o fallback entre providers é o retry. Memória
+   ai_history best-effort: banco fora → segue sem contexto (logWarning),
+   padrão do dedup de notícias. Breaker 'gemini-api' extinto com o nativo.
+   Suite: tests/unit/aiServiceAskAI.test.ts (8 casos, breaker mockado por
+   persistir estado entre casos no vitest).
 
-Detecção rápida: probe (a criar junto do fix) + log ao usar $pergunta.
+Lição: memory e docs diziam "2.5 ABERTO" quando o fix 9bb6ba7 já estava em
+prod — premissa de bug desatualizada quase gerou fix duplicado. Verificar
+git log do arquivo ANTES de registrar sintoma de incidente.
 
 INC-003 — Hermes: modelos EOL no NIM e :free extinto no OpenRouter (2026-10-17)
 Sintoma: probe laboratorio/probe-hermes-models.js — NIM 410 Gone (EOL):

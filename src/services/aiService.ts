@@ -2,48 +2,48 @@ import axios from 'axios';
 import { getDb } from './databaseService';
 import { logInfo, logWarning, logError } from './loggerService';
 import { circuitBreakerManager } from './circuitBreaker';
-import { retryApiCall } from './retryWithBackoff';
 
 /**
- * Envia uma pergunta para a IA do Gemini com suporte a memória de contexto
- * @param prompt - Pergunta do usuário
- * @param userId - ID do usuário para recuperar contexto
- * @returns Resposta da IA
+ * Responde uma pergunta via pipeline multi-provider (Groq → Gemini-compat).
+ *
+ * INC-002: o gemini-2.5-flash nativo 404 para contas novas; 9bb6ba7 migrou
+ * para 3.8 nativo + thinkingBudget 0. Este passo UNIFICA no padrão do
+ * askAINews (INC-001): endpoint chat/completions, Groq primário (probe em
+ * prod: 567ms vs 19.791ms do gemini-compat — laboratorio/probe-askai-
+ * migration.js) e Gemini-compat como fallback de cota.
+ *
+ * Preserva do v0: memória de contexto (ai_history, últimas 5), personalidade
+ * no systemInstruction, gravação da interação, mensagens amigáveis de erro.
+ *
+ * Diferente do v0: memória é best-effort — banco fora → segue sem contexto
+ * com logWarning, o chat não cai (mesmo padrão do dedup de notícias,
+ * INC-006). Breaker POR PROVIDER: circuito do Groq aberto → cai direto pro
+ * Gemini. 4xx não-recuperável (prompt/key) não conta como falha de
+ * disponibilidade (padrão a9b058b); 429 conta. retryApiCall interno removido
+ * — o fallback entre providers é o retry real.
  */
 async function askAI(prompt: string, userId: string = 'unknown'): Promise<string> {
-    // Lazy read: o dotenv.config() roda no entry point, mas os imports são hoisted.
-    // Ler aqui garante que process.env já foi populado em runtime.
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-    if (!GEMINI_API_KEY) {
-        logWarning('❌ Erro: Chave da API (GEMINI_API_KEY ou GOOGLE_API_KEY) não encontrada.');
-        return "⚠️ Erro: API_KEY não configurada. Verifique o arquivo .env.";
-    }
-
+    // 1. Memória de contexto (últimas 5 interações) — best-effort.
+    let context = "";
+    let db: any = null;
     try {
-        // 1. Recuperar contexto do banco de dados (últimas 5 mensagens)
-        let context = "";
-        const db = await getDb();
+        db = await getDb();
         const history = await db.all(
             'SELECT prompt, response FROM ai_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT 5',
             [userId]
         );
-
         if (history.length > 0) {
             context = history.reverse().map((h: any) => `Usuário: ${h.prompt}\nIA: ${h.response}`).join('\n\n');
         }
+    } catch (err: any) {
+        logWarning('[askAI] memória indisponível — seguindo sem contexto', { err: String(err?.message || err) });
+    }
 
-        // INC-002: gemini-2.5-flash foi descontinuado para contas novas (404).
-        // Treadmill: 1.5→2.5→3.8; 3.8 é a recomendação oficial da própria
-        // mensagem de 404. Evidência: laboratorio/probe-gemini-native.js.
-        const model = "gemini-3.8-flash";
-        // Usando v1beta para modelos flash mais novos
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+    const now = new Date();
+    const dateTimeStr = now.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 
-        const now = new Date();
-        const dateTimeStr = now.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
-
-        // Personalidade: Estratégico, inteligente, levemente sarcástico e direto.
-        const systemInstruction = `Você é o Bot-WPP, um assistente ultra-inteligente, estratégico e direto.
+    // Personalidade: Estratégico, inteligente, levemente sarcástico e direto.
+    const systemInstruction = `Você é o Bot-WPP, um assistente ultra-inteligente, estratégico e direto.
 Sua personalidade é profissional, mas com um toque de sarcasmo inteligente.
 Evite respostas infantis ou excessivamente longas.
 Seja útil, mas mantenha sua postura de "superioridade tecnológica".
@@ -53,89 +53,77 @@ Data/Hora atual: ${dateTimeStr}
 Contexto da conversa anterior:
 ${context}`;
 
-        // Circuit Breaker + Retry wrapper
-        const breaker = circuitBreakerManager.get('gemini-api', {
+    const errors: { provider: string; status?: number; msg: string }[] = [];
+    let quotaHit = false;
+
+    for (const p of ASKAI_PROVIDERS) {
+        const key = providerKey(p);
+        if (!key) { errors.push({ provider: p.name, msg: 'key ausente' }); continue; }
+
+        // Breaker por provider: askai-groq aberto → cai DIRETO pro gemini.
+        const breaker = circuitBreakerManager.get(`askai-${p.name}`, {
             failureThreshold: 3,
             successThreshold: 2,
-            timeout: 90000,
+            timeout: 30000, // gemini-compat pode levar ~20s (probe)
             resetTimeout: 60000,
-            // 4xx não-recuperável (prompt inválido, key errada) não é falha de
-            // disponibilidade do provider — não deve abrir o circuito.
             shouldCountFailure: (err: any) => {
                 const s = err?.response?.status;
                 return !(s && s >= 400 && s < 500 && s !== 429);
             }
         });
 
-        const response = await breaker.execute(async () =>
-            await retryApiCall(async () => await axios.post(url, {
-                contents: [
-                    {
-                        parts: [{ text: `${systemInstruction}\n\nPergunta atual: ${prompt}` }]
-                    }
-                ],
-                generationConfig: {
+        try {
+            const response = await breaker.execute(async () =>
+                await axios.post(p.url, {
+                    model: p.model,
+                    messages: [
+                        { role: 'system', content: systemInstruction },
+                        { role: 'user', content: `Pergunta atual: ${prompt}` },
+                    ],
+                    max_tokens: 1024,
                     temperature: 0.7,
-                    topK: 40,
-                    topP: 0.95,
-                    maxOutputTokens: 1024,
-                    // 3.x é reasoning-first: sem isto o thinking come o
-                    // orçamento (probe: 200 com parts=0, finish=MAX_TOKENS,
-                    // 27 thought tokens; com thinkingBudget=0 → content
-                    // preenchido). $pergunta é personalidade, não math.
-                    thinkingConfig: { thinkingBudget: 0 },
-                }
-            }, {
-                headers: { 'Content-Type': 'application/json' },
-                timeout: 15000
-            }))
-        );
-
-        // INC-002: parts:[] é 200-vazio (thinking comeu o budget) — sem o
-        // length>0, parts[0].text lança e o catch devolve a mensagem genérica
-        // em vez de "não gerou uma resposta válida".
-        // Evidência: laboratorio/probe-gemini-native.js.
-        if (response.data && response.data.candidates && response.data.candidates[0].content && response.data.candidates[0].content.parts
-            && response.data.candidates[0].content.parts.length > 0) {
-            const aiResponse = response.data.candidates[0].content.parts[0].text;
-
-            // 2. Salvar a interação no banco de dados para memória futura
-            await db.run(
-                'INSERT INTO ai_history (user_id, prompt, response) VALUES (?, ?, ?)',
-                [userId, prompt, aiResponse]
+                    top_p: 0.95,
+                }, {
+                    headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+                    timeout: 30000,
+                })
             );
 
-            return aiResponse;
-        }
+            const content = (response.data?.choices?.[0]?.message?.content || '').trim();
+            if (!content) {
+                // 200 sem content = falha disfarçada — cai para o próximo provider.
+                throw Object.assign(new Error('resposta vazia'), { isEmpty: true });
+            }
 
-        logError('⚠️ Resposta inesperada da API Gemini:', JSON.stringify(response.data, null, 2));
-        return "🤖 A IA recebeu a mensagem, mas não gerou uma resposta válida.";
-    } catch (error: any) {
-        if (error.response) {
-            const errorData = error.response.data;
-            const status = error.response.status;
-            logError(`❌ Erro na API do Gemini (Status ${status}):`, JSON.stringify(errorData, null, 2));
-
-            if (status === 429 || (errorData.error && errorData.error.code === 429)) {
-                const isQuotaExceeded = errorData.error?.message?.toLowerCase().includes('quota exceeded');
-                if (isQuotaExceeded) {
-                    return "🤖 Minha cota diária de inteligência para este modelo (Gemini 3.8 Flash) acabou. Volto a responder amanhã ou quando a cota resetar!";
+            // 2. Grava a interação para memória futura — best-effort.
+            if (db) {
+                try {
+                    await db.run(
+                        'INSERT INTO ai_history (user_id, prompt, response) VALUES (?, ?, ?)',
+                        [userId, prompt, content]
+                    );
+                } catch (e: any) {
+                    logWarning('[askAI] falha ao gravar interação — memória degradada', { err: String(e?.message || e) });
                 }
-                return "🤖 Estou processando muitas informações no momento. Aguarde uns segundos e tente novamente!";
             }
-
-            if (status === 400) {
-                return "⚠️ Erro na requisição (400). Isso pode ser devido ao tamanho do contexto ou formato do prompt.";
-            }
-
-            if (status === 403) {
-                return "🚫 Erro de permissão (403). Verifique se sua API Key é válida e tem permissão para o modelo selecionado.";
-            }
-        } else {
-            logError('❌ Erro na comunicação com Gemini:', error.message);
+            return content;
+        } catch (err: any) {
+            const status = err?.response?.status;
+            const msg = String(err?.isEmpty
+                ? 'resposta vazia (200 sem content)'
+                : (err?.response?.data?.error?.message || err?.message || err));
+            errors.push({ provider: p.name, status, msg });
+            if (status === 429 || /quota/i.test(msg)) quotaHit = true;
+            logWarning(`[askAI] provider ${p.name} falhou — tentando próximo`, { status, msg: msg.slice(0, 200) });
         }
-        return "⚠️ Desculpe, ocorreu um erro ao processar sua pergunta na IA.";
     }
+
+    // Todos os providers falharam.
+    logError('[askAI] todos os providers falharam', JSON.stringify(errors));
+    if (quotaHit) {
+        return "🤖 Minha cota diária de inteligência acabou. Volto a responder amanhã ou quando a cota resetar!";
+    }
+    return "⚠️ Desculpe, ocorreu um erro ao processar sua pergunta na IA.";
 }
 
 /**
@@ -160,12 +148,22 @@ function getSarcasticResponse(): string {
  * o breaker abrir por rate limit no askAI não pode derrubar as notícias.
  */
 
-/** Provider de chat compatível com OpenAI (POST {url}, Authorization Bearer). */
-interface NewsProvider {
+/**
+ * Provider de chat compatível com OpenAI (POST {url}, Authorization Bearer).
+ * Compartilhada pelos pipelines de notícias (askAINews) e de chat (askAI).
+ */
+interface AiProvider {
     name: string;
     url: string;
     keyEnv: string;
+    /** Env alternativa (ex.: GOOGLE_API_KEY como fallback de GEMINI_API_KEY). */
+    altKeyEnv?: string;
     model: string;
+}
+
+/** Lê a key do provider: env principal, senão a alternativa (askAI histórico). */
+function providerKey(p: AiProvider): string | undefined {
+    return process.env[p.keyEnv] || (p.altKeyEnv ? process.env[p.altKeyEnv] : undefined);
 }
 
 /**
@@ -174,7 +172,7 @@ interface NewsProvider {
  * mesmo modelo do askAI) porque a URL nativa (:generateContent, payload
  * contents/generationConfig) não serve neste loop chat/completions.
  */
-const NEWS_PROVIDERS: NewsProvider[] = [
+const NEWS_PROVIDERS: AiProvider[] = [
     {
         name: 'groq',
         url: 'https://api.groq.com/openai/v1/chat/completions',
@@ -185,6 +183,34 @@ const NEWS_PROVIDERS: NewsProvider[] = [
         name: 'gemini',
         url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
         keyEnv: 'GEMINI_API_KEY',
+        model: 'gemini-3.8-flash',
+    },
+];
+
+/**
+ * INC-002 — pipeline do askAI/$pergunta, espelhando o askAINews (INC-001).
+ *
+ * Groq primário: 567ms medidos em prod vs 19.791ms do gemini-compat
+ * (laboratorio/probe-askai-migration.js, keys reais, 19/10). Gemini-compat
+ * como fallback de cota — lento, mas mantém o $pergunta vivo quando a
+ * cota Groq estourar (compartilhada com as notícias).
+ *
+ * O endpoint NATIVO do Gemini sai de cena: 9bb6ba7 já provou o 3.8-flash
+ * nele (com thinkingBudget 0), mas o chat/completions unifica parser,
+ * params e o padrão de fallback com as notícias.
+ */
+const ASKAI_PROVIDERS: AiProvider[] = [
+    {
+        name: 'groq',
+        url: 'https://api.groq.com/openai/v1/chat/completions',
+        keyEnv: 'GROQ_API_KEY',
+        model: 'qwen/qwen3.8-27b',
+    },
+    {
+        name: 'gemini',
+        url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+        keyEnv: 'GEMINI_API_KEY',
+        altKeyEnv: 'GOOGLE_API_KEY',
         model: 'gemini-3.8-flash',
     },
 ];

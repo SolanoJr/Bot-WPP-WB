@@ -19,10 +19,6 @@ vi.mock('../../src/services/circuitBreaker', () => ({
   },
 }));
 
-vi.mock('../../src/services/retryWithBackoff', () => ({
-  retryApiCall: vi.fn(async (fn: any) => await fn()),
-}));
-
 afterAll(() => {
   try { fs.rmSync(TMP_DIR, { recursive: true, force: true }); } catch { /* SQLite may retain handles briefly on Windows. */ }
 });
@@ -31,7 +27,7 @@ describe('ai_history migration', () => {
   it('creates the schema required by askAI and persists a Gemini response', async () => {
     const axios = (await import('axios')).default as unknown as { post: ReturnType<typeof vi.fn> };
     axios.post.mockResolvedValue({
-      data: { candidates: [{ content: { parts: [{ text: 'Resposta de teste' }] } }] },
+      data: { choices: [{ message: { content: 'Resposta de teste' } }] },
     });
 
     const dbService = await import('../../src/services/databaseService');

@@ -310,12 +310,14 @@ vez de pular. O teste pegou; sem ele, o bug passaria despercebido em produção.
 - **Esperam teste real de runtime (herdadas):** $clima, render watchdog,
   app de PC devtools (verificar antes de qualquer mudança).
 
-### askAI/$pergunta — modelo deprecado (ABERTO)
-- `askAI` (aiService.ts) usa o endpoint NATIVO do Gemini com
-  `gemini-2.5-flash` — descontinuado para contas novas ("no longer
-  available to new users") → provável 404 em produção no `$pergunta`.
-- Rodada própria (não junto do kick fix). Ordem: probe direto (Regra 5)
-  com `gemini-3.8-flash` no endpoint nativo → fix → gates → deploy.
+### askAI/$pergunta — modelo deprecado — ✅ RESOLVIDO (INC-002, 19/10)
+- 404 do gemini-2.5-flash (descontinuado p/ contas novas): resolvido em
+  9bb6ba7 (3.8 nativo + thinkingBudget 0) e consolidado em <sha-F3> com a
+  migração ao pipeline multi-provider (padrão INC-001): ASKAI_PROVIDERS
+  Groq qwen3.8-27b → gemini-3.8-flash compat, breaker por provider,
+  memória ai_history preservada (best-effort).
+- Nota: cota Groq é compartilhada com as notícias — estourou, o $pergunta
+  cai no Gemini-compat (funcional, ~20s de latência de fallback).
 - Detalhes: laboratorio/BUGS.md INC-002.
 
 ### Hermes config — candidatos não probados pelo rerank (ABERTO)
