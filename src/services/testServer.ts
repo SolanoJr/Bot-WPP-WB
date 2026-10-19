@@ -298,6 +298,16 @@ export function startTestServer(port: number = 3004): http.Server {
             const groups = chats.filter((c: any) =>
               c.isGroup || (c.id && (c.id.endsWith('@g.us') || c.id.startsWith('tg:') || c.id.startsWith('dc:')))
             );
+            // INC-009: popula meta (nome/descrição) em community_groups —
+            // best-effort; um grupo que falhe não derruba o endpoint.
+            try {
+              const { upsertGroupMeta } = await import('../services/databaseService.js');
+              for (const g of groups as any[]) {
+                try {
+                  await upsertGroupMeta(g.id, g.name ?? null, g.description ?? g.desc ?? null);
+                } catch { /* best-effort por grupo */ }
+              }
+            } catch { /* best-effort geral */ }
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: true, count: groups.length, groups }));
           } catch (err: any) {

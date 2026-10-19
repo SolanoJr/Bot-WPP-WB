@@ -11,13 +11,14 @@
 import fs from 'fs/promises';
 import path from 'path';
 import logger from './loggerService';
-import { cleanupOldFingerprintEntries, cleanupOldJoinEntries, cleanupOldNewsHistory, checkpointWal } from './databaseService';
+import { cleanupOldFingerprintEntries, cleanupOldJoinEntries, cleanupOldNewsHistory, checkpointWal, upsertGroupMeta, listKnownGroupJids } from './databaseService';
 
 export interface CleanupStats {
   logsDeleted: number;
   fingerprintsDeleted: number;
   joinEntriesDeleted: number;
   newsHistoryDeleted: number;
+  groupsRefreshed: number;
   tempFilesDeleted: number;
   bytesFreed: number;
   duration: number;
@@ -47,6 +48,7 @@ export class CleanupService {
       fingerprintsDeleted: 0,
       joinEntriesDeleted: 0,
       newsHistoryDeleted: 0,
+      groupsRefreshed: 0,
       tempFilesDeleted: 0,
       bytesFreed: 0,
       duration: 0
@@ -69,6 +71,14 @@ export class CleanupService {
       // 3.5 Limpar histórico de notícias (INC-006: dedup — a tabela é
       // janela de 7 dias, senão o filtro do prompt cresce sem fim)
       stats.newsHistoryDeleted = await cleanupOldNewsHistory(7);
+
+      // 3.6 INC-009: atualizar meta (nome/descrição) dos grupos conhecidos.
+      // Best-effort — falha de plataforma/grupo não aborta a limpeza.
+      try {
+        stats.groupsRefreshed = await refreshGroupMetas();
+      } catch (e: any) {
+        logger.warn('[Cleanup] refreshGroupMetas falhou (não aborta)', { error: e?.message });
+      }
 
       // 4. Checkpoint do WAL — garante que o arquivo principal em disco reflita
       // o estado real. Sem isso o .db fica defasado e um backup só do .db perde
@@ -217,6 +227,33 @@ export class CleanupService {
 
 // Singleton
 export const cleanupService = new CleanupService();
+
+/**
+ * INC-009: atualiza nome/descrição dos grupos conhecidos em
+ * community_groups (best-effort). Fonte: getChat do adapter WhatsApp —
+ * a mesma que o /lab/groups usa na listagem. Roda dentro do runCleanup
+ * (boot + 6h) e não toca no hot path de mensagens.
+ */
+export async function refreshGroupMetas(): Promise<number> {
+  const jids = await listKnownGroupJids();
+  let updated = 0;
+  try {
+    const { PlatformManager } = await import('../platforms/PlatformManager.js');
+    const adapter: any = PlatformManager.getInstance().getAdapter('whatsapp');
+    if (!adapter?.client?.getChat) return 0;
+    for (const jid of jids) {
+      if (!jid.endsWith('@g.us')) continue;
+      try {
+        const chat = await adapter.client.getChat(jid);
+        if (chat?.id) {
+          await upsertGroupMeta(chat.id, chat.name ?? null, chat.description ?? null);
+          updated++;
+        }
+      } catch { /* grupo pode ter saído — meta antiga permanece */ }
+    }
+  } catch { /* plataforma fora do ar — meta fica como está */ }
+  return updated;
+}
 
 /**
  * Inicia limpeza periódica (a cada 6 horas)

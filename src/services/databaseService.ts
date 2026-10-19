@@ -229,6 +229,11 @@ export async function initDatabase(): Promise<Database> {
     );
   `);
 
+  // INC-009: descrição de grupo — community_groups é a fonte do nome,
+  // estendida com description. A chamada fica AQUI (depois do CREATE):
+  // o bloco de migrations de cima (:161) roda antes desta tabela existir.
+  await addColumnIfMissing('community_groups', 'description', 'description TEXT');
+
   // ─── FEEDBACK DE SAÍDA ──────────────────────────────────────────────────
   // SQLite é a FONTE OFICIAL. O Telegram privado do SolanoJr é apenas espelho
   // operacional (notificação) — nunca a fonte da verdade.
@@ -1217,6 +1222,87 @@ export async function cleanupOldNewsHistory(days: number, cutoff?: string): Prom
   const db = await getDb();
   const res = await db.run('DELETE FROM news_history WHERE sent_at <= ?', [corte]);
   return res.changes ?? 0;
+}
+
+// ─── INC-009: meta de grupo (nome/descrição) — community_groups ───────
+// group_name já existia (welcomeService); description veio por migration.
+// O UPDATE-primeiro preserva community_id quando a row já existe (o
+// welcomeService a preenche com o valor real no primeiro join).
+export async function upsertGroupMeta(
+  groupId: string,
+  name?: string | null,
+  description?: string | null,
+): Promise<void> {
+  const db = await getDb();
+  const now = Date.now();
+  const upd = await db.run(
+    `UPDATE community_groups
+        SET group_name = COALESCE(?, group_name),
+            description = COALESCE(?, description),
+            updated_at = ?
+      WHERE group_id = ?`,
+    [name ?? null, description ?? null, now, groupId],
+  );
+  if ((upd.changes ?? 0) === 0) {
+    // Row nova: community_id vazio — o welcomeService corrige no 1º join
+    // (seu UPSERT faz `DO UPDATE SET community_id = excluded.community_id`).
+    await db.run(
+      `INSERT INTO community_groups (group_id, community_id, group_name, updated_at, description)
+       VALUES (?, '', ?, ?, ?)`,
+      [groupId, name ?? null, now, description ?? null],
+    );
+  }
+}
+
+export interface GroupMeta {
+  groupId: string;
+  communityId: string;
+  name: string | null;
+  description: string | null;
+  updatedAt: number;
+}
+
+function rowToGroupMeta(row: any): GroupMeta {
+  return {
+    groupId: String(row.group_id),
+    communityId: row.community_id ?? '',
+    name: row.group_name ?? null,
+    description: row.description ?? null,
+    updatedAt: Number(row.updated_at) || 0,
+  };
+}
+
+export async function getGroupMeta(groupId: string): Promise<GroupMeta | null> {
+  const db = await getDb();
+  const row: any = await db.get(
+    `SELECT group_id, community_id, group_name, updated_at, description
+       FROM community_groups WHERE group_id = ?`,
+    [groupId],
+  );
+  return row ? rowToGroupMeta(row) : null;
+}
+
+export async function listGroups(): Promise<GroupMeta[]> {
+  const db = await getDb();
+  const rows: any[] = (await db.all(
+    `SELECT group_id, community_id, group_name, updated_at, description
+       FROM community_groups ORDER BY group_name`,
+  )) || [];
+  return rows.map(rowToGroupMeta);
+}
+
+/** JIDs conhecidos (4 tabelas), dedup + sem prefixo de plataforma (INC-009). */
+export async function listKnownGroupJids(): Promise<string[]> {
+  const db = await getDb();
+  const rows: any[] = (await db.all(
+    `SELECT DISTINCT group_id FROM (
+      SELECT group_id FROM group_mod
+      UNION SELECT group_id FROM group_news
+      UNION SELECT group_id FROM mod_member_joins
+      UNION SELECT group_id FROM community_groups
+    )`,
+  )) || [];
+  return [...new Set(rows.map((r) => String(r.group_id).replace(/^wpp:/, '')))];
 }
 
 /** Grupos com notícias habilitadas — é o que o scheduler varre a cada tick. */
