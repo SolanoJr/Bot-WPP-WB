@@ -248,14 +248,29 @@ Spec bruta do dono. Cada item vira rodada quando priorizado.
   INC-008 — nunca criar linha fantasma) e 1 DM (558581344211-…) ignorado.
   Snapshot antes/depois: nenhuma config pré-existente alterada.
 
-### Bug: MASTER_USER no .env com 11 dígitos — inválido (ABERTO — achado 19/10)
-- `MASTER_USER=55858134422` (DDD 85 + 7 dígitos locais) — onWhatsApp
-  retorna `info:null` (número inexistente). Não bate com participant
-  real do LAB.
-- Risco: pode mascarar problemas de permissão admin (comandos
-  master-only não casam com o número verdadeiro do dono).
-- NÃO corrigir sem confirmar com o dono o número real e se os comandos
-  admin funcionam por outro mecanismo.
+### Bug: MASTER_USER no .env com 11 dígitos — ✅ RESOLVIDO (2e6d2da + env fix, 20/10)
+- `MASTER_USER=55858134422@c.us` era um "master fantasma": typo do número
+  do BOT (558581344211 sem o 1 final) — onWhatsApp retorna info:null.
+  Ninguém portava o número, mas um fixo real de Fortaleza com esses
+  dígitos seria reconhecido como MASTER (risco de escalada real).
+- O dono nunca ficou trancado fora: isMaster aceita 4 vias e duas
+  independem do MASTER_USER — MASTER_LID (202658048684056@lid, correto
+  no .env) e OWNER_NUMBER_ALIASES hardcoded (permissions.ts, PN real
+  558898314322 confirmado pelo dono).
+- Fix: .env → MASTER_USER/MASTER_NUMBER/ADMINS = 558898314322@c.us
+  (fantasma e o LID desconhecido 27445294006297 removidos do ADMINS;
+  backup .env.bak-1792477703). Detector warning-only no boot
+  (validateMasterConfig em permissions.ts — NUNCA bloqueia o boot:
+  crash-loop de 14/out) acusa colisão com o número do bot e fora do
+  padrão BR. Gates: 21/21 permissions + tsc + 819 passed/3 flaky.
+- LIÇÃO CRÍTICA (pm2): `pm2 restart` reusa o environment CONGELADO do
+  1º start e o dotenv NÃO sobrescreve chaves já em process.env — o fix
+  do .env só chegou ao runtime com `cd ~/bot-wpp && set -a && . ./.env
+  && set +a && pm2 restart bot-wpp --update-env`. Prova: boot 03:44
+  warnou com o valor VELHO (post-fix do .env!); /proc/<pid>/environ
+  confirmou o fantasma; após --update-env, environ limpo e boot 04:12
+  silencioso. TODO deploy que mexe em .env precisa do sourced restart.
+- Pendente: dono testar $banidos/$grupos (master-only) num grupo real.
 
 ### Listas — pendente de brainstorm (NÃO implementar)
 - Hoje: `$lista` só LÊ. `saveList`/`getList` são código morto (Rodada 4a).
