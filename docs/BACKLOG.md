@@ -214,7 +214,7 @@ Spec bruta do dono. Cada item vira rodada quando priorizado.
 - Quando alguém se apresenta: salva no grupo Telegram Fortaleza 085,
   tópico "apresentação", dizendo de qual grupo veio.
 
-### Bug: Welcome não taggeia o novato — fix deployado, aguardando probe/E2E (f70153b+430b091, 19/10)
+### Bug: Welcome não taggeia o novato — ✅ RESOLVIDO em 04952b4 (INC-010, 19/10)
 - Sintoma: o bem-vindo automático não marca (tag) o novato — a
   menção não renderiza o highlight no WhatsApp.
 - Pistas do código (mini-F0): `memberJoinService.ts:132` JÁ monta
@@ -231,15 +231,15 @@ Spec bruta do dono. Cada item vira rodada quando priorizado.
 - Verificação futura (rodada própria): grep do caminho
   ctx.sendMessage → BaileysSender → sock.sendMessage com mentions;
   smoke no lab com entrada real de participante.
-- STATUS 19/10 (F3): F0 fechou 3 defeitos empilhados — (1) texto sem
-  handle (`@novato` literal; `{numero}` é só dígitos), (2) lambda do
-  adapter com aridade 2 descartava `mentions`, (3) sender nunca montava
-  `mentions` no content `{text, mentions}` (sabotava também os avisos
-  de `$ban`/`$kick`). Fix f70153b + addendum 430b091 (fallback LID via
-  participants) deployados; gates 27/27 + tsc + 814 passed/3 flaky.
-  Rota `/lab/probe-mentions` (A: PN+PN · B: PN+LID · C: LID+LID).
-  Probe enviado ao LAB mencionando o bot (msgA/B/C ok) — aguardando
-  inspeção visual para fechar a Incerteza 4 e liberar o E2E.
+- RESOLVIDO (INC-010, detalhes em laboratorio/BUGS.md): F3 f70153b
+  (handle no texto + fallback `@novato`→handle + mentions no payload,
+  conserta welcome/ban/kick) e F4 04952b4 (resolvePn LID→PN — grupos
+  LID entregam participant @lid e só mentions PN renderizam; probe
+  A/B/C: só PN+PN taggeia). E2E com o LID real do bot: payload
+  capturado `Bem-vindo @558581344211 👋` + mentionedJid PN; highlight
+  confirmado visualmente pelo dono. Gates 815 passed/3 flaky.
+  Nota: a rota `/lab/inject-join` pedida virou reuso da
+  `/lab/inject-participant-event` existente.
 
 ### Bug: MASTER_USER no .env com 11 dígitos — inválido (ABERTO — achado 19/10)
 - `MASTER_USER=55858134422` (DDD 85 + 7 dígitos locais) — onWhatsApp

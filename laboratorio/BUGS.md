@@ -307,3 +307,37 @@ de fallback.
 Push desta máquina Windows não tem credencial GitHub — caminho usado:
 git bundle → scp → VPS (credencial armazenada em ~/.git-credentials) →
 git push origin FETCH_HEAD:refs/heads/main.
+
+INC-010 — WELCOME NÃO TAGGEIA O NOVATO (RESOLVIDO em 04952b4, 19/10)
+Sintoma: o bem-vindo nunca marcou ninguém — 3 defeitos EMPILHADOS:
+(1) texto sem handle: DEFAULT_WELCOME tem "@novato" literal e {numero}
+renderiza só dígitos; o WhatsApp exige handle no TEXTO e JID no array.
+(2) lambda do ctx no adapter com aridade 2 descartava o 3º param
+mentions. (3) BaileysMessageSender nunca montava mentions no content
+(protocolo: { text, mentions: [jid] } no 2º arg) — corolário: os avisos
+de $ban/$kick, que já passavam options.mentions, também nunca
+renderizaram (fix na classe consertou os três de uma vez).
+Fix F3 (f70153b): {handle} no render + fallback @novato→handle (customs
+legados preservados), aridade 3 na lambda, msgOpts.mentions no sender.
+Fix F4 (04952b4): grupos LID entregam o participant como @lid e o
+cliente SÓ renderiza mentions PN — resolvePn (ctx opcional) converte
+@lid→@s.whatsapp.net via getChat().participants ANTES do handle/mentions;
+kick/tracker/ban ficam com o JID original (não regredir INC-008).
+Probe (Regra 5, /lab/probe-mentions, 3 cenários): A (handle PN +
+mentions PN) ✅ · B (PN + LID) ✗ · C (LID + LID) ✗ — só PN+PN renderiza
+em grupo LID. onWhatsApp não expõe LID de toda conta (fallback via
+participants resolveu).
+E2E (/lab/inject-participant-event com o LID real do bot no LAB):
+payload capturado text "Bem-vindo @558581344211 👋" + mentionedJid
+["558581344211@s.whatsapp.net"] = combo exato do probe A. Highlight
+azul confirmado visualmente pelo dono no LAB.
+Gates: 815 passed / 3 flaky Discord (tsc limpo; +10 testes novos).
+APRENDIZADOS
+- Mention Baileys = handle no texto E JID PN no array; mentions @lid
+  NÃO renderizam em grupo LID (probe A/B/C, 19/10).
+- group-participants.update traz participant @lid; converter via
+  participants metadata (id @lid + phoneNumber) — mas NUNCA converter
+  o JID de kick/ban (o Baileys espera o @lid do grupo).
+- E2E de welcome no lab: conferir bemvindo=1 no group_mod ANTES de
+  concluir que o handler falhou (o LAB estava com bemvindo=0 e a 1ª
+  injeção "passou" sem enviar nada).
