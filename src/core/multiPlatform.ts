@@ -21,6 +21,7 @@ import { startNewsScheduler } from '../services/newsScheduler';
 import { createDiscordScreenServiceFromEnv } from '../services/discord-screen/DiscordScreenService';
 import { consolidateStale, listPending } from '../services/presentationService';
 import { publishToTelegram, retryPending, TG_CHAT_ID, TG_THREAD_ID } from '../services/presentationPublisher';
+import { validateMasterConfig } from '../services/permissions';
 
 // 🕒 Logging: o loggerService (Winston) escreve no Console (com timestamp próprio)
 // E em arquivos estruturados (logs/combined.log, commands.jsonl, platforms.jsonl).
@@ -28,6 +29,11 @@ import { publishToTelegram, retryPending, TG_CHAT_ID, TG_THREAD_ID } from '../se
 
 // Carregar variáveis de ambiente
 dotenv.config();
+
+// Sanidade do MASTER_USER (master fantasma, 19/10): warning APENAS — este
+// detector NUNCA bloqueia o boot (o crash-loop de 14/out foi exatamente uma
+// validação que derrubava o processo antes do dotenv rodar).
+validateMasterConfig();
 
 // DNS fixo de processo: contorna o /etc/resolv.conf do servidor quando o DNS
 // do PVE/Tailscale (100.100.100.100) cai. Sem isso o Node não resolve

@@ -214,6 +214,34 @@ export function getOwnerNotifyTarget(): string | null {
   return '5588998314322@c.us';
 }
 
+/**
+ * Sanidade de configuração do MASTER — chamada no boot (após dotenv.config()).
+ *
+ * Bug do master fantasma (19/10): MASTER_USER=55858134422@c.us no .env (typo
+ * do número do bot) ninguém portava — e um número fixo real de Fortaleza com
+ * esses dígitos seria reconhecido como MASTER por `clean === masterClean`.
+ *
+ * logWarning APENAS: NUNCA lança nem bloqueia o boot — o crash-loop de 14/out
+ * (comentário em getMasterUser) foi uma validação que derrubava o processo
+ * antes do dotenv rodar; este detector não repete esse erro.
+ */
+export function validateMasterConfig(): void {
+    const raw = (process.env.MASTER_USER || '').trim();
+    if (!raw) {
+        logger.warn('[permissions] ⚠️ MASTER_USER ausente no .env — dono reconhecível só via MASTER_LID/OWNER aliases');
+        return;
+    }
+    const clean = cleanId(raw);
+    const botClean = cleanId(BOT_NUMBER);
+    if (clean === botClean) {
+        logger.warn(`[permissions] ⚠️ MASTER_USER (${raw}) é o número do PRÓPRIO BOT — typo no .env? Esta via nunca reconhecerá o dono`);
+        return;
+    }
+    if (!/^55\d{10,11}$/.test(clean)) {
+        logger.warn(`[permissions] ⚠️ MASTER_USER (${raw}) fora do padrão BR (12-13 dígitos iniciando por 55) — provável typo; dono segue reconhecível via MASTER_LID/aliases`);
+    }
+}
+
 export {
     PERMISSIONS,
     getUserPermission,

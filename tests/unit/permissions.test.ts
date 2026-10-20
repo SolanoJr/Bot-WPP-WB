@@ -4,8 +4,47 @@
  * - IDs com formatos diferentes (LID, @c.us, só números)
  * - MASTER sempre tem permissão
  */
-import { describe, it, expect } from 'vitest';
-import { isMaster, isAdmin, cleanId, getUserPermission, PERMISSIONS, hasPermission } from '../../src/services/permissions';
+import { describe, it, expect, vi } from 'vitest';
+import { isMaster, isAdmin, cleanId, getUserPermission, PERMISSIONS, hasPermission, validateMasterConfig } from '../../src/services/permissions';
+import logger from '../../src/services/loggerService';
+
+describe('validateMasterConfig — detector de master fantasma (warning APENAS, nunca throw)', () => {
+  it('PN BR válido (12 dígitos) NÃO gera warning', () => {
+    vi.stubEnv('MASTER_USER', '558898314322@c.us');
+    const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    validateMasterConfig();
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+    vi.unstubAllEnvs();
+  });
+
+  it('MASTER_USER vazio gera warning de ausência (mas não lança)', () => {
+    vi.stubEnv('MASTER_USER', '');
+    const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    expect(() => validateMasterConfig()).not.toThrow();
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('ausente'));
+    warnSpy.mockRestore();
+    vi.unstubAllEnvs();
+  });
+
+  it('número do PRÓPRIO BOT gera warning de typo (o caso real do .env: 55858134422→bot)', () => {
+    vi.stubEnv('MASTER_USER', '558581344211@c.us');
+    const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    validateMasterConfig();
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('PRÓPRIO BOT'));
+    warnSpy.mockRestore();
+    vi.unstubAllEnvs();
+  });
+
+  it('11 dígitos (fixo fantasma) gera warning de fora do padrão BR', () => {
+    vi.stubEnv('MASTER_USER', '55858134422@c.us');
+    const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    validateMasterConfig();
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('fora do padrão BR'));
+    warnSpy.mockRestore();
+    vi.unstubAllEnvs();
+  });
+});
 
 describe('cleanId', () => {
   it('remove @c.us e retorna só números', () => {
