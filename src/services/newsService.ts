@@ -1,7 +1,8 @@
 import { askAINews } from './aiService';
 import { PlatformManager } from '../platforms/PlatformManager';
-import { recordNewsTitles, getRecentNewsTitles } from './databaseService';
-import { logWarning } from './loggerService';
+import { recordNewsTitles, getRecentNewsTitles, getRecentNewsLinks, NewsRecord } from './databaseService';
+import { fetchFreshForTopic, normalizeTitle, NewsItem } from './rssNewsService';
+import { logWarning, logInfo } from './loggerService';
 
 /**
  * INC-006 — quantos títulos recentes entram no filtro do prompt.
@@ -118,15 +119,114 @@ export function extractTitles(aiResponse: string, cap: number): string[] {
 }
 
 /**
- * Busca as notícias na IA. Retorna o texto cru (a lista numerada).
+ * INC-011 — idade legível: "(agora)" / "(há 3h)" / "(ontem)". Frescor
+ * visível na mensagem; itens sem pubDate não ganham sufixo.
+ */
+function ageSuffix(pubDate: Date | null): string {
+  if (!pubDate) return '';
+  const h = Math.floor((Date.now() - pubDate.getTime()) / 3_600_000);
+  if (!Number.isFinite(h) || h < 0) return '';
+  if (h < 1) return ' (agora)';
+  if (h < 24) return ` (há ${h}h)`;
+  return ' (ontem)';
+}
+
+/** Timeout duro da curadoria LLM (Refinamento 4). */
+const CURATE_TIMEOUT_MS = 5_000;
+
+/**
+ * INC-011 — curadoria LLM com timeout DURO de 5s. Recebe manchetes REAIS
+ * e só as reformata; nunca gera fato novo. Tudo-ou-nada (condição do
+ * arquiteto): resposta só é aceita se tiver exatamente `items.length`
+ * linhas E cada linha cobrir ≥2 palavras do título original — senão o
+ * conjunto INTEIRO é rejeitado e o caller publica títulos cru.
+ */
+async function curateTitles(items: NewsItem[]): Promise<string[] | null> {
+  const AMP = String.fromCharCode(38); // evita entity-mangling na escrita
+  const prompt = [
+    `Reescreva cada notícia abaixo em UMA linha curta e fluida, preservando TODOS os fatos exatamente como escritos.`,
+    `Não invente nada além do texto dado. Mantenha o nome da fonte no final.`,
+    `Formato: "N. Manchete — Fonte" (sem markdown). Responda só com as linhas.`,
+    '',
+    ...items.map((i, idx) => `${idx + 1}. ${i.title} — ${i.source}`),
+  ].join('\n');
+  const raced = await Promise.race([
+    askAINews(prompt)
+      .then((r) =>
+        String(r || '')
+          .split('\n')
+          .map((l) => l.trim())
+          .filter(Boolean),
+      )
+      .catch(() => null),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), CURATE_TIMEOUT_MS)),
+  ]);
+  // Linhas cruas (mantêm "N." e a fonte). Qualquer desvio — intro,
+  // contagem errada, linha a menos — rejeita o conjunto INTEIRO.
+  if (!raced || raced.length !== items.length) return null;
+  const ok = items.every((it, idx) => {
+    const words = normalizeTitle(it.title).split(' ').filter((w) => w.length > 3);
+    const line = normalizeTitle(String(raced[idx] || ''));
+    const hits = words.filter((w) => line.includes(w)).length;
+    return hits >= Math.min(2, words.length);
+  });
+  return ok ? raced : null;
+}
+
+/**
+ * Busca as notícias: 1ª via RSS real (INC-011), 2ª via LLM declarado.
  *
  * INC-006 — o dedup mora AQUI, não no scheduler nem no comando: os dois
  * caminhos ($noticias manual e agendador via sendNewsToGroup) passam por
- * esta função (verificado em F0.6). Histórico entra no prompt e a resposta
+ * esta função (verificado em F0.6). Histórico entra no filtro e a resposta
  * volta para o histórico. Falha de banco degrada (sem filtro / sem gravação)
  * com logWarning — nunca derruba a notícia.
  */
 export async function fetchNews(topic: string, count: number): Promise<string> {
+  // ── 1ª via: RSS real (INC-011) ─────────────────────────────────────
+  try {
+    let items = await fetchFreshForTopic(topic, 2); // when:2d (Refinamento 1)
+    if (!items.length) items = await fetchFreshForTopic(topic, 7); // fim de semana magro
+
+    const [recentTitles, recentLinks] = await Promise.all([
+      getRecentNewsTitles(50).catch(() => [] as string[]), // Ref. 4 — janela estendida
+      getRecentNewsLinks(50).catch(() => [] as string[]),
+    ]);
+    const sentTitles = new Set(recentTitles.map(normalizeTitle));
+    const sentLinks = new Set(recentLinks);
+    const fresh = items.filter(
+      (i) =>
+        !sentTitles.has(normalizeTitle(i.title)) &&
+        !sentLinks.has(i.guid) &&
+        !sentLinks.has(i.link),
+    );
+    if (fresh.length > 0) {
+      const chosen = fresh.slice(0, count);
+      await recordNewsTitles(
+        chosen.map<NewsRecord>((i) => ({
+          title: i.title,
+          link: i.guid || i.link,
+          pubDate: i.pubDate ? i.pubDate.toISOString() : null,
+        })),
+        localStamp(),
+      ).catch((e: any) => {
+        logWarning('[news] falha ao gravar histórico RSS — dedup degradado', {
+          err: String(e?.message || e),
+        });
+      });
+      const curated = await curateTitles(chosen).catch(() => null);
+      if (curated) return curated.join('\n');
+      // Curadoria falhou/estourou → títulos REAIS cru (Refinamento 4)
+      return chosen
+        .map((i, idx) => `${idx + 1}. ${i.title} — ${i.source}${ageSuffix(i.pubDate)}`)
+        .join('\n');
+    }
+    logInfo(`[news] RSS sem itens inéditos p/ "${topic}" — fallback LLM`);
+  } catch (e: any) {
+    logWarning('[news] RSS falhou — fallback LLM', { err: String(e?.message || e) });
+  }
+
+  // ── 2ª via: fallback LLM (caminho INC-006, agora DECLARADO) ───────
   const recentes = await getRecentNewsTitles(RECENT_TITLES_IN_PROMPT).catch((e: any) => {
     logWarning('[news] histórico indisponível — seguindo sem filtro de dedup', {
       err: String(e?.message || e),
@@ -142,7 +242,7 @@ export async function fetchNews(topic: string, count: number): Promise<string> {
       });
     });
   }
-  return body;
+  return `⚠️ _Fonte ao vivo indisponível — resumo gerado por IA:_\n\n${body}`;
 }
 
 /** Monta a mensagem final que vai ao grupo. */

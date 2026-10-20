@@ -22,6 +22,13 @@ import { logWarning } from '../../src/services/loggerService';
 const dbMocks = vi.hoisted(() => ({
   recordNewsTitles: vi.fn(async () => undefined),
   getRecentNewsTitles: vi.fn(async () => [] as string[]),
+  getRecentNewsLinks: vi.fn(async () => [] as string[]),
+}));
+
+// INC-011: fetchNews agora tenta o RSS antes do LLM. Aqui zeramos a busca
+// (fallback LLM é o objeto destes testes); normalizeTitle permanece REAL.
+const rssMocks = vi.hoisted(() => ({
+  fetchFreshForTopic: vi.fn(async () => [] as import('../../src/services/rssNewsService').NewsItem[]),
 }));
 
 vi.mock('../../src/services/aiService', () => ({
@@ -30,6 +37,11 @@ vi.mock('../../src/services/aiService', () => ({
 }));
 
 vi.mock('../../src/services/databaseService', () => dbMocks);
+
+vi.mock('../../src/services/rssNewsService', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/services/rssNewsService')>();
+  return { ...actual, fetchFreshForTopic: rssMocks.fetchFreshForTopic };
+});
 
 vi.mock('../../src/services/loggerService', () => ({
   default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -47,7 +59,9 @@ vi.mock('../../src/platforms/PlatformManager', () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(dbMocks.getRecentNewsTitles).mockResolvedValue([]);
+  vi.mocked(dbMocks.getRecentNewsLinks).mockResolvedValue([]);
   vi.mocked(dbMocks.recordNewsTitles).mockClear();
+  vi.mocked(rssMocks.fetchFreshForTopic).mockResolvedValue([]);
 });
 
 const ACTIVE_WHATSAPP_MULTI = ['whatsapp', 'whatsapp:558581344211'];
@@ -169,7 +183,9 @@ describe('fetchNews — dedup ponta a ponta (INC-006)', () => {
 
     const body = await fetchNews('tecnologia', 2);
 
-    expect(body).toBe('1. Título novo X — resumo\n2. Título novo Y — resumo');
+    expect(body).toBe(
+      '⚠️ _Fonte ao vivo indisponível — resumo gerado por IA:_\n\n1. Título novo X — resumo\n2. Título novo Y — resumo'
+    );
     expect(vi.mocked(askAINews)).toHaveBeenCalledTimes(1);
     const prompt = vi.mocked(askAINews).mock.calls[0][0];
     expect(prompt).toContain('NUNCA repita');
@@ -197,7 +213,9 @@ describe('fetchNews — dedup ponta a ponta (INC-006)', () => {
 
     const body = await fetchNews('anime', 3);
 
-    expect(body).toBe('Desculpe, não encontrei notícias de hoje.');
+    expect(body).toBe(
+      '⚠️ _Fonte ao vivo indisponível — resumo gerado por IA:_\n\nDesculpe, não encontrei notícias de hoje.'
+    );
     expect(vi.mocked(recordNewsTitles)).not.toHaveBeenCalled();
   });
 
@@ -207,7 +225,9 @@ describe('fetchNews — dedup ponta a ponta (INC-006)', () => {
 
     const body = await fetchNews('tecnologia', 3);
 
-    expect(body).toBe('1. Título — resumo');
+    expect(body).toBe(
+      '⚠️ _Fonte ao vivo indisponível — resumo gerado por IA:_\n\n1. Título — resumo'
+    );
     expect(vi.mocked(logWarning)).toHaveBeenCalledWith(
       expect.stringContaining('histórico indisponível'),
       expect.anything()
@@ -222,7 +242,9 @@ describe('fetchNews — dedup ponta a ponta (INC-006)', () => {
 
     const body = await fetchNews('tecnologia', 3);
 
-    expect(body).toBe('1. Título — resumo');
+    expect(body).toBe(
+      '⚠️ _Fonte ao vivo indisponível — resumo gerado por IA:_\n\n1. Título — resumo'
+    );
     expect(vi.mocked(logWarning)).toHaveBeenCalledWith(
       expect.stringContaining('falha ao gravar títulos'),
       expect.anything()

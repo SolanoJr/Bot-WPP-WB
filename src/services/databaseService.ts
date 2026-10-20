@@ -163,6 +163,11 @@ export async function initDatabase(): Promise<Database> {
     // Apresentações: ativa/desativa por grupo (default 0 = desligado).
     await addColumnIfMissing('group_mod', 'presentation_enabled', 'presentation_enabled INTEGER NOT NULL DEFAULT 0');
 
+    // INC-011 — notícias reais (RSS): link/guid do artigo + data de publicação.
+    // Não destrutivo; o dedup INC-006 por título continua idêntico.
+    await addColumnIfMissing('news_history', 'link', 'link TEXT DEFAULT NULL');
+    await addColumnIfMissing('news_history', 'pub_date', 'pub_date TEXT DEFAULT NULL');
+
     // Feedback: ativa/desativa por grupo (default 0 = desligado).
     await addColumnIfMissing('group_mod', 'feedback', 'feedback INTEGER NOT NULL DEFAULT 0');
 
@@ -1183,12 +1188,32 @@ export async function markNewsSent(groupId: string, sentAt: string): Promise<voi
  * é decisão do caller, não do banco. Set remove duplicata intra-envio
  * (defensivo: a IA pode repetir linha na mesma resposta).
  */
-export async function recordNewsTitles(titles: string[], sentAt: string): Promise<void> {
-  const uniq = [...new Set(titles.map((t) => String(t || '').trim()).filter(Boolean))];
+export interface NewsRecord {
+  title: string;
+  link?: string | null; // guid estável do Google News (modo RSS)
+  pubDate?: string | null; // ISO (modo RSS); null no modo LLM (legado)
+}
+
+export async function recordNewsTitles(items: Array<string | NewsRecord>, sentAt: string): Promise<void> {
+  const seen = new Set<string>();
+  const uniq: NewsRecord[] = [];
+  for (const it of items) {
+    const title = String(typeof it === 'string' ? it : it?.title || '').trim();
+    if (!title || seen.has(title)) continue;
+    seen.add(title);
+    uniq.push(
+      typeof it === 'string'
+        ? { title }
+        : { title, link: it.link ?? null, pubDate: it.pubDate ?? null },
+    );
+  }
   if (!uniq.length) return;
   const db = await getDb();
-  for (const t of uniq.slice(0, 10)) {
-    await db.run('INSERT INTO news_history (title, sent_at) VALUES (?, ?)', [t, sentAt]);
+  for (const r of uniq.slice(0, 10)) {
+    await db.run(
+      'INSERT INTO news_history (title, sent_at, link, pub_date) VALUES (?, ?, ?, ?)',
+      [r.title, sentAt, r.link ?? null, r.pubDate ?? null],
+    );
   }
 }
 
@@ -1201,6 +1226,17 @@ export async function getRecentNewsTitles(limit: number): Promise<string[]> {
     [n]
   );
   return (rows || []).map((r: any) => String(r.title));
+}
+
+/** INC-011 — últimos N links/guids enviados (dedup secundário por artigo). */
+export async function getRecentNewsLinks(limit: number): Promise<string[]> {
+  const n = Math.max(0, Math.min(Number(limit) || 0, 200));
+  const db = await getDb();
+  const rows = await db.all(
+    'SELECT link FROM news_history WHERE link IS NOT NULL ORDER BY sent_at DESC, id DESC LIMIT ?',
+    [n],
+  );
+  return (rows || []).map((r: any) => String(r.link)).filter(Boolean);
 }
 
 /**
