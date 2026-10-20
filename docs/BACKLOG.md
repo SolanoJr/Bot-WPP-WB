@@ -214,7 +214,7 @@ Spec bruta do dono. Cada item vira rodada quando priorizado.
 - Quando alguém se apresenta: salva no grupo Telegram Fortaleza 085,
   tópico "apresentação", dizendo de qual grupo veio.
 
-### Bug: Welcome não taggeia o novato (ABERTO — reportado pelo dono 19/10)
+### Bug: Welcome não taggeia o novato — fix deployado, aguardando probe/E2E (f70153b+430b091, 19/10)
 - Sintoma: o bem-vindo automático não marca (tag) o novato — a
   menção não renderiza o highlight no WhatsApp.
 - Pistas do código (mini-F0): `memberJoinService.ts:132` JÁ monta
@@ -231,6 +231,24 @@ Spec bruta do dono. Cada item vira rodada quando priorizado.
 - Verificação futura (rodada própria): grep do caminho
   ctx.sendMessage → BaileysSender → sock.sendMessage com mentions;
   smoke no lab com entrada real de participante.
+- STATUS 19/10 (F3): F0 fechou 3 defeitos empilhados — (1) texto sem
+  handle (`@novato` literal; `{numero}` é só dígitos), (2) lambda do
+  adapter com aridade 2 descartava `mentions`, (3) sender nunca montava
+  `mentions` no content `{text, mentions}` (sabotava também os avisos
+  de `$ban`/`$kick`). Fix f70153b + addendum 430b091 (fallback LID via
+  participants) deployados; gates 27/27 + tsc + 814 passed/3 flaky.
+  Rota `/lab/probe-mentions` (A: PN+PN · B: PN+LID · C: LID+LID).
+  Probe enviado ao LAB mencionando o bot (msgA/B/C ok) — aguardando
+  inspeção visual para fechar a Incerteza 4 e liberar o E2E.
+
+### Bug: MASTER_USER no .env com 11 dígitos — inválido (ABERTO — achado 19/10)
+- `MASTER_USER=55858134422` (DDD 85 + 7 dígitos locais) — onWhatsApp
+  retorna `info:null` (número inexistente). Não bate com participant
+  real do LAB.
+- Risco: pode mascarar problemas de permissão admin (comandos
+  master-only não casam com o número verdadeiro do dono).
+- NÃO corrigir sem confirmar com o dono o número real e se os comandos
+  admin funcionam por outro mecanismo.
 
 ### Listas — pendente de brainstorm (NÃO implementar)
 - Hoje: `$lista` só LÊ. `saveList`/`getList` são código morto (Rodada 4a).
