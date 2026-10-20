@@ -179,6 +179,19 @@ describe('welcome — handle de menção (bug do Welcome)', () => {
 
     expect(ctx.sent[0].text).toBe('Oi @6285822480546, aproveite o Figurinhas/Stickers!');
   });
+
+  it('grupo LID: resolvePn converte @lid → PN no handle e no mentions', async () => {
+    const { handleMemberJoin } = await loadService();
+    store.mod.set(GRUPO_A, { bemvindo: true });
+    const ctx = makeCtx();
+    ctx.resolvePn = async (jid) =>
+      jid === '2592935567439@lid' ? '558581344211@s.whatsapp.net' : jid;
+
+    await handleMemberJoin(ctx as any, { groupId: GRUPO_A, members: [{ id: '2592935567439@lid', name: 'Novato' }] });
+
+    expect(ctx.sent[0].text).toBe('Bem-vindo @558581344211 👋');
+    expect(ctx.sent[0].mentions).toEqual(['558581344211@s.whatsapp.net']);
+  });
 });
 
 describe('renderWelcome — handle puro', () => {

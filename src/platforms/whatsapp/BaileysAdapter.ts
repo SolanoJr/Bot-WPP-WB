@@ -535,6 +535,20 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
             // Bug do Welcome: aridade 2 descartava o array de mentions.
             await this.sendMessage(g, text, mentions?.length ? { mentions } : undefined);
           },
+          resolvePn: async (jid: string) => {
+            // Bug do Welcome (grupos LID): o evento traz @lid, mas só o PN
+            // renderiza mention (probe 19/10). O metadata do grupo carrega o
+            // mapeamento LID→PN real (participants: id @lid + phoneNumber).
+            if (!jid.endsWith('@lid')) return jid;
+            try {
+              const chat: any = await this.getChat(groupId);
+              const hit = ((chat as any)?.participants || []).find(
+                (p: any) => p?.id === jid,
+              );
+              const digits = String(hit?.phoneNumber || '').replace(/\D/g, '');
+              return digits ? `${digits}@s.whatsapp.net` : jid;
+            } catch { return jid; }
+          },
           resolveGroupName: async (g: string) => (await this.getChat(g))?.name || g,
         },
         { groupId, members: participants },

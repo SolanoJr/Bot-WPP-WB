@@ -25,6 +25,9 @@ interface MemberJoinContext {
   sendMessage?: (groupId: string, text: string, mentions?: string[]) => Promise<void>;
   /** Nome do grupo, para o placeholder {grupo}. */
   resolveGroupName?: (groupId: string) => Promise<string>;
+  /** Resolve JID @lid → PN (@s.whatsapp.net) para o welcome.
+   *  O kick/tracker continuam com o JID original do evento. */
+  resolvePn?: (jid: string) => Promise<string>;
 }
 
 interface MemberJoinEvent {
@@ -121,7 +124,11 @@ export async function handleMemberJoin(
       if (!bemvindoOn || !ctx.sendMessage) continue;
 
       const nome = nameOf(member);
-      const numero = numeroDe(pnOf(member) || id);
+      // Grupos LID entregam o participant como @lid — o cliente NÃO renderiza
+      // mentions @lid (probe 19/10: só PN+PN taggeia). resolvePn converte
+      // via participants do grupo; sem mapeamento, mantém o JID original.
+      const pnJid = ctx.resolvePn ? await ctx.resolvePn(id) : id;
+      const numero = numeroDe(pnOf(member) || pnJid);
       const { text } = await resolveWelcome(event.groupId, {
         nome: nome || numero,
         numero,
@@ -132,7 +139,7 @@ export async function handleMemberJoin(
       });
 
       // Menciona o novato quando possível (o WhatsApp renderiza @numero).
-      const mentions = id.includes('@') ? [id] : [];
+      const mentions = pnJid.includes('@') ? [pnJid] : [];
       await ctx.sendMessage(event.groupId, text, mentions);
 
       logger.info('[memberJoinService] welcome enviado', {
