@@ -386,3 +386,30 @@ vez de pular. O teste pegou; sem ele, o bug passaria despercebido em produção.
 - Nomes dos testes "RECUSA quando o metadata é indisponível" (kick e ban)
   ficaram com comentário esclarecedor em vez de rename — rename é
   cosmético, sem urgência.
+
+### Dívida 1 — checkPermissions stub (ABERTO — F0/F1 permissões, 20/10)
+- `PlatformManager.ts` (~:472): `checkPermissions` retorna `true` sempre —
+  o gate central do dispatcher é inerte. O `requirePermission` do
+  `permissions.ts`, apontado pelo comentário, não é usado por nenhum comando
+  (código morto). Gating real é 100% por handler.
+- Sem bypass (handlers gateiam de fato), mas qualquer comando novo pode
+  esquecer o gate. Correção só com E2E por nível (docs/PERMISSIONS.md §5)
+  como rede de segurança.
+
+### Dívida 2 — $cmd toggle fake (ABERTO — F0/F1 permissões, 20/10)
+- `commandConfigService` (in-memory) é escrito pelo `cmdToggle.ts` mas NÃO é
+  lido por ninguém (grep de leitores: vazio) → `$cmd <comando> off` responde
+  "✅ desativado" sem efeito. Bônus: estado em memória perderia no restart.
+- Fix quando priorizado: persistir e LER no dispatcher, com teste E2E.
+
+### Dívida 3 — ADMINS do .env inócuo (ABERTO — F0/F1 permissões, 20/10)
+- O nível ADMIN do `permissions.ts` (`getUserPermission`/`hasPermission`/
+  `isAdmin`/`PERMISSIONS`) não tem consumidor: adicionar um número ao
+  `ADMINS` do .env não concede nada. O "admin" efetivo é só o metadata do
+  grupo (`isSenderGroupAdmin`).
+- Decisão possível: ou ligar o requirePermission nos handlers (junto com a
+  Dívida 1), ou remover o mecanismo morto. Documentado em
+  docs/PERMISSIONS.md §7.
+- Nota: o `27445294006297@lid` removido do ADMINS em 2e6d2da é conta real
+  (PN 558781303081, membro do LAB) — sem perda prática, já que ADMINS não
+  concede nada.
