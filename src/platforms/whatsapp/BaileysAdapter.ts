@@ -531,7 +531,10 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
       await handleMemberJoin(
         {
           removeParticipant: (g: string, u: string) => this.removeParticipant(g, u),
-          sendMessage: async (g: string, text: string) => { await this.sendMessage(g, text); },
+          sendMessage: async (g: string, text: string, mentions?: string[]) => {
+            // Bug do Welcome: aridade 2 descartava o array de mentions.
+            await this.sendMessage(g, text, mentions?.length ? { mentions } : undefined);
+          },
           resolveGroupName: async (g: string) => (await this.getChat(g))?.name || g,
         },
         { groupId, members: participants },

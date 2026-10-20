@@ -21,12 +21,14 @@ import logger from './loggerService';
 export const DEFAULT_WELCOME = 'Bem-vindo @novato 👋';
 
 /** Placeholders reconhecidos. */
-export const WELCOME_PLACEHOLDERS = ['{nome}', '{numero}', '{grupo}'] as const;
+export const WELCOME_PLACEHOLDERS = ['{nome}', '{numero}', '{grupo}', '{handle}'] as const;
 
 export interface WelcomeContext {
   nome?: string;
   numero?: string;
   grupo?: string;
+  /** Handle de menção pronto (@numero). Alimenta {handle} e o fallback @novato. */
+  handle?: string;
 }
 
 /**
@@ -34,12 +36,17 @@ export interface WelcomeContext {
  * Placeholder sem valor disponível vira string vazia (nunca "undefined").
  */
 export function renderWelcome(template: string, ctx: WelcomeContext): string {
-  return String(template ?? '')
+  // Handle real = explícito ou derivado do numero. Sem numero → '' (guard).
+  const handle = ctx.handle ?? (ctx.numero ? `@${ctx.numero}` : '');
+  let out = String(template ?? '')
     .replace(/\{nome\}/gi, ctx.nome ?? '')
     .replace(/\{numero\}/gi, ctx.numero ?? '')
     .replace(/\{grupo\}/gi, ctx.grupo ?? '')
-    .replace(/\s+/g, ' ')
-    .trim();
+    .replace(/\{handle\}/gi, handle);
+  // Fallback legacy: customs salvos com "@novato" literal ganham o handle
+  // real. Só roda com handle não-vazio — sem numero, "@novato" permanece.
+  if (handle) out = out.replace(/@novato/gi, handle);
+  return out.replace(/\s+/g, ' ').trim();
 }
 
 /**

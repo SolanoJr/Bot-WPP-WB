@@ -65,6 +65,14 @@ export class BaileysMessageSender {
       const jid = toJid(chatId);
       const msgOpts: any = { text };
 
+      // Mentions (welcome/ban/kick): viajam DENTRO do content, junto ao text.
+      // Protocolo Baileys: { text, mentions: [jid...] } — o array isolado no
+      // 3º arg não renderiza highlight no cliente.
+      if (options?.mentions && options.mentions.length) {
+        msgOpts.mentions = options.mentions;
+        logInfo(`[BaileysSender.sendMessage] mentions anexados: ${options.mentions.length}`);
+      }
+
     // ─── Delete message support ───
     // Preserve the COMPLETE WAMessageKey — do NOT reconstruct a truncated key.
     if (options?.delete) {

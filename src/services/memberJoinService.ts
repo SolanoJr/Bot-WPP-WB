@@ -125,6 +125,9 @@ export async function handleMemberJoin(
       const { text } = await resolveWelcome(event.groupId, {
         nome: nome || numero,
         numero,
+        // Bug do Welcome: highlight exige o handle no TEXTO além do JID no
+        // mentions. {numero} sozinho (só dígitos) nunca renderizou.
+        handle: numero ? `@${numero}` : '',
         grupo: groupName,
       });
 

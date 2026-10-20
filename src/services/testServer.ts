@@ -1620,6 +1620,60 @@ export function startTestServer(port: number = 3004): http.Server {
           return;
         }
 
+        // ─── Probe de mentions (bug do Welcome — Incerteza 4: LID) ──────────
+        // Envia 3 mensagens DIRETAS ao LAB via sock.sendMessage, contornando o
+        // pipeline do welcome: isola a questão "qual combinação texto+JID o
+        // cliente renderiza em grupo LID?". Inspeção VISUAL no grupo decide.
+        //   PROBE_A: handle PN  + mentions PN
+        //   PROBE_B: handle PN  + mentions LID
+        //   PROBE_C: handle LID + mentions LID
+        if (req.url === '/lab/probe-mentions') {
+          const { phone } = parsedBody;
+          if (!phone || !/^\d+$/.test(String(phone))) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Missing phone (apenas dígitos)' }));
+            return;
+          }
+          const { adapter, sock } = getAdapterAndSock('whatsapp');
+          if (!adapter || !sock) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Adapter/socket indisponível' }));
+            return;
+          }
+          try {
+            // PN e LID reais via chatManager (onWhatsApp)
+            const info = await (adapter as any).getNumberId?.(String(phone)) || null;
+            const pnJid = info?.serialized || `${phone}@s.whatsapp.net`;
+            const lidRaw = info?.lid;
+            const lidJid = lidRaw
+              ? (String(lidRaw).includes('@') ? String(lidRaw) : `${lidRaw}@lid`)
+              : null;
+            const handlePn = `@${phone}`;
+            const rA = await sock.sendMessage(LAB_GROUP_ID, {
+              text: `PROBE_A ${handlePn} (mentions=PN ${pnJid})`, mentions: [pnJid],
+            });
+            let rB: any = null;
+            let rC: any = null;
+            if (lidJid) {
+              rB = await sock.sendMessage(LAB_GROUP_ID, {
+                text: `PROBE_B ${handlePn} (mentions=LID ${lidJid})`, mentions: [lidJid],
+              });
+              const handleLid = `@${String(lidRaw).replace(/@.*$/, '')}`;
+              rC = await sock.sendMessage(LAB_GROUP_ID, {
+                text: `PROBE_C ${handleLid} (mentions=LID ${lidJid})`, mentions: [lidJid],
+              });
+            }
+            logInfo('[TestServer] /lab/probe-mentions enviado', { phone, pnJid, lidJid });
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, phone, info, pnJid, lidJid,
+              msgA: rA?.key?.id || null, msgB: rB?.key?.id || null, msgC: rC?.key?.id || null }));
+          } catch (err: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err?.message || String(err) }));
+          }
+          return;
+        }
+
         // ─── Endpoint de injeção de evento de participante (lab) ────────────
         // Dispara o handler de produção com evento sintético.
         //   action='add' → bem-vindo · action='remove' → feedback de saída.

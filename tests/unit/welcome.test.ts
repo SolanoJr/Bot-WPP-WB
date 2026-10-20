@@ -83,7 +83,7 @@ describe('welcome — padrão do sistema', () => {
     await handleMemberJoin(ctx as any, { groupId: GRUPO_A, members: [{ id: '6285822480546@s.whatsapp.net', name: 'Daniel' }] });
 
     expect(ctx.sent.length).toBe(1);
-    expect(ctx.sent[0].text).toBe('Bem-vindo @novato 👋');
+    expect(ctx.sent[0].text).toBe('Bem-vindo @6285822480546 👋');  // handle real (bug do Welcome)
   });
 
   it('4. welcome OFF (bemvindo=0) NÃO envia nada', async () => {
@@ -146,6 +146,53 @@ describe('welcome — configurável por grupo', () => {
   });
 });
 
+describe('welcome — handle de menção (bug do Welcome)', () => {
+  it('mentions com o JID do novato chega ao sendMessage', async () => {
+    const { handleMemberJoin } = await loadService();
+    store.mod.set(GRUPO_A, { bemvindo: true });
+    const ctx = makeCtx();
+
+    await handleMemberJoin(ctx as any, { groupId: GRUPO_A, members: [{ id: '6285822480546@s.whatsapp.net', name: 'Daniel' }] });
+
+    expect(ctx.sent[0].mentions).toEqual(['6285822480546@s.whatsapp.net']);
+  });
+
+  it('custom com @novato literal ganha o handle real', async () => {
+    const { handleMemberJoin } = await loadService();
+    store.mod.set(GRUPO_A, { bemvindo: true });
+    welcomeStore.set(GRUPO_A, 'Bem-vindo @novato! Boa sorte.');
+    const ctx = makeCtx();
+
+    await handleMemberJoin(ctx as any, { groupId: GRUPO_A, members: [{ id: '6285822480546@s.whatsapp.net', name: 'Daniel' }] });
+
+    expect(ctx.sent[0].text).toBe('Bem-vindo @6285822480546! Boa sorte.');
+    expect(ctx.sent[0].mentions).toEqual(['6285822480546@s.whatsapp.net']);
+  });
+
+  it('custom com {handle} usa o placeholder', async () => {
+    const { handleMemberJoin } = await loadService();
+    store.mod.set(GRUPO_A, { bemvindo: true });
+    welcomeStore.set(GRUPO_A, 'Oi {handle}, aproveite o {grupo}!');
+    const ctx = makeCtx();
+
+    await handleMemberJoin(ctx as any, { groupId: GRUPO_A, members: [{ id: '6285822480546@s.whatsapp.net', name: 'Daniel' }] });
+
+    expect(ctx.sent[0].text).toBe('Oi @6285822480546, aproveite o Figurinhas/Stickers!');
+  });
+});
+
+describe('renderWelcome — handle puro', () => {
+  it('{handle} é substituído', async () => {
+    const { renderWelcome } = await import('../../src/services/welcomeService');
+    expect(renderWelcome('Oi {handle}', { numero: '5511' })).toBe('Oi @5511');
+  });
+
+  it('sem numero, @novato permanece literal (guard)', async () => {
+    const { renderWelcome } = await import('../../src/services/welcomeService');
+    expect(renderWelcome('Bem-vindo @novato', {})).toBe('Bem-vindo @novato');
+  });
+});
+
 describe('welcome — ban-on-rejoin continua funcionando', () => {
   it('membro banido é removido e NÃO recebe welcome', async () => {
     const { handleMemberJoin } = await loadService();
@@ -157,7 +204,7 @@ describe('welcome — ban-on-rejoin continua funcionando', () => {
 
     expect(ctx.removed).toContain('6285822480546@s.whatsapp.net');
     // Banido NÃO recebe welcome — só o aviso de banimento.
-    const welcomes = ctx.sent.filter(s => s.text === 'Bem-vindo @novato 👋');
+    const welcomes = ctx.sent.filter(s => s.text.startsWith('Bem-vindo'));
     expect(welcomes.length).toBe(0);
     expect(ctx.sent.some(s => s.text.includes('banido'))).toBe(true);
   });
