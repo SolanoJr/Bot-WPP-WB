@@ -240,6 +240,13 @@ Spec bruta do dono. Cada item vira rodada quando priorizado.
   confirmado visualmente pelo dono. Gates 815 passed/3 flaky.
   Nota: a rota `/lab/inject-join` pedida virou reuso da
   `/lab/inject-participant-event` existente.
+- Pós-fix (19/10): welcome padrão ativado em TODOS os grupos conhecidos —
+  7 INSERTs com chave crua + defaults do schema (bemvindo=1), 0 UPDATEs
+  (2 grupos já ON: Teste/LAB e Figurinhas/Stickers); 9/9 grupos com
+  bemvindo=1. Fontes: UNION de community_groups/group_mod/group_news/
+  mod_member_joins/banned_users; 2 JIDs 'wpp:' dedupeados (lição
+  INC-008 — nunca criar linha fantasma) e 1 DM (558581344211-…) ignorado.
+  Snapshot antes/depois: nenhuma config pré-existente alterada.
 
 ### Bug: MASTER_USER no .env com 11 dígitos — inválido (ABERTO — achado 19/10)
 - `MASTER_USER=55858134422` (DDD 85 + 7 dígitos locais) — onWhatsApp
