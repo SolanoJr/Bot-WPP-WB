@@ -1643,8 +1643,23 @@ export function startTestServer(port: number = 3004): http.Server {
           try {
             // PN e LID reais via chatManager (onWhatsApp)
             const info = await (adapter as any).getNumberId?.(String(phone)) || null;
-            const pnJid = info?.serialized || `${phone}@s.whatsapp.net`;
-            const lidRaw = info?.lid;
+            let pnJid = info?.serialized || `${phone}@s.whatsapp.net`;
+            let lidRaw = info?.lid;
+            // Fallback: onWhatsApp não expõe LID para toda conta (ex.: o
+            // próprio bot). Participants do LAB têm o mapeamento LID↔PN real
+            // (mesma resolução do /lab/antibot-test).
+            if (!lidRaw) {
+              try {
+                const chat = await (adapter as any).client?.getChat?.(LAB_GROUP_ID);
+                const want = String(phone).replace(/\D/g, '');
+                const hit = ((chat as any)?.participants || []).find((p: any) =>
+                  String(p?.phoneNumber || '').replace(/\D/g, '') === want);
+                if (hit && String(hit.id || '').endsWith('@lid')) {
+                  lidRaw = hit.id;
+                  logInfo('[TestServer] /lab/probe-mentions: LID resolvido via participants', { phone, lidRaw });
+                }
+              } catch { /* segue sem LID */ }
+            }
             const lidJid = lidRaw
               ? (String(lidRaw).includes('@') ? String(lidRaw) : `${lidRaw}@lid`)
               : null;
