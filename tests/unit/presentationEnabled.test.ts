@@ -198,7 +198,7 @@ describe('presentationService — coleta respeita presentation_enabled', () => {
       messageId: 'msg4',
       mediaType: undefined,
       isFromMe: false,
-      quotedText: 'Bem-vindo @novato 👋',
+      quotedText: 'Boas-vindas @novato 👋',
     };
 
     await handlePresentationCollect(normMsg);
@@ -220,7 +220,7 @@ describe('presentationService — coleta respeita presentation_enabled', () => {
       messageId: 'msg5',
       mediaType: undefined,
       isFromMe: false,
-      quotedText: 'Bem-vindo @novato 👋',
+      quotedText: 'Boas-vindas @novato 👋',
     };
 
     await handlePresentationCollect(normMsg);

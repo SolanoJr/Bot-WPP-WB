@@ -195,10 +195,14 @@ export async function handlePresentationCollect(normMsg: any): Promise<void> {
 
     // 4. Reply à mensagem de welcome → MUITO FORTE
     const quotedText = normMsg?.quotedText || '';
-    if (quotedText.includes('Bem-vindo')) {
-      const { getWelcomeMessage } = await import('./welcomeService.js');
-      const welcome = await getWelcomeMessage(chatId);
-      if (welcome && quotedText.includes(welcome) || quotedText.includes('Bem-vindo')) {
+    if (quotedText) {
+      const { getWelcomeMessage, DEFAULT_WELCOME } = await import('./welcomeService.js');
+      const custom = await getWelcomeMessage(chatId);
+      const template = custom ?? DEFAULT_WELCOME;
+      // O template traz placeholders (@novato, {nome}) que a mensagem enviada já
+      // resolveu — casa pelo trecho fixo do começo (vale p/ default e p/ custom).
+      const fixedPrefix = template.split(/[{@]/)[0].trim();
+      if (fixedPrefix && quotedText.startsWith(fixedPrefix)) {
         const s = getOrCreateSession(chatId, senderId, 'welcome_reply');
         collectMessage(s, messageId, text, mediaType ? { type: mediaType === 'image' ? 'image' : 'other', mediaType } : undefined);
         return;
