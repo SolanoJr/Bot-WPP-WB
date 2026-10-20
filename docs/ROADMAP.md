@@ -37,7 +37,7 @@
 - [x] Listener real de `group-participants.update`
 - [x] `welcomeService` com placeholders (`{nome}`, `{numero}`, `{grupo}`)
 - [x] `$setwelcome` persistido no SQLite (era Relay InMemory)
-- [x] Padrão: `Bem-vindo @novato 👋`
+- [x] Padrão: `Boas-vindas @novato 👋`
 - [x] Ban-on-rejoin preservado
 
 ### Apresentações (2026-10-02)

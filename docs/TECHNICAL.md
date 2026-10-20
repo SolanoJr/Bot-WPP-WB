@@ -374,7 +374,7 @@ memberJoinService.handleMemberJoin()
 ### Mensagem padrão
 
 ```
-Bem-vindo @novato 👋
+Boas-vindas @novato 👋
 ```
 
 Constante `DEFAULT_WELCOME`. Usada quando `welcome_message` é `NULL`.

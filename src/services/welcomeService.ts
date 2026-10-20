@@ -18,7 +18,7 @@ import { getDb } from './databaseService';
 import logger from './loggerService';
 
 /** Mensagem padrão do sistema. Simples e sem instrução de apresentação. */
-export const DEFAULT_WELCOME = 'Bem-vindo @novato 👋';
+export const DEFAULT_WELCOME = 'Boas-vindas @novato 👋';
 
 /** Placeholders reconhecidos. */
 export const WELCOME_PLACEHOLDERS = ['{nome}', '{numero}', '{grupo}', '{handle}'] as const;

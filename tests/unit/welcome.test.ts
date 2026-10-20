@@ -70,9 +70,9 @@ beforeEach(() => {
 });
 
 describe('welcome — padrão do sistema', () => {
-  it('3. o welcome padrão é EXATAMENTE "Bem-vindo @novato 👋"', async () => {
+  it('3. o welcome padrão é EXATAMENTE "Boas-vindas @novato 👋"', async () => {
     const { DEFAULT_WELCOME } = await import('../../src/services/welcomeService');
-    expect(DEFAULT_WELCOME).toBe('Bem-vindo @novato 👋');
+    expect(DEFAULT_WELCOME).toBe('Boas-vindas @novato 👋');
   });
 
   it('2. novo membro com bemvindo=1 recebe o welcome padrão', async () => {
@@ -83,7 +83,7 @@ describe('welcome — padrão do sistema', () => {
     await handleMemberJoin(ctx as any, { groupId: GRUPO_A, members: [{ id: '6285822480546@s.whatsapp.net', name: 'Daniel' }] });
 
     expect(ctx.sent.length).toBe(1);
-    expect(ctx.sent[0].text).toBe('Bem-vindo @6285822480546 👋');  // handle real (bug do Welcome)
+    expect(ctx.sent[0].text).toBe('Boas-vindas @6285822480546 👋');  // handle real (bug do Welcome)
   });
 
   it('4. welcome OFF (bemvindo=0) NÃO envia nada', async () => {
@@ -128,7 +128,7 @@ describe('welcome — configurável por grupo', () => {
     await handleMemberJoin(ctxB as any, { groupId: GRUPO_B, members: [{ id: 'x@s.whatsapp.net' }] });
 
     expect(ctxA.sent[0].text).toBe('Bem-vindo ao A!');            // personalizado
-    expect(ctxB.sent[0].text).toBe('Bem-vindo @novato 👋');        // padrão
+    expect(ctxB.sent[0].text).toBe('Boas-vindas @novato 👋');        // padrão
   });
 
   it('placeholders {nome}, {numero}, {grupo} são aplicados', async () => {
@@ -189,7 +189,7 @@ describe('welcome — handle de menção (bug do Welcome)', () => {
 
     await handleMemberJoin(ctx as any, { groupId: GRUPO_A, members: [{ id: '2592935567439@lid', name: 'Novato' }] });
 
-    expect(ctx.sent[0].text).toBe('Bem-vindo @558581344211 👋');
+    expect(ctx.sent[0].text).toBe('Boas-vindas @558581344211 👋');
     expect(ctx.sent[0].mentions).toEqual(['558581344211@s.whatsapp.net']);
   });
 });
