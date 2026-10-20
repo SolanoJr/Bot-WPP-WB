@@ -298,10 +298,11 @@ Spec bruta do dono. Cada item vira rodada quando priorizado.
 - **Pós-resolução (2026-10-17):** modelos descontinuados nos 2 providers →
   fix b094b42 (NEWS_PROVIDERS: `qwen/qwen3.8-27b` + `gemini-3.8-flash`);
   detalhes em laboratorio/BUGS.md INC-001.
-- **Prompt pede "notícias de HOJE" a LLM sem browsing** (newsService.ts:60)
-  — o conteúdo vem do treino, não de fonte real; em tema estranho pode
-  voltar disclaimer. Melhoria futura: prompt honesto ("acontecimentos
-  recentes que você conhece") OU fonte real (RSS/NewsAPI). Rodada própria.
+- **Fonte das notícias — RESOLVIDO em 30b1bf6 (INC-011, 20/10):** fetchNews
+  agora é RSS-first — Google News RSS real (when:2d→7d, merge de queries por
+  tópico, dedup título+guid), histórico com link+pubDate, curadoria LLM
+  opcional (timeout 5s, tudo-ou-nada) e fallback LLM declarado com
+  disclaimer. Detalhes: laboratorio/BUGS.md INC-011.
 - **Dedup de títulos (o "sem repetir") — RESOLVIDO em 92ebb78 (INC-006):**
   tabela `news_history` + bloco "NUNCA repita" no prompt + `extractTitles`
   (sem fallback de fragmento); gravação dentro de `fetchNews` cobre comando

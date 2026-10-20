@@ -341,3 +341,71 @@ APRENDIZADOS
 - E2E de welcome no lab: conferir bemvindo=1 no group_mod ANTES de
   concluir que o handler falhou (o LAB estava com bemvindo=0 e a 1ª
   injeção "passou" sem enviar nada).
+
+## INC-011 — Notícias desatualizadas (LLM sem browsing "lembrava" notícias) — RESOLVIDO em 30b1bf6 (20/10)
+
+SINTOMA
+- Dono reportou notícias velhas (conteúdo de anos atrás). Dedup INC-006
+  ok, mas a FONTE não era fresca.
+
+CAUSA RAIZ (F0)
+- fetchNews → askAINews = chat completion PURO (sem tools/browsing):
+  o prompt pedia "notícias de HOJE" a um LLM que só conhece o treino.
+  Sem API de busca no .env (BRAVE/SERPER/NEWSAPI/BING/GOOGLE_SEARCH:
+  nada). O modelo "lembrava" manchetes antigas ou inventava.
+
+FIX (30b1bf6 — design F2 proposto e aprovado pelo arquiteto)
+- rssNewsService.ts (novo): Google News RSS por tópico (grátis, sem
+  key, pt-BR). when:2d com retry when:7d; TOPIC_QUERIES com merge de
+  queries ('mundo geek' = anime/mangá/games/cultura pop + séries/
+  filmes/música/marvel/dc) e dedup intra-batch; parser blindado
+  (entidades, CDATA defensivo, título puro do <a> da description,
+  fonte do <source>, guid estável como dedup secundário).
+- fetchNews RSS-first: dedup título normalizado + guid/link (janela
+  50), gravação com link+pubDate; curadoria LLM OPCIONAL com timeout
+  duro 5s e sanidade tudo-ou-nada (N linhas + ≥2 palavras do título
+  original por linha; qualquer desvio publica títulos REAIS cru).
+  Fallback LLM declarado com disclaimer "⚠️ Fonte ao vivo
+  indisponível — resumo gerado por IA".
+- databaseService: ALTER TABLE news_history ADD COLUMN link TEXT,
+  pub_date TEXT (addColumnIfMissing no boot — migration automática);
+  recordNewsTitles aceita NewsRecord retrocompatível com string[];
+  getRecentNewsLinks (dedup secundário por artigo).
+- Fixtures reais COMMITADOS (tests/fixtures/google-news-*.xml,
+  capturados via curl do próprio VPS) — parser testado contra o
+  formato congelado do Google.
+
+DESCOBERTAS DO FEED REAL (premissas do design ajustadas em F2)
+- Feed NÃO usa CDATA; description não tem frase de resumo — o <a> da
+  description carrega a manchete pura (via principal do título).
+- Fonte vem como sufixo " - Fonte" no <title> E na tag <source>.
+- <guid> (CBMi…) é estável por artigo; <link> carrega "?oc=5" — por
+  isso o dedup secundário usa o guid.
+- Feed inteiro numa linha só; parser por blocos, não por linhas.
+
+E2E (LAB, 20/10, sender master 558898314322@c.us)
+- $noticias tecnologia 5: resposta em ~3s com manchetes REAIS de
+  hoje (IstoÉ/eleições, IA em reuniões, acidentes de trabalho);
+  news_history gravou link=CBMi… e pub_date ISO de HOJE (não NULL).
+- 2ª chamada consecutiva: 5 títulos NOVOS, 0 repetidos (dedup
+  título + guid funcionando).
+- $noticias mundo geek 5: merge das 2 queries com diversidade
+  comprovada (Xbox/FFVII, Spotify/anime, Shingeki no Kyojin,
+  Marvel/Homem-Formiga, Modern Warfare 4).
+- Gates: 833 passed / 3 flaky Discord (tsc limpo; +14 testes novos,
+  incluindo as 2 bordas exigidas: feed vazio → fallback com
+  disclaimer; 1 item com count=5 → entrega 1 sem inventar).
+
+APRENDIZADOS
+- Entidade XML dentro de código-fonte: escrever via concat/fromCharCode
+  ("&" + "lt;") — o literal sofre mangling na escrita/leitura do
+  arquivo (o array ENTITIES nasceu decodificado = no-op, e o teste
+  pescou antes do deploy).
+- "when:2d" no q= sai URL-encoded (when%3A2d): asserts de teste
+  precisam decodeURIComponent antes do toContain.
+- extractTitles stripa numeração e fonte — a curadoria precisa das
+  LINHAS CRUAS da resposta (validadas), não do extrator.
+- Curadoria de fonte única (só títulos sem corpo): tudo-ou-nada;
+  nunca misturar linha curada com cru.
+- Parser testado contra fixture REAL congelado: se o Google mudar o
+  formato, o CI aponta a regressão na hora.
