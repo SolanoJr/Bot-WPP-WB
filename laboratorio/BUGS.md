@@ -513,18 +513,35 @@ MELHORIAS APLICADAS (F1 + REPAIR)
 - Load 2.5 sustentado: artefato de LXC (loadavg do host Proxmox;
   CPU 87.5% idle no container) — sem ação.
 
-ESTADO FINAL (21/10)
+ESTADO FINAL (21/10, FASE E verificada)
 - Disco 63% → 53% (15G livres) · journal 16M · 0 services failed ·
   DNS ok (getent exit=0) · fail2ban/unattended ativos · bot intacto.
+- Snaps D1+D2: ~2.8G liberados nos ARQUIVOS (snapd ~3G → 46M; só
+  bare + snapd restantes; refresh.retain=2). df do LXC não reflete:
+  /dev/loop2 é backing file no Proxmox que não encolhe. F1.2
+  diagnosticou o "não liberou" como FALSO ALARME (gap df-du = 2MB,
+  lsof +L1 vazio — sem deleted-but-open).
+- Monitor nível 3 INSTALADO E TESTADO: wpp-monitor.sh a cada 5min
+  (disco >85%, mem >90%, tailscale, pm2 bot-wpp) com cooldown 1h,
+  alerta 🔴 + recuperação ✅. Alertas no PRIVADO do dono
+  (146078742) via TELEGRAM_ALERT_CHAT_ID; TELEGRAM_CHAT_ID do grupo
+  (-1003470059875) preservado para as apresentações. Teste real
+  confirmado visualmente pelo dono (🔴+✅ no privado).
+- Descoberta do chat_id: log do bot ("[Telegram] Mensagem recebida:
+  {...chatId:146078742}", $ping do dono às 18:49:38) — getUpdates
+  veio vazio porque o bot consome updates via polling
+  (getWebhookInfo.url null). Token nunca saiu do VPS.
+- 3 timers ativos: check-tailscaled (5min), wpp-monitor (5min),
+  manutencao-mensal (dia 1, 04:00, com teste de restore do backup).
 
-PENDÊNCIAS
-- Snaps GUI (~3.0G, sendo ~1.3G revisões "disabled"): remoção aguarda
-  decisão do dono (bot não usa chromium — verificado: só strings de
-  UI/comentários no código, sem puppeteer/playwright).
-- Monitoramento nível 3 (alerta Telegram de disco/mem/rede): não feito.
-- Limo de /var/log: RETIFICADO — não há mais o que limpar: /var/log
-  inteiro agora é ~167M (journal 158M + sysstat 7.9M); os "~2.8G" do
-  F0 eram journal arquivado, já consumidos pelo vacuum.
+PENDÊNCIAS → ENCERRADAS (21/10)
+- Snaps GUI: RESOLVIDO (D1+D2, acima).
+- Monitoramento nível 3: RESOLVIDO (acima).
+- /var/log: nada a limpar (retificado — os "~2.8G" eram journal
+  arquivado, consumidos pelo vacuum).
+- Restam (fora do INC-013, no BACKLOG): render watchdog, $clima,
+  app PC devtools, Dependabot (32 vulns, 5 crit), dívidas de
+  permissão 1-3.
 
 ## INC-012b — $setwelcome ADITIVO (feature de design, 21/10)
 

@@ -414,3 +414,19 @@ vez de pular. O teste pegou; sem ele, o bug passaria despercebido em produção.
 - Nota: o `27445294006297@lid` removido do ADMINS em 2e6d2da é conta real
   (PN 558781303081, membro do LAB) — sem perda prática, já que ADMINS não
   concede nada.
+
+### INFRA/VPS — INC-013 (✅ RESOLVIDO, 21/10)
+- **Snaps GUI (~2.8G) — RESOLVIDO:** D1 (7 revisões disabled) + D2
+  (chromium, gnome-46, mesa, gtk-common-themes, cores órfãs) removidos;
+  snapd ~3G → 46M (só bare+snapd); refresh.retain=2. df do LXC não
+  reflete (backing file loop2 no Proxmox); espaço real: 15G livres.
+- **Monitoramento nível 3 — RESOLVIDO:** wpp-monitor a cada 5min
+  (disco/memória/tailscale/pm2, cooldown 1h) com alerta Telegram
+  🔴 + recuperação ✅ no PRIVADO do dono (TELEGRAM_ALERT_CHAT_ID);
+  grupo do TELEGRAM_CHAT_ID preservado para apresentações. Testado
+  end-to-end com confirmação visual.
+- Infra agora: PermitRootLogin no, fail2ban (ignoreip tailnet),
+  unattended-upgrades security, journald cap 200M, pm2-logrotate,
+  DNS resiliente (accept-dns=false), 3 timers (watchdog tailscaled,
+  wpp-monitor, manutenção mensal c/ teste de restore).
+- Detalhes: laboratorio/BUGS.md INC-013.
