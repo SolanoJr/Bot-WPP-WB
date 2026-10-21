@@ -409,3 +409,51 @@ APRENDIZADOS
   nunca misturar linha curada com cru.
 - Parser testado contra fixture REAL congelado: se o Google mudar o
   formato, o CI aponta a regressão na hora.
+
+## INC-012 — VPS inacessível por Tailscale (ABERTO, 21/10 — infra; NÃO afeta o bot)
+
+SINTOMA
+- SSH (solanojr@100.101.218.16) com timeout; ping com 100% de perda.
+- O bot CONTINUA online no WhatsApp — o node sobreviveu; só o acesso
+  externo à máquina caiu.
+
+DIAGNÓSTICO (feito da máquina local, 21/10 ~00:15)
+- `tailscale status` local: esta máquina (solanojr-1, 100.92.50.5) OK
+  e conectada; o nó `ubuntu` (100.101.218.16) aparece como
+  "offline, last seen 3h ago" — caiu da tailnet entre 21h-22h de 20/10,
+  pouco depois do deploy INC-011.
+- Processos locais ok: tailscaled.exe ×2 + tailscale-ipn.exe rodando.
+- TCP porta 22 (via /dev/tcp): inalcançável.
+- curl http://100.101.218.16:3001/metrics: HTTP 000 (timeout).
+- tracert -h 10: pacote sai da rede local, passa o gateway
+  192.168.x → 100.70.128.1 (backbone do overlay) e morre — o peer
+  VPS não responde a partir do hop 4.
+
+CONCLUSÃO
+- Problema NO LADO DO VPS (tailscaled/daemon ou link dele), não na
+  rede local nem no bot. Tailscale local está saudável.
+
+RECUPERAÇÃO (exige acesso por outra via — console do provedor)
+- Entrar pelo painel do provedor (console/VNC) e rodar:
+  `sudo systemctl restart tailscaled && sudo tailscale status`
+- Verificar `uptime` — se o VPS reiniciou, o tailscaled pode não ter
+  subido junto.
+- Após a volta: executar o reset pendente do working copy
+  (`git reset --hard origin/main && git rev-parse HEAD` — docs df5eb4e
+  ainda não sincronizados) e o push+deploy do INC-012b.
+- Mitigação futura (backlog): systemd timer no VPS monitorando o
+  tailscaled (restart automático se `tailscale status` falhar).
+
+## INC-012b — $setwelcome ADITIVO (feature de design, 21/10)
+
+- Correção do dono: o welcome NÃO substitui o default — é aditivo.
+  `composeWelcome(texto)`: se o texto já contém 'Boas-vindas',
+  '@novato' ou '{handle}' (template completo/legado), volta como está;
+  senão salva `DEFAULT_WELCOME + "\n\n" + texto`.
+- `$setwelcome reset|default` → NULL (padrão puro);
+  `$setwelcome --full <texto>` → template cru.
+- renderWelcome deixou de colapsar TODO whitespace (\s+ → espaço):
+  agora preserva quebras de linha (`[^\S\n]+` por linha, `\n{3,}` →
+  `\n\n`) — sem isso o composto multi-linha viraria uma linha só.
+- Testes: welcome.test.ts (+4) e setwelcome.test.ts (novo, +11).
+- Commit LOCAL com gates verdes; push + deploy PENDENTES (INC-012).
