@@ -452,7 +452,7 @@ RECUPERAÇÃO (exige acesso por outra via — console do provedor)
   de ~20h de nó offline. Bot ficou online o tempo todo (uptime 22h,
   0 restarts). Push INC-012b + deploy normalizados sem intervenção.
 
-## INC-013 — Manutenção/health-check do VPS: DNS quebrado + hardening (RESOLVIDO, 21/10)
+## INC-013 — Manutenção/health-check do VPS: DNS quebrado + hardening (FECHADO 100%, 21/10)
 
 SINTOMA
 - F1 (script de manutenção): `apt-get install fail2ban unattended-upgrades`
@@ -488,10 +488,13 @@ FIX DEFINITIVO (DNS)
   boot o Proxmox regenera com os DNS do host (funcionais) + marcador;
   com accept-dns=false o Tailscale não re-contamina. Ambos caminhos
   cobertos. Backup do original: /etc/resolv.conf.bak-f1.
-- Teste de resiliência (restart do tailscaled): script pronto
-  (laboratorio/f1-dns-resilience.sh) — precisa sudo do dono pois o
-  restart derruba o túnel que carrega o SSH; roda detached via
-  systemd-run e grava provas em /tmp/f1-dns-resilience.log.
+- Teste de resiliência EXECUTADO (21/10 17:45, systemd-run detached —
+  restart do tailscaled derruba o túnel que carrega o SSH): 5/5 PASS.
+  (1) resolv.conf pós-restart SEM 100.100.100.100 (1.1.1.1/8.8.8.8);
+  (2) getent exit=0; (3) apt-get update baixou 6.757 kB das listas
+  sem erro de resolução; (4) tailnet reconectada (SSH reentrou);
+  (5) CorpDNS: false persistido. Log: /tmp/f1-dns-resilience.log.
+  INC-013 fechado com resiliência comprovada.
 
 MELHORIAS APLICADAS (F1 + REPAIR)
 - SSH: PermitRootLogin no (backup sshd_config.bak-f1; validado com
