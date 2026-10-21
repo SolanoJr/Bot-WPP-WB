@@ -34,6 +34,10 @@ export interface WelcomeContext {
 /**
  * Aplica os placeholders ao template.
  * Placeholder sem valor disponível vira string vazia (nunca "undefined").
+ *
+ * INC-012b (design aditivo): o template composto é MULTI-LINHA (default
+ * + "\n\n" + texto do admin). A normalização colapsa espaços/tabs por
+ * linha mas PRESERVA quebras — e limita a 1 linha em branco entre blocos.
  */
 export function renderWelcome(template: string, ctx: WelcomeContext): string {
   // Handle real = explícito ou derivado do numero. Sem numero → '' (guard).
@@ -46,7 +50,29 @@ export function renderWelcome(template: string, ctx: WelcomeContext): string {
   // Fallback legacy: customs salvos com "@novato" literal ganham o handle
   // real. Só roda com handle não-vazio — sem numero, "@novato" permanece.
   if (handle) out = out.replace(/@novato/gi, handle);
-  return out.replace(/\s+/g, ' ').trim();
+  return out
+    .replace(/[^\S\n]+/g, ' ')   // colapsa espaços/tabs DENTRO da linha
+    .replace(/\n{3,}/g, '\n\n')  // no máx. 1 linha em branco
+    .trim();
+}
+
+/**
+ * INC-012b — welcome ADITIVO: o default SEMPRE abre a mensagem; o texto
+ * do admin entra ABAIXO (não substitui).
+ *
+ * Idempotência (customs legados não quebram): se o texto já contém o
+ * default ("Boas-vindas"), o fallback "@novato" ou o placeholder
+ * "{handle}", é template completo e volta como está — sem prepender
+ * de novo. `$setwelcome --full` e `$setwelcome reset` continuam
+ * disponíveis para os dois extremos.
+ */
+export function composeWelcome(text: string): string {
+  const t = String(text ?? '').trim();
+  if (!t) return DEFAULT_WELCOME;
+  const jaTemDefault =
+    t.includes('Boas-vindas') ||
+    t.includes('@novato') || t.includes('{handle}');
+  return jaTemDefault ? t : `${DEFAULT_WELCOME}\n\n${t}`;
 }
 
 /**

@@ -1,16 +1,25 @@
 import { ICommand } from './types';
 import { isMaster } from '../../services/permissions';
 import { findParticipant } from '../../services/groupAdmin';
-import { getWelcomeMessage, setWelcomeMessage, DEFAULT_WELCOME, WELCOME_PLACEHOLDERS } from '../../services/welcomeService';
+import {
+  getWelcomeMessage, setWelcomeMessage, composeWelcome,
+  DEFAULT_WELCOME, WELCOME_PLACEHOLDERS,
+} from '../../services/welcomeService';
 import { groupTag } from './format';
 import { logInfo, logError } from '../../services/loggerService';
 
 /**
- * $setwelcome — welcome configurável por grupo.
+ * $setwelcome — welcome ADITIVO por grupo (INC-012b).
  *
- *   $setwelcome           → mostra o welcome atual
- *   $setwelcome <texto>   → substitui
- *   $setwelcome reset     → restaura o padrão
+ *   $setwelcome              → mostra o welcome atual
+ *   $setwelcome <texto>      → default + "\n\n" + texto (ADITIVO)
+ *   $setwelcome --full <txt> → template completo, sem prepender
+ *   $setwelcome reset        → volta ao default puro (default|reset)
+ *
+ * O default 'Boas-vindas @novato 👋' SEMPRE abre a mensagem — a menção
+ * do novato nunca se perde. Idempotente: texto que já contém o default,
+ * '@novato' ou '{handle}' é considerado template completo e não ganha
+ * prepender duplicado (customs legados não quebram).
  *
  * Persistido em SQLite (`group_mod.welcome_message`). O Relay NÃO é fonte de
  * verdade: antes este comando gravava no InMemoryRepository do Relay, que
@@ -44,10 +53,11 @@ export const setwelcomeCommand: ICommand = {
     const groupId = chat.id;
     const args = ctx.args || [];
 
-    // ─── reset: volta ao padrão ───
-    if (String(args[0] || '').toLowerCase() === 'reset') {
+    // ─── reset/default: volta ao padrão puro ───
+    const primeiro = String(args[0] || '').toLowerCase();
+    if (primeiro === 'reset' || primeiro === 'default') {
       await setWelcomeMessage(groupId, null);
-      await ctx.reply(`✅ Mensagem de boas-vindas restaurada para o padrão:\n\n${DEFAULT_WELCOME}${groupTag(ctx)}`);
+      await ctx.reply(`✅ Welcome resetado para o padrão:\n\n${DEFAULT_WELCOME}${groupTag(ctx)}`);
       return;
     }
 
@@ -59,22 +69,30 @@ export const setwelcomeCommand: ICommand = {
       await ctx.reply(
         `📋 *Boas-vindas atual* ${origem}\n\n${atual}\n\n` +
         `Placeholders: ${WELCOME_PLACEHOLDERS.join(' · ')}\n` +
-        `Para alterar: \`$setwelcome <texto>\`\n` +
+        `Para adicionar texto: \`$setwelcome <texto>\`\n` +
+        `Template completo: \`$setwelcome --full <texto>\`\n` +
         `Para restaurar: \`$setwelcome reset\``
       );
       return;
     }
 
-    // ─── define novo texto ───
-    const novo = args.join(' ').trim();
-    if (!novo) {
-      await ctx.reply('❌ Texto vazio. Use `$setwelcome <texto>` ou `$setwelcome reset`.');
+    // ─── --full <texto>: template completo, SEM prepender ───
+    const isFull = String(args[0]) === '--full';
+    const texto = (isFull ? args.slice(1) : args).join(' ').trim();
+    if (!texto) {
+      await ctx.reply(
+        '❌ Texto vazio. Use `$setwelcome <texto>`, `$setwelcome --full <texto>` ou `$setwelcome reset`.'
+      );
       return;
     }
 
+    // ─── <texto>: ADITIVO (default + \n\n + texto), idempotente ───
+    const novo = isFull ? texto : composeWelcome(texto);
+
     try {
       await setWelcomeMessage(groupId, novo);
-      await ctx.reply(`✅ Mensagem de boas-vindas atualizada!${groupTag(ctx)}\n\n${novo}`);
+      const rotulo = isFull ? '✅ Welcome configurado (template completo)' : '✅ Welcome configurado';
+      await ctx.reply(`${rotulo}:${groupTag(ctx)}\n\n${novo}`);
     } catch (error) {
       logError('❌ Erro ao definir welcome:', error);
       await ctx.reply('⚠️ Ocorreu um erro ao salvar a configuração. Tente novamente mais tarde.');

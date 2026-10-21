@@ -241,3 +241,28 @@ describe('renderWelcome — helper puro', () => {
     expect(renderWelcome('  Olá   {nome}  ', { nome: 'A' })).toBe('Olá A');
   });
 });
+
+describe('composeWelcome — design ADITIVO (INC-012b)', () => {
+  it('texto simples ganha o default + linha em branco acima', async () => {
+    const { composeWelcome, DEFAULT_WELCOME } = await import('../../src/services/welcomeService');
+    expect(composeWelcome('Bem-vindo ao grupo!')).toBe(`${DEFAULT_WELCOME}\n\nBem-vindo ao grupo!`);
+  });
+
+  it('idempotente: texto com "Boas-vindas" NÃO ganha prepend duplicado', async () => {
+    const { composeWelcome } = await import('../../src/services/welcomeService');
+    expect(composeWelcome('Boas-vindas pessoal do 085!')).toBe('Boas-vindas pessoal do 085!');
+  });
+
+  it('idempotente: "@novato" e "{handle}" também são template completo', async () => {
+    const { composeWelcome } = await import('../../src/services/welcomeService');
+    expect(composeWelcome('Fala @novato, tranquilo?')).toBe('Fala @novato, tranquilo?');
+    expect(composeWelcome('Oi {handle}, bom ter você')).toBe('Oi {handle}, bom ter você');
+  });
+
+  it('render do composto preserva o \\n\\n e substitui o @novato', async () => {
+    const { composeWelcome, renderWelcome } = await import('../../src/services/welcomeService');
+    const template = composeWelcome('Bem-vindo ao grupo!');
+    const out = renderWelcome(template, { numero: '558581344211' });
+    expect(out).toBe('Boas-vindas @558581344211 👋\n\nBem-vindo ao grupo!');
+  });
+});
