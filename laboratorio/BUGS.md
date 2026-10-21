@@ -452,6 +452,77 @@ RECUPERAÇÃO (exige acesso por outra via — console do provedor)
   de ~20h de nó offline. Bot ficou online o tempo todo (uptime 22h,
   0 restarts). Push INC-012b + deploy normalizados sem intervenção.
 
+## INC-013 — Manutenção/health-check do VPS: DNS quebrado + hardening (RESOLVIDO, 21/10)
+
+SINTOMA
+- F1 (script de manutenção): `apt-get install fail2ban unattended-upgrades`
+  falharam SEM mensagem (5/7 passaram). Motivo do silêncio: meu script
+  engolia stderr com `>/dev/null 2>&1` (bug meu, corrigido no REPAIR).
+- Mask de motd-news prendeu o estado "failed"; snap.cups.cupsd não
+  aceitou mask (unit de snap é arquivo REAL em /etc/systemd/system —
+  symlink de mask não sobrescreve; caminho certo: `snap remove cups`).
+
+CAUSA RAIZ (apt)
+- resolv.conf apontava para 100.100.100.100 (MagicDNS Tailscale) e o
+  nó caiu da tailnet no INC-012 → DNS morto → apt falhava na descarga.
+- Evidência: dist-upgrade de 18/10 (pré-queda) OK; installs de 21/10
+  falhavam; `dpkg --audit` limpo e candidates presentes (não era repo
+  nem dpkg); `getent` vazio pós-boot de 20/10 17:27.
+
+FIX IMEDIATO (F1-REPAIR, 7/7)
+- DNS condicional: getent falha → backup resolv.conf.bak-f1 →
+  1.1.1.1/8.8.8.8 → re-teste. apt com output VISÍVEL (nada engolido).
+- Instala fail2ban (jail sshd, ignoreip 127.0.0.1/8 ::1 100.64.0.0/10
+  — tailnet inteira na whitelist, dono nunca se auto-bane) +
+  unattended-upgrades (security-only, sem auto-reboot).
+- `systemctl reset-failed` (motd-news/cups) + `snap remove cups`.
+
+FIX DEFINITIVO (DNS)
+- `tailscale set --accept-dns=false` (aplicado sem sudo — o socket do
+  tailscaled aceita; set_exit=0). Preferência PERSISTIDA no StateStore
+  (CorpDNS: false) — o tailscaled nunca mais empurra 100.100.100.100
+  no resolv.conf, nem após restart/boot. MagicDNS por nome (.ts.net)
+  deixa de resolver neste nó — irrelevante: acessos sempre por IP.
+- Nota: resolv.conf atual é o manual (1.1.1.1/8.8.8.8; o REPAIR
+  sobrescreveu o bloco "# --- BEGIN PVE ---" com `>`). No próximo
+  boot o Proxmox regenera com os DNS do host (funcionais) + marcador;
+  com accept-dns=false o Tailscale não re-contamina. Ambos caminhos
+  cobertos. Backup do original: /etc/resolv.conf.bak-f1.
+- Teste de resiliência (restart do tailscaled): script pronto
+  (laboratorio/f1-dns-resilience.sh) — precisa sudo do dono pois o
+  restart derruba o túnel que carrega o SSH; roda detached via
+  systemd-run e grava provas em /tmp/f1-dns-resilience.log.
+
+MELHORIAS APLICADAS (F1 + REPAIR)
+- SSH: PermitRootLogin no (backup sshd_config.bak-f1; validado com
+  sshd -t antes do reload). Sem IP público (eth0 192.168.30.x, rede
+  privada do Proxmox) → ufw dispensado.
+- fail2ban + unattended-upgrades (acima).
+- journald: SystemMaxUse=200M → journal 465M → 16M (vacuum).
+- pm2-logrotate (como solanojr): 50M, 7 cópias, comprimido, 03:00.
+- Timer mensal root (manutencao-mensal): journal vacuum 30d, apt
+  autoremove/autoclean, WAL checkpoint, TESTE DE RESTORE do backup
+  (PRAGMA integrity_check). Desvio do literal "crontab do usuário":
+  sudo interativo não funciona em cron; systemd timer root, mesmo
+  padrão do watchdog tailscaled.
+- Limpezas: lixo "'" (bug de quoting do F0 meu), WAL checkpoint,
+  mask+reset-failed motd-news, snap remove cups.
+- Load 2.5 sustentado: artefato de LXC (loadavg do host Proxmox;
+  CPU 87.5% idle no container) — sem ação.
+
+ESTADO FINAL (21/10)
+- Disco 63% → 53% (15G livres) · journal 16M · 0 services failed ·
+  DNS ok (getent exit=0) · fail2ban/unattended ativos · bot intacto.
+
+PENDÊNCIAS
+- Snaps GUI (~3.0G, sendo ~1.3G revisões "disabled"): remoção aguarda
+  decisão do dono (bot não usa chromium — verificado: só strings de
+  UI/comentários no código, sem puppeteer/playwright).
+- Monitoramento nível 3 (alerta Telegram de disco/mem/rede): não feito.
+- Limo de /var/log: RETIFICADO — não há mais o que limpar: /var/log
+  inteiro agora é ~167M (journal 158M + sysstat 7.9M); os "~2.8G" do
+  F0 eram journal arquivado, já consumidos pelo vacuum.
+
 ## INC-012b — $setwelcome ADITIVO (feature de design, 21/10)
 
 - Correção do dono: o welcome NÃO substitui o default — é aditivo.
