@@ -37,7 +37,8 @@ if [ -f "$LOG" ] && [ "$(stat -c%s "$LOG" 2>/dev/null || echo 0)" -gt 5000000 ];
 fi
 
 TOKEN=$(grep -E '^TELEGRAM_BOT_TOKEN=' "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
-CHAT=$(grep -E '^TELEGRAM_CHAT_ID='  "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+CHAT=$(grep -E '^TELEGRAM_ALERT_CHAT_ID=' "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+[ -z "$CHAT" ] && CHAT=$(grep -E '^TELEGRAM_CHAT_ID='  "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
 if [ -z "$TOKEN" ] || [ -z "$CHAT" ]; then
   echo "$(date -Is) ERRO: credenciais Telegram ausentes no .env" >> "$LOG"
   exit 1
