@@ -441,8 +441,16 @@ RECUPERAÇÃO (exige acesso por outra via — console do provedor)
 - Após a volta: executar o reset pendente do working copy
   (`git reset --hard origin/main && git rev-parse HEAD` — docs df5eb4e
   ainda não sincronizados) e o push+deploy do INC-012b.
-- Mitigação futura (backlog): systemd timer no VPS monitorando o
-  tailscaled (restart automático se `tailscale status` falhar).
+- Mitigação (21/10): watchdog PRONTO — `laboratorio/install-tailscale-watchdog.sh`
+  (no repo e em /tmp do VPS, sintaxe validada). Instalação exige sudo com
+  senha (o agente não digita senha): rodar no console do VPS
+  `sudo bash /tmp/install-tailscale-watchdog.sh`. O watchdog reinicia o
+  tailscaled se `BackendState != Running` ou `Self.Online != true` — cobre
+  o caso real (processo vivo, nó caído da tailnet), a cada 5min.
+- Retomada (21/10 ~15:30): tailscaled `active (running)` DESDE O BOOT de
+  20/10 17:27 — o processo não caiu; a tailnet reconectou sozinha depois
+  de ~20h de nó offline. Bot ficou online o tempo todo (uptime 22h,
+  0 restarts). Push INC-012b + deploy normalizados sem intervenção.
 
 ## INC-012b — $setwelcome ADITIVO (feature de design, 21/10)
 
@@ -456,4 +464,14 @@ RECUPERAÇÃO (exige acesso por outra via — console do provedor)
   agora preserva quebras de linha (`[^\S\n]+` por linha, `\n{3,}` →
   `\n\n`) — sem isso o composto multi-linha viraria uma linha só.
 - Testes: welcome.test.ts (+4) e setwelcome.test.ts (novo, +11).
-- Commit LOCAL com gates verdes; push + deploy PENDENTES (INC-012).
+- RESOLVIDO (21/10): push `11f59ac` + deploy padrão (backup, build,
+  sourced restart, boot 0 erros, metrics 200). E2E no LAB com 3 provas
+  capturadas em `laboratorio/captured-messages.jsonl`:
+  1. `$setwelcome Bem-vindo ao grupo!` → banco gravou
+     `'Boas-vindas @novato 👋\n\nBem-vindo ao grupo!'` (composto exato);
+  2. join injectado (LID 2592935567439@lid) → welcome OUTGOING capturado:
+     `'Boas-vindas @558581344211 👋\n\nBem-vindo ao grupo!'` — handle PN
+     real, 2 linhas, 1 mention (highlight);
+  3. `$setwelcome reset` → reply `✅ Welcome resetado para o padrão`,
+     banco NULL, e novo join enviou APENAS `'Boas-vindas @558581344211 👋'`.
+  E2E comprovado com 32/32 testes locais + tsc + 848 passed/3 flaky Discord.
