@@ -17,7 +17,11 @@ export const cmdToggleCommand: ICommand = {
     if (args.length < 2) {
       return ctx.reply('⚠️ Uso: `$cmd <comando> on|off`\nEx: `$cmd autoban on`');
     }
-    const [targetCmd, actionRaw] = args;
+    const [targetCmdRaw, actionRaw] = args;
+    // INC-015 D2: normalizar — o dispatcher consulta command.name SEM prefixo
+    // ('ping'), mas o usuário digita '$cmd $ping off'. Sem o strip, o toggle
+    // gravava '$ping' e o gate nunca casava (toggle inócuo).
+    const targetCmd = targetCmdRaw?.toLowerCase().replace(/^[$#]/, '');
     const action = String(actionRaw).toLowerCase();
     if (!['on', 'off', 'enable', 'disable'].includes(action)) {
       return ctx.reply('⚠️ Ação inválida. Use `on`/`off`.');
