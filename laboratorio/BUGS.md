@@ -595,3 +595,25 @@ Open-Meteo keyless (geocoding+forecast), zero var no .env, APIs 200/200
 do VPS. Inject no LAB às 20:43 → resposta real em 7s: "☁️ CLIMA EM
 SÃO PAULO" (weathercode real da API). Pendência de verificação de
 runtime ENCERRADA.
+
+## INC-015 — Dívidas de permissão (em andamento, 21/10)
+
+Dívida 1 — stub checkPermissions removido (RESOLVIDO):
+- F0: `checkPermissions` em PlatformManager.ts sempre retornava true
+  (stub inerte) + bloco de telemetry 'rejected' morto no dispatcher.
+- Fix: função + chamada removidas; comentário arquitetural no dispatcher:
+  "Gating é por handler (isMaster/isSenderGroupAdmin); middleware central
+  não existe por decisão arquitetural."
+- Gates: 63/63 no groupAdminKickBan.test.ts (arquivo do dispatcher),
+  tsc 0 erros, suite 848 passed + 3 flaky (= baseline exato).
+- Deploy 1698e25 (via a4e3a8c): canary boot limpo → prod reset →
+  "🎉 Todas as plataformas prontas", 0 [ERROR], lab 200, smoke $alive
+  "✅ *BOT ONLINE*".
+- E2E f1-perms.sh (commitado em laboratorio/): **7/7 verde** —
+  comum negado em master-only, públicos respondendo, master via PN E
+  via LID executando, 0 self-triggers. Rede de segurança: nenhum nível
+  perdeu permissão.
+- Nota técnica: o log [reply] não carrega o texto da resposta; o E2E
+  lê laboratorio/captured-messages.jsonl (texto em
+  rawPayloadSafe.message.extendedTextMessage.text) — f1-perms.sh
+  documenta o padrão.
