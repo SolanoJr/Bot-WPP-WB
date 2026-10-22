@@ -348,7 +348,10 @@ vez de pular. O teste pegou; sem ele, o bug passaria despercebido em produção.
 - **Monitorar tempo do runCleanup (ABERTO):** 9+ grupos × getChat no
   refresh de metas; se o ciclo passar de ~5min (comunidades maiores),
   mover refresh para job separado. Stat disponível: groupsRefreshed.
-- **Esperam teste real de runtime (herdadas):** $clima, render watchdog,
+- **$clima — ✅ RESOLVIDO (testado 21/10, INC-014):** Open-Meteo
+  keyless, resposta real em 7s no LAB (weathercode real). Detalhes em
+  laboratorio/BUGS.md INC-014.
+- **Esperam teste real de runtime (herdadas):** render watchdog,
   app de PC devtools (verificar antes de qualquer mudança).
 
 ### askAI/$pergunta — modelo deprecado — ✅ RESOLVIDO (INC-002, 19/10)

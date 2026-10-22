@@ -566,3 +566,32 @@ PENDÊNCIAS → ENCERRADAS (21/10)
   3. `$setwelcome reset` → reply `✅ Welcome resetado para o padrão`,
      banco NULL, e novo join enviou APENAS `'Boas-vindas @558581344211 👋'`.
   E2E comprovado com 32/32 testes locais + tsc + 848 passed/3 flaky Discord.
+
+## INC-014 — Dependabot prod + $clima testado (RESOLVIDO 21/10)
+
+Sintoma/mandato: projeto "liso" antes dos testes manuais do dono.
+F0 (audit no VPS): 5 vulns em PROD (1 critical proxy-addr, 3 high
+undici/sharp/follow-redirects, 1 moderate music-metadata) + 25 dev.
+Contexto real: VPS sem IP público, HTTP só em 127.0.0.1 → nenhuma
+explorável externamente; music-metadata era o único caminho de input
+externo (DoS de event loop via MP4 malformado).
+Fix: `npm audit fix` (sem --force) — 0 vulnerabilities em prod
+(confirmado por `npm audit --production`). Pacotes bumpados:
+follow-redirects 1.11.3, sharp 0.35.5, undici 6.29.1, proxy-addr,
+music-metadata (+ vite dev). discord.js/baileys/ws NÃO mudaram
+(diff do lock verificado). Sobraram 22 dev (2 critical do tinypool —
+fix exige vitest@5 breaking; backlog).
+Gates: tsc 0 erros; suite 848 passed + 3 flaky KNOWN (adapters.test.ts,
+DiscordAdapter, timeout 10s — mesmo perfil do baseline; lock não tocou
+discord.js/baileys/ws).
+Deploy (22/10 00:20 UTC): backup /tmp/bw-1792631543 → canary 5fb59f9
+(npm ci com lock novo + build + boot isolado limpo) → prod reset →
+"🎉 Todas as plataformas prontas", 0 [ERROR] no boot, lab adapter 200.
+Smoke: inject `$alive` (master via PN) → "✅ *BOT ONLINE*" com quote.
+Commit: 5fb59f9.
+
+$clima — TESTADO E FUNCIONANDO (21/10, fecha pendência do INC-005):
+Open-Meteo keyless (geocoding+forecast), zero var no .env, APIs 200/200
+do VPS. Inject no LAB às 20:43 → resposta real em 7s: "☁️ CLIMA EM
+SÃO PAULO" (weathercode real da API). Pendência de verificação de
+runtime ENCERRADA.
