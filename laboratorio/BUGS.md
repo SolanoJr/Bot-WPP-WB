@@ -617,3 +617,35 @@ Dívida 1 — stub checkPermissions removido (RESOLVIDO):
   lê laboratorio/captured-messages.jsonl (texto em
   rawPayloadSafe.message.extendedTextMessage.text) — f1-perms.sh
   documenta o padrão.
+
+Dívida 2 — $cmd toggle persistido + leitor (RESOLVIDO, 22/10):
+- F0 revelou 2 falhas: commandConfigService era Map em memória (estado
+  morria no restart) E isEnabled() não tinha leitor — o $cmd gravava um
+  estado que nada consultava. O E2E achou uma 3ª: o toggle gravava o
+  alvo crudo ("$ping") enquanto o dispatcher consulta command.name sem
+  prefixo ("ping") — nunca casavam. O comando era inócuo por design tripla.
+- Fix (1949c2d): tabela command_state (group_id, command PK, enabled,
+  updated_at) no initSchema; service reescrito em cima do getDb() com
+  default HABILITADO (ausência de registro = true) e fail-open (banco
+  fora → isEnabled true; o toggle nunca derruba o bot); gate no
+  dispatcher entre rate-limit e execute — reply "⚠️ O comando \`X\` está
+  desativado neste grupo. (\`$cmd X on\` reativa)"; $cmd imune ao próprio
+  gate (desativá-lo = lock-out). Telemetry outcome 'rejected' (a tabela
+  command_logs tem CHECK constraint sem 'disabled'; rebuild não compensa).
+- Fix (18d4f79): cmdToggle normaliza o alvo com strip de $/# — grava
+  "ping", o mesmo nome que o gate consulta.
+- Gates: tsc 0; 851 passed + 3 flaky (= baseline + 5 novos testes do
+  service: default habilitado, upsert off/on, estado sobrevive a nova
+  instância, fail-open, grupos independentes).
+- Deploy 18d4f79: canary boot limpo → prod → "🎉 prontas", 0 [ERROR],
+  lab 200, tabela command_state criada no banco de produção.
+- E2E F3 no LAB (6/6, sender = master via PN):
+  $cmd $ping off → "✅ Comando ping desativado" / $ping → negado pelo
+  gate / pm2 restart / $ping → AINDA negado (persistência SQLite provada
+  — a dívida era exatamente "morria no restart") / $cmd $ping on →
+  ativado / $ping → pong real.
+- Armadilha do E2E (registrada): o número do bot (558581344211) não é
+  o master — isMaster false por isBotTarget. Injects de master exigem
+  sender MASTER_USER do .env + @c.us, não hardcode do número do bot.
+- Limpeza opcional: row órfã command_state ("$ping", do período do bug)
+  é inofensiva — nunca consultada; DELETE pendente de aprovação.

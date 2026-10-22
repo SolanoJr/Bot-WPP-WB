@@ -111,8 +111,13 @@ SenderIds úteis: master PN `558898314322@c.us` · master LID
 1. **`checkPermissions` stub** (`PlatformManager.ts` ~:472): retorna `true`
    sempre; o gating real é por handler. O `requirePermission` do
    `permissions.ts` que o comentário aponta **não é usado por nenhum comando**.
-2. **`$cmd <comando> on|off` fake**: `commandConfigService` é escrito pelo
-   `cmdToggle` mas **ninguém lê** — o toggle não desativa nada (e é in-memory).
+2. **`$cmd <comando> on|off`** (RESOLVIDO, INC-015 D2, 22/10): era in-memory
+   sem leitor e gravava "$ping" enquanto o dispatcher consultava "ping".
+   Agora: tabela `command_state` em SQLite (persiste no restart), gate no
+   dispatcher antes do execute (reply "⚠️ O comando \`X\` está desativado
+   neste grupo. (\`$cmd X on\` reativa)"), `$cmd` imune ao próprio gate
+   (lock-out), default habilitado, fail-open. E2E com restart comprovou a
+   persistência.
 3. **`ADMINS` do .env inócuo**: o nível ADMIN do `permissions.ts`
    (`getUserPermission`/`hasPermission`/`isAdmin`) não tem consumidor —
    adicionar um número lá não concede nada. O "admin" real é só o metadata
