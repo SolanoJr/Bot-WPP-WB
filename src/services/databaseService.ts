@@ -125,6 +125,19 @@ export async function initDatabase(): Promise<Database> {
     );
   `);
 
+  // ─── INC-015 D2: estado de comandos por grupo ($cmd) ───
+  // Default HABILITADO: ausência de registro = comando ligado. O dispatcher
+  // consulta antes de command.execute(); $cmd escreve aqui.
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS command_state (
+      group_id TEXT NOT NULL,
+      command TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (group_id, command)
+    );
+  `);
+
   // ─── Configurações de moderação por grupo ───
   // DEFAULTS DE GRUPO NOVO: tudo DESLIGADO. O bot não passa a moderar um grupo
   // só porque entrou nele. Grupos existentes mantêm seus valores persistidos

@@ -2,7 +2,9 @@
 /**
  * Admin command to enable or disable other commands per group.
  * Usage: `$cmd <comando> on|off`  (ex: $cmd autoban on, $cmd sarcasmo off)
- * Persistido em SQLite por grupo. Em grupos novos, comandos começam desligados.
+ * Persistido em SQLite por grupo (tabela command_state). Em grupos novos,
+ * comandos começam LIGADOS (default habilitado). O dispatcher consulta o
+ * estado antes de executar (INC-015 D2); $cmd é imune ao próprio gate.
  */
 import { ICommand } from './types';
 import { commandConfigService } from '../../services/commandConfigService';

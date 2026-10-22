@@ -18,6 +18,7 @@ import {
   MessageHandler
 } from './base/PlatformTypes';
 import { rateLimiter } from '../services/rateLimiter';
+import { commandConfigService } from '../services/commandConfigService';
 import metricsService from '../services/metricsService';
 import { isMaster } from '../services/permissions';
 import { isSenderGroupAdmin } from '../services/groupAdmin';
@@ -368,6 +369,29 @@ export class PlatformManager {
         durationMs: Date.now() - startedAt,
       });
       return;
+    }
+
+    // INC-015 D2 — $cmd: comando desativado para este grupo?
+    // ($cmd é imune ao próprio gate: desativá-lo seria lock-out —
+    // não existiria comando para reativar.)
+    if (command.name !== 'cmd') {
+      const cmdEnabled = await commandConfigService.isEnabled(message.chatId, command.name);
+      if (!cmdEnabled) {
+        await adapter.client.sendMessage(
+          message.chatId,
+          `⚠️ O comando \`${command.name}\` está desativado neste grupo. (\`$cmd ${command.name} on\` reativa)`
+        );
+        // outcome 'rejected': a tabela command_logs tem CHECK constraint sem
+        // 'disabled' — rebuild da tabela não compensa por uma métrica.
+        await this.recordCommandTelemetry(message, adapter, {
+          commandName: command.name,
+          commandAlias: requestedAlias,
+          outcome: 'rejected',
+          permissionResult: 'denied',
+          durationMs: Date.now() - startedAt,
+        });
+        return;
+      }
     }
 
     // Criar contexto unificado

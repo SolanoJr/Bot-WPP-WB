@@ -1,55 +1,43 @@
 // src/services/commandConfigService.ts
 /**
- * In‑memory Command Config Service.
- * Provides enable/disable per command per platform (group) without external DB.
- * Simplifies testing and removes lowdb dependency.
+ * 🔌 ESTADO DE COMANDOS POR GRUPO — persistido em SQLite (INC-015 D2).
+ *
+ * Antes: Map em memória — o $cmd gravava um estado que morria no restart
+ * e NINGUÉM lia (isEnabled sem leitor). Agora: tabela command_state
+ * (group_id, command) com default HABILITADO (ausência de registro =
+ * comando ligado) e leitura no dispatcher ANTES de command.execute().
+ *
+ * Fail-open: se o banco não responder, isEnabled devolve true — o toggle
+ * nunca pode derrubar os comandos do bot.
  */
-
-interface GroupSettings {
-  disabledCommands: Set<string>;
-}
-
-interface DBSchema {
-  groups: Record<string, GroupSettings>;
-}
+import { getDb } from './databaseService';
 
 export class CommandConfigService {
-  private data: DBSchema = { groups: {} };
-
-  private getGroup(groupId: string): GroupSettings {
-    if (!this.data.groups[groupId]) {
-      this.data.groups[groupId] = { disabledCommands: new Set() };
-    }
-    return this.data.groups[groupId];
-  }
-
-  /** Returns true if the command is ENABLED for the given group (synchronous) */
-  isCommandEnabled(command: string, platform: string): boolean {
-    const group = this.data.groups[platform];
-    if (!group) return true; // default enabled
-    return !group.disabledCommands.has(command);
-  }
-
-  /** Enable or disable a command for a group (synchronous) */
-  setCommandEnabled(command: string, platform: string, enabled: boolean): void {
-    const group = this.getGroup(platform);
-    if (enabled) {
-      group.disabledCommands.delete(command);
-    } else {
-      group.disabledCommands.add(command);
-    }
-  }
-
-
-  // Compatibility async wrappers for existing code
-  async setEnabled(groupId: string, commandName: string, enabled: boolean): Promise<void> {
-    this.setCommandEnabled(commandName, groupId, enabled);
-  }
-
+  /** true = habilitado. Sem registro = habilitado (default). */
   async isEnabled(groupId: string, commandName: string): Promise<boolean> {
-    return this.isCommandEnabled(commandName, groupId);
+    try {
+      const db = await getDb();
+      const row: { enabled?: number } | undefined = await db.get(
+        `SELECT enabled FROM command_state WHERE group_id = ? AND command = ? LIMIT 1`,
+        [groupId, commandName]
+      );
+      return row ? !!row.enabled : true;
+    } catch {
+      return true; // fail-open
+    }
   }
 
+  /** Habilita/desabilita um comando para um grupo (upsert). */
+  async setEnabled(groupId: string, commandName: string, enabled: boolean): Promise<void> {
+    const db = await getDb();
+    await db.run(
+      `INSERT INTO command_state (group_id, command, enabled, updated_at)
+       VALUES (?, ?, ?, datetime('now'))
+       ON CONFLICT(group_id, command)
+       DO UPDATE SET enabled = excluded.enabled, updated_at = excluded.updated_at`,
+      [groupId, commandName, enabled ? 1 : 0]
+    );
+  }
 }
 
 export const commandConfigService = new CommandConfigService();
