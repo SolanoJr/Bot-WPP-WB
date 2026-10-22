@@ -30,7 +30,7 @@ wait_reply_text() { # $1 linha-base do capture → texto da última reply (fromM
   for _ in $(seq 1 10); do
     sleep 2
     LINE=$(tail -n +"$((BEFORE+1))" "$CAP" 2>/dev/null | grep '"fromMe":true' | tail -1)
-    TEXT=$(printf '%s' "$LINE" | jq -r '.text // empty' 2>/dev/null)
+    TEXT=$(printf '%s' "$LINE" | jq -r '(.text // .rawPayloadSafe.message.extendedTextMessage.text // .rawPayloadSafe.message.conversation // empty)' 2>/dev/null)
     [ -n "$TEXT" ] && { printf '%s' "$TEXT"; return 0; }
   done
   printf '(sem reply capturada)'
