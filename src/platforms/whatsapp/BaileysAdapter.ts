@@ -180,7 +180,9 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
   // ---- PlatformClient implementation ----
   onMessage(handler: any): void {
     this.msgHandler = handler;
-    this.normalizer.setMessageHandler(handler);
+    // INC-016: normalizer pode não existir ainda se o initialize falhou
+    // antes de criá-lo — o reconnect re-registra via this.msgHandler.
+    this.normalizer?.setMessageHandler(handler);
   }
 
   onReady(handler: () => void): void {

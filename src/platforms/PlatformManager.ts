@@ -87,11 +87,16 @@ export class PlatformManager {
         try {
           logger.info(`[PlatformManager] Inicializando ${platform}...`);
           await adapter.initialize();
-          this.setupAdapterHandlers(adapter);
           logger.info(`[PlatformManager] ✅ ${platform} pronto`);
         } catch (error) {
           logError(`StartAll:${platform}`, error);
           // Continua com as outras plataformas
+        } finally {
+          // INC-016: registra o handler MESMO se o initialize falhar no meio
+          // (ex.: fluxo de pareamento — o socket de registro fecha após o
+          // scan e o initialize rejeita, mas o adapter reconecta sozinho).
+          // Sem isso o PM nunca processa mensagens da plataforma.
+          this.setupAdapterHandlers(adapter);
         }
       })
     );
