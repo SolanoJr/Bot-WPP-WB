@@ -326,6 +326,15 @@ vez de pular. O teste pegou; sem ele, o bug passaria despercebido em produção.
   aplicado (news_history compartilhado entre grupos). Primeira execução
   real: 19/10 08:00 — validar "TOP 5" no log e +5 títulos no
   news_history (limitação "HOJE sem browsing" das INC-006/007 vale).
+- **Polemic ATIVO (wpp:120363419784760390@g.us, 22/10):** group_news
+  enabled=1, schedule 08:00, topic 'política', item_count 5. Validação
+  pré-deploy no LAB (`$noticias política 5`): 5 notícias reais em ~25s —
+  G1 (Quaest 2º turno), Folha (Ministério da Cultura; "Oceânico"),
+  Agência Brasil (Flávio/Lula), Xinhua (RMB/tarifa zero). 4/5 política
+  pura, 1 tangencial, zero clickbait; fallback do tema (query única
+  'política', fora do TOPIC_QUERIES) aprovado sem customização. As 5
+  gravaram em news_history com link + pub_date (dedupe OK). Primeira
+  execução agendada: 22/10 08:00.
 - **Figurinhas antibot confirmado ATIVO:** 120363419033272638@g.us,
   antibot=1, audit_only=0. Comportamento v0 (2 sinais → delete+ban)
   até o INC-008 (score somatório) ir a prod; monitorar kicks errados.

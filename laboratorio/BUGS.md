@@ -248,6 +248,11 @@ Evidência:
   item_count=5, last_sent_at=2026-10-18T21:27:41 → bloqueia disparo no
   mesmo dia; primeira execução 19/10 08:00. Figurinhas sem linha em
   group_news (nada a desativar).
+- 22/10 extensão: Polemic (wpp:120363419784760390@g.us) ativado —
+  enabled=1, 08:00, 'política', 5 itens. Teste de tema no LAB com
+  sender master: 5 reais (G1/Folha/Agência Brasil/Xinhua), 4/5 eleições
+  e governo, news_history com link+pub_date. Fallback fora do
+  TOPIC_QUERIES se sustentou — nenhuma query custom necessária.
 - Gates: groupsMeta 6/6; tsc exit 0; npm test 779/3 (mesmos 3 flaky
   crônicos de adapters.test.ts, confirmados isolados).
 - Deploy 99028c6 (backup → stop → reset → build exit 0 → start ~/bot-wpp):
