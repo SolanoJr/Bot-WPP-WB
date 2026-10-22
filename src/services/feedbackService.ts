@@ -24,9 +24,24 @@ import logger from './loggerService';
 
 /** Janela de agrupamento: saídas neste intervalo viram um único pedido. */
 export const GROUPING_WINDOW_MS = 10 * 60 * 1000;
+/** Expiração da solicitação de feedback (INC-016 B: 24h → 7 dias sem resposta). */
+export const EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** Expiração da solicitação de feedback. */
-export const EXPIRY_MS = 24 * 60 * 60 * 1000;
+/**
+ * INC-016 A — gate do toggle: o grupo ativou `$feedback on`?
+ * Fail-closed: sem linha em group_mod (ou banco fora) → false → NÃO
+ * registra saída. Antes o leave gravava pending em qualquer grupo,
+ * acumulando 52 eventos órfãos de grupos com feedback desligado.
+ */
+export async function isFeedbackEnabledForGroup(groupId: string): Promise<boolean> {
+  try {
+    const { getGroupMod } = await import('./databaseService.js');
+    const config = await getGroupMod(groupId);
+    return (config as any)?.feedback === true;
+  } catch {
+    return false;
+  }
+}
 
 export type FeedbackEventType = 'group_leave' | 'community_leave' | 'multi_group_leave' | 'community_and_groups_leave';
 
@@ -184,6 +199,37 @@ export async function listExpired(now: number = Date.now()): Promise<any[]> {
      WHERE status = 'contacted' AND awaiting_response = 1 AND expires_at < ?`,
     [now]
   );
+}
+
+/**
+ * INC-016 B — último contato de feedback do usuário (para o cooldown
+ * anti-spam de 30 dias do worker).
+ */
+export async function getLastContactAt(userId: string): Promise<number | null> {
+  const db = await getDb();
+  const row: any = await db.get(
+    `SELECT MAX(contacted_at) as last FROM feedback_events
+     WHERE user_id = ? AND status IN ('contacted','responded','refused')`,
+    [userId]
+  );
+  return row?.last ?? null;
+}
+
+/**
+ * INC-016 B — pedido de feedback em aberto do usuário (usado pelo listener
+ * de resposta no BaileysMessageNormalizer: a próxima mensagem em PV dele é
+ * a resposta do feedback).
+ */
+export async function getAwaitingFeedback(userId: string, now: number = Date.now()): Promise<any | null> {
+  const db = await getDb();
+  const row = await db.get(
+    `SELECT event_id, expires_at, event_type, group_name, community_name, involved_group_names
+     FROM feedback_events
+     WHERE user_id = ? AND status = 'contacted' AND awaiting_response = 1 AND expires_at > ?
+     ORDER BY contacted_at DESC LIMIT 1`,
+    [userId, now]
+  );
+  return row || null;
 }
 
 /** Marca eventos expirados. */

@@ -474,7 +474,10 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
     // Registra no SQLite (fonte oficial). O Telegram é apenas espelho.
     if (action === 'remove') {
       try {
-        const { recordExitEvent, consolidatePending, isCommunityGroup } = await import('../../services/feedbackService.js');
+        const { recordExitEvent, consolidatePending, isFeedbackEnabledForGroup } = await import('../../services/feedbackService.js');
+        // INC-016 A: respeita o toggle — sem `$feedback on` no grupo, NÃO
+        // registra a saída (antes: gravava pending em qualquer grupo).
+        if (!(await isFeedbackEnabledForGroup(groupId))) return;
         const chat = await this.getChat(groupId).catch(() => null);
         const meta = (chat as any)?.raw || {};
         const communityId = meta.linkedParent || null;

@@ -221,7 +221,7 @@ describe('8-13. Resposta ao feedback', () => {
       platform: 'whatsapp', userId: USER, groupId: GEEK, groupName: 'Geek',
       eventType: 'group_leave', leftAt: now - 48 * 3600 * 1000,
     });
-    await fb.markContacted(id, now - 25 * 3600 * 1000); // expirou há 1h
+    await fb.markContacted(id, now - fb.EXPIRY_MS - 3600 * 1000); // expirou há 1h (INC-016: EXPIRY_MS=7d)
     const expired = await fb.listExpired(now);
     expect(expired.some(r => r.event_id === id)).toBe(true);
     await fb.markExpired([id], now);
@@ -354,5 +354,25 @@ describe('Estatísticas', () => {
   it('stats() retorna contagens coerentes', async () => {
     const s = await fb.stats();
     expect(s.total).toBe(s.pending + s.contacted + s.responded + s.refused + s.expired);
+  });
+});
+
+describe('INC-016 A — gate do leave respeita $feedback', () => {
+  it('grupo SEM config (default) → gate NÃO libera registro', async () => {
+    expect(await fb.isFeedbackEnabledForGroup(CAFE)).toBe(false);
+  });
+
+  it('grupo com $feedback off → gate NÃO libera registro', async () => {
+    await db.setGroupModField(CAFE, 'feedback', false);
+    expect(await fb.isFeedbackEnabledForGroup(CAFE)).toBe(false);
+  });
+
+  it('grupo com $feedback on → gate LIBERA registro', async () => {
+    await db.setGroupModField(GEEK, 'feedback', true);
+    expect(await fb.isFeedbackEnabledForGroup(GEEK)).toBe(true);
+  });
+
+  it('gate fail-closed: grupo inexistente → false (nunca registra por engano)', async () => {
+    expect(await fb.isFeedbackEnabledForGroup('120363999999999999@g.us')).toBe(false);
   });
 });
