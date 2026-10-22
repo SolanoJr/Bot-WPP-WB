@@ -347,18 +347,9 @@ export class PlatformManager {
       return;
     }
 
-    // Verificar permissões
-    const hasPermission = await this.checkPermissions(message, command);
-    if (!hasPermission) {
-      await this.recordCommandTelemetry(message, adapter, {
-        commandName: command.name,
-        commandAlias: requestedAlias,
-        outcome: 'rejected',
-        permissionResult: 'denied',
-        durationMs: Date.now() - startedAt,
-      });
-      return; // Resposta de erro já enviada no checkPermissions
-    }
+    // Gating é por handler (isMaster/isSenderGroupAdmin) — middleware
+    // central não existe por decisão arquitetural: cada comando é dono do
+    // próprio gate (ver setwelcome.ts, kick.ts, cmdToggle.ts, etc.).
 
     // Rate limiting por usuário (20 comandos/minuto)
     const rate = rateLimiter.checkLimit(message.userId);
@@ -464,15 +455,6 @@ export class PlatformManager {
       // Não falhar o comando se logging falhar
       logError('LogCommandUsage', error);
     }
-  }
-
-  /**
-   * Verifica permissões do usuário para o comando
-   */
-  private async checkPermissions(message: PlatformMessage, command: ICommand): Promise<boolean> {
-    // Por enquanto, apenas comandos que precisam de MASTER/ADMIN
-    // A lógica real estará no requirePermission do comando
-    return true;
   }
 
   /**

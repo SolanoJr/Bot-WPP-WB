@@ -679,7 +679,7 @@ describe('Telegram/Discord — participants vazio (adapters não expõem membros
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PlatformManager.createCommandContext — verificação PARALELA de admin
-// (trace: executeCommand → checkPermissions → createCommandContext → ctx.isAdmin)
+// (trace: executeCommand → createCommandContext → ctx.isAdmin)
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('PlatformManager — ctx.isAdmin usa a fonte única (não cleanId direto)', () => {
