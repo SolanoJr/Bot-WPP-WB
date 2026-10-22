@@ -105,12 +105,10 @@ describe('getUserPermission', () => {
 describe('hasPermission', () => {
   it('MASTER tem permissão para tudo', () => {
     expect(hasPermission('5588998314322@c.us', PERMISSIONS.MASTER)).toBe(true);
-    expect(hasPermission('5588998314322@c.us', PERMISSIONS.ADMIN)).toBe(true);
     expect(hasPermission('5588998314322@c.us', PERMISSIONS.USER)).toBe(true);
   });
 
-  it('USER não tem permissão de ADMIN ou MASTER', () => {
-    expect(hasPermission('5511999999999@c.us', PERMISSIONS.ADMIN)).toBe(false);
+  it('USER não tem permissão de MASTER', () => {
     expect(hasPermission('5511999999999@c.us', PERMISSIONS.MASTER)).toBe(false);
   });
 

@@ -26,17 +26,16 @@ function getMasterUser(): string {
     return v;
 }
 const MASTER_NUMBER = process.env.MASTER_NUMBER ?? '';
-const ADMINS = new Set((process.env.ADMINS || '').split(',').filter(Boolean));
 const BOT_NUMBER = process.env.BOT_NUMBER || '558581344211';
 const BOT_LID = process.env.BOT_LID || '2592935567439';
 const OWNER_LID = process.env.MASTER_LID || '202658048684056';
 const OWNER_NUMBER_ALIASES = new Set(['88998314322', '8898314322', '558898314322']);
 const BOT_NUMBER_ALIASES = new Set([cleanId(BOT_NUMBER), '5585981344211']);
 
-// Níveis de permissão
+// Níveis de permissão (INC-015 Dívida 3: ADMIN removido — nunca teve
+// consumidor; admins REAIS de grupo vêm do WhatsApp, via groupAdmin.ts)
 const PERMISSIONS = {
-    MASTER: 'MASTER',    // Controle total
-    ADMIN: 'ADMIN',      // Controle de grupo
+    MASTER: 'MASTER',    // Controle total (dono)
     USER: 'USER'         // Usuário comum
 } as const;
 
@@ -67,7 +66,8 @@ function isBotTarget(userId: string): boolean {
 }
 
 /**
- * Verifica o nível de permissão do usuário
+ * Verifica o nível de permissão do usuário (INC-015 Dívida 3: só MASTER e
+ * USER existem — o nível ADMIN nunca teve consumidor e foi removido).
  * @param userId - ID do usuário no WhatsApp
  * @returns Nível de permissão
  */
@@ -75,13 +75,6 @@ function getUserPermission(userId: string): PermissionLevel {
     if (isMaster(userId)) {
         return PERMISSIONS.MASTER;
     }
-    
-    const userClean = cleanId(userId);
-    const CLEAN_ADMINS = new Set([...ADMINS].map(id => cleanId(id)));
-    if (CLEAN_ADMINS.has(userClean)) {
-        return PERMISSIONS.ADMIN;
-    }
-    
     return PERMISSIONS.USER;
 }
 
@@ -93,11 +86,10 @@ function getUserPermission(userId: string): PermissionLevel {
  */
 function hasPermission(userId: string, requiredLevel: PermissionLevel): boolean {
     const userLevel = getUserPermission(userId);
-    
-    // Hierarquia: MASTER > ADMIN > USER
+
+    // Hierarquia: MASTER > USER
     const levels: Record<PermissionLevel, number> = {
-        [PERMISSIONS.MASTER]: 3,
-        [PERMISSIONS.ADMIN]: 2,
+        [PERMISSIONS.MASTER]: 2,
         [PERMISSIONS.USER]: 1
     };
     
@@ -139,15 +131,6 @@ function isMaster(userId: string): boolean {
 }
 
 /**
- * Verifica se é ADMIN ou superior
- * @param userId - ID do usuário
- * @returns É ADMIN?
- */
-function isAdmin(userId: string): boolean {
-    return hasPermission(userId, PERMISSIONS.ADMIN);
-}
-
-/**
  * Middleware para comandos que requerem permissão
  * @param requiredLevel - Nível requerido
  * @returns Middleware function
@@ -155,25 +138,20 @@ function isAdmin(userId: string): boolean {
 function requirePermission(requiredLevel: PermissionLevel) {
     return (msg: any, client: any, args: any[], next?: () => void) => {
         const userId = msg.author || msg.from;
-        
+
         // Log de AUDITORIA REAL solicitado
         logger.debug('[DEBUG] ID Bruto Recebido', { userId });
 
         if (!hasPermission(userId, requiredLevel)) {
-            switch (requiredLevel) {
-                case PERMISSIONS.MASTER:
-                    msg.reply('🚫 **Acesso negado!**\n\nEste comando só pode ser usado pelo **MASTER** do bot.');
-                    break;
-                case PERMISSIONS.ADMIN:
-                    msg.reply('🚫 **Acesso negado!**\n\nEste comando requer permissão de **ADMIN** ou superior.');
-                    break;
-                default:
-                    msg.reply('🚫 **Acesso negado!**');
+            if (requiredLevel === PERMISSIONS.MASTER) {
+                msg.reply('🚫 **Acesso negado!**\n\nEste comando só pode ser usado pelo **MASTER** do bot.');
+            } else {
+                msg.reply('🚫 **Acesso negado!**');
             }
-            
+
             return false;
         }
-        
+
         return next ? next() : true;
     };
 }
@@ -247,11 +225,9 @@ export {
     getUserPermission,
     hasPermission,
     isMaster,
-    isAdmin,
     requirePermission,
     getMasterUser,
     MASTER_NUMBER,
-    ADMINS,
     cleanId,
     extractLid,
     isBotTarget

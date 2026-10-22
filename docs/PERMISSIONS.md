@@ -6,9 +6,9 @@
 
 ## 1. Os papéis reais
 
-Existem **3 papéis com efeito** + o bot como alvo protegido. O nível `ADMIN`
-do `permissions.ts` (alimentado pelo `ADMINS` do .env) **não tem consumidor**
-— ver §7 Dívidas técnicas.
+Existem **2 papéis com efeito** + o bot como alvo protegido. O nível `ADMIN`
+do `permissions.ts` (alimentado pelo `ADMINS` do .env) **foi removido**
+(22/10, INC-015 Dívida 3) — ver §7 Dívidas técnicas.
 
 | Papel | Como é reconhecido | Onde é configurado |
 |---|---|---|
@@ -118,10 +118,12 @@ SenderIds úteis: master PN `558898314322@c.us` · master LID
    neste grupo. (\`$cmd X on\` reativa)"), `$cmd` imune ao próprio gate
    (lock-out), default habilitado, fail-open. E2E com restart comprovou a
    persistência.
-3. **`ADMINS` do .env inócuo**: o nível ADMIN do `permissions.ts`
-   (`getUserPermission`/`hasPermission`/`isAdmin`) não tem consumidor —
-   adicionar um número lá não concede nada. O "admin" real é só o metadata
-   do grupo.
+3. **`ADMINS` do .env inócuo**: ~~aberto~~ **RESOLVIDO em 22/10 (INC-015
+   Dívida 3)**: `ADMINS`, `PERMISSIONS.ADMIN`, `isAdmin()` e o case ADMIN do
+   `requirePermission` foram removidos do `permissions.ts`. Hierarquia agora
+   é MASTER > USER. O "admin" real continua sendo só o metadata do grupo
+   (`groupAdmin.ts`). E2E `f1-perms.sh` re-executado: nenhum nível mudou de
+   comportamento (ADMIN nunca teve efeito).
 
-Decisão (20/10): NÃO corrigir ainda — modelo funciona e não há bypass;
-correção só com rede de segurança (E2E por nível como o deste documento).
+Decisão (20/10): adiar; decisão final (22/10): corrigir com a rede de
+segurança deste documento (`f1-perms.sh`).
