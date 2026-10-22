@@ -18,6 +18,7 @@ import { runPeriodicCleanup } from '../services/autoModEngine';
 import { memoryMonitor } from '../services/memoryMonitor';
 import { startPeriodicCleanup } from '../services/cleanupService';
 import { startNewsScheduler } from '../services/newsScheduler';
+import { startFeedbackWorker } from '../services/feedbackWorker';
 import { createDiscordScreenServiceFromEnv } from '../services/discord-screen/DiscordScreenService';
 import { consolidateStale, listPending } from '../services/presentationService';
 import { publishToTelegram, retryPending, TG_CHAT_ID, TG_THREAD_ID } from '../services/presentationPublisher';
@@ -123,6 +124,29 @@ export async function initializePlatforms() {
       startPeriodicCleanup();
       // Agendador de notícias (tick 60s, envia no horário configurado por grupo)
       startNewsScheduler();
+
+      // ─── INC-016 B: worker de feedback de saída (PV) ───
+      // pending → PV (máx 10/exec, cooldown 30d/usuário) → contacted →
+      // responded|refused (listener no normalizer) | expired (7 dias).
+      try {
+        const botNum = (process.env.BOT_NUMBER || '558581344211').replace(/\D/g, '');
+        const wpp = platformManager.getAdapter(`whatsapp:${botNum}`);
+        const wppClient: any = (wpp as any)?.client;
+        if (wppClient?.sendMessage) {
+          startFeedbackWorker(async (userId: string, text: string) => {
+            try {
+              await wppClient.sendMessage(userId, { text });
+              return true;
+            } catch {
+              return false;
+            }
+          });
+        } else {
+          logger.warn('[feedbackWorker] client WhatsApp indisponível — worker NÃO iniciado');
+        }
+      } catch (e: any) {
+        logger.warn('[feedbackWorker] falha ao iniciar:', e?.message);
+      }
 
       // ─── Consolidação de apresentações (Comunidade 085) ───
       // A cada 2 minutos: verifica sessões inativas há 10 min, consolida no SQLite

@@ -1,0 +1,166 @@
+/**
+ * INC-016 B — worker de envio de feedback.
+ *
+ * Prova o ciclo que antes não existia: pending → PV → contacted →
+ * responded|refused|expired, com os limites anti-spam:
+ * máx 10 PVs/execução, cooldown 30d/usuário, expiração de pendings velhos
+ * e sweep de contacted sem resposta.
+ *
+ * Usa SQLite REAL (arquivo temporário) — o serviço é o de produção.
+ */
+import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+
+const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'wb-fbworker-'));
+process.env.BOT_DATA_DIR = TMP_DIR;
+
+vi.mock('../../src/services/loggerService', () => ({
+  default: { info: () => {}, warn: () => {}, error: () => {} },
+  logInfo: () => {}, logWarning: () => {}, logError: () => {},
+}));
+
+let fb: typeof import('../../src/services/feedbackService');
+let wk: typeof import('../../src/services/feedbackWorker');
+let db: typeof import('../../src/services/databaseService');
+
+const GEEK = '120363419033272638@g.us';
+const USER = '6285822480546@s.whatsapp.net';
+const USER2 = '6285822480547@s.whatsapp.net';
+
+const MIN = 60 * 1000;
+const HOUR = 60 * MIN;
+const DAY = 24 * HOUR;
+
+let now = 0;
+
+beforeAll(async () => {
+  db = await import('../../src/services/databaseService');
+  await db.initDatabase();
+  fb = await import('../../src/services/feedbackService');
+  wk = await import('../../src/services/feedbackWorker');
+});
+
+beforeEach(async () => {
+  const conn: any = await (db as any).getDb();
+  await conn.run(`DELETE FROM feedback_events`);
+  now = Date.now();
+});
+
+afterAll(() => {
+  try { fs.rmSync(TMP_DIR, { recursive: true, force: true }); } catch { /* ignore */ }
+});
+
+/** Cria um pending "pronto para envio" (saiu há 1h — fora da janela de agrupamento). */
+async function seedPending(userId: string, groupId = GEEK, leftAt = now - HOUR) {
+  return fb.recordExitEvent({
+    platform: 'whatsapp', userId, phoneNumber: userId,
+    displayName: 'Fulano', groupId, groupName: 'Geek',
+    eventType: 'group_leave', leftAt,
+  });
+}
+
+describe('INC-016 B — worker de envio', () => {
+  it('pending pronto → envia PV e marca contacted', async () => {
+    const id = await seedPending(USER);
+    const sent: Array<{ userId: string; text: string }> = [];
+    const stats = await wk.runFeedbackWorker(async (userId, text) => {
+      sent.push({ userId, text });
+      return true;
+    }, now);
+    expect(stats.sent).toBe(1);
+    expect(sent[0].userId).toBe(USER);
+    expect(sent[0].text).toContain('Geek');
+    expect(sent[0].text).toContain('anônimo');
+    const ev = (await fb.listFeedback()).find((r: any) => r.event_id === id);
+    expect(ev?.status).toBe('contacted');
+  });
+
+  it('envio falha → permanece pending (retentativa)', async () => {
+    const id = await seedPending(USER);
+    const stats = await wk.runFeedbackWorker(async () => false, now);
+    expect(stats.failed).toBe(1);
+    const ev = (await fb.listFeedback()).find((r: any) => r.event_id === id);
+    expect(ev?.status).toBe('pending');
+  });
+
+  it('saída recente (dentro da janela de agrupamento) → adia', async () => {
+    await seedPending(USER, GEEK, now - 2 * MIN);
+    const stats = await wk.runFeedbackWorker(async () => true, now);
+    expect(stats.young).toBe(1);
+    expect(stats.sent).toBe(0);
+  });
+
+  it('cooldown de 30 dias: usuário contatado há pouco → NÃO re-PV', async () => {
+    await seedPending(USER, GEEK, now - 1 * DAY);
+    // já foi contatado há 5 dias (respondido)
+    const idOld = await seedPending(USER, GEEK, now - 6 * DAY);
+    await fb.markContacted(idOld, now - 5 * DAY);
+    await fb.recordResponse(idOld, 'grupo bom', now - 4 * DAY);
+    const stats = await wk.runFeedbackWorker(async () => true, now);
+    expect(stats.cooldown).toBe(1);
+    expect(stats.sent).toBe(0);
+  });
+
+  it('pending mais velho que 7 dias → expira sem contato', async () => {
+    await seedPending(USER, GEEK, now - 8 * DAY);
+    const stats = await wk.runFeedbackWorker(async () => true, now);
+    expect(stats.tooOld).toBe(1);
+    expect(stats.sent).toBe(0);
+    const rows = await fb.listFeedback();
+    expect(rows[0]?.status).toBe('expired');
+  });
+
+  it('contacted sem resposta além do prazo → sweep marca expired', async () => {
+    const id = await seedPending(USER, GEEK, now - 9 * DAY);
+    await fb.markContacted(id, now - 8 * DAY); // expires_at = -8d + EXPIRY_MS (7d) = -1d < now
+    const stats = await wk.runFeedbackWorker(async () => true, now);
+    expect(stats.expiredSweep).toBe(1);
+    const ev = (await fb.listFeedback()).find((r: any) => r.event_id === id);
+    expect(ev?.status).toBe('expired');
+  });
+
+  it('cap anti-spam: 12 pendings → máx 10 PVs, resto adiado', async () => {
+    const users = Array.from({ length: 12 }, (_, i) => `555${i}@s.whatsapp.net`);
+    for (const u of users) await seedPending(u);
+    const stats = await wk.runFeedbackWorker(async () => true, now);
+    expect(stats.sent).toBe(10);
+    expect(stats.deferred).toBe(2);
+  });
+
+  it('fluxo completo: pending → PV → resposta do usuário → responded', async () => {
+    const id = await seedPending(USER);
+    await wk.runFeedbackWorker(async () => true, now);
+    // o listener do normalizer usa getAwaitingFeedback + recordResponse:
+    const awaiting = await fb.getAwaitingFeedback(USER, now);
+    expect(awaiting).not.toBeNull();
+    expect(awaiting.event_id).toBe(id);
+    await fb.recordResponse(id, 'Saí porque o horário não batia', now);
+    const ev = (await fb.listFeedback()).find((r: any) => r.event_id === id);
+    expect(ev?.status).toBe('responded');
+    // depois de respondido, não há mais pedido em aberto
+    expect(await fb.getAwaitingFeedback(USER, now)).toBeNull();
+  });
+
+  it('recusa: resposta "não" → refused (não contatado de novo)', async () => {
+    const id = await seedPending(USER);
+    await fb.markContacted(id, now);
+    await fb.recordResponse(id, 'não', now);
+    const ev = (await fb.listFeedback()).find((r: any) => r.event_id === id);
+    expect(ev?.status).toBe('refused');
+  });
+
+  it('usuários independentes: PV de um não bloqueia o outro', async () => {
+    await seedPending(USER);
+    await seedPending(USER2);
+    const targets: string[] = [];
+    const stats = await wk.runFeedbackWorker(async (userId) => {
+      targets.push(userId);
+      return true;
+    }, now);
+    expect(stats.sent).toBe(2);
+    expect(targets).toContain(USER);
+    expect(targets).toContain(USER2);
+  });
+});

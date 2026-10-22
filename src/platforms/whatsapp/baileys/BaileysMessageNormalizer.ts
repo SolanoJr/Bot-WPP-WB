@@ -260,6 +260,31 @@ export class BaileysMessageNormalizer {
         }
       } catch { /* não bloqueia o fluxo principal */ }
 
+      // ─── INC-016 B: resposta de feedback (PV, sem $) ───
+      // Se o usuário tem um pedido de feedback em aberto (contacted), a
+      // próxima mensagem dele no PV é a resposta — o pipeline termina aqui.
+      try {
+        const normText = (normMsg.text || '').trim();
+        if (normMsg?.isFromMe !== true
+            && normMsg?.chatId && !normMsg.chatId.includes('@g.us')
+            && normText !== '' && !normText.startsWith('$')) {
+          const { getAwaitingFeedback, recordResponse } = await import('../../../services/feedbackService.js');
+          const ev = await getAwaitingFeedback(normMsg.userId);
+          if (ev) {
+            const refused = ['não', 'nao', 'n', 'no', 'não quero', 'nao quero'].includes(normText.toLowerCase());
+            await recordResponse(ev.event_id, normText);
+            await this.sock?.sendMessage(normMsg.chatId, {
+              text: refused
+                ? '🙏 Tudo bem! Você não será contatado de novo tão cedo.'
+                : '🙏 *Obrigado pelo feedback!* Ele é anônimo e ajuda a melhorar a comunidade. 👊',
+            }).catch((e: any) => {
+              logWarning('[feedback] ack da resposta falhou', { err: String(e?.message || e) });
+            });
+            return; // resposta consumida — não segue para o dispatcher
+          }
+        }
+      } catch { /* não bloqueia o fluxo principal */ }
+
       // Dispatch para handlers de comandos normais
       if (this.msgHandler) {
               await this.msgHandler(normMsg);
