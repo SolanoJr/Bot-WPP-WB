@@ -232,6 +232,20 @@ export async function getAwaitingFeedback(userId: string, now: number = Date.now
   return row || null;
 }
 
+/**
+ * INC-016 B — registra uma tentativa de envio que falhou (cap de 3 → o
+ * worker expira o evento em vez de retentar para sempre).
+ */
+export async function markAttemptFailed(eventId: string, now: number = Date.now()): Promise<number> {
+  const db = await getDb();
+  await db.run(
+    `UPDATE feedback_events SET attempts = attempts + 1, updated_at = ? WHERE event_id = ?`,
+    [now, eventId]
+  );
+  const row: any = await db.get(`SELECT attempts FROM feedback_events WHERE event_id = ?`, [eventId]);
+  return row?.attempts ?? 0;
+}
+
 /** Marca eventos expirados. */
 export async function markExpired(eventIds: string[], now: number = Date.now()): Promise<void> {
   if (!eventIds.length) return;

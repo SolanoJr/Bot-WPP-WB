@@ -19,12 +19,15 @@ import {
   listExpired,
   formatFeedbackRequest,
   getLastContactAt,
+  isFeedbackEnabledForGroup,
+  markAttemptFailed,
   GROUPING_WINDOW_MS,
 } from './feedbackService';
 import { logInfo, logWarning } from './loggerService';
 
 export const FEEDBACK_RUN_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const MAX_PV_PER_RUN = 10;
+const MAX_ATTEMPTS = 3;
 const PENDING_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const USER_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -38,6 +41,9 @@ export interface FeedbackWorkerStats {
   young: number;
   deferred: number;
   tooOld: number;
+  policy: number;
+  unreachable: number;
+  attemptsCap: number;
   expiredSweep: number;
 }
 
@@ -47,17 +53,39 @@ export async function runFeedbackWorker(
   now: number = Date.now(),
 ): Promise<FeedbackWorkerStats> {
   const stats: FeedbackWorkerStats = {
-    sent: 0, failed: 0, cooldown: 0, young: 0, deferred: 0, tooOld: 0, expiredSweep: 0,
+    sent: 0, failed: 0, cooldown: 0, young: 0, deferred: 0,
+    tooOld: 0, policy: 0, unreachable: 0, attemptsCap: 0, expiredSweep: 0,
   };
   const pending = await listPendingContact();
-  const tooOld: string[] = [];
+  const toExpire: string[] = [];
 
   for (const ev of pending) {
     const age = now - (ev.left_at || 0);
-    if (age > PENDING_MAX_AGE_MS) { tooOld.push(ev.event_id); continue; }
+
+    if (age > PENDING_MAX_AGE_MS) { toExpire.push(ev.event_id); stats.tooOld++; continue; }
     if (age < GROUPING_WINDOW_MS) { stats.young++; continue; }
+
+    // Política ATUAL do grupo: sem $feedback on não se pede feedback —
+    // nem por eventos legados criados antes do gate de entrada (INC-016 A).
+    if (!(await isFeedbackEnabledForGroup(ev.group_id))) {
+      toExpire.push(ev.event_id);
+      stats.policy++;
+      continue;
+    }
+
+    // Sem PN não há DM: Baileys não envia PV para jid @lid isolado.
+    const target = ev.phone_number || ev.user_id;
+    if (!target || !target.includes('@s.whatsapp.net')) {
+      toExpire.push(ev.event_id);
+      stats.unreachable++;
+      continue;
+    }
+
+    if ((ev.attempts || 0) >= MAX_ATTEMPTS) { toExpire.push(ev.event_id); stats.attemptsCap++; continue; }
+
     const last = await getLastContactAt(ev.user_id);
     if (last !== null && now - last < USER_COOLDOWN_MS) { stats.cooldown++; continue; }
+
     if (stats.sent + stats.failed >= MAX_PV_PER_RUN) { stats.deferred++; continue; }
 
     const text = formatFeedbackRequest({
@@ -66,30 +94,36 @@ export async function runFeedbackWorker(
       communityName: ev.community_name,
       involvedGroupNames: ev.involved_group_names,
     });
-    const ok = await send(ev.user_id, text).catch(() => false);
+    const ok = await send(target, text).catch(() => false);
     if (ok) {
       await markContacted(ev.event_id, now);
       stats.sent++;
     } else {
+      const attempts = await markAttemptFailed(ev.event_id, now);
       stats.failed++;
+      if (attempts >= MAX_ATTEMPTS) {
+        toExpire.push(ev.event_id);
+        stats.attemptsCap++;
+      }
     }
   }
 
-  if (tooOld.length) {
-    await markExpired(tooOld, now);
-    stats.tooOld = tooOld.length;
-  }
+  if (toExpire.length) await markExpired(toExpire, now);
   const expired = await listExpired(now);
   if (expired.length) {
     await markExpired(expired.map((e: any) => e.event_id), now);
     stats.expiredSweep = expired.length;
   }
 
-  if (stats.sent || stats.failed || stats.tooOld || stats.expiredSweep || stats.deferred) {
-    logInfo(`[feedbackWorker] sent=${stats.sent} failed=${stats.failed} cooldown=${stats.cooldown} young=${stats.young} deferred=${stats.deferred} tooOld=${stats.tooOld} expiredSweep=${stats.expiredSweep}`);
+  if (stats.sent || stats.failed || stats.tooOld || stats.expiredSweep || stats.deferred
+      || stats.policy || stats.unreachable || stats.attemptsCap) {
+    logInfo(`[feedbackWorker] sent=${stats.sent} failed=${stats.failed} cooldown=${stats.cooldown} young=${stats.young} deferred=${stats.deferred} tooOld=${stats.tooOld} policy=${stats.policy} unreachable=${stats.unreachable} attemptsCap=${stats.attemptsCap} expiredSweep=${stats.expiredSweep}`);
   }
   return stats;
 }
+
+/** Guard contra dupla inicialização no mesmo processo (onReady duplo). */
+let workerStarted = false;
 
 /**
  * Registra o worker no boot (padrão newsScheduler/cleanup: setInterval
@@ -98,7 +132,12 @@ export async function runFeedbackWorker(
 export function startFeedbackWorker(
   send: FeedbackSendFn,
   intervalMs: number = FEEDBACK_RUN_INTERVAL_MS,
-): NodeJS.Timeout {
+): NodeJS.Timeout | undefined {
+  if (workerStarted) {
+    logWarning('[feedbackWorker] já iniciado neste processo — ignorando chamada duplicada');
+    return undefined;
+  }
+  workerStarted = true;
   const tick = async () => {
     try {
       await runFeedbackWorker(send);

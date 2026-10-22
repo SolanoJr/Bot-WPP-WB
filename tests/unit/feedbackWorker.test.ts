@@ -54,6 +54,8 @@ afterAll(() => {
 
 /** Cria um pending "pronto para envio" (saiu há 1h — fora da janela de agrupamento). */
 async function seedPending(userId: string, groupId = GEEK, leftAt = now - HOUR) {
+  // O worker respeita o toggle do grupo também no ENVIO (INC-016 B):
+  await db.setGroupModField(groupId, 'feedback', true);
   return fb.recordExitEvent({
     platform: 'whatsapp', userId, phoneNumber: userId,
     displayName: 'Fulano', groupId, groupName: 'Geek',
@@ -162,5 +164,48 @@ describe('INC-016 B — worker de envio', () => {
     expect(stats.sent).toBe(2);
     expect(targets).toContain(USER);
     expect(targets).toContain(USER2);
+  });
+
+  it('política do grupo: evento de grupo SEM $feedback on → expira (sem PV retroativo)', async () => {
+    const OTHER = '120363499999999999@g.us';
+    await db.setGroupModField(OTHER, 'feedback', false);
+    await fb.recordExitEvent({
+      platform: 'whatsapp', userId: USER, phoneNumber: USER,
+      groupId: OTHER, groupName: 'Outro', eventType: 'group_leave', leftAt: now - HOUR,
+    });
+    const stats = await wk.runFeedbackWorker(async () => true, now);
+    expect(stats.policy).toBe(1);
+    expect(stats.sent).toBe(0);
+    const rows = await fb.listFeedback();
+    expect(rows[0]?.status).toBe('expired');
+  });
+
+  it('inacessível: usuário só com @lid (sem PN) → expira sem tentar PV', async () => {
+    await fb.recordExitEvent({
+      platform: 'whatsapp', userId: '1234567890@lid', phoneNumber: undefined,
+      groupId: GEEK, groupName: 'Geek', eventType: 'group_leave', leftAt: now - HOUR,
+    });
+    const stats = await wk.runFeedbackWorker(async () => {
+      throw new Error('não deveria chamar send para @lid');
+    }, now);
+    expect(stats.unreachable).toBe(1);
+    expect(stats.sent).toBe(0);
+    const rows = await fb.listFeedback();
+    expect(rows[0]?.status).toBe('expired');
+  });
+
+  it('cap de tentativas: 3 falhas de envio → expira (não retenta para sempre)', async () => {
+    await seedPending(USER);
+    let attempts = 0;
+    // execução 1 e 2: falham (attempts 1, 2)
+    await wk.runFeedbackWorker(async () => false, now);
+    await wk.runFeedbackWorker(async () => false, now + HOUR);
+    // execução 3: falha de novo → attempts 3 → expired na hora
+    const stats = await wk.runFeedbackWorker(async () => false, now + 2 * HOUR);
+    expect(stats.failed).toBe(1);
+    expect(stats.attemptsCap).toBe(1);
+    const ev = (await fb.listFeedback())[0];
+    expect(ev?.status).toBe('expired');
+    expect(ev?.attempts).toBe(3);
   });
 });

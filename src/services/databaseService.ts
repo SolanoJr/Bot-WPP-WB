@@ -183,6 +183,8 @@ export async function initDatabase(): Promise<Database> {
 
     // Feedback: ativa/desativa por grupo (default 0 = desligado).
     await addColumnIfMissing('group_mod', 'feedback', 'feedback INTEGER NOT NULL DEFAULT 0');
+    // INC-016 B: contador de tentativas de PV (cap em 3 → expired)
+    await addColumnIfMissing('feedback_events', 'attempts', 'attempts INTEGER NOT NULL DEFAULT 0');
 
     // Sarcasmo: ativa/desativa por grupo (default 0 = desligado).
     await addColumnIfMissing('group_mod', 'sarcasmo', 'sarcasmo INTEGER NOT NULL DEFAULT 0');
