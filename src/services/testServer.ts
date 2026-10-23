@@ -991,7 +991,10 @@ export function startTestServer(port: number = 3004): http.Server {
             const participants = ((chat as any).participants || []).map((p: any) => ({
               id: p?.id || '',
               phoneNumber: p?.phoneNumber ?? undefined,
-              admin: p?.admin ?? null,
+              // O chatManager entrega isAdmin/isSuperAdmin (booleans); o campo
+              // `admin` do metadata cru não sobrevive ao mapping — ler o
+              // mapeado, senão todo grupo lê como "sem admin nenhum".
+              admin: p?.admin ?? (p?.isSuperAdmin ? 'superadmin' : p?.isAdmin ? 'admin' : null),
               isBot: isBotJid(p?.id),
             }));
             const botEntry = participants.find((p: any) => p.isBot);
@@ -1048,7 +1051,8 @@ export function startTestServer(port: number = 3004): http.Server {
             const botLidDigits = digitsOf(botLid.split(':')[0]);
             const botPart = parts.find((p: any) =>
               [String(p?.id ?? '').split(':')[0]].map(digitsOf).some((d) => d === botPnDigits || d === botLidDigits));
-            if (!botPart?.admin) {
+            // isAdmin/isSuperAdmin é o que o chatManager entrega (booleans)
+            if (!(botPart?.isAdmin || botPart?.isSuperAdmin)) {
               res.writeHead(400, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ error: 'bot não é admin neste grupo', botParticipant: botPart ?? null }));
               return;
@@ -1068,7 +1072,7 @@ export function startTestServer(port: number = 3004): http.Server {
               res.end(JSON.stringify({ error: 'alvo é o próprio bot — protegido' }));
               return;
             }
-            if (target?.admin) {
+            if (target?.isAdmin || target?.isSuperAdmin) {
               res.writeHead(400, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ error: 'alvo é admin do grupo — protegido', target }));
               return;
