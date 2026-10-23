@@ -1,9 +1,24 @@
 # CHANGELOG.md — Linha do Tempo do Projeto Bot-WPP
 
-> **Última atualização**: 2026-10-02
+> **Última atualização**: 2026-10-22
 > **Suíte**: 509 testes / 35 arquivos (unit + integração)
 
 ---
+
+## 2026-10-22 (INC-016: pareamento, boot handler, build)
+
+| Evento | Arquivos |
+|--------|----------|
+| Sessão revogada às 03:00 → re-pareamento por QR do processo (device 83 estável) | `sessions/` (VPS) |
+| **BUG CORRIGIDO**: StartAll pulava `setupAdapterHandlers` quando `initialize()` rejeitava no meio do pareamento (close normal do socket de registro pós-scan) → PM sem handler → bot conectado porém "surdo" | `PlatformManager.ts`, `BaileysAdapter.ts` |
+| **BUG CORRIGIDO**: glob `src/platforms/**/*.ts` do tsup excluía arquivos da RAIZ — `PlatformManager.js` dist com 8 dias de idade; build silenciosamente incompleto desde 14/10 | `package.json` |
+| Teste: initialize rejeitado ⇒ handlers mesmo assim registrados | `tests/unit/startAllHandlerRegistration.test.ts` (novo) |
+| E2E permissões com bot real conectado: **7/7** (`f1-perms.sh`) | `laboratorio/` |
+
+**Descoberta por teste:** o fluxo de pareamento por QR fecha o socket de
+registro logo após o scan (`Connection closed: unknown` no meio do
+`initialize()`). O `finally` do StartAll agora registra os handlers sempre —
+o adapter reconecta sozinho e o PM volta a processar mensagens.
 
 ## 2026-10-02 (Modo execução: pipeline real, delete, canonicalização)
 
