@@ -166,14 +166,24 @@ export async function replyPresentationToGroup(
     const text = formatPresentation(rec);
     const caption = `${text}\n\n📎 Registro completo: ${TG_TOPIC_URL}`;
 
-    // Quote da mensagem original (a última coletada), recuperada do store.
-    // O collectMessage guarda o messageId NORMALIZADO ('whatsapp:558…:ID') —
-    // o loadMessage do Baileys quer o stanzaId cru (split(':').pop()).
+    // Quote da mensagem original (a última coletada). Em produção o loadMessage
+    // devolve o raw do wire; para mensagens injetadas em LAB (fora do store do
+    // Baileys) monta um stub {key,message} simétrico ao quoted payload que o
+    // messageSender constrói nos replies (provado no E2E do $noticias lab).
     let quoted: any;
     try {
       const ids = JSON.parse(rec.source_message_ids || '[]');
       const lastId = Array.isArray(ids) ? ids[ids.length - 1] : undefined;
-      if (lastId) quoted = await sock.loadMessage?.(rec.group_id, String(lastId).split(':').pop());
+      if (lastId) {
+        const rawId = String(lastId).split(':').pop();
+        quoted = await sock.loadMessage?.(rec.group_id, rawId);
+        if (!quoted) {
+          quoted = {
+            key: { remoteJid: rec.group_id, id: rawId, fromMe: false, participant: rec.user_id },
+            message: { conversation: rec.original_text || '' },
+          };
+        }
+      }
     } catch { /* sem quote, envia sem citação */ }
 
     // Foto: buffer (imagem enviada no grupo) > url > placeholder picsum
@@ -184,26 +194,31 @@ export async function replyPresentationToGroup(
       image = { url: `https://picsum.photos/seed/${seed}/512/512` };
     }
 
-    // 1ª tentativa: imagem + caption, quoted na mensagem do apresentador
-    try {
-      await sock.sendMessage(rec.group_id, { image: image as any, caption }, quoted ? { quoted } : {});
-      logger.info('[presentationPublisher] resposta no grupo enviada', {
-        presentationId: rec.presentation_id, groupId: rec.group_id,
-        hasPhoto: true, quoted: !!quoted,
-      });
-      return true;
-    } catch (e: any) {
-      // erro INLINE na string — o console do logger não imprime o meta-objeto
-      logger.warn(`[presentationPublisher] envio com foto falhou (${e?.message}) — caindo para texto`);
-    }
+    // Degraus de envio: [foto+quote] → foto → [texto+quote] → texto.
+    // Foto é enriquecimento, quote também — a resposta no grupo é o gate.
+    const attempts: Array<() => Promise<any>> = [];
+    if (quoted) attempts.push(() => sock.sendMessage(rec.group_id, { image: image as any, caption }, { quoted }));
+    attempts.push(() => sock.sendMessage(rec.group_id, { image: image as any, caption }, {}));
+    if (quoted) attempts.push(() => sock.sendMessage(rec.group_id, { text: caption }, { quoted }));
+    attempts.push(() => sock.sendMessage(rec.group_id, { text: caption }, {}));
 
-    // 2ª tentativa: texto puro (com quote) — a resposta no grupo é o gate
-    await sock.sendMessage(rec.group_id, { text: caption }, quoted ? { quoted } : {});
-    logger.info('[presentationPublisher] resposta no grupo enviada (texto)', {
-      presentationId: rec.presentation_id, groupId: rec.group_id,
-      hasPhoto: false, quoted: !!quoted,
-    });
-    return true;
+    const why: string[] = [];
+    for (let i = 0; i < attempts.length; i++) {
+      try {
+        await attempts[i]();
+        const isPhoto = i < (quoted ? 2 : 1);
+        logger.info('[presentationPublisher] resposta no grupo enviada', {
+          presentationId: rec.presentation_id, groupId: rec.group_id,
+          hasPhoto: isPhoto, quoted: !!quoted && i % 2 === 0,
+        });
+        return true;
+      } catch (e: any) {
+        // erro INLINE na string — o console do logger não imprime o meta-objeto
+        why.push(e?.message);
+      }
+    }
+    logger.warn(`[presentationPublisher] resposta no grupo falhou (${why.join(' | ')}) id=${rec.presentation_id}`);
+    return false;
   } catch (e: any) {
     logger.warn(`[presentationPublisher] resposta no grupo falhou (${e?.message}) id=${rec.presentation_id}`);
     return false;

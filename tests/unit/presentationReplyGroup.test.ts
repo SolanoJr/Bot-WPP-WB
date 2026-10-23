@@ -89,24 +89,41 @@ describe('replyPresentationToGroup — quote + template + foto no grupo', () => 
     expect(content.image).toEqual({ url: 'https://exemplo.com/foto.jpg' });
   });
 
-  it('loadMessage não acha a original → envia SEM quoted (foto+caption mantidos)', async () => {
+  it('loadMessage não acha (LAB inject) → monta QUOTED STUB {key,message} com participant do user_id', async () => {
     const sendMessage = vi.fn(async (_jid: string, _content: any, _opts?: any) => ({}));
-    const ok = await replyPresentationToGroup(makeRec(), { sendMessage, loadMessage: vi.fn(async (_jid: string, _id: string) => undefined) });
+    const ok = await replyPresentationToGroup(makeRec(), { sendMessage, loadMessage: vi.fn(async () => undefined) });
     expect(ok).toBe(true);
     const [, , opts] = sendMessage.mock.calls[0];
+    expect(opts.quoted.key).toEqual({
+      remoteJid: GRUPO, id: 'BBB', fromMe: false,
+      participant: '5585999999999@s.whatsapp.net',
+    });
+    expect(opts.quoted.message).toEqual({ conversation: 'João Silva\nTenho 30 anos e trabalho com informática' });
+  });
+
+  it('degraus: foto+quote falha → FOTO SEM QUOTE (texto nunca roda)', async () => {
+    const sendMessage = vi.fn(async (_jid: string, _content: any, _opts?: any) => {
+      if (_content.image && _opts?.quoted) throw new Error('quote inválido');
+      return {};
+    });
+    const ok = await replyPresentationToGroup(makeRec(), { sendMessage, loadMessage: vi.fn(async () => RAW) });
+    expect(ok).toBe(true);
+    expect(sendMessage).toHaveBeenCalledTimes(2);
+    const [, content, opts] = sendMessage.mock.calls[1];
+    expect(content.image).toBeDefined();
     expect(opts).toEqual({});
   });
 
-  it('envio com foto falha → fallback: TEXTO puro com o mesmo quote', async () => {
+  it('foto falha AMBAS (com e sem quote) → fallback: TEXTO com quote', async () => {
     const sendMessage = vi.fn(async (_jid: string, content: any, _opts?: any) => {
       if (content.image) throw new Error('media upload falhou');
       return {};
     });
-    const ok = await replyPresentationToGroup(makeRec(), { sendMessage, loadMessage: vi.fn(async (_jid: string, _id: string) => RAW) });
+    const ok = await replyPresentationToGroup(makeRec(), { sendMessage, loadMessage: vi.fn(async () => RAW) });
 
     expect(ok).toBe(true);
-    expect(sendMessage).toHaveBeenCalledTimes(2);
-    const [jid, content, opts] = sendMessage.mock.calls[1];
+    expect(sendMessage).toHaveBeenCalledTimes(3);
+    const [jid, content, opts] = sendMessage.mock.calls[2];
     expect(jid).toBe(GRUPO);
     expect(content.text).toContain('João Silva');
     expect(opts).toEqual({ quoted: RAW });
