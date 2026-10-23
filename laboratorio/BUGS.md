@@ -654,3 +654,34 @@ Dívida 2 — $cmd toggle persistido + leitor (RESOLVIDO, 22/10):
   sender MASTER_USER do .env + @c.us, não hardcode do número do bot.
 - Limpeza opcional: row órfã command_state ("$ping", do período do bug)
   é inofensiva — nunca consultada; DELETE pendente de aprovação.
+
+INC-017 — Apresentação: coletor surdo + heurística de nome + env vazio (RESOLVIDO 621bae7/03d30e5, 23/10)
+Sintoma: inject de apresentação no LAB processado ([PM] trigger=none), mas
+ZERO sessões, ZERO rows — e nenhum log. O E2E parecia "não acontecer".
+
+Causa raiz (3 bugs em série, cada um mascarando o próximo):
+1. handlePresentationCollect lia `normMsg?.senderId`/`messageId`; o
+   BaileysNormalizer produz `userId`/`id`. O gate `!senderId` retornava
+   ANTES de qualquer log — silêncio total. O teste antigo passava porque o
+   mock foi escrito com o MESMO shape errado (teste pinou o bug, não o
+   contrato).
+2. extractFields "primeira linha" usava `texts[0]` inteiro (sem split \n):
+   mensagem multi-linha (>40 chars) nunca extraía nome.
+3. `TELEGRAM_PRESENTATION_CHAT_ID ?? fallback`: o pm2 --update-env faz
+   MERGE e deixa a var vazia no processo; `??` mantém '' e `Number('')`=NaN
+   mataria a publicação. Chat agora `||` (vazio = fallback); thread
+   permanece `??` (vazio é legítimo: privado sem tópicos).
+
+Detecção rápida: cd ~/bot-wpp && node laboratorio/probe-presentation-collect.js
+(gates, sinais, sessão, consolidação — sem deploy, sem Telegram).
+
+Prevenção: o novo caso do presentationFlow.test prende o CONTRATO REAL do
+normalizer (userId/id); probes standalone contra o dist provam o serviço
+antes de culpar o pipeline.
+
+E2E (23/10): inject real → sessão → consolidate (tick 2min) → SQLite →
+publisher no PRIVADO (146078742): msg 202 (texto: nome/idade/trabalho
+limpos) + msg 203 (sendPhoto picsum + legenda). Grupo Teste precisou
+community_id setado + presentation_enabled=1 (gates silenciosos em série).
+Limpeza aplicada: enabled=0, community_id='', rows de teste deletadas,
+envs de teste zeradas (fallback de produção restaurado, thread 2).

@@ -442,3 +442,16 @@ vez de pular. O teste pegou; sem ele, o bug passaria despercebido em produção.
   DNS resiliente (accept-dns=false), 3 timers (watchdog tailscaled,
   wpp-monitor, manutenção mensal c/ teste de restore).
 - Detalhes: laboratorio/BUGS.md INC-013.
+
+## Apresentações (23/10 — pós INC-017)
+- `presentation_id` NÃO é UNIQUE no SQLite de produção: cada consolidação
+  da mesma pessoa/grupo INSERE nova row (ON CONFLICT nunca dispara).
+  Fix futuro: UNIQUE index + ON CONFLICT real (upsert) na persistência.
+- Foto `photo_source='sent'` nunca coleta hoje: o normMsg não popula
+  `mediaType` (só `hasMedia:false` fixo) — o caminho `sent` precisa de
+  mídia real no normalized message; `url` funciona (provado no E2E).
+- TESTE 2 (welcome real com highlight): PENDENTE DO USUÁRIO — sem
+  `getChat`/participants via lab e sem comando `$add` no bot, o ciclo
+  remove→re-add exige escolha de grupo/candidato e re-add manual.
+- Fluxo por COMANDO ($apresentar → autoreply com quote no WA) não tem
+  E2E — só o caminho contextual (sinais) foi provado end-to-end.
