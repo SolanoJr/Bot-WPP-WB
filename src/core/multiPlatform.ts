@@ -115,8 +115,20 @@ export async function initializePlatforms() {
   // (sessão em cache), o evento 'ready' dispara durante startAll(). Registrar
   // depois perderia o evento — race que deixava scheduler/cleanup/memory
   // monitor sem iniciar. Ver Rodada notícias P5.
-    platformManager.onReady(() => {
-      logger.info('🎉 Todas as plataformas prontas!');
+  // ⚠️ O 'ready' RE-DISPARA a cada reconnect do WhatsApp (boot 23/10 chegou a
+  // 4x). Sem guard, TODO scheduler deste callback duplicava a cada ready —
+  // a consolidação de apresentações publicava 2+ cópias no Telegram (o
+  // retryPending de um timer irmão pegava o row 'consolidated' durante o
+  // picsum download do outro). Schedulers pegam o adapter DINÂMICAMENTE por
+  // tick — re-registrar não é preciso; o guard é seguro.
+  let schedulersStarted = false;
+  platformManager.onReady(() => {
+    if (schedulersStarted) {
+      logger.warn('[multiPlatform] ready re-disparado (reconnect) — schedulers já ativos, skip');
+      return;
+    }
+    schedulersStarted = true;
+    logger.info('🎉 Todas as plataformas prontas!');
       // Iniciar cleanup periódico do autoMod (fingerprints + audit trail)
       startAutoModPeriodicCleanup();
       // Iniciar monitoramento de memória (check a cada 60s)
