@@ -140,9 +140,8 @@ export async function publishToTelegram(
   } catch (e: any) {
     // Telegram indisponível → marca como falha, NÃO perde a apresentação
     await markFailed(rec.presentation_id);
-    logger.warn('[presentationPublisher] falha ao publicar', {
-      presentationId: rec.presentation_id, error: e?.message,
-    });
+    // erro INLINE na string — o console do logger não imprime o meta-objeto
+    logger.warn(`[presentationPublisher] falha ao publicar ${rec.presentation_id}: ${e?.message}`);
     return null;
   }
 }
@@ -168,11 +167,13 @@ export async function replyPresentationToGroup(
     const caption = `${text}\n\n📎 Registro completo: ${TG_TOPIC_URL}`;
 
     // Quote da mensagem original (a última coletada), recuperada do store.
+    // O collectMessage guarda o messageId NORMALIZADO ('whatsapp:558…:ID') —
+    // o loadMessage do Baileys quer o stanzaId cru (split(':').pop()).
     let quoted: any;
     try {
       const ids = JSON.parse(rec.source_message_ids || '[]');
       const lastId = Array.isArray(ids) ? ids[ids.length - 1] : undefined;
-      if (lastId) quoted = await sock.loadMessage?.(rec.group_id, lastId);
+      if (lastId) quoted = await sock.loadMessage?.(rec.group_id, String(lastId).split(':').pop());
     } catch { /* sem quote, envia sem citação */ }
 
     // Foto: buffer (imagem enviada no grupo) > url > placeholder picsum
@@ -192,9 +193,8 @@ export async function replyPresentationToGroup(
       });
       return true;
     } catch (e: any) {
-      logger.warn('[presentationPublisher] envio com foto falhou — caindo para texto', {
-        presentationId: rec.presentation_id, error: e?.message,
-      });
+      // erro INLINE na string — o console do logger não imprime o meta-objeto
+      logger.warn(`[presentationPublisher] envio com foto falhou (${e?.message}) — caindo para texto`);
     }
 
     // 2ª tentativa: texto puro (com quote) — a resposta no grupo é o gate
@@ -205,9 +205,7 @@ export async function replyPresentationToGroup(
     });
     return true;
   } catch (e: any) {
-    logger.warn('[presentationPublisher] resposta no grupo falhou', {
-      presentationId: rec.presentation_id, groupId: rec.group_id, error: e?.message,
-    });
+    logger.warn(`[presentationPublisher] resposta no grupo falhou (${e?.message}) id=${rec.presentation_id}`);
     return false;
   }
 }

@@ -132,4 +132,14 @@ describe('replyPresentationToGroup — quote + template + foto no grupo', () => 
     expect(ok).toBe(true);
     expect(sendMessage.mock.calls[0][2]).toEqual({});
   });
+
+  it('messageId NORMALIZADO (whatsapp:558…:ID) → loadMessage recebe o stanzaId CRU', async () => {
+    const sendMessage = vi.fn(async (_jid: string, _content: any, _opts?: any) => ({}));
+    const loadMessage = vi.fn(async (_jid: string, _id: string) => RAW);
+    await replyPresentationToGroup(
+      makeRec({ source_message_ids: JSON.stringify(['whatsapp:558581344211:lab-123-abc']) }),
+      { sendMessage, loadMessage },
+    );
+    expect(loadMessage).toHaveBeenCalledWith(GRUPO, 'lab-123-abc');
+  });
 });

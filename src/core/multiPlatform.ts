@@ -193,11 +193,14 @@ export async function initializePlatforms() {
               // última mensagem coletada + template + foto. O canal que o
               // usuário VÊ; o Telegram é espelho. Falha aqui NÃO bloqueia a
               // publicação (o record já está consolidado no SQLite).
+              // sock REAL (connection.getSock) — o adapter.client é o Sender,
+              // cujo sendMessage(chatId, text, options) não aceita payload
+              // Baileys cru ({image, caption}, 3º arg quoted).
               if (record.platform === 'whatsapp') {
                 try {
                   const botNum = (process.env.BOT_NUMBER || '558581344211').replace(/\D/g, '');
                   const wpp = platformManager.getAdapter(`whatsapp:${botNum}`);
-                  const sock: any = (wpp as any)?.client;
+                  const sock: any = (wpp as any)?.connection?.getSock?.() ?? (wpp as any)?.client;
                   await replyPresentationToGroup(record, sock, photo);
                 } catch (e: any) {
                   logger.warn('[presentation] resposta no grupo falhou:', e?.message);
