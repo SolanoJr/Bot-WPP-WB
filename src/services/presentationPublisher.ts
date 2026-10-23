@@ -16,7 +16,10 @@ import { getDb } from './databaseService';
 import { markPublished, markFailed, listPending, type PresentationRecord } from './presentationService';
 import logger from './loggerService';
 
-export const TG_CHAT_ID = process.env.TELEGRAM_PRESENTATION_CHAT_ID ?? '-1003470059875';
+// Chat: `||` — env vazio (o pm2 faz merge e deixa a var vazia) deve cair no
+// fallback; `Number('')` seria NaN e mataria a publicação. Thread: `??` —
+// vazio é LEGÍTIMO (privado sem tópicos) e omite message_thread_id.
+export const TG_CHAT_ID = process.env.TELEGRAM_PRESENTATION_CHAT_ID || '-1003470059875';
 export const TG_THREAD_ID = process.env.TELEGRAM_PRESENTATION_THREAD_ID ?? '2';
 
 /** Link público do tópico (para o aviso ao novato). */

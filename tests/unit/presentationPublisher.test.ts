@@ -85,6 +85,17 @@ describe('presentationPublisher — destino por env e foto', () => {
     expect(markPublished).toHaveBeenCalledWith('p1', '-1003470059875', '2', '111');
   });
 
+  it('env vazio de chat cai no fallback (pm2 merge deixa var vazia)', async () => {
+    process.env.TELEGRAM_PRESENTATION_CHAT_ID = '';
+    const pub = await publisher();
+    const bot = botFake();
+
+    await pub.publishToTelegram(rec, bot);
+
+    // '' não pode virar Number('')=NaN: publica no grupo de fallback.
+    expect(bot.telegram.sendMessage).toHaveBeenCalledWith(-1003470059875, expect.any(String), expect.anything());
+  });
+
   it('com foto, publica sendPhoto com legenda e não sendMessage', async () => {
     process.env.TELEGRAM_PRESENTATION_CHAT_ID = '146078742';
     const pub = await publisher();

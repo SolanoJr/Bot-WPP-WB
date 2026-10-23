@@ -1,9 +1,28 @@
 # CHANGELOG.md — Linha do Tempo do Projeto Bot-WPP
 
-> **Última atualização**: 2026-10-22
+> **Última atualização**: 2026-10-23
 > **Suíte**: 509 testes / 35 arquivos (unit + integração)
 
 ---
+
+## 2026-10-23 (Render watchdog + apresentação: destino por env e foto)
+
+| Evento | Arquivos |
+|--------|----------|
+| **Render watchdog**: client `player.js` emite heartbeat a cada 2s (`rendered`: visivel/pinturas/fila/dadosFluindo); server `rooms.js` dispara `need-keyframe` após 4s de stall real (visível + dados fluindo + zero pinturas) com cooldown 8s; viewers WebRTC-direto isentos (`__rtc`) | `discord-screen/client/src/player.js`, `discord-screen/server/rooms.js` |
+| Testes: 4 cenários de stall (fake timers) + contador de pinturas — pegaram o bug do `lastKeyframeReq ?? 0` (sentinela `0` = "cooldown eterno" em clock de epoch 0) | `discord-screen/server/rooms.test.js`, `client/src/player.test.js` |
+| **Apresentação → Telegram com destino configurável**: `TELEGRAM_PRESENTATION_CHAT_ID`/`_THREAD_ID` com fallback no grupo Fortaleza 085; thread vazio omite `message_thread_id` (privado rejeita 0) | `presentationPublisher.ts` |
+| **Foto na publicação**: `publishToTelegram` aceita `photo` (url/buffer) → `sendPhoto` com legenda (limite 1024); edit de publicação com foto edita a legenda; `multiPlatform` resolve `photo_source 'url'` direto e `'sent'` baixa via Baileys com fallback para texto puro | `presentationPublisher.ts`, `multiPlatform.ts` |
+| Testes: 6 no publisher (override de destino, fallback, foto url/buffer, edit de legenda, falha → `markFailed`) | `tests/unit/presentationPublisher.test.ts` (novo) |
+| E2E: fluxo completo coleta → SQLite → Telegram provado no **privado** do dono (grupo Teste promovido a comunidade-085 + `presentation_enabled` via DB, inject com sender fake, consolidação por timer) | VPS |
+
+**Descobertas por teste:** o grupo LAB (`Teste`) não pertencia à comunidade
+085 (`community_groups.community_id` vazio) — o coletor de apresentações tem
+dois gates em série (comunidade + `presentation_enabled`) e é SILENCIOSO em
+ambos, então nada era coletado. E o `pm2 restart --update-env` herda o `PWD`
+do shell chamador: o `DiscordScreenService` resolve `discord-screen/` a partir
+de `process.env.PWD` — restart feito do `$HOME` mata o spawn do screen com
+`spawn node ENOENT`.
 
 ## 2026-10-22 (INC-016: pareamento, boot handler, build)
 
