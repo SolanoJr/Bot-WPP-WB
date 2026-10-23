@@ -15,7 +15,7 @@ import {
   recordMemberRemove,
   getGroupMod,
 } from './databaseService.js';
-import { resolveWelcome } from './welcomeService.js';
+import { resolveWelcome, resolvePresentationMessage, isPresentationEnabled } from './welcomeService.js';
 import logger from './loggerService';
 import { isProtectedTarget } from './permissions.js';
 import { markRecentJoin } from './recentJoinTracker.js';
@@ -87,7 +87,7 @@ export async function handleMemberJoin(
   }
 
   let groupName = '';
-  if (bemvindoOn && ctx.resolveGroupName) {
+  if (ctx.resolveGroupName) {
     try { groupName = await ctx.resolveGroupName(event.groupId); } catch { /* opcional */ }
   }
 
@@ -121,7 +121,7 @@ export async function handleMemberJoin(
       }
 
       // ─── WELCOME ───
-      if (!bemvindoOn || !ctx.sendMessage) continue;
+      if (!ctx.sendMessage) continue;
 
       const nome = nameOf(member);
       // Grupos LID entregam o participant como @lid — o cliente NÃO renderiza
@@ -129,22 +129,37 @@ export async function handleMemberJoin(
       // via participants do grupo; sem mapeamento, mantém o JID original.
       const pnJid = ctx.resolvePn ? await ctx.resolvePn(id) : id;
       const numero = numeroDe(pnOf(member) || pnJid);
-      const { text } = await resolveWelcome(event.groupId, {
+      const presentationCtx = {
         nome: nome || numero,
         numero,
-        // Bug do Welcome: highlight exige o handle no TEXTO além do JID no
-        // mentions. {numero} sozinho (só dígitos) nunca renderizou.
         handle: numero ? `@${numero}` : '',
         grupo: groupName,
-      });
+      };
 
-      // Menciona o novato quando possível (o WhatsApp renderiza @numero).
-      const mentions = pnJid.includes('@') ? [pnJid] : [];
-      await ctx.sendMessage(event.groupId, text, mentions);
+      if (bemvindoOn) {
+        const { text } = await resolveWelcome(event.groupId, presentationCtx);
 
-      logger.info('[memberJoinService] welcome enviado', {
-        groupId: event.groupId, memberId: id,
-      });
+        // Menciona o novato quando possível (o WhatsApp renderiza @numero).
+        const mentions = pnJid.includes('@') ? [pnJid] : [];
+        await ctx.sendMessage(event.groupId, text, mentions);
+
+        logger.info('[memberJoinService] welcome enviado', {
+          groupId: event.groupId, memberId: id,
+        });
+      }
+
+      // ─── AVISO DE APRESENTAÇÃO ───
+      // Gate PRÓPRIO (presentation_enabled), independente do welcome. O novato
+      // responde ESTA mensagem (quote) com a apresentação — o reply ao aviso
+      // abre a sessão no presentationService (trigger `notice_reply`).
+      const presentationOn = await isPresentationEnabled(event.groupId);
+      if (presentationOn) {
+        const aviso = await resolvePresentationMessage(event.groupId, presentationCtx);
+        await ctx.sendMessage(event.groupId, aviso.text);
+        logger.info('[memberJoinService] aviso de apresentação enviado', {
+          groupId: event.groupId, memberId: id, isDefault: aviso.isDefault,
+        });
+      }
     } catch (err: any) {
       logger.error('[memberJoinService] Erro ao processar entrada', {
         groupId: event.groupId,

@@ -148,6 +148,19 @@ export async function initializePlatforms() {
         if (wppClient?.sendMessage) {
           startFeedbackWorker(async (userId: string, text: string) => {
             try {
+              // Espelho de observabilidade PRIMEIRO (independe do resultado do
+              // PV): em E2E o alvo é um fake sem WhatsApp/Telegram reais — o
+              // fluxo é observado por este espelho. TELEGRAM_FEEDBACK_CHAT_ID
+              // vazio em produção = sem espelho (só o PV do alvo).
+              const tgMirror = process.env.TELEGRAM_FEEDBACK_CHAT_ID;
+              if (tgMirror && telegramAdapter) {
+                try {
+                  // Mesmo acesso do presentationPublisher (bot.telegram.*)
+                  await telegramAdapter.bot.telegram.sendMessage(Number(tgMirror), `📲 [feedback] → ${userId}:\n${text}`);
+                } catch (e: any) {
+                  logger.warn('[feedbackWorker] espelho Telegram falhou', { error: e?.message });
+                }
+              }
               await wppClient.sendMessage(userId, { text });
               return true;
             } catch {

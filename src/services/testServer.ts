@@ -116,7 +116,18 @@ export async function injectParticipantEvent(
  */
 export async function injectMessage(
   adapter: LabAdapterLike | null | undefined,
-  body: { groupId?: unknown; senderId?: unknown; text?: unknown; mentions?: string[] },
+  body: {
+    groupId?: unknown;
+    senderId?: unknown;
+    text?: unknown;
+    mentions?: string[];
+    /** ID (stanzaId) da mensagem citada — simula reply do novato ao aviso do bot. */
+    quotedStanzaId?: string;
+    /** Participant da mensagem citada (JID do autor original). */
+    quotedParticipant?: string;
+    /** Texto da mensagem citada (reconstruído no contextInfo). */
+    quotedText?: string;
+  },
 ): Promise<{ ok: true; messageId: string }> {
   if (body.groupId !== LAB_GROUP_ID) {
     throw new LabError(`Grupo não permitido. Lab só aceita ${LAB_GROUP_ID}`, 403);
@@ -130,14 +141,20 @@ export async function injectMessage(
   }
   const dispatch = normalizer.dispatchMessage;
   const messageId = `lab-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  // contextInfo: mentions e/ou quote (reply). O normalizer extrai
+  // replyToMessageId/quotedText do contextInfo — mesmo formato do wire.
+  const contextInfo: Record<string, unknown> = {};
+  if (body.mentions && body.mentions.length > 0) {
+    contextInfo.mentionedJidList = body.mentions;
+  }
+  if (body.quotedStanzaId) {
+    contextInfo.stanzaId = String(body.quotedStanzaId);
+    if (body.quotedParticipant) contextInfo.participant = String(body.quotedParticipant);
+    contextInfo.quotedMessage = { conversation: String(body.quotedText ?? '') };
+  }
   const message: Record<string, unknown> =
-    body.mentions && body.mentions.length > 0
-      ? {
-          extendedTextMessage: {
-            text: body.text,
-            contextInfo: { mentionedJidList: body.mentions },
-          },
-        }
+    Object.keys(contextInfo).length > 0
+      ? { extendedTextMessage: { text: body.text, contextInfo } }
       : { conversation: body.text };
   await dispatch.call(normalizer, {
     key: { id: messageId, remoteJid: body.groupId, fromMe: false, participant: body.senderId },
@@ -1103,6 +1120,31 @@ export function startTestServer(port: number = 3004): http.Server {
               timestamps: { removedAt, addedAt },
               removeResult, addResult,
             }, null, 1));
+          } catch (err: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err?.message || String(err) }));
+          }
+          return;
+        }
+
+        // ─── /lab/run-feedback-worker: dispara UM ciclo do worker AGORA ────
+        // E2E do feedback: sem esperar o interval de 6h. Usa o MESMO send
+        // registrado pelo startFeedbackWorker (PV WhatsApp + espelho
+        // TELEGRAM_FEEDBACK_CHAT_ID). A janela de agrupamento (10min) continua
+        // valendo: eventos recentes ficam 'young' e não são enviados.
+        if (req.url === '/lab/run-feedback-worker') {
+          try {
+            const { runFeedbackWorker, getRegisteredFeedbackSend } = await import('./feedbackWorker.js');
+            const send = getRegisteredFeedbackSend();
+            if (!send) {
+              res.writeHead(503, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'worker de feedback não registrado (bot não iniciou?)' }));
+              return;
+            }
+            const stats = await runFeedbackWorker(send);
+            logInfo('[TestServer] /lab/run-feedback-worker', { stats });
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, stats }, null, 1));
           } catch (err: any) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: err?.message || String(err) }));

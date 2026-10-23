@@ -227,7 +227,30 @@ export class BaileysMessageNormalizer {
       // não apenas comandos.
       try {
         const { handlePresentationCollect } = await import('../../../services/presentationService.js');
-        await handlePresentationCollect(normMsg);
+        const collectResult = await handlePresentationCollect(normMsg);
+        // Confirmação imediata na abertura da sessão (design 23/10): o bot
+        // acusa recebimento NO GRUPO quotando a mensagem que abriu a sessão;
+        // a consolidação (10min de idle) publica o template final no Telegram.
+        if (collectResult?.opened) {
+          try {
+            const quotedParticipant = normMsg?.userId || collectResult.senderId;
+            await this.sendMessage(
+              normMsg.chatId,
+              '📝 Apresentação recebida! Vou salvar no nosso grupo do Telegram.',
+              {
+                replyToMessageId: collectResult.messageId,
+                quotedParticipant,
+                quotedText: collectResult.text,
+              },
+            );
+            logInfo('[presentationConfirm] confirmação enviada no grupo', {
+              chatId: normMsg.chatId, trigger: collectResult.trigger,
+              replyTo: collectResult.messageId, quotedParticipant,
+            });
+          } catch (e: any) {
+            logWarning('[presentationConfirm] envio falhou', { err: String(e?.message || e) });
+          }
+        }
       } catch { /* não bloqueia o fluxo principal */ }
 
       // ─── Sarcasmo (automação independente do AutoMod)

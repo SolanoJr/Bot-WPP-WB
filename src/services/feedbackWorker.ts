@@ -129,6 +129,17 @@ let workerStarted = false;
  * Registra o worker no boot (padrão newsScheduler/cleanup: setInterval
  * com unref). Primeira execução 2 min após o ready — evita burst no boot.
  */
+// ─── Probe p/ E2E do laboratório ────────────────────────────────────────────
+// O send registrado pelo startFeedbackWorker (mesma instância que o worker
+// periódico usa). A rota /lab/run-feedback-worker do testServer dispara
+// runFeedbackWorker com ESTA fn — sem esperar o interval de 6h em teste.
+let registeredSend: FeedbackSendFn | null = null;
+
+/** Send registrado pelo startFeedbackWorker (ou null se o worker não subiu). */
+export function getRegisteredFeedbackSend(): FeedbackSendFn | null {
+  return registeredSend;
+}
+
 export function startFeedbackWorker(
   send: FeedbackSendFn,
   intervalMs: number = FEEDBACK_RUN_INTERVAL_MS,
@@ -138,6 +149,7 @@ export function startFeedbackWorker(
     return undefined;
   }
   workerStarted = true;
+  registeredSend = send;
   const tick = async () => {
     try {
       await runFeedbackWorker(send);

@@ -172,6 +172,8 @@ export async function initDatabase(): Promise<Database> {
 
     // Welcome configurável por grupo. NULL = usa o padrão do sistema.
     await addColumnIfMissing('group_mod', 'welcome_message', 'welcome_message TEXT DEFAULT NULL');
+    // Aviso de apresentação custom (aditivo ao DEFAULT_PRESENTATION_MESSAGE)
+    await addColumnIfMissing('group_mod', 'presentation_message', 'presentation_message TEXT DEFAULT NULL');
 
     // Apresentações: ativa/desativa por grupo (default 0 = desligado).
     await addColumnIfMissing('group_mod', 'presentation_enabled', 'presentation_enabled INTEGER NOT NULL DEFAULT 0');

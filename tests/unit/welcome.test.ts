@@ -13,6 +13,8 @@ const store = {
   bans: new Set<string>(),
   joins: [] as any[],
 };
+// toggles presentation_enabled por grupo (lidos pelo getDb mockado abaixo)
+const presentationToggles = new Set<string>();
 
 vi.mock('../../src/services/databaseService', () => ({
   getGroupMod: vi.fn(async (groupId: string) => store.mod.get(groupId) || {}),
@@ -20,6 +22,22 @@ vi.mock('../../src/services/databaseService', () => ({
   banUser: vi.fn(async () => {}),
   recordMemberJoin: vi.fn(async (g: string, u: string) => { store.joins.push({ g, u }); }),
   recordMemberRemove: vi.fn(async () => {}),
+  // isPresentationEnabled/getPresentationMessage (welcomeService real) leem via
+  // getDb — mini-DB mockado com os toggles/colunas que o fluxo consulta.
+  getDb: vi.fn(async () => ({
+    get: async (sql: string, params: any[]) => {
+      const s = String(sql);
+      const gid = String(params?.[0] ?? '');
+      if (s.includes('presentation_enabled')) {
+        return presentationToggles.has(gid) ? { presentation_enabled: 1 } : { presentation_enabled: 0 };
+      }
+      if (s.includes('presentation_message')) return null; // default
+      if (s.includes('welcome_message')) return null; // default
+      return null;
+    },
+    run: async () => {},
+  })),
+  ensureGroupModRow: vi.fn(async (g: string) => g),
 }));
 
 vi.mock('../../src/services/loggerService', () => ({
@@ -261,8 +279,79 @@ describe('composeWelcome — design ADITIVO (INC-012b)', () => {
 
   it('render do composto preserva o \\n\\n e substitui o @novato', async () => {
     const { composeWelcome, renderWelcome } = await import('../../src/services/welcomeService');
-    const template = composeWelcome('Bem-vindo ao grupo!');
-    const out = renderWelcome(template, { numero: '558581344211' });
-    expect(out).toBe('Boas-vindas @558581344211 👋\n\nBem-vindo ao grupo!');
-  });
-});
+        const template = composeWelcome('Bem-vindo ao grupo!');
+        const out = renderWelcome(template, { numero: '558581344211' });
+        expect(out).toBe('Boas-vindas @558581344211 👋\n\nBem-vindo ao grupo!');
+      });
+    });
+
+    // ─── P1 (23/10): aviso de apresentação — default aditivo + hook no join ─────
+
+    describe('composePresentationMessage — aditivo (P1)', () => {
+      it('texto vazio → default puro', async () => {
+        const { composePresentationMessage, DEFAULT_PRESENTATION_MESSAGE } = await import('../../src/services/welcomeService');
+        expect(composePresentationMessage('')).toBe(DEFAULT_PRESENTATION_MESSAGE);
+        expect(composePresentationMessage('   ')).toBe(DEFAULT_PRESENTATION_MESSAGE);
+      });
+
+      it('linhas novas do admin → EMBAIXO do default (default não é apagado)', async () => {
+        const { composePresentationMessage, DEFAULT_PRESENTATION_MESSAGE } = await import('../../src/services/welcomeService');
+        const out = composePresentationMessage('Regra extra: sem links');
+        expect(out.startsWith(DEFAULT_PRESENTATION_MESSAGE)).toBe(true);
+        expect(out.endsWith('Regra extra: sem links')).toBe(true);
+      });
+
+      it('texto que JÁ contém o default → não duplica', async () => {
+        const { composePresentationMessage, DEFAULT_PRESENTATION_MESSAGE } = await import('../../src/services/welcomeService');
+        const full = `${DEFAULT_PRESENTATION_MESSAGE}\n\nRegra extra`;
+        expect(composePresentationMessage(full)).toBe(full);
+      });
+
+      it('default contém o link do Telegram do grupo-alvo', async () => {
+        const { DEFAULT_PRESENTATION_MESSAGE } = await import('../../src/services/welcomeService');
+        expect(DEFAULT_PRESENTATION_MESSAGE).toContain('https://t.me/Fortaleza_085/2');
+        expect(DEFAULT_PRESENTATION_MESSAGE).toContain('Para se apresentar');
+      });
+    });
+
+    describe('aviso de apresentação no join (P1 — gate próprio)', () => {
+      beforeEach(() => {
+        store.mod.clear();
+        store.bans.clear();
+        presentationToggles.clear();
+      });
+
+      it('welcome ON + presentation ON → welcome E aviso (2 mensagens, aviso depois)', async () => {
+        store.mod.set(GRUPO_B, { bemvindo: true });
+        presentationToggles.add(GRUPO_B);
+        const ctx = makeCtx();
+        const { handleMemberJoin } = await loadService();
+        await handleMemberJoin(ctx, { groupId: GRUPO_B, members: ['5511999998888@c.us'] });
+
+        expect(ctx.sent.length).toBe(2);
+        expect(ctx.sent[0].text).toContain('Boas-vindas');
+        expect(ctx.sent[1].text).toContain('Para se apresentar');
+        expect(ctx.sent[1].text).toContain('https://t.me/Fortaleza_085/2');
+      });
+
+      it('presentation OFF → só welcome (1 mensagem, sem aviso)', async () => {
+        store.mod.set(GRUPO_B, { bemvindo: true });
+        const ctx = makeCtx();
+        const { handleMemberJoin } = await loadService();
+        await handleMemberJoin(ctx, { groupId: GRUPO_B, members: ['5511999998888@c.us'] });
+
+        expect(ctx.sent.length).toBe(1);
+        expect(ctx.sent[0].text).toContain('Boas-vindas');
+      });
+
+      it('welcome OFF + presentation ON → aviso sai mesmo assim (gate é do aviso, não do welcome)', async () => {
+        store.mod.set(GRUPO_B, { bemvindo: 0 });
+        presentationToggles.add(GRUPO_B);
+        const ctx = makeCtx();
+        const { handleMemberJoin } = await loadService();
+        await handleMemberJoin(ctx, { groupId: GRUPO_B, members: ['5511999998888@c.us'] });
+
+        expect(ctx.sent.length).toBe(1);
+        expect(ctx.sent[0].text).toContain('Para se apresentar');
+      });
+    });

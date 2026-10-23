@@ -174,3 +174,83 @@ describe('$apresentacao — coleta → sessão → consolidação → SQLite', (
     expect(entry?.record?.trabalho).toBe('informática');
   });
 });
+
+// ─── P2 (23/10): abertura de sessão retorna contexto + persiste 'collecting' ─
+
+describe('handlePresentationCollect — confirmação imediata (P2)', () => {
+  beforeEach(async () => {
+    await wl.upsertCommunityGroup(LAB, ps.COMMUNITY_085_ID, 'Lab');
+    await db.setGroupModField(LAB, 'presentation_enabled', 1);
+  });
+
+  it('≥2 sinais → retorna opened(trigger=signals) + row collecting no SQLite NA HORA', async () => {
+    const r = await ps.handlePresentationCollect({
+      chatId: LAB, userId: USER, messageId: 'lab-c1', id: 'lab-c1',
+      text: 'João Silva\nTenho 30 anos e trabalho com informática',
+    });
+    expect(r?.opened).toBe(true);
+    expect(r?.trigger).toBe('signals');
+    expect(r?.messageId).toBe('lab-c1');
+    expect(r?.text).toContain('João Silva');
+
+    // A row existe JÁ na abertura (sem esperar os 10min de consolidação)
+    const conn: any = await (db as any).getDb();
+    const row = await conn.get(
+      `SELECT status, original_text, source_message_ids FROM presentations WHERE presentation_id = ?`,
+      [`${LAB}|${USER}`],
+    );
+    expect(row.status).toBe('collecting');
+    expect(row.original_text).toContain('João Silva');
+    expect(row.source_message_ids).toContain('lab-c1');
+  });
+
+  it('reply ao AVISO do bot → abre com trigger=notice_reply', async () => {
+    const aviso = wl.composePresentationMessage('');
+    const r = await ps.handlePresentationCollect({
+      chatId: LAB, userId: USER2, messageId: 'lab-c2', id: 'lab-c2',
+      text: 'Maria Souza, 25 anos, trabalho com saúde',
+      quotedText: aviso,
+    });
+    expect(r?.opened).toBe(true);
+    expect(r?.trigger).toBe('notice_reply');
+  });
+
+  it('mensagem subsequente na sessão aberta → null (sem re-confirmar) e coleta', async () => {
+    await ps.handlePresentationCollect({
+      chatId: LAB, userId: USER, messageId: 'lab-c3', id: 'lab-c3',
+      text: 'Tenho 30 anos e trabalho com informática',
+    });
+    const r2 = await ps.handlePresentationCollect({
+      chatId: LAB, userId: USER, messageId: 'lab-c4', id: 'lab-c4',
+      text: 'E moro no bairro Aldeota',
+    });
+    expect(r2).toBeNull();
+    const s = ps.getActiveSession(LAB, USER);
+    expect(s?.collectedTexts.some(t => t.includes('Aldeota'))).toBe(true);
+  });
+
+  it('toggle off → null e SEM row', async () => {
+    await db.setGroupModField(LAB, 'presentation_enabled', 0);
+    const r = await ps.handlePresentationCollect({
+      chatId: LAB, userId: USER, messageId: 'lab-c5', id: 'lab-c5',
+      text: 'Tenho 30 anos e trabalho com informática',
+    });
+    expect(r).toBeNull();
+    const conn: any = await (db as any).getDb();
+    const rows = await conn.all(`SELECT * FROM presentations`);
+    expect(rows.length).toBe(0);
+  });
+
+  it('consolidação re-upserta a row collecting → consolidated (sem duplicar)', async () => {
+    await ps.handlePresentationCollect({
+      chatId: LAB, userId: USER, messageId: 'lab-c6', id: 'lab-c6',
+      text: 'João Silva\nTenho 30 anos e trabalho com informática',
+    });
+    const [entry] = await ps.consolidateStale(0);
+    expect(entry?.record?.status).toBe('consolidated');
+    const conn: any = await (db as any).getDb();
+    const rows = await conn.all(`SELECT * FROM presentations WHERE presentation_id = ?`, [`${LAB}|${USER}`]);
+    expect(rows.length).toBe(1);
+    expect(rows[0].status).toBe('consolidated');
+  });
+});

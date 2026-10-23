@@ -209,3 +209,20 @@ describe('INC-016 B — worker de envio', () => {
     expect(ev?.attempts).toBe(3);
   });
 });
+
+// ─── P3/P4 (23/10): o send registrado fica exposto p/ /lab/run-feedback-worker
+describe('probe registrado p/ /lab/run-feedback-worker', () => {
+  it('startFeedbackWorker registra o send; getRegisteredFeedbackSend devolve a MESMA fn', async () => {
+    const { startFeedbackWorker, getRegisteredFeedbackSend } = await import('../../src/services/feedbackWorker');
+    const fn = async (_u: string, _t: string) => true;
+    const timer = startFeedbackWorker(fn, 60 * 60 * 1000);
+    expect(getRegisteredFeedbackSend()).toBe(fn);
+    if (timer) clearTimeout(timer as any);
+  });
+
+  it('worker nunca iniciado (módulo fresh) → null', async () => {
+    vi.resetModules();
+    const { getRegisteredFeedbackSend } = await import('../../src/services/feedbackWorker');
+    expect(getRegisteredFeedbackSend()).toBeNull();
+  });
+});

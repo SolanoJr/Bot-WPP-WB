@@ -223,3 +223,37 @@ describe('INC-008 — buildAntiBotTestMessage (extraText no /lab/antibot-test)',
     expect(m.buttonsMessage.contentText).toBe('spam');
   });
 });
+
+// ─── P4 passo 5 (23/10): inject com QUOTE — simula o novato respondendo ao
+// aviso do bot. contextInfo precisa trazer stanzaId/participant/quotedMessage
+// no MESMO formato do wire (é o que o normalizer extrai p/ quotedText).
+describe('lab inject — quote (reply simulado)', () => {
+  it('monta contextInfo com stanzaId + participant + quotedMessage', async () => {
+    const dispatch = vi.fn(async () => {});
+    const adapter = { normalizer: { dispatchMessage: dispatch } } as any;
+    const res = await injectMessage(adapter, {
+      groupId: GROUP,
+      senderId: '5585999999999@s.whatsapp.net',
+      text: 'João Silva\nTenho 30 anos e trabalho com informática',
+      quotedStanzaId: '3EB0AVISO123',
+      quotedParticipant: '2592935567439@lid',
+      quotedText: '📝 Para se apresentar, responda esta mensagem...',
+    });
+    expect(res.ok).toBe(true);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    const payload = dispatch.mock.calls[0][0];
+    const etm = payload.message.extendedTextMessage;
+    expect(etm.text).toContain('João Silva');
+    expect(etm.contextInfo.stanzaId).toBe('3EB0AVISO123');
+    expect(etm.contextInfo.participant).toBe('2592935567439@lid');
+    expect(etm.contextInfo.quotedMessage.conversation).toContain('Para se apresentar');
+  });
+
+  it('sem quote e sem mentions → conversation pura (compat com E2E anterior)', async () => {
+    const dispatch = vi.fn(async () => {});
+    const adapter = { normalizer: { dispatchMessage: dispatch } } as any;
+    await injectMessage(adapter, { groupId: GROUP, senderId: '5585999999999@s.whatsapp.net', text: 'oi' });
+    const payload = dispatch.mock.calls[0][0];
+    expect(payload.message.conversation).toBe('oi');
+  });
+});

@@ -75,6 +75,65 @@ export function composeWelcome(text: string): string {
   return jaTemDefault ? t : `${DEFAULT_WELCOME}\n\n${t}`;
 }
 
+// ─── Aviso de apresentação (default aditivo — mesmo padrão do welcome) ──────
+// O aviso é enviado após o welcome (memberJoinService) quando
+// `presentation_enabled=1`. O novato responde ESTA mensagem (quote) com sua
+// apresentação — o reply ao aviso também abre a sessão no presentationService
+// (trigger `notice_reply`).
+
+export const DEFAULT_PRESENTATION_MESSAGE =
+  '📝 Para se apresentar, responda esta mensagem com seu nome, idade e o que você faz. ' +
+  'Sua apresentação (e as dos outros membros) fica salva no nosso grupo do Telegram: https://t.me/Fortaleza_085/2';
+
+/**
+ * Composição ADITIVA (igual `composeWelcome`): o admin adiciona linhas embaixo
+ * sem apagar o default. Texto vazio/igual ao default → default puro.
+ */
+export function composePresentationMessage(text: string): string {
+  const t = String(text ?? '').trim();
+  if (!t) return DEFAULT_PRESENTATION_MESSAGE;
+  const jaTemDefault = t.includes('Para se apresentar');
+  return jaTemDefault ? t : `${DEFAULT_PRESENTATION_MESSAGE}\n\n${t}`;
+}
+
+/** Texto custom do aviso de apresentação do grupo (ou null → default). */
+export async function getPresentationMessage(groupId: string): Promise<string | null> {
+  try {
+    const { getDb } = await import('./databaseService.js');
+    const db = await getDb();
+    const row: any = await db.get(
+      `SELECT presentation_message FROM group_mod WHERE group_id = ?`,
+      [groupId],
+    );
+    const v = row?.presentation_message;
+    return (typeof v === 'string' && v.trim()) ? v : null;
+  } catch (e: any) {
+    logger.warn('[welcomeService] getPresentationMessage falhou', { groupId, error: e?.message });
+    return null;
+  }
+}
+
+/**
+ * Define (ou limpa) o aviso de apresentação do grupo.
+ * @param text  texto novo; `null` restaura o padrão
+ */
+export async function setPresentationMessage(groupId: string, text: string | null): Promise<void> {
+  const { ensureGroupModRow } = await import('./databaseService.js');
+  const key = await ensureGroupModRow(groupId);
+  const db = await getDb();
+  await db.run(`UPDATE group_mod SET presentation_message = ? WHERE group_id = ?`, [text, key]);
+}
+
+/** Texto efetivo do aviso: o do grupo, ou o padrão (renderizado com o ctx). */
+export async function resolvePresentationMessage(
+  groupId: string,
+  ctx: WelcomeContext,
+): Promise<{ text: string; isDefault: boolean }> {
+  const custom = await getPresentationMessage(groupId);
+  const template = composePresentationMessage(custom ?? '');
+  return { text: renderWelcome(template, ctx), isDefault: custom === null };
+}
+
 /**
  * Lê o welcome configurado do grupo.
  * @returns o texto configurado, ou null se o grupo usa o padrão.

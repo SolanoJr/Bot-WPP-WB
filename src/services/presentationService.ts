@@ -32,7 +32,7 @@ export const TG_THREAD_ID = '2';
 /** Janela de inatividade para consolidar (padrão: 10 minutos). */
 export const DEFAULT_IDLE_MS = 10 * 60 * 1000;
 
-export type PresentationTrigger = 'welcome_reply' | 'command' | 'signals' | 'continuation';
+export type PresentationTrigger = 'welcome_reply' | 'notice_reply' | 'command' | 'signals' | 'continuation';
 export type PresentationStatus = 'collecting' | 'consolidated' | 'published' | 'failed';
 
 export interface PresentationSession {
@@ -165,7 +165,18 @@ export function findStaleSessions(idleMs: number = DEFAULT_IDLE_MS, now: number 
  * Coleta uma mensagem para a sessão de apresentação do usuário.
  * Chamada pelo normalizer a cada mensagem recebida.
  */
-export async function handlePresentationCollect(normMsg: any): Promise<void> {
+/** Resultado da coleta quando uma sessão É ABERTA por esta mensagem. */
+export interface CollectOpenInfo {
+  opened: boolean;
+  trigger: 'welcome_reply' | 'notice_reply' | 'signals';
+  chatId: string;
+  senderId: string;
+  messageId: string;
+  /** Texto da mensagem que abriu a sessão (para o quote da confirmação). */
+  text: string;
+}
+
+export async function handlePresentationCollect(normMsg: any): Promise<CollectOpenInfo | null> {
   try {
     const { getOrCreateSession, getActiveSession, collectMessage, isCommunity085Group } =
       await import('./presentationService.js');
@@ -180,22 +191,35 @@ export async function handlePresentationCollect(normMsg: any): Promise<void> {
     const messageId = normMsg?.messageId || normMsg?.id || '';
     const mediaType = normMsg?.mediaType;
 
-    if (!chatId || !senderId || !chatId.includes('@g.us')) return;
-    if (normMsg?.isFromMe) return; // não coleta mensagens do próprio bot
+    if (!chatId || !senderId || !chatId.includes('@g.us')) return null;
+    if (normMsg?.isFromMe) return null; // não coleta mensagens do próprio bot
 
     // 1. Precisa estar na Comunidade 085
     const inCommunity = await isCommunity085Group(chatId);
-    if (!inCommunity) return;
+    if (!inCommunity) return null;
 
     // 2. Precisa ter presentation_enabled = 1 no grupo
     const enabled = await isPresentationEnabled(chatId);
-    if (!enabled) return;
+    if (!enabled) return null;
 
-    // 3. Sessão já aberta → continua coletando
+    /** Abre a sessão, coleta a mensagem, persiste row 'collecting' e retorna
+     *  o contexto para o caller enviar a confirmação imediata no grupo. */
+    const openAndCollect = async (trigger: CollectOpenInfo['trigger']): Promise<CollectOpenInfo> => {
+      const s = getOrCreateSession(chatId, senderId, trigger);
+      collectMessage(s, messageId, text, mediaType ? { type: mediaType === 'image' ? 'image' : 'other', mediaType } : undefined);
+      // Persistência NA ABERTURA: a row 'collecting' fica visível na hora (o
+      // usuário confere o DB sem esperar 10min). A consolidação re-upserta o
+      // mesmo presentation_id com 'consolidated' → 'published'.
+      try { await persistPresentation(s, {}, 'collecting'); } catch { /* não bloqueia a coleta */ }
+      logger.info('[presentationCollect] sessão aberta', { chatId, senderId, trigger, messageId });
+      return { opened: true, trigger, chatId, senderId, messageId, text };
+    };
+
+    // 3. Sessão já aberta → continua coletando (sem re-confirmar)
     const active = getActiveSession(chatId, senderId);
     if (active) {
       collectMessage(active, messageId, text, mediaType ? { type: mediaType === 'image' ? 'image' : 'other', mediaType } : undefined);
-      return;
+      return null;
     }
 
     // 4. Reply à mensagem de welcome → MUITO FORTE
@@ -208,20 +232,30 @@ export async function handlePresentationCollect(normMsg: any): Promise<void> {
       // resolveu — casa pelo trecho fixo do começo (vale p/ default e p/ custom).
       const fixedPrefix = template.split(/[{@]/)[0].trim();
       if (fixedPrefix && quotedText.startsWith(fixedPrefix)) {
-        const s = getOrCreateSession(chatId, senderId, 'welcome_reply');
-        collectMessage(s, messageId, text, mediaType ? { type: mediaType === 'image' ? 'image' : 'other', mediaType } : undefined);
-        return;
+        return openAndCollect('welcome_reply');
+      }
+
+      // 4b. Reply ao AVISO de apresentação (a msg que o bot manda no join,
+      // quando presentation_enabled=1) → MUITO FORTE. O novato responde AO
+      // AVISO com a apresentação — mesma semântica do welcome_reply.
+      const { getPresentationMessage, composePresentationMessage } = await import('./welcomeService.js');
+      const avisoCustom = await getPresentationMessage(chatId);
+      const avisoTemplate = composePresentationMessage(avisoCustom ?? '');
+      const avisoPrefix = avisoTemplate.split(/[{@]/)[0].trim();
+      if (avisoPrefix && quotedText.startsWith(avisoPrefix)) {
+        return openAndCollect('notice_reply');
       }
     }
 
     // 5. Gatilho contextual: ≥2 sinais de apresentação no texto
     const sinais = countPresentationSignals(text);
     if (sinais >= 2) {
-      const s = getOrCreateSession(chatId, senderId, 'signals');
-      collectMessage(s, messageId, text, mediaType ? { type: mediaType === 'image' ? 'image' : 'other', mediaType } : undefined);
+      return openAndCollect('signals');
     }
+    return null;
   } catch (e: any) {
     // Silencioso — não bloqueia o fluxo principal
+    return null;
   }
 }
 
@@ -303,7 +337,7 @@ export function extractFields(texts: string[]): Partial<PresentationRecord> {
 
 function toRecord(s: PresentationSession, meta: {
   phoneNumber?: string; displayName?: string; groupId?: string; platform?: string;
-}): PresentationRecord {
+}, status: PresentationStatus = 'consolidated'): PresentationRecord {
   const fields = extractFields(s.collectedTexts);
   const now = Date.now();
   return {
@@ -330,7 +364,7 @@ function toRecord(s: PresentationSession, meta: {
     tg_chat_id: null,
     tg_thread_id: null,
     tg_message_id: null,
-    status: 'consolidated',
+    status,
     created_at: s.startedAt,
     updated_at: now,
   };
@@ -340,8 +374,9 @@ function toRecord(s: PresentationSession, meta: {
 export async function persistPresentation(
   s: PresentationSession,
   meta: { phoneNumber?: string; displayName?: string; platform?: string },
+  status: PresentationStatus = 'consolidated',
 ): Promise<PresentationRecord> {
-  const rec = toRecord(s, meta);
+  const rec = toRecord(s, meta, status);
   const db = await getDb();
   await db.run(
     `INSERT INTO presentations (
@@ -351,7 +386,7 @@ export async function persistPresentation(
       source_message_ids, tg_chat_id, tg_thread_id, tg_message_id, status,
       created_at, updated_at
     ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    ON CONFLICT(presentation_id) DO UPDATE SET
+    ON CONFLICT(platform, group_id, user_id) DO UPDATE SET
       phone_number = excluded.phone_number,
       display_name = excluded.display_name,
       nome = excluded.nome,
@@ -381,7 +416,12 @@ export async function persistPresentation(
       rec.created_at, rec.updated_at,
     ]
   );
-  s.status = 'consolidated';
+  // Encerra a sessão em memória apenas na CONSOLIDAÇÃO real. O persist de
+  // abertura (status 'collecting', 23/10) só espelha o estado no SQLite —
+  // a sessão precisa continuar viva para as mensagens seguintes.
+  if (status === 'consolidated') {
+    s.status = 'consolidated';
+  }
   return rec;
 }
 
