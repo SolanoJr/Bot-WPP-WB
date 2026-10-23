@@ -148,6 +148,71 @@ export async function publishToTelegram(
 }
 
 /**
+ * Responde NO GRUPO WhatsApp à apresentação consolidada: uma mensagem única
+ * com foto + caption (template formatado), quoted na última mensagem
+ * coletada do apresentador. É o canal que o usuário VÊ — o Telegram é espelho.
+ *
+ * Foto: a do próprio apresentador quando existe (buffer baixado / url);
+ * sem foto enviada, placeholder picsum determinístico pelo número.
+ * Foto é enriquecimento: se o envio com imagem falhar, cai para texto puro
+ * com quote. Qualquer falha retorna false e NÃO bloqueia o espelho Telegram.
+ */
+export async function replyPresentationToGroup(
+  rec: PresentationRecord,
+  sock: any,
+  photo?: { url?: string; buffer?: Buffer },
+): Promise<boolean> {
+  try {
+    if (!sock?.sendMessage) return false;
+    const text = formatPresentation(rec);
+    const caption = `${text}\n\n📎 Registro completo: ${TG_TOPIC_URL}`;
+
+    // Quote da mensagem original (a última coletada), recuperada do store.
+    let quoted: any;
+    try {
+      const ids = JSON.parse(rec.source_message_ids || '[]');
+      const lastId = Array.isArray(ids) ? ids[ids.length - 1] : undefined;
+      if (lastId) quoted = await sock.loadMessage?.(rec.group_id, lastId);
+    } catch { /* sem quote, envia sem citação */ }
+
+    // Foto: buffer (imagem enviada no grupo) > url > placeholder picsum
+    let image: { url: string } | Buffer | undefined =
+      photo?.buffer || (photo?.url ? { url: photo.url } : undefined);
+    if (!image) {
+      const seed = (rec.phone_number || rec.user_id || 'apresentacao').replace(/\D/g, '') || 'apresentacao';
+      image = { url: `https://picsum.photos/seed/${seed}/512/512` };
+    }
+
+    // 1ª tentativa: imagem + caption, quoted na mensagem do apresentador
+    try {
+      await sock.sendMessage(rec.group_id, { image: image as any, caption }, quoted ? { quoted } : {});
+      logger.info('[presentationPublisher] resposta no grupo enviada', {
+        presentationId: rec.presentation_id, groupId: rec.group_id,
+        hasPhoto: true, quoted: !!quoted,
+      });
+      return true;
+    } catch (e: any) {
+      logger.warn('[presentationPublisher] envio com foto falhou — caindo para texto', {
+        presentationId: rec.presentation_id, error: e?.message,
+      });
+    }
+
+    // 2ª tentativa: texto puro (com quote) — a resposta no grupo é o gate
+    await sock.sendMessage(rec.group_id, { text: caption }, quoted ? { quoted } : {});
+    logger.info('[presentationPublisher] resposta no grupo enviada (texto)', {
+      presentationId: rec.presentation_id, groupId: rec.group_id,
+      hasPhoto: false, quoted: !!quoted,
+    });
+    return true;
+  } catch (e: any) {
+    logger.warn('[presentationPublisher] resposta no grupo falhou', {
+      presentationId: rec.presentation_id, groupId: rec.group_id, error: e?.message,
+    });
+    return false;
+  }
+}
+
+/**
  * Retenta publicações pendentes (status 'consolidated' ou 'failed').
  * Chamada periodicamente ou após reconnect.
  */

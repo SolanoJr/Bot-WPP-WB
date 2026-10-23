@@ -21,7 +21,7 @@ import { startNewsScheduler } from '../services/newsScheduler';
 import { startFeedbackWorker } from '../services/feedbackWorker';
 import { createDiscordScreenServiceFromEnv } from '../services/discord-screen/DiscordScreenService';
 import { consolidateStale, listPending } from '../services/presentationService';
-import { publishToTelegram, retryPending } from '../services/presentationPublisher';
+import { publishToTelegram, retryPending, replyPresentationToGroup } from '../services/presentationPublisher';
 import { downloadMediaMessage } from '@whiskeysockets/baileys';
 import { validateMasterConfig } from '../services/permissions';
 
@@ -188,6 +188,21 @@ export async function initializePlatforms() {
                   }
                 }
               } catch { /* sem foto, sem problema */ }
+
+              // ─── Resposta NO GRUPO de origem (PROBLEMA 2 / TESTE 1): quote da
+              // última mensagem coletada + template + foto. O canal que o
+              // usuário VÊ; o Telegram é espelho. Falha aqui NÃO bloqueia a
+              // publicação (o record já está consolidado no SQLite).
+              if (record.platform === 'whatsapp') {
+                try {
+                  const botNum = (process.env.BOT_NUMBER || '558581344211').replace(/\D/g, '');
+                  const wpp = platformManager.getAdapter(`whatsapp:${botNum}`);
+                  const sock: any = (wpp as any)?.client;
+                  await replyPresentationToGroup(record, sock, photo);
+                } catch (e: any) {
+                  logger.warn('[presentation] resposta no grupo falhou:', e?.message);
+                }
+              }
 
               await publishToTelegram(record, telegramAdapter.bot, groupName, groupLink, photo);
             }

@@ -711,3 +711,21 @@ mentions anexados: 1 (13:19:32) → [memberJoinService] welcome enviado
 mod_member_joins id=162. TESTE 2 APROVADO: o combo handle-no-texto +
 PN-no-mentions rendeu highlight real; resolvePn converteu LID→PN no
 evento @lid. A rota agora adiciona pelo phoneNumber quando existe.
+
+INC-019 — Violação de escopo: teste de welcome executado no Figurinhas em vez do Grupo Teste (23/10)
+O usuário é categórico: "APENAS O GRUPO TESTE TEM PERMISSÃO PRA FAZER
+TESTES". O TESTE 2 removeu/re-adicionou um membro real no Figurinhas
+(120363419033272638@g.us) — grupo de produção — quando o alvo autorizado
+era o Grupo Teste (120363410094452673@g.us). O membro foi restaurado no
+mesmo dia (confirmado via /lab/group-info: presente, 46 participantes).
+
+REGRA PERMANENTE: todo teste E2E que muda estado de grupo/membro
+(remoção, adição, join, inject de mensagem, kick/ban de teste) roda
+APENAS em 120363410094452673@g.us. Se o bot não for admin lá, a única
+exceção é pedir ao usuário — nunca migrar o teste para outro grupo por
+conta própria. Leitura (group-info, DB, logs) continua livre em qualquer
+grupo.
+
+O Figurinhas foi restaurado ao estado original e nenhuma mensagem de
+teste adicional foi enviada lá. As 3 mensagens de apresentação da rodada
+anterior foram injetadas no Grupo Teste (correto).
