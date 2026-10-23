@@ -729,3 +729,58 @@ grupo.
 O Figurinhas foi restaurado ao estado original e nenhuma mensagem de
 teste adicional foi enviada lá. As 3 mensagens de apresentação da rodada
 anterior foram injetadas no Grupo Teste (correto).
+
+INC-020 — Apresentação: default aditivo + aviso no join + confirmação imediata no grupo; feedback com espelho Telegram (23/10)
+Pedido do arquiteto em 4 pontos, todos implementados no commit 8339da0
+(push 99448001..8339da07, deploy 3 pernas verdes 19:53):
+
+P1 — DEFAULT_PRESENTATION_MESSAGE + composePresentationMessage (aditivo,
+mesmo padrão do composeWelcome) em welcomeService; coluna
+group_mod.presentation_message via addColumnIfMissing; memberJoinService
+envia o aviso no join quando presentation_enabled=1 (gate PRÓPRIO — sai
+mesmo com bemvindo=0). Testes: welcome.test (compose/fallback/join on/off).
+
+P2 — handlePresentationCollect retorna contexto (opened/trigger/messageId/
+text) e a ABERTURA de sessão persiste row 'collecting' no SQLite na hora;
+BaileysMessageNormalizer responde no grupo "📝 Apresentação recebida! Vou
+salvar no nosso grupo do Telegram." quotando a mensagem que abriu a sessão
+(presentationConfirm, trigger notice_reply OU signals). Consolidação de
+10min inalterada (template final no Telegram). DOIS fixes críticos achados
+pelos testes: persistPresentation encerrava a sessão em memória em TODO
+upsert (só deve encerrar no status 'consolidated') e o upsert conflitava
+com o unique idx (platform, group_id, user_id) — ON CONFLICT corrigido.
+
+P3 — feedbackWorker expõe getRegisteredFeedbackSend(); o send registrado
+no multiPlatform ganha espelho Telegram (TELEGRAM_FEEDBACK_CHAT_ID — em
+prod 146078742) disparado ANTES do PV. Em E2E com fake, o PV falha por
+design (número sem WhatsApp) e o espelho é a evidência de observabilidade.
+
+P4 — E2E no Grupo Teste (20:02-20:22). ACHADO: o add do zero do
+5585999999999 agora é recusado pelo servidor com 451 (número sem
+WhatsApp; nas rodadas anteriores o "re-add" funcionava porque ele já
+estava no grupo). O remove-and-add real exige participante presente —
+decisão do usuário: /lab/inject-participant-event add→remove→add, que
+dispara os handlers reais sem mexer em ninguém. Evidências literais:
+welcome "Boas-vindas @5585999999999 👋" (2x) + aviso default enviado
+logo após ("[memberJoinService] aviso de apresentação enviado");
+feedback_events row group_leave/pending; inject de resposta quotando o
+aviso (contextInfo provado no wire) → confirmação imediata no grupo
+"📝 Apresentação recebida!..." COM QUOTE na mensagem do novato (contextInfo
+literal no capture); DB collecting com nome/idade/trabalho extraídos;
+consolidação → resposta no grupo com template (👤 *João Silva* / 🎂 30
+anos / 💼 informática) citando a msg do novato; publicação no Telegram
+privado tg_chat_id=146078742 tg_message_id=212; feedbackWorker
+sent=0 failed=1 (PV fake, esperado) + zero warns do espelho (entregue).
+
+/lab/inject-message agora aceita quotedStanzaId/quotedParticipant/
+quotedText; /lab/run-feedback-worker dispara um ciclo do worker sem
+esperar as 6h (workerStarted guard já existia). TELEGRAM_FEEDBACK_CHAT_ID
+appendado ao .env da VPS (backup em /tmp/bw-1792795702/env-backup-feedback)
+com sourced restart; var confirmada no /proc environ do processo.
+
+F2: apresentação e feedback_events de teste deletados do DB; toggles do
+Grupo Teste mantidos (presentation_enabled=1, feedback=1, bemvindo=1);
+nenhum outro grupo tocado. Pendente: usuário indicar grupos reais p/
+ativar presentation_enabled/feedback (só configurar, sem testar lá).
+Backlog: espelho do feedback não loga o message_id do Telegram no
+sucesso (só warn na falha) — adicioná-lo quando o feedback voltar ao foco.
