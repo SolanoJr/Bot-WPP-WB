@@ -65,7 +65,9 @@ export interface PresentationRecord {
   bairro: string | null;
   rede_social: string | null;
   photo_ref: string | null;
-  photo_source: 'sent' | 'profile' | null;
+  // 'url': photo_ref é uma URL externa; 'sent': messageId de imagem no grupo;
+  // 'profile': foto de perfil do apresentador (futura).
+  photo_source: 'sent' | 'profile' | 'url' | null;
   original_text: string | null;
   source_message_ids: string | null;
   tg_chat_id: string | null;

@@ -21,7 +21,8 @@ import { startNewsScheduler } from '../services/newsScheduler';
 import { startFeedbackWorker } from '../services/feedbackWorker';
 import { createDiscordScreenServiceFromEnv } from '../services/discord-screen/DiscordScreenService';
 import { consolidateStale, listPending } from '../services/presentationService';
-import { publishToTelegram, retryPending, TG_CHAT_ID, TG_THREAD_ID } from '../services/presentationPublisher';
+import { publishToTelegram, retryPending } from '../services/presentationPublisher';
+import { downloadMediaMessage } from '@whiskeysockets/baileys';
 import { validateMasterConfig } from '../services/permissions';
 
 // 🕒 Logging: o loggerService (Winston) escreve no Console (com timestamp próprio)
@@ -165,7 +166,30 @@ export async function initializePlatforms() {
                 groupName = chat?.name;
                 // Link de convite não é trivial; omitimos se não disponível
               } catch { /* ignore */ }
-              await publishToTelegram(record, telegramAdapter.bot, groupName, groupLink);
+
+              // Foto da apresentação, quando existe:
+              //   photo_source 'url'  → photo_ref É a URL (fonte externa).
+              //   photo_source 'sent' → photo_ref é messageId no grupo; o
+              //                         Baileys tenta reabrir a mensagem e
+              //                         baixar a mídia. Falhou? Publica texto
+              //                         puro — foto é enriquecimento, não gate.
+              let photo: { url?: string; buffer?: Buffer } | undefined;
+              try {
+                const botNum = (process.env.BOT_NUMBER || '558581344211').replace(/\D/g, '');
+                if (record.photo_source === 'url' && record.photo_ref) {
+                  photo = { url: record.photo_ref };
+                } else if (record.photo_source === 'sent' && record.photo_ref) {
+                  const wpp = platformManager.getAdapter(`whatsapp:${botNum}`);
+                  const sock: any = (wpp as any)?.client;
+                  const msg = await sock?.loadMessage?.(record.group_id, record.photo_ref);
+                  if (msg) {
+                    const buffer = await downloadMediaMessage(msg, 'buffer', {});
+                    if (buffer) photo = { buffer: Buffer.from(buffer) };
+                  }
+                }
+              } catch { /* sem foto, sem problema */ }
+
+              await publishToTelegram(record, telegramAdapter.bot, groupName, groupLink, photo);
             }
           }
           // Retenta pendentes (falhas anteriores)

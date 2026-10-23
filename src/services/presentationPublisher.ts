@@ -1,22 +1,23 @@
 /**
- * presentationPublisher — publica apresentações no Telegram (tópico 2).
+ * presentationPublisher — publica apresentações no Telegram.
  *
  * O Telegram é ESPELHO. O SQLite é a fonte oficial. Se o Telegram cair, a
  * apresentação fica com status 'failed' e é retentada depois — nunca se perde.
  *
- * Destino fixo (Comunidade 085):
- *   chat_id  = -1003470059875   (Fortaleza 085)
- *   thread_id = 2               (Apresentações)
+ * Destino configurável por env, com o padrão histórico como fallback:
+ *   TELEGRAM_PRESENTATION_CHAT_ID   (default -1003470059875, Fortaleza 085)
+ *   TELEGRAM_PRESENTATION_THREAD_ID (default 2, tópico Apresentações)
  *
  * Se a apresentação já tem `tg_message_id`, a atualização EDITA a mensagem
- * existente — não cria duplicata.
+ * existente — não cria duplicata. Com foto, a legenda é editada
+ * (editMessageCaption); sem foto, o texto (editMessageText).
  */
 import { getDb } from './databaseService';
 import { markPublished, markFailed, listPending, type PresentationRecord } from './presentationService';
 import logger from './loggerService';
 
-export const TG_CHAT_ID = '-1003470059875';
-export const TG_THREAD_ID = '2';
+export const TG_CHAT_ID = process.env.TELEGRAM_PRESENTATION_CHAT_ID ?? '-1003470059875';
+export const TG_THREAD_ID = process.env.TELEGRAM_PRESENTATION_THREAD_ID ?? '2';
 
 /** Link público do tópico (para o aviso ao novato). */
 export const TG_TOPIC_URL = 'https://t.me/Fortaleza_085/2';
@@ -52,6 +53,10 @@ export function formatPresentation(rec: PresentationRecord, groupName?: string, 
 /**
  * Publica (ou edita) a apresentação no Telegram.
  *
+ * @param photo opcional: `{ url }` faz o Telegram buscar a imagem; `{ buffer }`
+ *        envia os bytes. Com foto, vai como sendPhoto com o texto de legenda
+ *        (limite do Telegram: 1024 — acima disso a legenda trunca e o texto
+ *        completo via como mensagem em seguida).
  * @returns o messageId da mensagem publicada/editada, ou null se falhou.
  */
 export async function publishToTelegram(
@@ -59,19 +64,35 @@ export async function publishToTelegram(
   bot: any,
   groupName?: string,
   groupLink?: string,
+  photo?: { url?: string; buffer?: Buffer },
 ): Promise<string | null> {
   const text = formatPresentation(rec, groupName, groupLink);
+
+  // Tópico opcional: env vazio significa chat sem tópicos (privado) — mandar 0
+  // faz o Telegram rejeitar; omitir a chave é o caminho.
+  const threadId = Number(TG_THREAD_ID) || undefined;
 
   try {
     // Se já existe mensagem no Telegram → EDITAR (não duplica)
     if (rec.tg_message_id) {
-      await bot.telegram.editMessageText(
-        Number(TG_CHAT_ID),
-        Number(rec.tg_message_id),
-        undefined,
-        text,
-        { parse_mode: 'Markdown', disable_web_page_preview: true, message_thread_id: Number(TG_THREAD_ID) } as any
-      );
+      if (photo) {
+        // Mensagem de foto edita a legenda, não o texto.
+        await bot.telegram.editMessageCaption(
+          Number(TG_CHAT_ID),
+          Number(rec.tg_message_id),
+          undefined,
+          text.slice(0, 1024),
+          { parse_mode: 'Markdown', message_thread_id: threadId } as any
+        );
+      } else {
+        await bot.telegram.editMessageText(
+          Number(TG_CHAT_ID),
+          Number(rec.tg_message_id),
+          undefined,
+          text,
+          { parse_mode: 'Markdown', disable_web_page_preview: true, message_thread_id: threadId } as any
+        );
+      }
       logger.info('[presentationPublisher] mensagem editada', {
         presentationId: rec.presentation_id, tgMessageId: rec.tg_message_id,
       });
@@ -79,11 +100,31 @@ export async function publishToTelegram(
     }
 
     // Primeira publicação
-    const sent = await bot.telegram.sendMessage(Number(TG_CHAT_ID), text, {
-      parse_mode: 'Markdown',
-      disable_web_page_preview: true,
-      message_thread_id: Number(TG_THREAD_ID),
-    } as any);
+    let sent: any;
+    if (photo) {
+      const source = photo.url ?? photo.buffer!;
+      const caption = text.length > 1024 ? `${text.slice(0, 1000)}…` : text;
+      sent = await bot.telegram.sendPhoto(Number(TG_CHAT_ID), source, {
+        caption,
+        parse_mode: 'Markdown',
+        message_thread_id: threadId,
+      } as any);
+      // Texto maior que a legenda comporta: a íntegra vai na mensagem seguinte.
+      if (text.length > 1024) {
+        const extra = await bot.telegram.sendMessage(Number(TG_CHAT_ID), text, {
+          parse_mode: 'Markdown',
+          disable_web_page_preview: true,
+          message_thread_id: threadId,
+        } as any);
+        sent = extra ?? sent;
+      }
+    } else {
+      sent = await bot.telegram.sendMessage(Number(TG_CHAT_ID), text, {
+        parse_mode: 'Markdown',
+        disable_web_page_preview: true,
+        message_thread_id: threadId,
+      } as any);
+    }
 
     const tgMessageId = String(sent?.message_id ?? '');
     if (!tgMessageId) throw new Error('Telegram não retornou message_id');
