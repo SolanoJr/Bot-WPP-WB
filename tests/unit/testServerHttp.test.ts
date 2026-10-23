@@ -94,4 +94,37 @@ describe('lab HTTP wiring', () => {
     expect(status).toBe(400);
     expect(body).toContain('Missing userId');
   });
+
+  it('/lab/group-info sem groupJid → 400 com mensagem própria', async () => {
+    const { status, body } = await post('/lab/group-info', {});
+
+    expect(status).toBe(400);
+    expect(body).toContain('Missing groupJid');
+  });
+
+  it('/lab/group-info com groupJid, sem adapter conectado → 503 (não 400 de fallthrough)', async () => {
+    const { status, body } = await post('/lab/group-info', { groupJid: GRUPO_FIGURINHAS });
+
+    // Sem adapter no ambiente de teste: 503 legítimo. O 400 de fallthrough
+    // ("Missing platform or command") é a assinatura do bug de wiring.
+    expect(status).toBe(503);
+    expect(body).not.toContain('Missing platform or command');
+  });
+
+  it('/lab/remove-and-add sem params → 400 com mensagem própria', async () => {
+    const { status, body } = await post('/lab/remove-and-add', { groupJid: GRUPO_FIGURINHAS });
+
+    expect(status).toBe(400);
+    expect(body).toContain('Missing groupJid or userJid');
+  });
+
+  it('/lab/remove-and-add com params, sem adapter conectado → 503 (não 400 de fallthrough)', async () => {
+    const { status, body } = await post('/lab/remove-and-add', {
+      groupJid: GRUPO_FIGURINHAS,
+      userJid: USUARIO_FAKE,
+    });
+
+    expect(status).toBe(503);
+    expect(body).not.toContain('Missing platform or command');
+  });
 });

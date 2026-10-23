@@ -955,6 +955,153 @@ export function startTestServer(port: number = 3004): http.Server {
           return;
         }
 
+        // ─── /lab/group-info: participantes + admins (E2E do welcome, TESTE 2) ───
+        // Probe de socket vivo (regra do repo: probe que precisa do socket é
+        // rota /lab, nunca script standalone). Expõe o metadata do grupo — o
+        // mesmo getChat que o resolvePn usa para o mapeamento LID→PN — com o
+        // status de admin de cada participante e do próprio bot.
+        if (req.url === '/lab/group-info') {
+          const { groupJid } = parsedBody;
+          if (!groupJid) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Missing groupJid' }));
+            return;
+          }
+          const { adapter, sock } = getAdapterAndSock('whatsapp');
+          if (!adapter || !sock || !(adapter as any).client?.isReady) {
+            res.writeHead(503, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Adapter/socket WhatsApp indisponível' }));
+            return;
+          }
+          try {
+            const chat: any = await (adapter as any).getChat(groupJid);
+            if (!chat) {
+              res.writeHead(404, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: `Grupo não encontrado: ${groupJid}` }));
+              return;
+            }
+            const digitsOf = (v: unknown) => String(v ?? '').replace(/\D/g, '');
+            const botPnDigits = digitsOf(String(sock.user?.id || '').split(':')[0]);
+            const botLid = process.env.BOT_LID || '2592935567439@lid';
+            const botLidDigits = digitsOf(botLid.split(':')[0]);
+            const isBotJid = (jid: unknown) => {
+              const d = digitsOf(String(jid ?? '').split(':')[0]);
+              return !!d && (d === botPnDigits || d === botLidDigits);
+            };
+            const participants = ((chat as any).participants || []).map((p: any) => ({
+              id: p?.id || '',
+              phoneNumber: p?.phoneNumber ?? undefined,
+              admin: p?.admin ?? null,
+              isBot: isBotJid(p?.id),
+            }));
+            const botEntry = participants.find((p: any) => p.isBot);
+            logInfo('[TestServer] /lab/group-info', {
+              groupJid, count: participants.length, botIsAdmin: !!botEntry?.admin,
+            });
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              ok: true, groupJid,
+              name: chat.name ?? chat.subject ?? '',
+              botIsAdmin: !!botEntry?.admin,
+              participants,
+            }, null, 1));
+          } catch (err: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err?.message || String(err) }));
+          }
+          return;
+        }
+
+        // ─── /lab/remove-and-add: ciclo remove→5s→re-add (E2E do welcome real) ───
+        // Remove um participante NÃO protegido e re-adiciona 5s depois para
+        // disparar o memberJoinService (welcome com mention). Proteções: MASTER,
+        // o próprio bot e admins do grupo nunca são alvo. O bot precisa ser admin.
+        if (req.url === '/lab/remove-and-add') {
+          const { groupJid, userJid } = parsedBody;
+          if (!groupJid || !userJid) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Missing groupJid or userJid' }));
+            return;
+          }
+          const { adapter, sock } = getAdapterAndSock('whatsapp');
+          if (!adapter || !sock || !(adapter as any).client?.isReady) {
+            res.writeHead(503, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Adapter/socket WhatsApp indisponível' }));
+            return;
+          }
+          try {
+            const chat: any = await (adapter as any).getChat(groupJid);
+            if (!chat) {
+              res.writeHead(404, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: `Grupo não encontrado: ${groupJid}` }));
+              return;
+            }
+            const parts: any[] = (chat as any).participants || [];
+            const digitsOf = (v: unknown) => String(v ?? '').replace(/\D/g, '');
+            const targetDigits = digitsOf(String(userJid).split(':')[0]);
+            const sameJid = (a: unknown) =>
+              !!targetDigits && digitsOf(String(a ?? '').split(':')[0]) === targetDigits;
+
+            // O bot precisa ser admin para remover/re-adicionar
+            const botPnDigits = digitsOf(String(sock.user?.id || '').split(':')[0]);
+            const botLid = process.env.BOT_LID || '2592935567439@lid';
+            const botLidDigits = digitsOf(botLid.split(':')[0]);
+            const botPart = parts.find((p: any) =>
+              [String(p?.id ?? '').split(':')[0]].map(digitsOf).some((d) => d === botPnDigits || d === botLidDigits));
+            if (!botPart?.admin) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'bot não é admin neste grupo', botParticipant: botPart ?? null }));
+              return;
+            }
+
+            // Alvos protegidos: MASTER, o próprio bot, admin do grupo
+            const target = parts.find((p: any) =>
+              sameJid(p?.id) || (!!p?.phoneNumber && digitsOf(p.phoneNumber) === targetDigits));
+            const masterDigits = digitsOf(process.env.MASTER_USER || '558898314322');
+            if (targetDigits === masterDigits) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'alvo é o MASTER — protegido' }));
+              return;
+            }
+            if (targetDigits === botPnDigits || targetDigits === botLidDigits) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'alvo é o próprio bot — protegido' }));
+              return;
+            }
+            if (target?.admin) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'alvo é admin do grupo — protegido', target }));
+              return;
+            }
+            if (!target) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'alvo não é participante do grupo', userJid }));
+              return;
+            }
+
+            logInfo('[TestServer] /lab/remove-and-add: remove', { groupJid, userJid });
+            const removedAt = Date.now();
+            const removeResult = await sock.groupParticipantsUpdate(groupJid, [userJid], 'remove');
+            logInfo('[TestServer] /lab/remove-and-add: removed', { removeResult });
+            // O WhatsApp precisa processar a saída antes do re-ingresso
+            await new Promise((r) => setTimeout(r, 5000));
+            logInfo('[TestServer] /lab/remove-and-add: add (welcome deve disparar)', { groupJid, userJid });
+            const addedAt = Date.now();
+            const addResult = await sock.groupParticipantsUpdate(groupJid, [userJid], 'add');
+            logInfo('[TestServer] /lab/remove-and-add: added', { addResult });
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              ok: true, steps: ['removed', 'waited', 'added'],
+              timestamps: { removedAt, addedAt },
+              removeResult, addResult,
+            }, null, 1));
+          } catch (err: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err?.message || String(err) }));
+          }
+          return;
+        }
+
         // ─── Endpoint de histórico via fetchMessageHistory ──────────────────
         if (req.url === '/lab/history') {
           const { platform, groupJid, oldestMsgId, oldestMsgTimestamp, count } = parsedBody;
