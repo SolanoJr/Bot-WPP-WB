@@ -9,6 +9,7 @@
 
 | Evento | Arquivos |
 |--------|----------|
+| **TESTE 2 (welcome real) APROVADO**: rotas `/lab/group-info` (participants LID+PN+admin, botIsAdmin) e `/lab/remove-and-add` (protege MASTER/bot/admins; ciclo remove→5s→add; add pelo PN — LID dá bad-request). E2E no Figurinhas: welcome com `Boas-vindas @558586060790 👋` + mentionedJid PN + mod_member_joins id=162 | `src/services/testServer.ts`, `tests/unit/testServerHttp.test.ts` |
 | **Render watchdog**: client `player.js` emite heartbeat a cada 2s (`rendered`: visivel/pinturas/fila/dadosFluindo); server `rooms.js` dispara `need-keyframe` após 4s de stall real (visível + dados fluindo + zero pinturas) com cooldown 8s; viewers WebRTC-direto isentos (`__rtc`) | `discord-screen/client/src/player.js`, `discord-screen/server/rooms.js` |
 | Testes: 4 cenários de stall (fake timers) + contador de pinturas — pegaram o bug do `lastKeyframeReq ?? 0` (sentinela `0` = "cooldown eterno" em clock de epoch 0) | `discord-screen/server/rooms.test.js`, `client/src/player.test.js` |
 | **Apresentação → Telegram com destino configurável**: `TELEGRAM_PRESENTATION_CHAT_ID`/`_THREAD_ID` com fallback no grupo Fortaleza 085; thread vazio omite `message_thread_id` (privado rejeita 0) | `presentationPublisher.ts` |

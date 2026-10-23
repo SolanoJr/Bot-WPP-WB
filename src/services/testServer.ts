@@ -1089,9 +1089,13 @@ export function startTestServer(port: number = 3004): http.Server {
             logInfo('[TestServer] /lab/remove-and-add: removed', { removeResult });
             // O WhatsApp precisa processar a saída antes do re-ingresso
             await new Promise((r) => setTimeout(r, 5000));
-            logInfo('[TestServer] /lab/remove-and-add: add (welcome deve disparar)', { groupJid, userJid });
+            // ADD aceita PN, não LID (provado 23/10: add com @lid → bad-request;
+            // restore-member com PN → 200 + welcome). Quando o metadata traz o
+            // phoneNumber do alvo, adiciona pelo PN.
+            const addJid = target?.phoneNumber ? String(target.phoneNumber) : userJid;
+            logInfo('[TestServer] /lab/remove-and-add: add (welcome deve disparar)', { groupJid, userJid: addJid });
             const addedAt = Date.now();
-            const addResult = await sock.groupParticipantsUpdate(groupJid, [userJid], 'add');
+            const addResult = await sock.groupParticipantsUpdate(groupJid, [addJid], 'add');
             logInfo('[TestServer] /lab/remove-and-add: added', { addResult });
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({

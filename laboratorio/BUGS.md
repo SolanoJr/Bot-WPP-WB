@@ -685,3 +685,29 @@ limpos) + msg 203 (sendPhoto picsum + legenda). Grupo Teste precisou
 community_id setado + presentation_enabled=1 (gates silenciosos em série).
 Limpeza aplicada: enabled=0, community_id='', rows de teste deletadas,
 envs de teste zeradas (fallback de produção restaurado, thread 2).
+
+INC-018 — TESTE 2 (welcome real): sensor cego de admin + add não aceita LID (RESOLVIDO 197aae4/606900e, 23/10)
+Sintoma: /lab/group-info novo lia admin:null para TODOS os 47 participantes
+do Figurinhas (impossível — todo grupo tem criador); e o add do ciclo
+remove→re-add retornava "bad-request" cru.
+
+Causa raiz (2 bugs, um deles do próprio probe desta rodada):
+1. O chatManager entrega participants mapeados como isAdmin/isSuperAdmin
+   (booleans); o campo `admin` do metadata cru NÃO sobrevive ao mapping.
+   As rotas novas liam p?.admin → sensor cego. Fix: ler os campos mapeados.
+2. groupParticipantsUpdate(action='add') aceita PN, não LID: com o JID @lid
+   do alvo → bad-request; com o phoneNumber mapeado → 200 + join. (O
+   'remove' aceita LID normalmente — assimetria provada por execução.)
+
+Detecção rápida: /lab/group-info varre todos os grupos e lista admins por
+phoneNumber; add que falhar com bad-request → tentar o PN do participant.
+
+E2E (23/10, Figurinhas): remove 200 (13:11:35) → add com LID bad-request
+→ restaurado via /lab/restore-member com PN (200, join_time 13:19:30) →
+GROUP_PARTICIPANTS_UPDATE action=add 13:19:31 → [BaileysSender.sendMessage]
+mentions anexados: 1 (13:19:32) → [memberJoinService] welcome enviado
+(13:19:33) → captured-messages.jsonl: text "Boas-vindas @558586060790 👋"
++ mentionedJid ["558586060790@s.whatsapp.net"] (PN, não LID) →
+mod_member_joins id=162. TESTE 2 APROVADO: o combo handle-no-texto +
+PN-no-mentions rendeu highlight real; resolvePn converteu LID→PN no
+evento @lid. A rota agora adiciona pelo phoneNumber quando existe.
