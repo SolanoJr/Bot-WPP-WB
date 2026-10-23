@@ -289,3 +289,45 @@ describe('suporte de codec (INC-005)', () => {
     });
   });
 });
+
+describe('heartbeat de render', () => {
+  it('conta pinturas e bytes da janela, e zera a cada pedido', () => {
+    const p = player();
+
+    p.push(pacote(KEYFRAME, 0));
+    avancar(BUFFER_MS + 32); // uma pintura
+
+    const hb1 = p.takeHeartbeat();
+    expect(hb1.pinturas).toBe(1);
+    expect(hb1.dadosFluindo).toBe(true);
+    expect(hb1.fila).toBe(0);
+    expect(hb1.visivel).toBe(true); // sem document: não há aba para esconder
+
+    // Nada novo chegou nem foi pintado desde o heartbeat.
+    const hb2 = p.takeHeartbeat();
+    expect(hb2.pinturas).toBe(0);
+    expect(hb2.dadosFluindo).toBe(false);
+  });
+
+  it('conta bytes mesmo com o decoder frio — rede viva não é render vivo', () => {
+    const p = player();
+
+    // Sem start() não há decoder: push vira early-return, mas os bytes existiram.
+    const cru = createPlayer(canvasFalso(), {});
+    cru.push(pacote(KEYFRAME, 0));
+    expect(cru.takeHeartbeat().dadosFluindo).toBe(true);
+    expect(cru.takeHeartbeat().dadosFluindo).toBe(false);
+    expect(p).toBeTruthy();
+  });
+
+  it('stop() zera a janela — coração de transmissão encerrada não pulsa', () => {
+    const p = player();
+
+    p.push(pacote(KEYFRAME, 0));
+    avancar(BUFFER_MS + 32);
+    p.stop();
+
+    expect(p.takeHeartbeat().pinturas).toBe(0);
+    expect(p.takeHeartbeat().dadosFluindo).toBe(false);
+  });
+});

@@ -1923,6 +1923,22 @@ async function post(url, body, { retry = true } = {}) {
 
 // ----------------------------------------------------------------- websocket
 
+// O ritmo de render de quem assiste, para o servidor poder distinguir dois
+// stalls que parecem iguais de fora: bytes chegando sem pintura é render
+// travado (o watchdog pede keyframe ao transmissor); sem bytes é a rede —
+// keyframe nenhum ajuda. Via WebRTC o canvas não pinta (o <video> toca
+// sozinho), então slots viaRtc não reportam e o watchdog não os vigia.
+// Nasce uma vez, fora de connect(): reconexão troca o socket, não o ritmo.
+const RENDER_HEARTBEAT_MS = 2000;
+
+setInterval(() => {
+  if (!ws || ws.readyState !== WebSocket.OPEN || streams.size === 0) return;
+  for (const [slot, s] of streams) {
+    if (s.viaRtc) continue;
+    ws.send(JSON.stringify({ type: 'rendered', slot, ...s.player.takeHeartbeat() }));
+  }
+}, RENDER_HEARTBEAT_MS);
+
 function connect() {
   if (!roomTokens) return;
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';

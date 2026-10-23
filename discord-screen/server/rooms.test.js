@@ -5,7 +5,7 @@
  * testes deste arquivo. Cada cenário usa uma instância própria — o id do canal
  * de voz — e é isso que os mantém isolados sem precisar zerar nada.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as R from './rooms.js';
 
 let sequencia = 0;
@@ -991,5 +991,124 @@ describe('WebRTC', () => {
     R.rtcAtivo(room, viewer, entry.slot, true);
 
     expect(viewer.__rtc.has(entry.slot)).toBe(false);
+  });
+});
+
+describe('render watchdog', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+  });
+  afterEach(() => vi.useRealTimers());
+
+  /** Um heartbeat do player, já no formato que chega pelo socket. */
+  const hb = (room, viewer, slot, extra = {}) =>
+    R.rendered(room, viewer, slot, {
+      visivel: true,
+      pinturas: 0,
+      fila: 0,
+      dadosFluindo: true,
+      ...extra,
+    });
+
+  it('pede keyframe ao transmissor quando o render trava com a rede viva', () => {
+    const { room, viewer, ws, entry } = comTransmissao();
+
+    // 0s: render vivo — a última pintura fica marcada aqui.
+    hb(room, viewer, entry.slot, { pinturas: 3 });
+    // 2s: heartbeat sem pintura, mas bytes ainda chegando.
+    vi.setSystemTime(2000);
+    hb(room, viewer, entry.slot);
+
+    // 4s da última pintura: decoder preso num delta — o sweep pede o keyframe.
+    vi.setSystemTime(4001);
+    ws.limpar();
+    R.renderWatchdog(room, 4001);
+
+    expect(ws.mensagens().some((m) => m.type === 'need-keyframe')).toBe(true);
+  });
+
+  it('não pede nada quando a aba está oculta — rAF congelado não é stall', () => {
+    const { room, viewer, ws, entry } = comTransmissao();
+
+    hb(room, viewer, entry.slot, { pinturas: 2 });
+    vi.setSystemTime(2000);
+    hb(room, viewer, entry.slot, { visivel: false });
+    vi.setSystemTime(4001);
+    ws.limpar();
+    R.renderWatchdog(room, 4001);
+
+    expect(ws.mensagens()).toEqual([]);
+  });
+
+  it('não pede nada quando os bytes pararam — keyframe não atravessa rede morta', () => {
+    const { room, viewer, ws, entry } = comTransmissao();
+
+    hb(room, viewer, entry.slot, { pinturas: 2 });
+    vi.setSystemTime(2000);
+    hb(room, viewer, entry.slot, { dadosFluindo: false });
+    vi.setSystemTime(4001);
+    ws.limpar();
+    R.renderWatchdog(room, 4001);
+
+    expect(ws.mensagens()).toEqual([]);
+  });
+
+  it('respeita o cooldown de 8s por espectador×slot', () => {
+    const { room, viewer, ws, entry } = comTransmissao();
+    const { slot } = entry;
+
+    hb(room, viewer, slot, { pinturas: 1 });
+    vi.setSystemTime(2000);
+    hb(room, viewer, slot);
+    vi.setSystemTime(4001);
+    R.renderWatchdog(room, 4001);
+
+    // Dentro do cooldown: mesmo com o stall persistindo, não há segundo pedido.
+    vi.setSystemTime(6000);
+    hb(room, viewer, slot);
+    ws.limpar();
+    R.renderWatchdog(room, 6001);
+    expect(ws.mensagens()).toEqual([]);
+
+    // Cooldown vencido e stall persistindo: pede de novo.
+    vi.setSystemTime(12000);
+    hb(room, viewer, slot);
+    ws.limpar();
+    R.renderWatchdog(room, 12002);
+    expect(ws.mensagens().some((m) => m.type === 'need-keyframe')).toBe(true);
+  });
+
+  it('não vigia slot que chegou por WebRTC — ali o canvas não pinta', () => {
+    const { room, viewer, ws, entry } = comTransmissao();
+
+    R.rtcAtivo(room, viewer, entry.slot, true);
+    hb(room, viewer, entry.slot, { pinturas: 1 });
+    vi.setSystemTime(2000);
+    hb(room, viewer, entry.slot);
+    vi.setSystemTime(4001);
+    ws.limpar();
+    R.renderWatchdog(room, 4001);
+
+    expect(ws.mensagens()).toEqual([]);
+  });
+
+  it('ignora espectador cujo heartbeat envelheceu — sem sinal não há julgamento', () => {
+    const { room, viewer, ws, entry } = comTransmissao();
+
+    hb(room, viewer, entry.slot, { pinturas: 1 });
+    vi.setSystemTime(8000);
+    ws.limpar();
+    R.renderWatchdog(room, 8000);
+
+    expect(ws.mensagens()).toEqual([]);
+  });
+
+  it('descarta heartbeat de slot que o espectador não pediu', () => {
+    const { room, viewer, entry } = comTransmissao({ assistindo: false });
+
+    hb(room, viewer, entry.slot);
+
+    expect(viewer.__render.size).toBe(0);
   });
 });

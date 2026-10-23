@@ -35,6 +35,16 @@ const MAX_BUFFERED_BYTES = 2 * 1024 * 1024;
 
 // Intervalo mínimo entre dois pedidos de keyframe para a mesma transmissão.
 const KEYFRAME_ASK_EVERY_MS = 1000;
+
+// Render watchdog: o player de quem assiste pulsa a cada 2s com quantas
+// pinturas fez e se bytes continuam chegando. Sem pintura por 4s com rede
+// viva é decoder preso num delta — um keyframe o destrava.
+const RENDER_STALL_MS = 4000;
+// Um keyframe pedido não é instantâneo; dois pedidos seguidos só ocupam o fio.
+const KEYFRAME_REQ_COOLDOWN_MS = 8000;
+// Heartbeat mais velho que isso é espectador calado (aba travada de vez,
+// máquina suspensa): sem sinal, não há stall para julgar.
+const HEARTBEAT_STALE_MS = 6000;
 const MAX_NAME = 32;
 const MAX_ROOM_NAME = 40;
 
@@ -436,6 +446,7 @@ const sweeper = setInterval(() => {
   const now = Date.now();
   for (const room of rooms.values()) {
     derrubarAbandonadas(room, now);
+    renderWatchdog(room, now);
 
     const empty = room.viewers.size === 0 && room.broadcasters.size === 0;
 
@@ -840,8 +851,67 @@ export function unwatch(room, ws, slot) {
   // Só avisa a sala se algo mudou de fato; ver a nota em watch().
   if (!ws.__watching.delete(slot)) return;
   ws.__primed.delete(slot);
+  ws.__render?.delete(slot);
   encerrarPeer(room, ws, slot);
   broadcastState(room);
+}
+
+// --------------------------------------------------------- render watchdog
+
+/**
+ * Heartbeat de render de quem assiste: pinturas na janela, bytes chegando,
+ * aba visível. O servidor só guarda o último por slot — a decisão é do
+ * sweep, que enxerga todos os espectadores de uma vez.
+ */
+export function rendered(room, ws, slot, msg) {
+  if (!ws.__render || !ws.__watching.has(slot)) return;
+  const prev = ws.__render.get(slot);
+  const agora = Date.now();
+  ws.__render.set(slot, {
+    lastHeartbeatAt: agora,
+    // Heartbeat com pintura renova a marcação; sem pintura, não — essa é
+    // justamente a diferença entre "render vivo" e "só conectado".
+    lastPaintAt: msg.pinturas > 0 ? agora : (prev?.lastPaintAt ?? agora),
+    pinturas: msg.pinturas | 0,
+    visivel: msg.visivel !== false,
+    dadosFluindo: msg.dadosFluindo === true,
+    fila: msg.fila | 0,
+    // -Infinity = nunca pedido: qualquer relógio entende "cooldown vencido".
+    lastKeyframeReq: prev?.lastKeyframeReq ?? -Infinity,
+  });
+}
+
+/**
+ * O julgamento, a cada sweep: espectador com aba visível, rede viva e
+ * NENHUMA pintura há mais de 4s tem o decoder preso num delta — pede um
+ * keyframe ao transmissor, com cooldown de 8s por espectador×slot.
+ *
+ * Os três falsos positivos clássicos ficam de fora: aba oculta congela o
+ * rAF e não é stall de render; sem bytes o problema é a rede, e keyframe
+ * nenhum atravessa; via WebRTC o canvas não pinta por desenho próprio.
+ */
+export function renderWatchdog(room, now) {
+  for (const ws of room.viewers) {
+    for (const slot of ws.__watching) {
+      const r = ws.__render?.get(slot);
+      if (!r) continue;
+      if (ws.__rtc.has(slot)) continue;
+      if (now - r.lastHeartbeatAt > HEARTBEAT_STALE_MS) continue;
+      if (!r.visivel || !r.dadosFluindo || r.pinturas > 0) continue;
+      if (now - r.lastPaintAt <= RENDER_STALL_MS) continue;
+      if (now - r.lastKeyframeReq <= KEYFRAME_REQ_COOLDOWN_MS) continue;
+
+      const entry = room.slots.get(slot);
+      if (!entry || !entry.streaming) continue;
+
+      r.lastKeyframeReq = now;
+      requestKeyframe(entry);
+      console.log(
+        `[room ${room.id}] render watchdog: ${ws.__info?.name ?? '?'} sem pintura há ` +
+          `${Math.round((now - r.lastPaintAt) / 1000)}s (fila=${r.fila}) — keyframe pedido`,
+      );
+    }
+  }
 }
 
 // ------------------------------------------------------------------- WebRTC
@@ -935,6 +1005,8 @@ export function attachViewer(room, ws, info) {
   // Slots que já chegam por WebRTC. Enquanto o slot está aqui, o relay não
   // manda os bytes dele para este espectador — seria o mesmo vídeo duas vezes.
   ws.__rtc = new Set();
+  // Último heartbeat de render por slot assistido — o que o watchdog lê.
+  ws.__render = new Map();
   ws.__peerId ??= `p${proximoPeerId++}`;
   ws.__info = info;
   ws.__connectedAt = ws.__connectedAt ?? Date.now();

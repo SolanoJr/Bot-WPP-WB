@@ -1130,6 +1130,13 @@ function handleViewer(ws, room, auth) {
       return;
     }
 
+    // Ritmo de render de quem assiste (heartbeat de 2s do player): alimenta
+    // o watchdog — decoder preso num delta se destrava com um keyframe.
+    if (msg.type === 'rendered' && Number.isInteger(msg.slot)) {
+      R.rendered(room, ws, msg.slot, msg);
+      return;
+    }
+
     // Envelope de sinalização a caminho de quem transmite. O servidor não abre:
     // offer, answer e candidato só fazem sentido para as duas pontas.
     if (msg.type === 'rtc' && Number.isInteger(msg.slot) && msg.payload) {

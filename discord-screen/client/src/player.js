@@ -64,6 +64,11 @@ export function createPlayer(canvas, { onError, onTamanho } = {}) {
   let lastLagMs = 0;
   let framesDrawn = 0;
 
+  // Contadores do heartbeat de render: quantas pinturas e quantos bytes
+  // chegaram desde o último pedido. Zerados a cada takeHeartbeat().
+  let pinturasHB = 0;
+  let bytesHB = 0;
+
   // Quadros decodificados esperando a hora de aparecer, em ordem de exibição.
   const fila = [];
   // Instante local que corresponde ao timestamp zero da origem. É o que traduz
@@ -135,6 +140,9 @@ export function createPlayer(canvas, { onError, onTamanho } = {}) {
 
   /** Quadro empacotado: [1B slot][1B tipo][8B timestamp][8B envio][payload] */
   function push(buffer) {
+    // Conta antes de qualquer early-return: "dadosFluindo" é sobre a rede,
+    // não sobre o estado do decoder — decoder frio ainda é rede viva.
+    bytesHB += buffer.byteLength;
     if (!decoder || decoder.state !== 'configured') return;
 
     const view = new DataView(buffer);
@@ -285,6 +293,7 @@ export function createPlayer(canvas, { onError, onTamanho } = {}) {
     // VideoFrame segura memória de GPU; sem close() a aba trava em segundos.
     frame.close();
     framesDrawn++;
+    pinturasHB++;
 
     // Avisa no primeiro quadro e sempre que a resolução muda: quem desenha o
     // palco precisa das duas coisas — tirar o "conectando" e refazer a forma.
@@ -305,6 +314,8 @@ export function createPlayer(canvas, { onError, onTamanho } = {}) {
     decoder = null;
     needKeyframe = true;
     lastLagMs = 0;
+    pinturasHB = 0;
+    bytesHB = 0;
     esvaziar();
     base = null;
     ultimoTs = -Infinity;
@@ -342,7 +353,29 @@ export function createPlayer(canvas, { onError, onTamanho } = {}) {
     return n;
   }
 
-  return { start, push, stop, getLag, getJitter, takeFrameCount, getSizes };
+  /**
+   * Snapshot do ritmo de render para o heartbeat de 2s do servidor, e zera os
+   * contadores da janela. `dadosFluindo` responde a pergunta que separa os dois
+   * stalls que parecem iguais de fora: bytes chegando sem pintura é render
+   * travado (o watchdog pede keyframe); bytes parados é a rede — keyframe
+   * nenhum ajuda, e é a aba oculta travando o rAF.
+   */
+  function takeHeartbeat() {
+    const hb = {
+      ts: Date.now(),
+      // Fora de navegador (testes) não há aba: conta como visível, senão o
+      // heartbeat mentiria sobre um estado que nem existe.
+      visivel: typeof document === 'undefined' || document.visibilityState === 'visible',
+      pinturas: pinturasHB,
+      fila: fila.length,
+      dadosFluindo: bytesHB > 0,
+    };
+    pinturasHB = 0;
+    bytesHB = 0;
+    return hb;
+  }
+
+  return { start, push, stop, getLag, getJitter, takeFrameCount, takeHeartbeat, getSizes };
 }
 
 function deserialize(c) {
