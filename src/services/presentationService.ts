@@ -171,10 +171,13 @@ export async function handlePresentationCollect(normMsg: any): Promise<void> {
       await import('./presentationService.js');
     const { isPresentationEnabled } = await import('./welcomeService.js');
 
+    // CONTRATO: o normMsg do BaileysNormalizer usa `userId`/`id`; o coletor
+    // histórico lia `senderId`/`messageId` (e o bug era silencioso — o gate
+    // `!senderId` retornava antes de qualquer log). Aceitamos ambos.
     const chatId = normMsg?.chatId || '';
-    const senderId = normMsg?.senderId || '';
+    const senderId = normMsg?.senderId || normMsg?.userId || '';
     const text = normMsg?.text || '';
-    const messageId = normMsg?.messageId || '';
+    const messageId = normMsg?.messageId || normMsg?.id || '';
     const mediaType = normMsg?.mediaType;
 
     if (!chatId || !senderId || !chatId.includes('@g.us')) return;
@@ -284,8 +287,11 @@ export function extractFields(texts: string[]): Partial<PresentationRecord> {
   const nick = full.match(/@([a-zA-Z0-9._]{2,30})/);
   if (nick) out.rede_social = `@${nick[1]}`;
 
-  // Nome: primeira linha curta sem marcador, se parecer nome
-  const firstLine = (texts[0] || '').trim();
+  // Nome: primeira linha curta sem marcador, se parecer nome.
+  // ("primeira LINHA": mensagens multi-linha trazem o nome no começo —
+  //  sem o split, a "linha" era o texto inteiro e o limite de 40 chars
+  //  matava o nome em toda mensagem com \n.)
+  const firstLine = ((texts[0] || '').split('\n')[0] || '').trim();
   if (firstLine && firstLine.length <= 40 && !/^(oi|olá|ola|bom dia|boa tarde|boa noite|hey|eai|e ai)\b/i.test(firstLine)) {
     out.nome = firstLine;
   }

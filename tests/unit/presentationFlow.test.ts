@@ -145,4 +145,32 @@ describe('$apresentacao — coleta → sessão → consolidação → SQLite', (
 
     expect(ps.stats().activeSessions).toBe(0);
   });
+
+  it('shape REAL do BaileysNormalizer (userId/id, sem senderId/messageId) também abre a sessão', async () => {
+    // O contrato do normalizador é `userId`/`id` — o coletor histórico lia
+    // `senderId`/`messageId` e o gate `!senderId` engolia a mensagem em
+    // silêncio total. Este caso prende o contrato real (regressão do E2E).
+    await wl.upsertCommunityGroup(LAB, ps.COMMUNITY_085_ID, 'Lab');
+    await db.setGroupModField(LAB, 'presentation_enabled', 1);
+
+    // Nome na 1ª linha (heurística oficial: "primeira linha curta sem
+    // cumprimento"); idade e trabalho na mesma mensagem → 2 sinais.
+    await ps.handlePresentationCollect({
+      id: 'whatsapp:558581344211:real-1',
+      platform: 'whatsapp',
+      chatId: LAB,
+      userId: USER,
+      text: 'João Silva\nTenho 30 anos e trabalho com informática',
+      isFromMe: false,
+    });
+
+    const active = ps.getActiveSession(LAB, USER);
+    expect(active).toBeTruthy();
+    expect(active?.trigger).toBe('signals');
+
+    const [entry] = await ps.consolidateStale(0);
+    expect(entry?.record?.nome).toBe('João Silva');
+    expect(entry?.record?.idade).toBe(30);
+    expect(entry?.record?.trabalho).toBe('informática');
+  });
 });
