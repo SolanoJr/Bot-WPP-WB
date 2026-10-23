@@ -291,11 +291,15 @@ export class BaileysMessageNormalizer {
         if (normMsg?.isFromMe !== true
             && normMsg?.chatId && !normMsg.chatId.includes('@g.us')
             && normText !== '' && !normText.startsWith('$')) {
-          const { getAwaitingFeedback, recordResponse } = await import('../../../services/feedbackService.js');
+          const { getAwaitingFeedback, recordResponse, getResponseNotifier } = await import('../../../services/feedbackService.js');
           const ev = await getAwaitingFeedback(normMsg.userId);
           if (ev) {
             const refused = ['não', 'nao', 'n', 'no', 'não quero', 'nao quero'].includes(normText.toLowerCase());
             await recordResponse(ev.event_id, normText);
+            // INC-020: resposta do removido → privado do dono (Telegram).
+            void Promise.resolve(getResponseNotifier()?.(ev, normText, refused)).catch((e: any) => {
+              logWarning('[feedback] notificação da resposta falhou', { err: String(e?.message || e) });
+            });
             await this.sock?.sendMessage(normMsg.chatId, {
               text: refused
                 ? '🙏 Tudo bem! Você não será contatado de novo tão cedo.'

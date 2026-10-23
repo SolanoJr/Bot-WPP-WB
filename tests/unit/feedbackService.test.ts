@@ -376,3 +376,30 @@ describe('INC-016 A — gate do leave respeita $feedback', () => {
     expect(await fb.isFeedbackEnabledForGroup('120363999999999999@g.us')).toBe(false);
   });
 });
+
+describe('INC-020 — notificador da resposta (donos veem no Telegram privado)', () => {
+  it('setResponseNotifier/getResponseNotifier: registra e devolve a MESMA função', () => {
+    const fn = async () => {};
+    expect(fb.getResponseNotifier()).toBe(null);
+    fb.setResponseNotifier(fn);
+    expect(fb.getResponseNotifier()).toBe(fn);
+    fb.setResponseNotifier(null);
+    expect(fb.getResponseNotifier()).toBe(null);
+  });
+
+  it('notifier recebe (ev, response, refused) — contrato usado pelo normalizer', async () => {
+    const seen: any[] = [];
+    fb.setResponseNotifier(async (ev, response, refused) => {
+      seen.push({ ev, response, refused });
+    });
+    const notifier = fb.getResponseNotifier()!;
+    const ev = { user_id: USER, group_id: GEEK, event_id: 'ev-1' };
+    await notifier(ev, 'gostei do grupo', false);
+    await notifier(ev, 'não', true);
+    expect(seen.length).toBe(2);
+    expect(seen[0]).toMatchObject({ response: 'gostei do grupo', refused: false });
+    expect(seen[1]).toMatchObject({ response: 'não', refused: true });
+    expect(seen[0].ev).toBe(ev);
+    fb.setResponseNotifier(null);
+  });
+});

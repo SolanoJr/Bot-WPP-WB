@@ -28,6 +28,26 @@ export const GROUPING_WINDOW_MS = 10 * 60 * 1000;
 export const EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
+ * INC-020 — notificador da RESPOSTA do feedback. Quando o removido responde
+ * no PV, o dono vê a resposta no Telegram privado (TELEGRAM_ALERT_CHAT_ID).
+ * O normalizer chama o notifier registrado logo após recordResponse; o
+ * multiPlatform registra a entrega via telegramAdapter. Fire-and-forget:
+ * falha de notificação nunca bloqueia o fluxo do removido.
+ */
+export type FeedbackResponseNotifier = (
+  ev: any,
+  response: string,
+  refused: boolean,
+) => Promise<void> | void;
+let responseNotifier: FeedbackResponseNotifier | null = null;
+export function setResponseNotifier(fn: FeedbackResponseNotifier | null): void {
+  responseNotifier = fn;
+}
+export function getResponseNotifier(): FeedbackResponseNotifier | null {
+  return responseNotifier;
+}
+
+/**
  * INC-016 A — gate do toggle: o grupo ativou `$feedback on`?
  * Fail-closed: sem linha em group_mod (ou banco fora) → false → NÃO
  * registra saída. Antes o leave gravava pending em qualquer grupo,

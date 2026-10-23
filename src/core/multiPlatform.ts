@@ -19,6 +19,7 @@ import { memoryMonitor } from '../services/memoryMonitor';
 import { startPeriodicCleanup } from '../services/cleanupService';
 import { startNewsScheduler } from '../services/newsScheduler';
 import { startFeedbackWorker } from '../services/feedbackWorker';
+import { setResponseNotifier } from '../services/feedbackService';
 import { createDiscordScreenServiceFromEnv } from '../services/discord-screen/DiscordScreenService';
 import { consolidateStale, listPending } from '../services/presentationService';
 import { publishToTelegram, retryPending, replyPresentationToGroup } from '../services/presentationPublisher';
@@ -172,6 +173,28 @@ export async function initializePlatforms() {
         }
       } catch (e: any) {
         logger.warn('[feedbackWorker] falha ao iniciar:', e?.message);
+      }
+
+      // ─── INC-020: resposta do feedback → privado do dono ───
+      // O removido responde no PV do WhatsApp; o dono vê a resposta no
+      // Telegram privado (TELEGRAM_ALERT_CHAT_ID). Sem a var, sem notificação.
+      try {
+        const alertChat = process.env.TELEGRAM_ALERT_CHAT_ID;
+        if (alertChat && telegramAdapter) {
+          setResponseNotifier(async (ev, response, refused) => {
+            const short = response.length > 400 ? response.slice(0, 400) + '…' : response;
+            try {
+              await telegramAdapter.bot.telegram.sendMessage(
+                Number(alertChat),
+                `📩 [feedback] resposta de ${ev.user_id} (${refused ? 'recusou' : 'respondeu'}):\n${short}`,
+              );
+            } catch (e: any) {
+              logger.warn('[feedback] notificação da resposta falhou', { error: e?.message });
+            }
+          });
+        }
+      } catch (e: any) {
+        logger.warn('[feedback] falha ao registrar notificador de resposta:', e?.message);
       }
 
       // ─── Consolidação de apresentações (Comunidade 085) ───
