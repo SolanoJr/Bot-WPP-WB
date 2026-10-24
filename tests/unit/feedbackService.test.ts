@@ -403,3 +403,39 @@ describe('INC-020 — notificador da resposta (donos veem no Telegram privado)',
     fb.setResponseNotifier(null);
   });
 });
+
+describe('formatResponseNotification — 📩 com detalhes (INC-021)', () => {
+  const ev = {
+    display_name: 'Caio ⋆☁︎｡⋆｡☾｡⋆',
+    phone_number: '558596700100@s.whatsapp.net',
+    user_id: '72576558715022@lid',
+    group_name: 'Grupo Teste',
+    group_id: '120363410094452673@g.us',
+    community_name: 'Comunidade 085',
+  };
+
+  it('inclui nome, número, grupo, comunidade e a resposta', () => {
+    const text = fb.formatResponseNotification(ev, 'Achei homofobia da parte de quem me tirou', false);
+    expect(text).toContain('📩 Feedback respondido');
+    expect(text).toContain('👤 Caio ⋆☁︎｡⋆｡☾｡⋆ (558596700100@s.whatsapp.net)');
+    expect(text).toContain('📍 Grupo: Grupo Teste');
+    expect(text).toContain('🏘 Comunidade: Comunidade 085');
+    expect(text).toContain('💬 Resposta (respondeu):');
+    expect(text).toContain('Achei homofobia da parte de quem me tirou');
+  });
+
+  it('refused=true → "recusou"; fallbacks para nome/número/grupo ausentes', () => {
+    const text = fb.formatResponseNotification({ user_id: '72576558715022@lid' }, 'não', true);
+    expect(text).toContain('(recusou)');
+    expect(text).toContain('👤 sem nome (72576558715022@lid)');
+    expect(text).toContain('📍 Grupo: —');
+    expect(text).toContain('🏘 Comunidade: —');
+  });
+
+  it('resposta >400 chars é truncada com …', () => {
+    const long = 'x'.repeat(500);
+    const text = fb.formatResponseNotification(ev, long, false);
+    expect(text).toContain('…');
+    expect(text).not.toContain('x'.repeat(450));
+  });
+});

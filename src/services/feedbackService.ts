@@ -48,6 +48,26 @@ export function getResponseNotifier(): FeedbackResponseNotifier | null {
 }
 
 /**
+ * INC-021 — texto da notificação 📩 ao dono. Função pura (testável): mostra
+ * quem respondeu (nome + número), de onde saiu (grupo + comunidade) e a
+ * resposta. O LID sozinho não identifica ninguém para o dono.
+ */
+export function formatResponseNotification(ev: any, response: string, refused: boolean): string {
+  const short = response.length > 400 ? response.slice(0, 400) + '…' : response;
+  const who = ev?.display_name || 'sem nome';
+  const number = ev?.phone_number || ev?.user_id || '—';
+  const group = ev?.group_name || ev?.group_id || '—';
+  const community = ev?.community_name || ev?.community_id || '—';
+  return [
+    '📩 Feedback respondido',
+    `👤 ${who} (${number})`,
+    `📍 Grupo: ${group}`,
+    `🏘 Comunidade: ${community}`,
+    `💬 Resposta (${refused ? 'recusou' : 'respondeu'}):\n${short}`,
+  ].join('\n');
+}
+
+/**
  * INC-016 A — gate do toggle: o grupo ativou `$feedback on`?
  * Fail-closed: sem linha em group_mod (ou banco fora) → false → NÃO
  * registra saída. Antes o leave gravava pending em qualquer grupo,

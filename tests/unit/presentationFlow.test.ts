@@ -254,3 +254,33 @@ describe('handlePresentationCollect — confirmação imediata (P2)', () => {
     expect(rows[0].status).toBe('consolidated');
   });
 });
+
+describe('extractFields — nome em linha única com vírgulas (INC-021)', () => {
+  it('"Caio Matos, 30 anos, trabalho..." → nome=Caio Matos (texto real do Caio)', () => {
+    const out = ps.extractFields(['Caio Matos, 30 anos, trabalho, estudo e jogo League of Legends']);
+    expect(out.nome).toBe('Caio Matos');
+    expect(out.idade).toBe(30);
+  });
+
+  it('multi-linha "Caio Silva\nTenho 30 anos e trabalho como designer" → nome=Caio Silva (regressão)', () => {
+    const out = ps.extractFields(['Caio Silva\nTenho 30 anos e trabalho como designer']);
+    expect(out.nome).toBe('Caio Silva');
+    expect(out.idade).toBe(30);
+  });
+
+  it('"Tenho 30 anos, sou Caio" → sem nome (nenhum candidato confiável)', () => {
+    const out = ps.extractFields(['Tenho 30 anos, sou Caio']);
+    expect(out.nome).toBeUndefined();
+    expect(out.idade).toBe(30);
+  });
+
+  it('"Oi, sou Caio, tenho 30 anos" → sem nome (saudação na frente)', () => {
+    const out = ps.extractFields(['Oi, sou Caio, tenho 30 anos']);
+    expect(out.nome).toBeUndefined();
+  });
+
+  it('linha única sem vírgula e curta continua nome direto (regressão)', () => {
+    const out = ps.extractFields(['João Silva']);
+    expect(out.nome).toBe('João Silva');
+  });
+});

@@ -326,8 +326,23 @@ export function extractFields(texts: string[]): Partial<PresentationRecord> {
   //  sem o split, a "linha" era o texto inteiro e o limite de 40 chars
   //  matava o nome em toda mensagem com \n.)
   const firstLine = ((texts[0] || '').split('\n')[0] || '').trim();
-  if (firstLine && firstLine.length <= 40 && !/^(oi|olá|ola|bom dia|boa tarde|boa noite|hey|eai|e ai)\b/i.test(firstLine)) {
-    out.nome = firstLine;
+  // INC-021: linha única com vírgulas ("Caio Matos, 30 anos, trabalho...")
+  // não passava no limite de 40 chars e o nome se perdia (row com nome NULL,
+  // template publicado sem quem é). Se o pedaço antes de ", <n> anos" — ou
+  // antes da 1ª vírgula — é curto, sem dígitos e sem saudação/verbo comum,
+  // ele é o nome. Sem candidato confiável, fica sem nome: nome errado é pior
+  // do que nome faltando.
+  let nameCandidate: string | null = firstLine || null;
+  if (nameCandidate && nameCandidate.includes(',')) {
+    const beforeIdade = nameCandidate.split(/,\s*\d{1,3}\s*anos/)[0].trim();
+    const firstComma = nameCandidate.split(',')[0].trim();
+    const stop = /^(oi|olá|ola|bom dia|boa tarde|boa noite|hey|eai|e ai|eu|sou|tenho|moro|trabalho|curto|gosto|meu|minha)\b/i;
+    nameCandidate = [beforeIdade, firstComma].find((s) =>
+      s && s.length <= 40 && !s.includes(',') && !/\d/.test(s)
+      && s.split(/\s+/).length <= 5 && !stop.test(s)) || null;
+  }
+  if (nameCandidate && nameCandidate.length <= 40 && !/^(oi|olá|ola|bom dia|boa tarde|boa noite|hey|eai|e ai)\b/i.test(nameCandidate)) {
+    out.nome = nameCandidate;
   }
 
   return out;
