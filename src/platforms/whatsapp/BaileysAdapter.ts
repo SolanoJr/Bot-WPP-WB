@@ -489,13 +489,22 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
         for (const raw of rawParticipants) {
           const id = typeof raw === 'string' ? raw : (raw?.id || '');
           if (!id) continue;
+          // O PN vem no PRÓPRIO evento (Baileys entrega participants como
+          // objetos {id, phoneNumber, admin}); o cache só serve de fallback
+          // porque o removido JÁ saiu da lista de participants no momento
+          // deste handler (hit=undefined era a causa de phone_number NULL —
+          // e sem PN o worker não manda DM: "Sem PN não há DM").
           const hit = ((chat as any)?.participants || []).find((p: any) => p?.id === id);
+          const phoneNumber =
+            (typeof raw === 'object' && raw?.phoneNumber)
+            || hit?.phoneNumber
+            || undefined;
           const eventType = communityId ? 'group_leave' : 'group_leave';
           await recordExitEvent({
             platform: 'whatsapp',
             userId: id,
-            phoneNumber: hit?.phoneNumber,
-            displayName: hit?.name || hit?.pushName,
+            phoneNumber,
+            displayName: hit?.name || hit?.pushName || (typeof raw === 'object' ? raw?.name : undefined),
             groupId,
             groupName,
             communityId: communityId ?? undefined,
