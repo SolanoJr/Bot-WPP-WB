@@ -127,4 +127,21 @@ describe('lab HTTP wiring', () => {
     expect(status).toBe(503);
     expect(body).not.toContain('Missing platform or command');
   });
+
+  it('/lab/remove-member sem params → 400 com mensagem própria', async () => {
+    const { status, body } = await post('/lab/remove-member', { groupJid: GRUPO_TESTE });
+
+    expect(status).toBe(400);
+    expect(body).toContain('Missing groupJid or userJid');
+  });
+
+  it('/lab/remove-member com params, sem adapter conectado → 503 (não 400 de fallthrough)', async () => {
+    const { status, body } = await post('/lab/remove-member', {
+      groupJid: GRUPO_TESTE,
+      userJid: USUARIO_FAKE,
+    });
+
+    expect(status).toBe(503);
+    expect(body).not.toContain('Missing platform or command');
+  });
 });

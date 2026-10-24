@@ -1127,6 +1127,89 @@ export function startTestServer(port: number = 3004): http.Server {
           return;
         }
 
+        // ─── /lab/remove-member: REMOVE solto (E2E feedback com pessoa real) ───
+        // Igual ao remove do remove-and-add, SEM o re-add: o fluxo real de
+        // feedback exige remover, deixar o worker mandar o PV, esperar a
+        // resposta do removido e só depois devolvê-lo (restore-member).
+        // Proteções idênticas: MASTER, o próprio bot, admins do grupo.
+        if (req.url === '/lab/remove-member') {
+          const { groupJid, userJid } = parsedBody;
+          if (!groupJid || !userJid) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Missing groupJid or userJid' }));
+            return;
+          }
+          const { adapter, sock } = getAdapterAndSock('whatsapp');
+          if (!adapter || !sock || !(adapter as any).client?.isReady) {
+            res.writeHead(503, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Adapter/socket WhatsApp indisponível' }));
+            return;
+          }
+          try {
+            const chat: any = await (adapter as any).getChat(groupJid);
+            if (!chat) {
+              res.writeHead(404, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: `Grupo não encontrado: ${groupJid}` }));
+              return;
+            }
+            const parts: any[] = (chat as any).participants || [];
+            const digitsOf = (v: unknown) => String(v ?? '').replace(/\D/g, '');
+            const targetDigits = digitsOf(String(userJid).split(':')[0]);
+            const sameJid = (a: unknown) =>
+              !!targetDigits && digitsOf(String(a ?? '').split(':')[0]) === targetDigits;
+
+            const botPnDigits = digitsOf(String(sock.user?.id || '').split(':')[0]);
+            const botLid = process.env.BOT_LID || '2592935567439@lid';
+            const botLidDigits = digitsOf(botLid.split(':')[0]);
+            const botPart = parts.find((p: any) =>
+              [String(p?.id ?? '').split(':')[0]].map(digitsOf).some((d) => d === botPnDigits || d === botLidDigits));
+            if (!(botPart?.isAdmin || botPart?.isSuperAdmin)) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'bot não é admin neste grupo', botParticipant: botPart ?? null }));
+              return;
+            }
+
+            const target = parts.find((p: any) =>
+              sameJid(p?.id) || (!!p?.phoneNumber && digitsOf(p.phoneNumber) === targetDigits));
+            const masterDigits = digitsOf(process.env.MASTER_USER || '558898314322');
+            if (targetDigits === masterDigits) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'alvo é o MASTER — protegido' }));
+              return;
+            }
+            if (targetDigits === botPnDigits || targetDigits === botLidDigits) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'alvo é o próprio bot — protegido' }));
+              return;
+            }
+            if (target?.isAdmin || target?.isSuperAdmin) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'alvo é admin do grupo — protegido', target }));
+              return;
+            }
+            if (!target) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'alvo não é participante do grupo', userJid }));
+              return;
+            }
+
+            logInfo('[TestServer] /lab/remove-member: remove', { groupJid, userJid });
+            const removedAt = Date.now();
+            const removeResult = await sock.groupParticipantsUpdate(groupJid, [userJid], 'remove');
+            logInfo('[TestServer] /lab/remove-member: removed', { removeResult });
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              ok: true, steps: ['removed'],
+              timestamps: { removedAt },
+              removeResult,
+            }, null, 1));
+          } catch (err: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err?.message || String(err) }));
+          }
+          return;
+        }
+
         // ─── /lab/run-feedback-worker: dispara UM ciclo do worker AGORA ────
         // E2E do feedback: sem esperar o interval de 6h. Usa o MESMO send
         // registrado pelo startFeedbackWorker (PV WhatsApp + espelho
