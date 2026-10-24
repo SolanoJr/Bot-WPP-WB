@@ -784,3 +784,37 @@ nenhum outro grupo tocado. Pendente: usuário indicar grupos reais p/
 ativar presentation_enabled/feedback (só configurar, sem testar lá).
 Backlog: espelho do feedback não loga o message_id do Telegram no
 sucesso (só warn na falha) — adicioná-lo quando o feedback voltar ao foco.
+
+INC-021 — E2E com pessoa REAL (Caio, 558596700100 / LID 72576558715022),
+22:00-22:50. Aprovado pelo usuário (Caio destituído de admin; sabe do teste).
+Deploy prévio: 23d1133 (notificador da resposta) + 735166d (rota nova
+/lab/remove-member — remove SOLTO, sem re-add; proteções MASTER/bot/admin;
+testes de contrato 400/503 em testServerHttp).
+BUG 1 (84de488): recordExitEvent gravava phone_number NULL — o handler
+procurava o removido no cache DEPOIS da saída (hit=undefined). O PN vem no
+próprio evento (Baileys entrega participants como objetos {id, phoneNumber,
+admin}); fix extrai raw.phoneNumber com fallback no cache.
+BUG 2 (7747e611): o send do feedbackWorker passava sendMessage(userId, {text})
+onde BaileysAdapter.sendMessage(chatId, text: STRING) — objeto é rejeitado
+silenciosamente pelo sender; o PV nunca saía e o worker contava failed.
+Era a causa também do failed:1 do fake em INC-020 (não era o fake).
+COLATERAL: o worker periódico gastou a 3ª tentativa com o dist antigo →
+evento expired/attempts=3 às ~22:21; reset pontual status=pending
+attempts=0 no DB (as falhas eram dos bugs corrigidos).
+Fluxo real provado: remove 21:59 status 200 (GROUP_PARTICIPANTS_UPDATE
+literal) → evento group_leave REAL no DB → janela 10min → worker sent=1
+22:25:26 (PV no WhatsApp real do Caio; usuário conferiu no aparelho) →
+Caio RESPONDEU 22:30:41 "Achei homofobia da parte de quem me tirou" →
+status responded + bot agradeceu no PV dele (fromMe extendedText com
+quote) + 📩 ao Telegram do dono (TELEGRAM_ALERT_CHAT_ID; caminho não
+loga sucesso — sem WARN = entregue; confirmação visual pendente) →
+restore-member add 22:34:50 status 200 (join_time literal) →
+[memberJoinService] welcome enviado 22:34:52 + aviso de apresentação
+enviado 22:34:53. Passo 6: Caio não respondeu o aviso na janela de 15min
+— DOCUMENTADO "aguardando resposta do Caio" (regra do runbook; não é
+falha do bot). Gatilho do passo 6 = quote ao aviso (sem TTL).
+TELEGRAM_FEEDBACK_CHAT_ID esvaziado no .env da VPS (22:18) a pedido do
+usuário: o PEDIDO vai só ao PV do removido; a RESPOSTA (📩) vem ao
+privado dele. Backup .env em /tmp/bw-env-backup-feedback-mirror.
+Pendências: confirmação visual da 📩 (usuário) + apresentação do Caio
+(quote ao aviso, sem prazo) + espelho sem message_id (backlog INC-020).
