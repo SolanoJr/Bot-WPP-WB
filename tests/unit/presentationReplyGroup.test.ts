@@ -51,10 +51,11 @@ function makeRec(over: Record<string, any> = {}): any {
 const RAW = { key: { id: 'BBB', remoteJid: GRUPO }, message: { conversation: '...' } };
 
 describe('replyPresentationToGroup — quote + template + foto no grupo', () => {
-  it('envia UMA mensagem: foto picsum (seed = número) + caption com template, quoted na ÚLTIMA mensagem coletada', async () => {
+  it('envia UMA mensagem: foto (picsum do caller) + caption com template, quoted na ÚLTIMA mensagem coletada', async () => {
     const sendMessage = vi.fn(async (_jid: string, _content: any, _opts?: any) => ({}));
     const loadMessage = vi.fn(async (_jid: string, _id: string) => RAW);
-    const ok = await replyPresentationToGroup(makeRec(), { sendMessage, loadMessage });
+    const photo = { url: 'https://picsum.photos/seed/5585999999999/512/512' };
+    const ok = await replyPresentationToGroup(makeRec(), { sendMessage, loadMessage }, photo);
 
     expect(ok).toBe(true);
     expect(sendMessage).toHaveBeenCalledTimes(1);
@@ -68,6 +69,19 @@ describe('replyPresentationToGroup — quote + template + foto no grupo', () => 
     expect(opts).toEqual({ quoted: RAW });
     // quote aponta para a ÚLTIMA mensagem coletada, não a primeira
     expect(loadMessage).toHaveBeenCalledWith(GRUPO, 'BBB');
+  });
+
+  it('INC-021: SEM photo do caller → texto puro com quote (fallback interno removido; picsum é do caller)', async () => {
+    const sendMessage = vi.fn(async (_jid: string, _content: any, _opts?: any) => ({}));
+    const loadMessage = vi.fn(async (_jid: string, _id: string) => RAW);
+    const ok = await replyPresentationToGroup(makeRec(), { sendMessage, loadMessage });
+
+    expect(ok).toBe(true);
+    const [jid, content, opts] = sendMessage.mock.calls[0];
+    expect(jid).toBe(GRUPO);
+    expect(content.image).toBeUndefined();
+    expect(content.text).toContain('João Silva');
+    expect(opts).toEqual({ quoted: RAW });
   });
 
   it('usa o BUFFER da foto enviada no grupo quando existe', async () => {
@@ -106,7 +120,8 @@ describe('replyPresentationToGroup — quote + template + foto no grupo', () => 
       if (_content.image && _opts?.quoted) throw new Error('quote inválido');
       return {};
     });
-    const ok = await replyPresentationToGroup(makeRec(), { sendMessage, loadMessage: vi.fn(async () => RAW) });
+    const photo = { url: 'https://picsum.photos/seed/5585999999999/512/512' };
+    const ok = await replyPresentationToGroup(makeRec(), { sendMessage, loadMessage: vi.fn(async () => RAW) }, photo);
     expect(ok).toBe(true);
     expect(sendMessage).toHaveBeenCalledTimes(2);
     const [, content, opts] = sendMessage.mock.calls[1];
@@ -119,7 +134,8 @@ describe('replyPresentationToGroup — quote + template + foto no grupo', () => 
       if (content.image) throw new Error('media upload falhou');
       return {};
     });
-    const ok = await replyPresentationToGroup(makeRec(), { sendMessage, loadMessage: vi.fn(async () => RAW) });
+    const photo = { url: 'https://picsum.photos/seed/5585999999999/512/512' };
+    const ok = await replyPresentationToGroup(makeRec(), { sendMessage, loadMessage: vi.fn(async () => RAW) }, photo);
 
     expect(ok).toBe(true);
     expect(sendMessage).toHaveBeenCalledTimes(3);

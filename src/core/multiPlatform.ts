@@ -22,7 +22,7 @@ import { startFeedbackWorker } from '../services/feedbackWorker';
 import { setResponseNotifier, formatResponseNotification } from '../services/feedbackService';
 import { createDiscordScreenServiceFromEnv } from '../services/discord-screen/DiscordScreenService';
 import { consolidateStale, listPending } from '../services/presentationService';
-import { publishToTelegram, retryPending, replyPresentationToGroup } from '../services/presentationPublisher';
+import { publishToTelegram, retryPending, replyPresentationToGroup, picsumFor } from '../services/presentationPublisher';
 import { downloadMediaMessage } from '@whiskeysockets/baileys';
 import { validateMasterConfig } from '../services/permissions';
 
@@ -238,6 +238,15 @@ export async function initializePlatforms() {
                   }
                 }
               } catch { /* sem foto, sem problema */ }
+
+              // INC-021: foto CENTRAL — se a apresentação não trouxe foto
+              // (url/buffer), o picsum é gerado AQUI, uma única vez, e segue
+              // para os DOIS canais. Antes: o grupo gerava o placeholder
+              // internamente e o Telegram publicava texto puro (a 217 saiu
+              // sem foto enquanto o grupo via picsum + caption).
+              if (!photo) {
+                photo = { url: picsumFor(record) };
+              }
 
               // ─── Resposta NO GRUPO de origem (PROBLEMA 2 / TESTE 1): quote da
               // última mensagem coletada + template + foto. O canal que o

@@ -78,28 +78,47 @@ export async function publishToTelegram(
   try {
     // Se já existe mensagem no Telegram → EDITAR (não duplica)
     if (rec.tg_message_id) {
-      if (photo) {
-        // Mensagem de foto edita a legenda, não o texto.
-        await bot.telegram.editMessageCaption(
-          Number(TG_CHAT_ID),
-          Number(rec.tg_message_id),
-          undefined,
-          text.slice(0, 1024),
-          { parse_mode: 'Markdown', message_thread_id: threadId } as any
-        );
-      } else {
-        await bot.telegram.editMessageText(
-          Number(TG_CHAT_ID),
-          Number(rec.tg_message_id),
-          undefined,
-          text,
-          { parse_mode: 'Markdown', disable_web_page_preview: true, message_thread_id: threadId } as any
-        );
+      try {
+        if (photo) {
+          // Mensagem de foto edita a legenda, não o texto.
+          await bot.telegram.editMessageCaption(
+            Number(TG_CHAT_ID),
+            Number(rec.tg_message_id),
+            undefined,
+            text.slice(0, 1024),
+            { parse_mode: 'Markdown', message_thread_id: threadId } as any
+          );
+        } else {
+          await bot.telegram.editMessageText(
+            Number(TG_CHAT_ID),
+            Number(rec.tg_message_id),
+            undefined,
+            text,
+            { parse_mode: 'Markdown', disable_web_page_preview: true, message_thread_id: threadId } as any
+          );
+        }
+        logger.info('[presentationPublisher] mensagem editada', {
+          presentationId: rec.presentation_id, tgMessageId: rec.tg_message_id,
+        });
+        return rec.tg_message_id;
+      } catch (e: any) {
+        // INC-021: a mensagem antiga pode ser de TIPO diferente do payload
+        // novo (texto→foto: editMessageCaption falha com "no caption";
+        // foto→texto: editMessageText falha com "no text"; msg apagada:
+        // "message to edit not found"). O Telegram não converte tipo via edit
+        // — apaga a antiga e publica no novo formato, mantendo o contrato de
+        // correção: 1 mensagem por apresentação, substituir não duplicar.
+        const recoverable = /no caption|no text|message to edit/i.test(e?.message || '');
+        if (!recoverable) throw e;
+        try {
+          await bot.telegram.deleteMessage(Number(TG_CHAT_ID), Number(rec.tg_message_id));
+        } catch { /* já não existia — segue para a nova publicação */ }
+        logger.info('[presentationPublisher] tipo divergente — republicando como nova mensagem', {
+          presentationId: rec.presentation_id, oldTgMessageId: rec.tg_message_id, hadPhoto: !!photo,
+        });
+        // cai no fluxo de primeira publicação: sendPhoto/sendMessage novo
+        // gera novo message_id e markPublished atualiza o registro.
       }
-      logger.info('[presentationPublisher] mensagem editada', {
-        presentationId: rec.presentation_id, tgMessageId: rec.tg_message_id,
-      });
-      return rec.tg_message_id;
     }
 
     // Primeira publicação
@@ -147,12 +166,24 @@ export async function publishToTelegram(
 }
 
 /**
+ * INC-021 — picsum determinístico da apresentação. Gerado UMA vez no
+ * multiPlatform (antes das duas chamadas) para os DOIS canais verem a mesma
+ * foto: antes o grupo gerava o placeholder internamente e o Telegram
+ * publicava texto puro (msg 217: grupo com foto+caption, privado só texto).
+ */
+export function picsumFor(rec: PresentationRecord): string {
+  const seed = (rec.phone_number || rec.user_id || 'apresentacao').replace(/\D/g, '') || 'apresentacao';
+  return `https://picsum.photos/seed/${seed}/512/512`;
+}
+
+/**
  * Responde NO GRUPO WhatsApp à apresentação consolidada: uma mensagem única
  * com foto + caption (template formatado), quoted na última mensagem
  * coletada do apresentador. É o canal que o usuário VÊ — o Telegram é espelho.
  *
- * Foto: a do próprio apresentador quando existe (buffer baixado / url);
- * sem foto enviada, placeholder picsum determinístico pelo número.
+ * Foto: a do próprio apresentador quando existe (buffer baixado / url).
+ * O placeholder picsum vem do multiPlatform (picsumFor) — o fallback interno
+ * foi removido para que os dois canais recebam SEMPRE a mesma imagem.
  * Foto é enriquecimento: se o envio com imagem falhar, cai para texto puro
  * com quote. Qualquer falha retorna false e NÃO bloqueia o espelho Telegram.
  */
@@ -186,27 +217,27 @@ export async function replyPresentationToGroup(
       }
     } catch { /* sem quote, envia sem citação */ }
 
-    // Foto: buffer (imagem enviada no grupo) > url > placeholder picsum
-    let image: { url: string } | Buffer | undefined =
+    // Foto: buffer (imagem enviada no grupo) > url. O picsum placeholder
+    // agora vem SEMPRE do caller (multiPlatform via picsumFor) — os dois
+    // canais recebem a mesma imagem.
+    const image: { url: string } | Buffer | undefined =
       photo?.buffer || (photo?.url ? { url: photo.url } : undefined);
-    if (!image) {
-      const seed = (rec.phone_number || rec.user_id || 'apresentacao').replace(/\D/g, '') || 'apresentacao';
-      image = { url: `https://picsum.photos/seed/${seed}/512/512` };
-    }
 
     // Degraus de envio: [foto+quote] → foto → [texto+quote] → texto.
     // Foto é enriquecimento, quote também — a resposta no grupo é o gate.
+    // Sem image (foto é opcional desde o INC-021), os degraus de foto somem.
     const attempts: Array<() => Promise<any>> = [];
-    if (quoted) attempts.push(() => sock.sendMessage(rec.group_id, { image: image as any, caption }, { quoted }));
-    attempts.push(() => sock.sendMessage(rec.group_id, { image: image as any, caption }, {}));
+    if (image && quoted) attempts.push(() => sock.sendMessage(rec.group_id, { image: image as any, caption }, { quoted }));
+    if (image) attempts.push(() => sock.sendMessage(rec.group_id, { image: image as any, caption }, {}));
     if (quoted) attempts.push(() => sock.sendMessage(rec.group_id, { text: caption }, { quoted }));
     attempts.push(() => sock.sendMessage(rec.group_id, { text: caption }, {}));
 
     const why: string[] = [];
+    const photoSteps = image ? (quoted ? 2 : 1) : 0;
     for (let i = 0; i < attempts.length; i++) {
       try {
         await attempts[i]();
-        const isPhoto = i < (quoted ? 2 : 1);
+        const isPhoto = i < photoSteps;
         logger.info('[presentationPublisher] resposta no grupo enviada', {
           presentationId: rec.presentation_id, groupId: rec.group_id,
           hasPhoto: isPhoto, quoted: !!quoted && i % 2 === 0,
@@ -233,7 +264,14 @@ export async function retryPending(bot: any): Promise<{ ok: number; fail: number
   const pending = await listPending();
   let ok = 0, fail = 0;
   for (const rec of pending) {
-    const id = await publishToTelegram(rec, bot);
+    // INC-021: retry também publica COM foto — url quando existe, senão o
+    // mesmo picsum determinístico do caminho principal (consistência entre
+    // canais; o buffer de photo_source 'sent' exige sock e não é do escopo
+    // do retry).
+    const photo = rec.photo_source === 'url' && rec.photo_ref
+      ? { url: rec.photo_ref }
+      : { url: picsumFor(rec) };
+    const id = await publishToTelegram(rec, bot, undefined, undefined, photo);
     if (id) ok++; else fail++;
   }
   return { ok, fail };
