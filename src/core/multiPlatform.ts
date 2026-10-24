@@ -162,7 +162,10 @@ export async function initializePlatforms() {
                   logger.warn('[feedbackWorker] espelho Telegram falhou', { error: e?.message });
                 }
               }
-              await wppClient.sendMessage(userId, { text });
+              // BaileysAdapter.sendMessage(chatId, text: STRING, options) —
+              // um objeto { text } aqui é rejeitado silenciosamente pelo
+              // sender (o PV nunca sai e o worker conta failed). Fix INC-021.
+              await wppClient.sendMessage(userId, text);
               return true;
             } catch {
               return false;
