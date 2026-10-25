@@ -48,13 +48,14 @@ remover/adicionar membros em grupos de produção. (A violação disso foi o INC
 
 | Item | Estado | Última verificação |
 |---|---|---|
-| origin/main (GitHub) | `0b37419` (+commit de atualização deste arquivo) | 25/10 18:00 |
-| VPS (~/bot-wpp) | `0b37419` — deploy `a47fe6a` concluído 25/10 18:05 | 25/10 18:07 |
+| origin/main (GitHub) | `7143873` (+doc: BUGS/HANDOFF INC-022) | 25/10 18:52 |
+| VPS (~/bot-wpp) | `7143873` — deploys 18:05/18:40/18:48 todos verdes | 25/10 18:48 |
 | Local (Windows) | sincronizado com origin/main | 25/10 |
-| pm2 `bot-wpp` | online, boot `🎉 prontas!` 18:05:47, 0 [ERROR] novo | 25/10 18:07 |
-| Smoke pós-deploy | `/health` 200 (`wpp:connected`) · lab 200 · `/lab/adapter` POST 200 | 25/10 18:06 |
-| **Backup diário** | ** FUNCIONANDO**: `backups/bot-wpp-2026-10-25T180547.db.gz` (677 KB) no boot, log `[backup] boot: ... (676 KB)` | 25/10 18:05 |
-| Testes | **943 passed / 0 failed** / 3 skipped (flaky Discord, `it.skip` documentado) | 25/10 |
+| pm2 `bot-wpp` | online, boot `🎉 prontas!` 18:48:46, 0 [ERROR] novo | 25/10 18:48 |
+| Smoke pós-deploy | `/health` 200 (`wpp:connected`) · lab 200 · `/lab/adapter` POST 200 | 25/10 18:48 |
+| **Backup diário** | **FUNCIONANDO**: `backups/bot-wpp-2026-10-25T180547.db.gz` (677 KB) no boot, log `[backup] boot: ... (676 KB)` | 25/10 18:05 |
+| **Vulns produção** | **0** (`npm audit --omit=dev` na VPS: found 0) — Dependabot round 2 feito (body-parser high) | 25/10 18:40 |
+| Testes | **945 passed / 0 failed** / 3 skipped (flaky Discord, `it.skip` documentado) | 25/10 |
 | typecheck/build | 0 erros | 25/10 |
 | Disco VPS | 49% (16 G livres) | 25/10 18:07 |
 
@@ -100,7 +101,7 @@ da VPS é independente e permaneceu sadio o tempo todo.
 | **Tailscale watchdog** (systemd na VPS; `--accept-dns=false`) | 🟢 produção | INC-012/013 |
 | **Detector de MASTER fantasma** (warning quando MASTER_USER não resolve; sanidade no boot) | 🟢 produção | `src/core/multiPlatform.ts:37` |
 | **Backup diário do SQLite** (VACUUM INTO + gzip + rotação 7 em `BACKUP_DIR`) | 🟢 produção | `a47fe6a`; 3 testes unit; **primeiro backup real no boot 25/10 18:05 (677 KB)** |
-| **`$promover`** (via `promoteParticipant(chatId,userId)` Baileys, status≠200 → erro claro) | 🟢 produção (aguarda teste manual no Grupo Teste) | `a47fe6a`; 5 testes unit; `promoteParticipant` ×5/×3/×1 no dist (core/adapter/memberManager) |
+| **`$promover`** (via `promoteParticipant(chatId,userId)` Baileys, status≠200 → erro claro) | 🟢 **E2E provado no Grupo Teste 25/10 18:50** (INC-022): candidato conta-de-teste promovido a admin e confirmado via `/lab/group-info`; reversão manual pendente no dono | `7143873`; rota `/lab/promote-member`; 5 testes unit + 2 de rota |
 | **Telemetria de comandos** (`command_usage_events`: command/alias/platform/bot/chat/user/outcome/permission/duration/correlation_id, 3 índices, retenção 180 d; `command_logs` legado) | 🟢 produção | auditado 25/10 — completo, nada a fazer |
 
 ---
@@ -130,7 +131,8 @@ da VPS é independente e permaneceu sadio o tempo todo.
 | INC-018 | Welcome real: sensor de admin cego (p?.admin vs isAdmin mapeado) + add aceita PN, não LID | `197aae4`/`606900e` | ✅ resolvido 23/10 |
 | INC-019 | Violação de escopo: teste no grupo Figurinhas em vez do Grupo Teste | — (23/10) | ✅ documentado; escopo restaurado, lição registrada |
 | INC-020 | Apresentação: default aditivo + aviso no join + confirmação imediata + feedback com espelho Telegram | `8339da0`+ | ✅ resolvido 23/10 |
-| INC-021 | E2E com pessoa real: PV do feedback nunca saía ({text} obj vs string; PN NULL do cache), nome em linha única, 📩 ao dono, route por origem, foto 1×, idade "24" sem "anos", display_name no leave | `df31ba9`+`daee872` | ✅ resolvido 24-25/10 |
+| INC-021 | E2E com pessoa real: PV do feedback nunca saía ({text} obj vs string; PN NULL do cache), nome em linha única, 📩 ao dono, route por origem, foto 1×, idade "24" sem "anos", display_name no leave | `df31ba9`+`daee872` | ✅ resolvido 24-25/10 (display_name='Alberto' confirmado no DB 25/10) |
+| INC-022 | Prova funcional E2E do $promover (fix a47fe6a) + rota /lab/promote-member; candidato conta-de-teste promovido 18:50:33 e confirmado admin; demote não existe — reversão manual pelo WhatsApp | `7143873` | ✅ resolvido 25/10 (reversão manual pendente no dono) |
 
 **Auditoria 25/10 (mandato técnico):** `a47fe6a` — P1 backup diário, P1 $promover
 quebrado (0 adapters implementavam), P2 fantasmas da interface, P2 .env.example.
@@ -143,9 +145,10 @@ Detalhe completo em `docs/CHANGELOG.md`.
 ### Técnicas (não bloqueiam testes)
 1. ~~Push + deploy do `a47fe6a`~~ **FEITO 25/10 18:00-18:05** (push `0b37419`, deploy, 3 pernas verdes, backup nasceu).
 2. Render watchdog: log real `keyframe pedido` (exige transmissão ao vivo).
-3. Dependabot: 32v (5 críticas) — `npm audit fix` resolve a maioria sem breaking.
-4. Dívida INC-015-3: consumidor para `ADMINS` do .env (ou remover do .env).
-5. BACKLOG edge cases: normalizer (8 pontos), automod (7), sender/quotedText,
+3. ~~Dependabot~~ **round 2 feito 25/10**: `npm audit fix` (4d496ab) → **0 vulns em produção** na VPS; restam 3 dev-only (vite/tinypool, breaking — cosmético; GitHub Dependabot ainda lista por contar dev/CI).
+4. **Reverter admin de teste no Grupo Teste** (INC-022): PN 639474500179 foi promovido para provar o $promover; dono remove pelo WhatsApp (grupo → info → membro → remover admin). Sem demote no bot (decisão: não criar).
+5. Dívida INC-015-3: consumidor para `ADMINS` do .env (ou remover do .env).
+6. BACKLOG edge cases: normalizer (8 pontos), automod (7), sender/quotedText,
    deleteMsg — `laboratorio/BACKLOG.md`.
 
 ### Testes manuais do usuário (só ele faz)
@@ -167,14 +170,14 @@ estatísticas de apresentações ($stats de apresentação) · maiores ver
 
 ---
 
-## 6. PERGUNTAS PARA O USUÁRIO (3 pendentes)
+## 6. PERGUNTAS PARA O USUÁRIO
 
 1. **A msg 221 (forward da apresentação do Alberto) chegou no Telegram dele?**
    (prova visual do fluxo completo; nos logs, sim — `sent=1` 24/10 21:49)
 2. **Produção: todas as comunidades no mesmo grupo Fortaleza, ou cada comunidade
    com o seu destino de apresentações?**
-3. **O evento do Alberto no DB tem `display_name='Alberto'`?** (fix cosmético
-   INC-021 `daee872` — validar no próximo evento real de leave)
+3. ~~O evento do Alberto tem `display_name='Alberto'`?~~ **RESPONDIDA 25/10
+   (query no DB)**: sim — `('whatsapp|60382962012254@lid|120363410094452673@g.us|1792886991039', 'Alberto', 'contacted', 1, None)`. Fix `daee872` confirmado em produção.
 
 ---
 
@@ -255,7 +258,7 @@ deploy e E2E — carregar com `skill_view` antes da primeira operação da sess�
 | `src/services/memberJoinService.ts` | join flow real (GROUP_PARTICIPANTS_UPDATE), envio do welcome |
 | `src/services/rssNewsService.ts` | notícias RSS Geek 08:00, dedup por hash |
 | `src/services/backupService.ts` | **NOVO (a47fe6a):** snapshot diário VACUUM INTO + gzip + rotação |
-| `src/services/testServer.ts` | rotas `/lab/*` (inject, group-info, remove/restore-member, run-feedback-worker) |
+| `src/services/testServer.ts` | rotas `/lab/*` (inject, group-info, remove/restore-member, **promote-member**, run-feedback-worker) |
 | `src/services/permissions.ts` | isMaster (MASTER_USER/MASTER_LID) — gating por handler |
 | `src/services/databaseService.ts` | schema+migrations (addColumnIfMissing), `command_state`, `command_usage_events`, backup VACUUM INTO |
 | `src/services/loggerService.ts` | logInfo/logWarning/logError (usar SEMPRE; nunca console.log) |

@@ -818,3 +818,27 @@ usuário: o PEDIDO vai só ao PV do removido; a RESPOSTA (📩) vem ao
 privado dele. Backup .env em /tmp/bw-env-backup-feedback-mirror.
 Pendências: confirmação visual da 📩 (usuário) + apresentação do Caio
 (quote ao aviso, sem prazo) + espelho sem message_id (backlog INC-020).
+
+INC-022 — Prova funcional E2E do $promover (fix a47fe6a) + /lab/promote-member
+Data: 25/10/2026 · SHA: 7143873 · Status: RESOLVIDO (prova concluída)
+Contexto: $promover respondia "não suportado nesta plataforma" (0 adapters
+implementavam promoteParticipant — auditoria P1). Fix a47fe6a adicionou
+promoteParticipant no PlatformTypes + BaileysAdapter (groupParticipantsUpdate
+'promote', status≠200 → erro claro) + comando com PN mapeado. Só unit-testado.
+Prova:
+- Rota /lab/promote-member criada (7143873): proteções idênticas ao
+  remove-member (MASTER/bot/alvo já admin → 400; bot não admin → 400; sem
+  adapter → 503; alvo ausente → 400). Chama adapter.promoteParticipant REAL.
+- Testes: 400 sem params, 503 sem adapter (testServerHttp 13/13); suite
+  945 passed / 3 skipped.
+- F3 no Grupo Teste 18:50:33: candidato 84607231905945@lid (PN 639474500179,
+  conta de teste) promovido → 200 {ok, steps:['promoted']} → /lab/group-info
+  confirma admin:'admin' (admins do grupo: 4 = candidato + MASTER superadmin
+  + 27445294006297 + bot).
+DECISÃO: interface NÃO tem demote (rota fantasma removida na auditoria;
+$demote não existe como comando). NÃO criar /lab/demote-member (escopo).
+REVERSÃO MANUAL: dono remove o admin pelo WhatsApp (Grupo Teste →
+info do grupo → abrir PN 639474500179 → remover como admin). Pendente no
+usuário; candidato é conta de teste num grupo de teste (sem risco).
+Prova complementar do comando no chat: $promover @candidato no Grupo Teste
+(exercita o path completo do comando — dispatcher → permissions → adapter).
