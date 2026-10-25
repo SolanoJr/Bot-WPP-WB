@@ -1210,6 +1210,97 @@ export function startTestServer(port: number = 3004): http.Server {
           return;
         }
 
+        // ─── /lab/promote-member: PROMOVE a admin (E2E do $promover fix) ───
+        // Contrato do comando (a47fe6a): adapter.promoteParticipant(chatId,
+        // userId). Valida o caminho REAL: BaileysAdapter → BaileysMemberManager
+        // → groupParticipantsUpdate 'promote' (status != 200 → erro).
+        // Proteções idênticas ao remove-member: MASTER, o próprio bot e
+        // admins do grupo não podem ser alvo. PN do participant quando
+        // mapeado (lição INC-018: ações de grupo com LID podem dar
+        // bad-request — remove aceita LID, add exige PN; promote usa PN
+        // por garantia, com fallback para o JID cru).
+        if (req.url === '/lab/promote-member') {
+          const { groupJid, userJid } = parsedBody;
+          if (!groupJid || !userJid) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Missing groupJid or userJid' }));
+            return;
+          }
+          const { adapter, sock } = getAdapterAndSock('whatsapp');
+          if (!adapter || !sock || !(adapter as any).client?.isReady) {
+            res.writeHead(503, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Adapter/socket WhatsApp indisponível' }));
+            return;
+          }
+          try {
+            const chat: any = await (adapter as any).getChat(groupJid);
+            if (!chat) {
+              res.writeHead(404, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: `Grupo não encontrado: ${groupJid}` }));
+              return;
+            }
+            const parts: any[] = (chat as any).participants || [];
+            const digitsOf = (v: unknown) => String(v ?? '').replace(/\D/g, '');
+            const targetDigits = digitsOf(String(userJid).split(':')[0]);
+            const sameJid = (a: unknown) =>
+              !!targetDigits && digitsOf(String(a ?? '').split(':')[0]) === targetDigits;
+
+            const botPnDigits = digitsOf(String(sock.user?.id || '').split(':')[0]);
+            const botLid = process.env.BOT_LID || '2592935567439@lid';
+            const botLidDigits = digitsOf(botLid.split(':')[0]);
+            const botPart = parts.find((p: any) =>
+              [String(p?.id ?? '').split(':')[0]].map(digitsOf).some((d) => d === botPnDigits || d === botLidDigits));
+            if (!(botPart?.isAdmin || botPart?.isSuperAdmin)) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'bot não é admin neste grupo', botParticipant: botPart ?? null }));
+              return;
+            }
+
+            const target = parts.find((p: any) =>
+              sameJid(p?.id) || (!!p?.phoneNumber && digitsOf(p.phoneNumber) === targetDigits));
+            const masterDigits = digitsOf(process.env.MASTER_USER || '558898314322');
+            if (targetDigits === masterDigits) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'alvo é o MASTER — protegido' }));
+              return;
+            }
+            if (targetDigits === botPnDigits || targetDigits === botLidDigits) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'alvo é o próprio bot — protegido' }));
+              return;
+            }
+            if (target?.isAdmin || target?.isSuperAdmin) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'alvo já é admin do grupo', target }));
+              return;
+            }
+            if (!target) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'alvo não é participante do grupo', userJid }));
+              return;
+            }
+
+            // PN mapeado quando existir; senão o JID cru (LID aceito pelo promote).
+            const pn = target?.phoneNumber
+              ? `${digitsOf(target.phoneNumber)}@s.whatsapp.net`
+              : userJid;
+            logInfo('[TestServer] /lab/promote-member: promote', { groupJid, pn });
+            const promoteResult = await (adapter as any).promoteParticipant(groupJid, pn);
+            logInfo('[TestServer] /lab/promote-member: promoted', { promoteResult });
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              ok: true, steps: ['promoted'],
+              timestamps: { promotedAt: Date.now() },
+              target: { id: target?.id, phoneNumber: target?.phoneNumber ?? null },
+              promoteResult,
+            }, null, 1));
+          } catch (err: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err?.message || String(err) }));
+          }
+          return;
+        }
+
         // ─── /lab/run-feedback-worker: dispara UM ciclo do worker AGORA ────
         // E2E do feedback: sem esperar o interval de 6h. Usa o MESMO send
         // registrado pelo startFeedbackWorker (PV WhatsApp + espelho
