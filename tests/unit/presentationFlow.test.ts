@@ -284,3 +284,28 @@ describe('extractFields — nome em linha única com vírgulas (INC-021)', () =>
     expect(out.nome).toBe('João Silva');
   });
 });
+
+describe('extractFields — idade sem "anos" (INC-021 BUG1)', () => {
+  it('"Alberto, 24, não faço nada" → nome=Alberto, idade=24, trabalho=null', () => {
+    const out = ps.extractFields(['Alberto, 24, não faço nada']);
+    expect(out.nome).toBe('Alberto');
+    expect(out.idade).toBe(24);
+    expect(out.trabalho).toBeUndefined();
+  });
+
+  it('"24" no fim após vírgula também é idade ("Caio, 30")', () => {
+    const out = ps.extractFields(['Caio, 30']);
+    expect(out.nome).toBe('Caio');
+    expect(out.idade).toBe(30);
+  });
+
+  it('número no meio da frase NÃO é idade ("chego às 24 horas")', () => {
+    const out = ps.extractFields(['Muito bom, chego às 24 horas no evento']);
+    expect(out.idade).toBeUndefined();
+  });
+
+  it('"24 anos" explícito continua funcionando (regressão)', () => {
+    const out = ps.extractFields(['Tenho 24 anos e estudo TI']);
+    expect(out.idade).toBe(24);
+  });
+});

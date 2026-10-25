@@ -499,12 +499,22 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
             (typeof raw === 'object' && raw?.phoneNumber)
             || hit?.phoneNumber
             || undefined;
+          // INC-021: display_name. O metadata pós-remove JÁ vem sem o
+          // removido (hit=undefined é o caso normal, não exceção), e o
+          // evento traz id/phoneNumber/admin — o nome só existe quando o
+          // WhatsApp inclui displayName no participant do metadata (hit.raw)
+          // ou no próprio evento. Lê-se o que houver; se vier vazio, o
+          // recordExitEvent cobre com o nome da apresentação salva no DB.
+          const displayName =
+            hit?.name
+            || hit?.raw?.displayName
+            || (typeof raw === 'object' ? (raw?.displayName ?? raw?.name) : undefined);
           const eventType = communityId ? 'group_leave' : 'group_leave';
           await recordExitEvent({
             platform: 'whatsapp',
             userId: id,
             phoneNumber,
-            displayName: hit?.name || hit?.pushName || (typeof raw === 'object' ? raw?.name : undefined),
+            displayName,
             groupId,
             groupName,
             communityId: communityId ?? undefined,

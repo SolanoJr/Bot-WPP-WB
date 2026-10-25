@@ -103,6 +103,24 @@ export async function recordExitEvent(input: ExitEventInput): Promise<string> {
   const db = await getDb();
   const now = Date.now();
 
+  // INC-021: o evento de remove do WhatsApp raramente traz nome (metadata
+  // pós-remove já vem sem o participante). Quem se apresentou tem nome salvo
+  // em presentations — usa esse em vez de deixar display_name NULL (a 📩 ao
+  // dono mostrava número no lugar do nome). Sem apresentação, mantém o que
+  // veio (a 📩 cai no fallback de número, já desenhado).
+  let displayName = input.displayName;
+  if (!displayName) {
+    try {
+      const pres: any = await db.get(
+        `SELECT nome, display_name FROM presentations
+         WHERE user_id = ? AND nome IS NOT NULL AND TRIM(nome) <> ''
+         ORDER BY updated_at DESC LIMIT 1`,
+        [input.userId]
+      );
+      if (pres?.nome) displayName = pres.nome;
+    } catch { /* tabela/linha indisponível — segue sem nome */ }
+  }
+
   // Se já existe um evento recente para este usuário, agrupa (não cria novo)
   const recent: any = await db.get(
     `SELECT * FROM feedback_events
@@ -142,7 +160,7 @@ export async function recordExitEvent(input: ExitEventInput): Promise<string> {
       status, awaiting_response, created_at, updated_at
     ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
-      eventId, input.platform, input.userId, input.phoneNumber ?? null, input.displayName ?? null,
+      eventId, input.platform, input.userId, input.phoneNumber ?? null, displayName ?? null,
       input.communityId ?? null, input.communityName ?? null, input.groupId, input.groupName ?? null,
       JSON.stringify([input.groupId]), JSON.stringify([input.groupName ?? input.groupId]),
       input.eventType, input.leftAt,

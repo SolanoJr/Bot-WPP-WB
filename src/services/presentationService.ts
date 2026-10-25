@@ -289,9 +289,14 @@ export function extractFields(texts: string[]): Partial<PresentationRecord> {
   const full = texts.join('\n');
   const out: Partial<PresentationRecord> = {};
 
-  // Idade: "tenho 24 anos", "24 anos", "idade: 24"
+  // Idade: "tenho 24 anos", "24 anos", "idade: 24". INC-021: também "24"
+  // isolado entre vírgulas ("Alberto, 24, não faço nada") — padrão informal
+  // brasileiro de apresentação. O fallback da vírgula só roda sem "anos" no
+  // texto e exige o número cercado de vírgulas (ou fim de linha), para não
+  // pegar horários/contagens no meio da frase.
   const idade = full.match(/(?:tenho|idade[:\s]*)\s*(\d{1,3})\s*anos?/i)
-    || full.match(/\b(\d{1,3})\s*anos\b/i);
+    || full.match(/\b(\d{1,3})\s*anos\b/i)
+    || full.match(/,\s*(\d{1,3})\s*(?:,|$)/m);
   if (idade) {
     const n = parseInt(idade[1], 10);
     if (n > 0 && n < 130) out.idade = n;

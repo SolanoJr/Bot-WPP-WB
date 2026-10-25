@@ -439,3 +439,65 @@ describe('formatResponseNotification — 📩 com detalhes (INC-021)', () => {
     expect(text).not.toContain('x'.repeat(450));
   });
 });
+
+describe('INC-021 BUG2 — display_name do leave com fallback da apresentação', () => {
+  const LID = '60382962012254@lid';
+
+  beforeEach(async () => {
+    const conn: any = await (db as any).getDb();
+    await conn.run(`DELETE FROM presentations`);
+  });
+
+  async function savePresentation(nome: string | null): Promise<void> {
+    const conn: any = await (db as any).getDb();
+    await conn.run(
+      `INSERT INTO presentations (presentation_id, platform, group_id, user_id, nome, status, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?)`,
+      ['g|' + LID, 'whatsapp', CAFE, LID, nome, 'published', Date.now(), Date.now()]
+    );
+  }
+
+  it('sem nome no evento + apresentação com nome → display_name = nome da apresentação', async () => {
+    await savePresentation('Alberto');
+    const id = await fb.recordExitEvent({
+      platform: 'whatsapp', userId: LID, phoneNumber: '558899855554@s.whatsapp.net',
+      groupId: CAFE, groupName: 'Grupo Teste', eventType: 'group_leave', leftAt: Date.now(),
+    });
+    const conn: any = await (db as any).getDb();
+    const ev: any = await conn.get(`SELECT display_name FROM feedback_events WHERE event_id = ?`, [id]);
+    expect(ev.display_name).toBe('Alberto');
+  });
+
+  it('sem apresentação e sem nome no evento → display_name NULL (📩 cai no número)', async () => {
+    const id = await fb.recordExitEvent({
+      platform: 'whatsapp', userId: LID, phoneNumber: '558899855554@s.whatsapp.net',
+      groupId: CAFE, groupName: 'Grupo Teste', eventType: 'group_leave', leftAt: Date.now(),
+    });
+    const conn: any = await (db as any).getDb();
+    const ev: any = await conn.get(`SELECT display_name FROM feedback_events WHERE event_id = ?`, [id]);
+    expect(ev.display_name).toBeNull();
+  });
+
+  it('apresentação com nome NULL não é usada como fallback', async () => {
+    await savePresentation(null);
+    const id = await fb.recordExitEvent({
+      platform: 'whatsapp', userId: LID, phoneNumber: '558899855554@s.whatsapp.net',
+      groupId: CAFE, groupName: 'Grupo Teste', eventType: 'group_leave', leftAt: Date.now(),
+    });
+    const conn: any = await (db as any).getDb();
+    const ev: any = await conn.get(`SELECT display_name FROM feedback_events WHERE event_id = ?`, [id]);
+    expect(ev.display_name).toBeNull();
+  });
+
+  it('nome vindo no evento PREVALECE sobre a apresentação', async () => {
+    await savePresentation('Alberto do DB');
+    const id = await fb.recordExitEvent({
+      platform: 'whatsapp', userId: LID, phoneNumber: '558899855554@s.whatsapp.net',
+      displayName: 'Alberto do Evento',
+      groupId: CAFE, groupName: 'Grupo Teste', eventType: 'group_leave', leftAt: Date.now(),
+    });
+    const conn: any = await (db as any).getDb();
+    const ev: any = await conn.get(`SELECT display_name FROM feedback_events WHERE event_id = ?`, [id]);
+    expect(ev.display_name).toBe('Alberto do Evento');
+  });
+});
