@@ -48,13 +48,15 @@ remover/adicionar membros em grupos de produção. (A violação disso foi o INC
 
 | Item | Estado | Última verificação |
 |---|---|---|
-| origin/main (GitHub) | `7951d12d` | 25/10 17:50 |
-| VPS (~/bot-wpp) | `7951d12d` | deploy 24/10 23:59 |
-| **Local (Windows)** | **`a47fe6a` — commitado, PUSH PENDENTE** (auditoria 25/10: backup diário, fix $promover, limpeza) | 25/10 |
-| pm2 `bot-wpp` | online (última verificação) | 24/10 23:59 |
-| Smoke | boot `🎉 prontas!`, `/health` 200 (`wpp:connected`), lab 200 | 24/10 23:59 |
+| origin/main (GitHub) | `0b37419` (+commit de atualização deste arquivo) | 25/10 18:00 |
+| VPS (~/bot-wpp) | `0b37419` — deploy `a47fe6a` concluído 25/10 18:05 | 25/10 18:07 |
+| Local (Windows) | sincronizado com origin/main | 25/10 |
+| pm2 `bot-wpp` | online, boot `🎉 prontas!` 18:05:47, 0 [ERROR] novo | 25/10 18:07 |
+| Smoke pós-deploy | `/health` 200 (`wpp:connected`) · lab 200 · `/lab/adapter` POST 200 | 25/10 18:06 |
+| **Backup diário** | ** FUNCIONANDO**: `backups/bot-wpp-2026-10-25T180547.db.gz` (677 KB) no boot, log `[backup] boot: ... (676 KB)` | 25/10 18:05 |
 | Testes | **943 passed / 0 failed** / 3 skipped (flaky Discord, `it.skip` documentado) | 25/10 |
 | typecheck/build | 0 erros | 25/10 |
+| Disco VPS | 49% (16 G livres) | 25/10 18:07 |
 
 **Portas na VPS:** 3001 `/metrics` (127.0.0.1) · 3004 `/lab` · 3002 discord-screen
 viewer · 3005? (não usado).
@@ -75,11 +77,10 @@ tailnet cai — lição registrada). LXC Proxmox: `df` não reflete limpezas
 **Sessão WhatsApp:** multi-device Baileys, auth em `~/bot-wpp/.wpp` (não apagar!),
 health `connected` na última verificação.
 
-**⚠️ BLOQUEIO ATIVO (25/10):** o Tailscale do **PC Windows** está com 2×
-`tailscaled.exe` brigando pelo estado (`NoState`, coord server unreachable) —
-VPS inalcançável do dev. Fix (admin, no PC): `taskkill /F /IM tailscaled.exe`
-→ `net start Tailscale`. Depois disso: **push do `a47fe6a` + deploy** (§8).
-O Tailscale da VPS é independente e estava sadio.
+**⚠️ Tailscale do PC (RESOLVIDO 25/10 ~20:55):** o daemon local ficou preso em
+`NoState` com 2× `tailscaled.exe`; fix aplicado pelo usuário (`taskkill /F /IM
+tailscaled.exe` + `net start Tailscale`). Se reaparecer: mesmo fix. O Tailscale
+da VPS é independente e permaneceu sadio o tempo todo.
 
 ---
 
@@ -98,8 +99,8 @@ O Tailscale da VPS é independente e estava sadio.
 | **Monitoramento VPS** (monitor 5 min → alerta no PV `146078742`, cooldown 1 h; fail2ban, unattended, journald 200M) | 🟢 produção | INC-013 |
 | **Tailscale watchdog** (systemd na VPS; `--accept-dns=false`) | 🟢 produção | INC-012/013 |
 | **Detector de MASTER fantasma** (warning quando MASTER_USER não resolve; sanidade no boot) | 🟢 produção | `src/core/multiPlatform.ts:37` |
-| **Backup diário do SQLite** (VACUUM INTO + gzip + rotação 7 em `BACKUP_DIR`) | 🟡 **commitado, deploy pendente** | `a47fe6a`; 3 testes unit |
-| **`$promover`** (via `promoteParticipant(chatId,userId)` Baileys, status≠200 → erro claro) | 🟡 **commitado, deploy pendente** | `a47fe6a`; 5 testes unit |
+| **Backup diário do SQLite** (VACUUM INTO + gzip + rotação 7 em `BACKUP_DIR`) | 🟢 produção | `a47fe6a`; 3 testes unit; **primeiro backup real no boot 25/10 18:05 (677 KB)** |
+| **`$promover`** (via `promoteParticipant(chatId,userId)` Baileys, status≠200 → erro claro) | 🟢 produção (aguarda teste manual no Grupo Teste) | `a47fe6a`; 5 testes unit; `promoteParticipant` ×5/×3/×1 no dist (core/adapter/memberManager) |
 | **Telemetria de comandos** (`command_usage_events`: command/alias/platform/bot/chat/user/outcome/permission/duration/correlation_id, 3 índices, retenção 180 d; `command_logs` legado) | 🟢 produção | auditado 25/10 — completo, nada a fazer |
 
 ---
@@ -140,7 +141,7 @@ Detalhe completo em `docs/CHANGELOG.md`.
 ## 5. PENDÊNCIAS ABERTAS
 
 ### Técnicas (não bloqueiam testes)
-1. **Push + deploy do `a47fe6a`** — bloqueado pelo Tailscale do PC (ver §2).
+1. ~~Push + deploy do `a47fe6a`~~ **FEITO 25/10 18:00-18:05** (push `0b37419`, deploy, 3 pernas verdes, backup nasceu).
 2. Render watchdog: log real `keyframe pedido` (exige transmissão ao vivo).
 3. Dependabot: 32v (5 críticas) — `npm audit fix` resolve a maioria sem breaking.
 4. Dívida INC-015-3: consumidor para `ADMINS` do .env (ou remover do .env).
@@ -282,7 +283,8 @@ deploy e E2E — carregar com `skill_view` antes da primeira operação da sess�
      `df -h /`, `free -m`, `systemctl list-timers`
    - GitHub: `git ls-remote origin main`
    - Se o Tailscale do PC ainda estiver no `NoState` → §2 (fix do usuário) ANTES de tudo.
-3. **Push + deploy do que estiver à frente do origin** (hoje: `a47fe6a`) — §8.
+3. ~~**Push + deploy do que estiver à frente do origin**~~ feito 25/10 (agora:
+   só se houver commits novos).
 4. Ler `laboratorio/BUGS.md` (incidentes) e `laboratorio/BACKLOG.md` (dívidas).
 5. **Perguntas do §6** — se ainda sem resposta, perguntar ao usuário antes de
    mexer em roteamento/produção.
