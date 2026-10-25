@@ -240,6 +240,10 @@ export class BaileysAdapter implements PlatformAdapter, PlatformClient {
     return this.memberManager.banParticipant(chatId, userId);
   }
 
+  async promoteParticipant(chatId: string, userId: string): Promise<void> {
+    return this.memberManager.promoteParticipant(chatId, userId);
+  }
+
   // ---- Health / QR / Notify ----
     getHealth(): WppHealth {
       return this.health.getHealth();

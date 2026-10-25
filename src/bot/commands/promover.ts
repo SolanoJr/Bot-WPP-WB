@@ -19,11 +19,15 @@ export const promoteCommand: ICommand = {
         }
         
         const userToPromote = mentioned[0].id;
-        if (typeof ctx.client.promote !== 'function') {
+        if (typeof ctx.client.promoteParticipant !== 'function') {
             await ctx.reply('❌ Promoção não suportada nesta plataforma.');
             return;
         }
-        await ctx.client.promote(userToPromote);
-        await ctx.reply(`✅ Usuário promovido a administrador.${groupTag(ctx)}`);
+        try {
+            await ctx.client.promoteParticipant(chat.id, userToPromote);
+            await ctx.reply(`✅ Usuário promovido a administrador.${groupTag(ctx)}`);
+        } catch (err: any) {
+            await ctx.reply(`❌ Não consegui promover (o WhatsApp recusou): ${err?.message ?? 'erro desconhecido'}`);
+        }
     }
 };

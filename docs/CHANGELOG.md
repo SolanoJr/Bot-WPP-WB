@@ -1,4 +1,27 @@
 
+## [2026-10-25] Auditoria 3 ambientes + P1 backup diário + P2 limpeza — auditoria mandato técnico
+
+### Contexto (matriz dos 3 ambientes):
+- Windows `main@7951d12d` clean · GitHub `main@7951d12d` · Linux `main@7951d12d` (deploy 24/out 23:59). Ambientes alinhados; `.env` de produção contém o contrato INC-021 (LAB_*/TELEGRAM_PRESENTATION_*).
+
+### Implementado (P1 — Integridade dos dados):
+- `backupService` (novo): snapshot diário do SQLite via `VACUUM INTO` (materializa o WAL — lição do incidente 14/out) + gzip + rotação `BACKUP_KEEP` (default 7) em `BACKUP_DIR` (default ./backups). Roda no boot + a cada 24h, best-effort (falha loga, não derruba).
+- Plugado no boot do `multiPlatform` ao lado dos demais schedulers.
+- `backupDatabase()` existia desde 14/out, mas NENHUM scheduler o chamava — backups eram manuais e voláteis em /tmp.
+
+### Implementado (P2 — anti-overengineering):
+- `PlatformTypes`: removidos `mute?/unmute?/promote?/demote?` — abstração fantasma comprovada: 0 adapters implementavam, 0 callers (grep). Caminhos reais: `$mute` Map in-memory, `$promover` via `groupParticipantsUpdate` (exige chatId — assinatura que a interface nunca teve). TODOs rodada-3 resolvidos por remoção.
+- `.env.example`: documentados os envs do INC-021 (LAB_GROUP_ID, LAB_PRESENTATION_CHAT_ID, TELEGRAM_PRESENTATION_CHAT_ID/THREAD_ID) e os novos BACKUP_DIR/BACKUP_KEEP.
+
+### Auditoria sem ação necessária (evidência):
+- Telemetria de comandos: `command_usage_events` já cobre command/alias/platform/bot/chat/user/outcome/permission/duration/correlation + 3 índices + retenção 180d.
+- Segurança SQL: todos os pontos dinâmicos usam bind `?` ou escape (VACUUM INTO escapa aspas); zero secrets em logs.
+- `platform ===` no core/services: apenas 4 ocorrências — abstração de adapters é real.
+- Comandos: 65 arquivos, todos registrados no index; nenhum órfão evidenciado.
+
+### Testes:
+- `tests/unit/backupService.test.ts` (novo, 3 testes): .db.gz válido com dado restaurado, rotação por mtime, falha alta com dir inválido. Suite: ver gates do commit.
+
 ## [2026-10-05] Fase 3-4 (Feedback + Sarcasmo) + Health Fix (BUG-017/020) — d153f10
 
 ### Implementado (verificado no código real + testes):

@@ -95,16 +95,16 @@ export interface PlatformClient {
   // Opcional: plataformas sem noção de "número de telefone" não implementam.
   getNumberId?(phone: string): Promise<{ serialized: string; lid?: string } | null>;
   getContactById?(id: string): Promise<PlatformUser | null>;
-  // Gestão de moderação (multiplataforma) — usados por comandos destrutivos.
-  // TODO(rodada-3): fantasmas — nenhum adapter implementa mute/unmute.
-  // O $mute real usa Map in-memory em commands/mute.ts. Decidir: implementar ou remover.
-  mute?(userId: string, durationMs: number): Promise<void>;
-  unmute?(userId: string): Promise<void>;
-  // TODO(rodada-3): assinatura está errada para operação de grupo —
-  // falta chatId. Implementação real exige groupParticipantsUpdate(jid,
-  // [user], 'promote'). Ver promover.ts e PlatformTypes.ts:101.
-  promote?(userId: string): Promise<void>;
-  demote?(userId: string): Promise<void>;
+  // Gestão de moderação multiplataforma (25/out, auditoria):
+  //   - mute/unmute/promote/demote da interface antiga eram fantasmas
+  //     (0 adapters, 0 callers) e foram removidos.
+  //   - promoteParticipant é REAL: assinatura com chatId (a antiga
+  //     promote(userId) não servia para operação de grupo), usada por
+  //     commands/promover.ts e implementada pelo BaileysAdapter via
+  //     groupParticipantsUpdate(..., 'promote').
+  //   - demote não tem caller nem comando — se $despromover nascer,
+  //     nasce com assinatura com chatId, não ressuscitando a fantasma.
+  promoteParticipant?(chatId: string, userId: string): Promise<void>;
   shutdown(): Promise<void>;
 }
 

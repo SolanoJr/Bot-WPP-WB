@@ -19,6 +19,7 @@ import { memoryMonitor } from '../services/memoryMonitor';
 import { startPeriodicCleanup } from '../services/cleanupService';
 import { startNewsScheduler } from '../services/newsScheduler';
 import { startFeedbackWorker } from '../services/feedbackWorker';
+import { startBackupScheduler } from '../services/backupService';
 import { setResponseNotifier, formatResponseNotification } from '../services/feedbackService';
 import { createDiscordScreenServiceFromEnv } from '../services/discord-screen/DiscordScreenService';
 import { consolidateStale, listPending } from '../services/presentationService';
@@ -132,6 +133,8 @@ export async function initializePlatforms() {
     logger.info('🎉 Todas as plataformas prontas!');
       // Iniciar cleanup periódico do autoMod (fingerprints + audit trail)
       startAutoModPeriodicCleanup();
+      // Snapshot diário do SQLite (VACUUM INTO + gzip + rotação) — boot + 24h
+      startBackupScheduler();
       // Iniciar monitoramento de memória (check a cada 60s)
       memoryMonitor.start(60000);
       // P2.3: Iniciar limpeza periódica (a cada 6h)
