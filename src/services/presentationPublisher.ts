@@ -22,6 +22,23 @@ import logger from './loggerService';
 export const TG_CHAT_ID = process.env.TELEGRAM_PRESENTATION_CHAT_ID || '-1003470059875';
 export const TG_THREAD_ID = process.env.TELEGRAM_PRESENTATION_THREAD_ID ?? '2';
 
+/**
+ * INC-021 — route do destino POR ORIGEM. Regra de produto do dono:
+ *   • apresentação de GRUPO DE TESTE → PRIVADO do dono (LAB_*): os testes
+ *     não podem sujar o grupo real que reúne apresentações;
+ *   • apresentação de produção → GRUPO do Telegram no tópico "Apresentações"
+ *     (default histórico Fortaleza 085/2), o "site" de apresentações.
+ */
+export const LAB_GROUP_ID = process.env.LAB_GROUP_ID || '120363410094452673@g.us';
+export const LAB_PRESENTATION_CHAT_ID = process.env.LAB_PRESENTATION_CHAT_ID || '146078742';
+
+export function destinationFor(groupId?: string): { chatId: string; threadId: string } {
+  if (groupId && groupId === LAB_GROUP_ID) {
+    return { chatId: LAB_PRESENTATION_CHAT_ID, threadId: '' };
+  }
+  return { chatId: TG_CHAT_ID, threadId: TG_THREAD_ID };
+}
+
 /** Link público do tópico (para o aviso ao novato). */
 export const TG_TOPIC_URL = 'https://t.me/Fortaleza_085/2';
 
@@ -71,9 +88,13 @@ export async function publishToTelegram(
 ): Promise<string | null> {
   const text = formatPresentation(rec, groupName, groupLink);
 
-  // Tópico opcional: env vazio significa chat sem tópicos (privado) — mandar 0
-  // faz o Telegram rejeitar; omitir a chave é o caminho.
-  const threadId = Number(TG_THREAD_ID) || undefined;
+  // INC-021 — destino por ORIGEM: grupo de teste → privado do dono;
+  // produção → grupo do Telegram no tópico Apresentações. Thread vazia é
+  // legítima (privado sem tópicos) e omite message_thread_id; Number('') é
+  // NaN → undefined é o caminho.
+  const dest = destinationFor(rec.group_id);
+  const chatId = dest.chatId;
+  const threadId = Number(dest.threadId) || undefined;
 
   try {
     // Se já existe mensagem no Telegram → EDITAR (não duplica)
@@ -82,7 +103,7 @@ export async function publishToTelegram(
         if (photo) {
           // Mensagem de foto edita a legenda, não o texto.
           await bot.telegram.editMessageCaption(
-            Number(TG_CHAT_ID),
+            Number(chatId),
             Number(rec.tg_message_id),
             undefined,
             text.slice(0, 1024),
@@ -90,7 +111,7 @@ export async function publishToTelegram(
           );
         } else {
           await bot.telegram.editMessageText(
-            Number(TG_CHAT_ID),
+            Number(chatId),
             Number(rec.tg_message_id),
             undefined,
             text,
@@ -111,7 +132,7 @@ export async function publishToTelegram(
         const recoverable = /no caption|no text|message to edit/i.test(e?.message || '');
         if (!recoverable) throw e;
         try {
-          await bot.telegram.deleteMessage(Number(TG_CHAT_ID), Number(rec.tg_message_id));
+          await bot.telegram.deleteMessage(Number(chatId), Number(rec.tg_message_id));
         } catch { /* já não existia — segue para a nova publicação */ }
         logger.info('[presentationPublisher] tipo divergente — republicando como nova mensagem', {
           presentationId: rec.presentation_id, oldTgMessageId: rec.tg_message_id, hadPhoto: !!photo,
@@ -126,14 +147,14 @@ export async function publishToTelegram(
     if (photo) {
       const source = photo.url ?? photo.buffer!;
       const caption = text.length > 1024 ? `${text.slice(0, 1000)}…` : text;
-      sent = await bot.telegram.sendPhoto(Number(TG_CHAT_ID), source, {
+      sent = await bot.telegram.sendPhoto(Number(chatId), source, {
         caption,
         parse_mode: 'Markdown',
         message_thread_id: threadId,
       } as any);
       // Texto maior que a legenda comporta: a íntegra vai na mensagem seguinte.
       if (text.length > 1024) {
-        const extra = await bot.telegram.sendMessage(Number(TG_CHAT_ID), text, {
+        const extra = await bot.telegram.sendMessage(Number(chatId), text, {
           parse_mode: 'Markdown',
           disable_web_page_preview: true,
           message_thread_id: threadId,
@@ -141,7 +162,7 @@ export async function publishToTelegram(
         sent = extra ?? sent;
       }
     } else {
-      sent = await bot.telegram.sendMessage(Number(TG_CHAT_ID), text, {
+      sent = await bot.telegram.sendMessage(Number(chatId), text, {
         parse_mode: 'Markdown',
         disable_web_page_preview: true,
         message_thread_id: threadId,
@@ -151,7 +172,7 @@ export async function publishToTelegram(
     const tgMessageId = String(sent?.message_id ?? '');
     if (!tgMessageId) throw new Error('Telegram não retornou message_id');
 
-    await markPublished(rec.presentation_id, TG_CHAT_ID, TG_THREAD_ID, tgMessageId);
+    await markPublished(rec.presentation_id, chatId, dest.threadId, tgMessageId);
     logger.info('[presentationPublisher] publicada', {
       presentationId: rec.presentation_id, tgMessageId,
     });

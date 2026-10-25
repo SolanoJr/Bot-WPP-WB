@@ -194,3 +194,44 @@ describe('presentationPublisher — destino por env e foto', () => {
     expect(markFailed).toHaveBeenCalledWith('p1');
   });
 });
+
+describe('INC-021 — route do destino por ORIGEM (LAB_* x produção)', () => {
+  it('apresentação do GRUPO DE TESTE vai pro PRIVADO do dono, sem tópico', async () => {
+    const pub = await publisher();
+    const bot = botFake();
+    const id = await pub.publishToTelegram({ ...rec, group_id: '120363410094452673@g.us' }, bot);
+
+    expect(bot.telegram.sendMessage).toHaveBeenCalledWith(
+      146078742,
+      expect.any(String),
+      expect.objectContaining({ message_thread_id: undefined }),
+    );
+    expect(markPublished.mock.calls.at(-1)?.[1]).toBe('146078742');
+    expect(id).toBe('111');
+  });
+
+  it('apresentação de grupo de PRODUÇÃO vai pro grupo do Telegram no tópico Apresentações', async () => {
+    const pub = await publisher();
+    const bot = botFake();
+    await pub.publishToTelegram({ ...rec, group_id: '120363022234580695@g.us' }, bot);
+
+    expect(bot.telegram.sendMessage).toHaveBeenCalledWith(
+      -1003470059875,
+      expect.any(String),
+      expect.objectContaining({ message_thread_id: 2 }),
+    );
+  });
+
+  it('destinationFor respeita env: LAB_GROUP_ID custom mapeia pro LAB chat', async () => {
+    process.env.LAB_GROUP_ID = '120363099999999999@g.us';
+    process.env.LAB_PRESENTATION_CHAT_ID = '555';
+    const pub = await publisher();
+    const bot = botFake();
+    await pub.publishToTelegram({ ...rec, group_id: '120363099999999999@g.us' }, bot);
+    expect(bot.telegram.sendMessage).toHaveBeenCalledWith(
+      555,
+      expect.any(String),
+      expect.objectContaining({ message_thread_id: undefined }),
+    );
+  });
+});
