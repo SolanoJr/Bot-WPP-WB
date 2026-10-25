@@ -14,7 +14,7 @@
  */
 import { getDb } from './databaseService';
 import { markPublished, markFailed, listPending, type PresentationRecord } from './presentationService';
-import logger from './loggerService';
+import logger, { logWarning } from './loggerService';
 
 // Chat: `||` — env vazio (o pm2 faz merge e deixa a var vazia) deve cair no
 // fallback; `Number('')` seria NaN e mataria a publicação. Thread: `??` —
@@ -214,7 +214,17 @@ export async function replyPresentationToGroup(
   photo?: { url?: string; buffer?: Buffer },
 ): Promise<boolean> {
   try {
-    if (!sock?.sendMessage) return false;
+    if (!sock?.sendMessage) {
+      // INC-021 auditoria: falha silenciosa escondia o motivo de a
+      // apresentação não voltar ao grupo (sock indisponível no momento da
+      // consolidação). O Telegram continua publicando — mas o grupo fica sem
+      // o reply, e isso precisa ser visível no log.
+      logWarning('[presentation] reply ao grupo abortado — sock sem sendMessage', {
+        groupId: rec.group_id,
+        presentationId: rec.presentation_id,
+      });
+      return false;
+    }
     const text = formatPresentation(rec);
     const caption = `${text}\n\n📎 Registro completo: ${TG_TOPIC_URL}`;
 

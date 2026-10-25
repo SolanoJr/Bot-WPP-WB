@@ -20,7 +20,7 @@
  */
 import { getDb } from './databaseService';
 import { isGroupInCommunity } from './welcomeService';
-import logger from './loggerService';
+import logger, { logWarning } from './loggerService';
 
 /** Comunidade 085 — identificador REAL (linkedParent do metadata do Baileys). */
 export const COMMUNITY_085_ID = '120363422234580695@g.us';
@@ -97,6 +97,13 @@ function displayNameOf(name: string | undefined, jid: string): string {
 // ─── Sessões em memória (coleta) ──────────────────────────────────────────
 
 const sessions = new Map<string, PresentationSession>();
+
+/**
+ * Gates de configuração já anunciados no log (INC-021 auditoria). O handler
+ * roda para TODA mensagem de grupo; sem isso, cada gate viraria spam.
+ * Reset apenas em restart do processo.
+ */
+const announcedGates = new Set<string>();
 
 function sessionKey(groupId: string, userId: string): string {
   return `${groupId}|${userId}`;
@@ -194,13 +201,26 @@ export async function handlePresentationCollect(normMsg: any): Promise<CollectOp
     if (!chatId || !senderId || !chatId.includes('@g.us')) return null;
     if (normMsg?.isFromMe) return null; // não coleta mensagens do próprio bot
 
-    // 1. Precisa estar na Comunidade 085
-    const inCommunity = await isCommunity085Group(chatId);
-    if (!inCommunity) return null;
+    // Gates silenciosos historicamente cegam diagnóstico (INC-020: sessão não
+    // abria e ninguém sabia se era comunidade, toggle ou quote). Agora cada
+    // gate de configuração loga UMA vez por grupo (Set local evita spam —
+    // este handler roda para toda mensagem de grupo).
+    if (!(await isCommunity085Group(chatId))) {
+      if (!announcedGates.has(`community:${chatId}`)) {
+        announcedGates.add(`community:${chatId}`);
+        logWarning('[presentation] grupo fora da Comunidade 085 — apresentação não abre', { chatId });
+      }
+      return null;
+    }
 
     // 2. Precisa ter presentation_enabled = 1 no grupo
-    const enabled = await isPresentationEnabled(chatId);
-    if (!enabled) return null;
+    if (!(await isPresentationEnabled(chatId))) {
+      if (!announcedGates.has(`enabled:${chatId}`)) {
+        announcedGates.add(`enabled:${chatId}`);
+        logWarning('[presentation] presentation_enabled=0 — apresentação não abre (ativar via BD)', { chatId });
+      }
+      return null;
+    }
 
     /** Abre a sessão, coleta a mensagem, persiste row 'collecting' e retorna
      *  o contexto para o caller enviar a confirmação imediata no grupo. */
