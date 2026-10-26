@@ -206,7 +206,10 @@ export async function isGroupInCommunity(groupId: string, communityId: string): 
       [groupId]
     );
     return row?.community_id === communityId;
-  } catch {
+  } catch (e: any) {
+    // Gate silencioso: DB fora → apresentação inteira ficava surda (o handler
+    // principal usa isto para CADA mensagem de grupo) sem rastro no log.
+    logger.warn('[welcomeService] isCommunity085Group falhou', { groupId, communityId, error: e?.message });
     return false;
   }
 }

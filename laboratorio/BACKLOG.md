@@ -29,3 +29,27 @@ Os 3 testes do `DiscordAdapter` estão `it.skip` porque o discord.js tenta login
 real com dummy token (10s de timeout cada). Mockar o gateway em rodada própria
 quando o canal Discord voltar a ser prioridade — hoje é secundário (produção =
 WhatsApp + Telegram).
+
+## Silent bugs audit — fluxos principais (Tarefa 2, 2026-10-26)
+
+Varredura das 5 categorias (catch vazio, `if (!x) return;`, `sendMessage` com
+objeto, `?? undefined`, `return false/null` em async) em apresentação, feedback,
+welcome e notícias.
+
+**Corrigidos na hora (2):** `feedbackService.isFeedbackEnabledForGroup` e
+`welcomeService.isCommunity085Group` — gates `catch { return false; }` sem log;
+DB fora deixava todo evento em `policy=0` e a apresentação surda, sem rastro.
+Agora `logger.warn` com groupId (mesma forma dos irmãos `isPresentationEnabled`).
+
+**Avaliados e benignos (não mexer):**
+- `presentationService.ts:201-202` — guards "não é minha mensagem" rodam para
+  toda mensagem de grupo; logar seria spam. Os gates de CONFIGURAÇÃO logam
+  com dedupe por grupo (padrão INC-020).
+- `presentationPublisher.ts:261-264` — `sendMessage(jid, {image…}, {quoted})`
+  é o contrato nativo do Baileys (`sock: any` = WASocket bruto), não a
+  PlatformClient. Não é bug de objeto-vs-string.
+- `feedbackService.markExpired` (`!eventIds.length`) e lookups que retornam
+  null como contrato ("não agrupa", "não tem template") — o caller decide.
+- `newsService.curateSet:166` —  rejeição silenciosa do conjunto curado é o
+  guard de qualidade desejado (comentário no ponto); se um dia as notícias
+  saírem sempre sem curadoria, vale logar o motivo no debug. Edge opcional.

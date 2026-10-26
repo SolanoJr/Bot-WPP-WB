@@ -54,6 +54,13 @@
   no pm2 log — o Hermes monitora e gera QR fresco.
 
 ## 5. Testes de carga/estresse (opcional, quando quiser)
+- [ ] **Live render watchdog** (só você pode): compartilhar tela no Discord
+  (broadcaster real) → abrir o viewer em `http://100.101.218.16:3002/?sala=…`
+  → console do viewer: `window.requestAnimationFrame = () => {}` (congela)
+  → ~5s → o log do server mostra `render watchdog: … sem pintura há Xs —
+  keyframe pedido` → restaurar (`location.reload()`) e ver a tela voltar.
+  Sem broadcaster o watchdog não dispara (por design); a prova fake-clock
+  já está verde (rooms.test.js 96/96).
 
 - [ ] Vários novatos entrando ao mesmo tempo (welcome + aviso + coleta simultânea)
 - [ ] Várias notícias agendadas em horários próximos (Geek 08:00 + Polemic 08:00 —

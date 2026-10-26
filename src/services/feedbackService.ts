@@ -78,7 +78,10 @@ export async function isFeedbackEnabledForGroup(groupId: string): Promise<boolea
     const { getGroupMod } = await import('./databaseService.js');
     const config = await getGroupMod(groupId);
     return (config as any)?.feedback === true;
-  } catch {
+  } catch (e: any) {
+    // Gate silencioso: DB fora → todos os eventos caíam em policy=0 sem uma
+    // linha no log. O irmão isPresentationEnabled loga; aqui não podia ser menos.
+    logger.warn('[feedbackService] isFeedbackEnabledForGroup falhou', { groupId, error: e?.message });
     return false;
   }
 }
