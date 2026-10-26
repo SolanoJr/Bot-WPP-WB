@@ -1,4 +1,15 @@
 
+## [2026-10-25 · noite] HANDOFF + PENDENCIAS-USUARIO + Dependabot r2 + $promover E2E (INC-022)
+
+- `HANDOFF.md` (0b37419, 295 linhas): bíblia de continuidade — 10 seções (contexto, estado, features com status, INC-001→022, pendências, perguntas, regras, comandos, arquivos-chave, checklist F0). Atualizado a cada mudança de estado.
+- `PENDENCIAS-USUARIO.md` (novo): tudo que SÓ o dono faz — testes visuais, manuais no Grupo Teste, decisões de produto (Fortaleza A/B), infra, carga. Consultar quando o projeto estiver "liso liso".
+- Dependabot round 2 (4d496ab): `npm audit fix` → **0 vulns em produção** na VPS (body-parser high DoS zerado; restam 3 dev-only breaking — vite/tinypool, cosmético). LIÇÃO: `npm ci --omit=dev` remove o typescript e MATA o build da VPS — build exige devDeps; corrigido com `npm ci` completo.
+- `/lab/promote-member` (7143873) + **INC-022**: prova E2E do `$promover` no Grupo Teste — candidato conta-de-teste (PN 639474500179) promovido 18:50:33 via `promoteParticipant` real e confirmado admin no `/lab/group-info`. Proteções idênticas ao remove-member (MASTER/bot/já-admin/bot-não-admin/sem-adapter). Reversão manual pelo WhatsApp (sem demote — decisão). 2 testes de rota; suite 945/0/3.
+- Auditoria de comandos × adapters (2B): 65 comandos, 8 métodos da interface em uso — 7 implementados nos 3 adapters, `promoteParticipant` WhatsApp-only por design, **0 métodos fantasmas** (o $promover era o único).
+- Consistência de docs (2C): INC-016 ganhou bloco próprio no BUGS.md (era pendência do INC-005 implementada sem registro); PERMISSIONS.md verificado correto (2 papéis + bot protegido, ADMIN de .env removido).
+- Cleanup VPS: `.env.bak` ×2 + `nl.js` (script de inject avulso) movidos para /tmp (recuperáveis) — working tree 100% limpa.
+- Estado final: GitHub=VPS=local sincronizados; backup diário rodando (4 snapshots 25/10, rotação 7); pm2 online estável; 3 pernas verdes.
+
 ## [2026-10-25] Auditoria 3 ambientes + P1 backup diário + P2 limpeza — auditoria mandato técnico
 
 ### Contexto (matriz dos 3 ambientes):

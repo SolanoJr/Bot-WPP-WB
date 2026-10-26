@@ -655,6 +655,16 @@ Dívida 2 — $cmd toggle persistido + leitor (RESOLVIDO, 22/10):
 - Limpeza opcional: row órfã command_state ("$ping", do período do bug)
   é inofensiva — nunca consultada; DELETE pendente de aprovação.
 
+INC-016 — RENDER WATCHDOG DO SCREENSHARE (RESOLVIDO 22/10, suíte 96/96)
+Sintoma: freeze do screenshare com bufferedAmount saudável (INC-005).
+Fix: watchdog client→server "rendered" a cada 2s; >4s sem pintura COM
+rede viva → requestKeyframe. Falsos positivos excluídos: aba oculta,
+rede morta, WebRTC, heartbeat velho, cooldown 8s. Implementado como
+pendência do INC-005 (sem bloco próprio até 25/10 — registrado aqui por
+consistência com o HANDOFF §4). Pendências: log real "keyframe pedido"
+(exige transmissão ao vivo) + app PC tela preta (causa pré-JS — devtools
+na Activity, ação do dono).
+
 INC-017 — Apresentação: coletor surdo + heurística de nome + env vazio (RESOLVIDO 621bae7/03d30e5, 23/10)
 Sintoma: inject de apresentação no LAB processado ([PM] trigger=none), mas
 ZERO sessões, ZERO rows — e nenhum log. O E2E parecia "não acontecer".

@@ -152,6 +152,11 @@ Detalhe completo em `docs/CHANGELOG.md`.
    deleteMsg — `laboratorio/BACKLOG.md`.
 
 ### Testes manuais do usuário (só ele faz)
+
+> **ARQUIVO DEDICADO: `PENDENCIAS-USUARIO.md`** (raiz do repo) — lista completa
+> e única de tudo que só o dono faz, para consultar quando o projeto estiver
+> "liso liso". O que segue é resumo executivo.
+
 1. Confirmar msg 221 (forward da apresentação) no Telegram.
 2. $promover no Grupo Teste (pós-deploy — agora funcional).
 3. App PC do Discord: Ctrl+Shift+I na Activity → colar console/rede (tela preta pré-JS).
