@@ -93,7 +93,22 @@ class DiscordClient implements PlatformClient {
       this.userId = readyClient.user.id;
       this.userName = readyClient.user.username;
       logInfo(`[Discord] ✅ Pronto como ${this.userName} (${this.userId})`);
-      
+
+      // ─── INC-024 (ajuste 3): confirmação do intent no boot ────────────────
+      // guildMemberRemove só chega com GuildMembers ativo (declaração local
+      // E toggle no Dev Portal — a declaração local sem o toggle derruba o
+      // client no login, então se chegou até aqui ele está OK; o log prova).
+      try {
+        const intents: any = (readyClient as any).options?.intents;
+        const enabled = typeof intents?.has === 'function' ? !!intents.has('GuildMembers') : true;
+        logInfo(`[DiscordAdapter] GuildMembers intent: ${enabled ? 'enabled' : 'disabled'}`);
+        if (!enabled) {
+          logWarning('[DiscordAdapter] feedback Discord não vai funcionar sem GuildMembers intent');
+        }
+      } catch (e: any) {
+        logWarning('[DiscordAdapter] falha ao checar GuildMembers intent:', e?.message);
+      }
+
       // setPresence via readyClient.user garante que o objeto existe (ClientUser)
       try {
         readyClient.user.setPresence({
@@ -106,6 +121,33 @@ class DiscordClient implements PlatformClient {
       }
       
       if (this.readyHandler) this.readyHandler();
+    });
+
+    this.client.on('guildMemberRemove', async (member: any) => {
+      // ─── INC-024: feedback de saída (guild = análogo do grupo) ─────────
+      // chatId de MENSAGENS é o channel; para o feedback o "grupo" é a
+      // GUILD inteira (quem sai, sai do server). dc:<guild.id> não colide
+      // com dc:<channel.id> das mensagens — IDs distintos por natureza.
+      try {
+        const guild = member?.guild;
+        if (!guild?.id || !member?.id) return;
+        const gid = `dc:${guild.id}`;
+        const { recordExitEvent, isFeedbackEnabledForGroup } =
+          await import('../../services/feedbackService.js');
+        if (!(await isFeedbackEnabledForGroup(gid))) return;
+        await recordExitEvent({
+          platform: 'discord',
+          userId: member.id,
+          phoneNumber: undefined,
+          displayName: member.displayName || member.user?.username || '',
+          groupId: gid,
+          groupName: guild.name || '',
+          eventType: 'group_leave',
+          leftAt: Date.now(),
+        });
+      } catch (e: any) {
+        logWarning('[DiscordAdapter] feedback de saída falhou:', e?.message);
+      }
     });
 
     this.client.on('messageCreate', async (msg) => {

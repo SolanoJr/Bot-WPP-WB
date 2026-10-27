@@ -377,6 +377,31 @@ export function startTestServer(port: number = 3004): http.Server {
           return;
         }
 
+        // ─── INC-024 F0: inventário de guilds Discord (read-only) ────────
+        // Retorna [{id, name, memberCount}] — o feedback de leave do Discord
+        // opera na GUILD (dc:<guild.id>), não no channel das mensagens.
+        if (req.url === '/lab/discord-guilds') {
+          const { adapter } = getAdapterAndSock('discord');
+          const guildsCache = (adapter as any)?.client?.guilds?.cache;
+          if (!adapter || !guildsCache) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Adapter Discord não encontrado (token não configurado ou client sem guilds)' }));
+            return;
+          }
+          try {
+            const guilds: Array<{ id: string; name: string | null; memberCount: number | null }> = [];
+            for (const g of guildsCache.values()) {
+              guilds.push({ id: String(g.id), name: g.name ?? null, memberCount: g.memberCount ?? null });
+            }
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, count: guilds.length, guilds }));
+          } catch (err: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err?.message || String(err) }));
+          }
+          return;
+        }
+
         // ─── Endpoint para retornar estatísticas de uso ───
         if (req.url === '/lab/stats') {
           res.writeHead(200, { 'Content-Type': 'application/json' });

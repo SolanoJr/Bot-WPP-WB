@@ -311,6 +311,33 @@ class TelegramClient implements PlatformClient {
         chatId: ctx.chat?.id
       }));
 
+      // ─── INC-024: feedback de saída (service message de grupos basic) ──
+      // left_chat_member chega como update 'message' nos grupos basic; o
+      // return impede a service message de entrar no fluxo de mensagens.
+      const lm = ctx?.message?.left_chat_member;
+      if (lm?.id) {
+        try {
+          const gid = `tg:${ctx.chat?.id}`;
+          const { recordExitEvent, isFeedbackEnabledForGroup } =
+            await import('../../services/feedbackService.js');
+          if (await isFeedbackEnabledForGroup(gid)) {
+            await recordExitEvent({
+              platform: 'telegram',
+              userId: String(lm.id),
+              phoneNumber: undefined,
+              displayName: lm.first_name || lm.username || '',
+              groupId: gid,
+              groupName: ctx.chat?.title || '',
+              eventType: 'group_leave',
+              leftAt: Date.now(),
+            });
+          }
+        } catch (e: any) {
+          logWarning('[Telegram] feedback de saída (message) falhou:', e?.message);
+        }
+        return;
+      }
+
       // ─── CAPTURA DE MENSAGEM (persistência) ─────────────────────────────
       try { await captureTelegramMessage(ctx); } catch (capErr: any) {
         logWarning('[Telegram] Erro na captura da mensagem:', capErr?.message);
@@ -376,6 +403,37 @@ class TelegramClient implements PlatformClient {
     // ─── Handler de disconnect do socket Telegram ─────────────────────────
     // O Telegraf emite 'telegramError' quando o socket sofre falha de conexão.
     // Usamos isso para detectar desconexão e iniciar reconexão automática.
+    // ─── INC-024: feedback de saída (update chat_member — supergroups) ──
+    // Supergroups não geram service message de leave; o update chat_member
+    // cobre saída voluntária (left) e remoção (kicked). O duplo sinal com
+    // left_chat_member (grupos basic) é absorvido pelo recordExitEvent: o
+    // merge de pending recente é idempotente por grupo (feedbackService).
+    (this.bot as any).on('chat_member', async (ctx: any) => {
+      try {
+        const um = ctx?.update?.chat_member;
+        const status = um?.new_chat_member?.status;
+        const userId = um?.new_chat_member?.user?.id;
+        if (!um || !userId || (status !== 'left' && status !== 'kicked')) return;
+        const gid = `tg:${um.chat.id}`;
+        const { recordExitEvent, isFeedbackEnabledForGroup } =
+          await import('../../services/feedbackService.js');
+        if (!(await isFeedbackEnabledForGroup(gid))) return;
+        const from = um.new_chat_member.user;
+        await recordExitEvent({
+          platform: 'telegram',
+          userId: String(userId),
+          phoneNumber: undefined,
+          displayName: from.first_name || from.username || '',
+          groupId: gid,
+          groupName: um.chat.title || '',
+          eventType: 'group_leave',
+          leftAt: Date.now(),
+        });
+      } catch (e: any) {
+        logWarning('[Telegram] feedback de saída (chat_member) falhou:', e?.message);
+      }
+    });
+
     (this.bot as any).on('telegramError', (err: any) => {
       logWarning(`[Telegram] ⚠️ Erro de conexão: ${err?.message || err}`);
       this.isReady = false;
@@ -419,7 +477,10 @@ class TelegramClient implements PlatformClient {
       logInfo(`[Telegram] ✅ Pronto como ${this.userName} (${this.userId})`);
       if (this.readyHandler) this.readyHandler();
       this.launchStarted = true;
-      void this.bot.launch().catch((error: any) => {
+      // INC-024: sem allowed_updates explícito o Bot API omite o update
+      // 'chat_member' (leaves silenciosos de supergroup). 'message' cobre
+      // grupos basic via service message left_chat_member.
+      void this.bot.launch({ allowed_updates: ['message', 'edited_message', 'callback_query', 'chat_member'] } as any).catch((error: any) => {
         this.launchStarted = false;
         this.isReady = false;
         this.disconnectedHandler?.(error?.message || String(error));

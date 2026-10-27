@@ -226,3 +226,65 @@ describe('probe registrado p/ /lab/run-feedback-worker', () => {
     expect(getRegisteredFeedbackSend()).toBeNull();
   });
 });
+
+// ─── INC-024: worker multi-plataforma (Telegram/Discord) ───────────────────
+describe('INC-024 — worker multi-plataforma', () => {
+  const TG_GROUP = 'tg:-100123456';
+  const DC_GROUP = 'dc:999888777666';
+
+  /** Seed de leave não-WhatsApp: user_id sem sufixo @s.whatsapp.net. */
+  async function seedLeave(platform: string, userId: string, groupId: string, groupName: string) {
+    await db.setGroupModField(groupId, 'feedback', true);
+    return fb.recordExitEvent({
+      platform, userId, phoneNumber: undefined,
+      displayName: 'Usuário ' + platform, groupId, groupName,
+      eventType: 'group_leave', leftAt: now - HOUR,
+    });
+  }
+
+  it('evento telegram: user_id numérico NÃO expira unreachable e usa o send da plataforma', async () => {
+    await seedLeave('telegram', '111222333', TG_GROUP, 'Grupo TG');
+    const tgSent: string[] = [];
+    wk.registerFeedbackSend('telegram', async (userId) => { tgSent.push(userId); return true; });
+    const fallback = vi.fn(async () => { throw new Error('fallback não deveria ser chamado'); });
+    const stats = await wk.runFeedbackWorker(fallback as any, now);
+    expect(stats.unreachable).toBe(0);
+    expect(stats.sent).toBe(1);
+    expect(tgSent).toEqual(['111222333']);
+    expect(fallback).not.toHaveBeenCalled();
+  });
+
+  it('evento discord: snowflake sem PN usa o send da plataforma', async () => {
+    await seedLeave('discord', '444555666777888', DC_GROUP, 'Guild DC');
+    const dcSent: string[] = [];
+    wk.registerFeedbackSend('discord', async (userId) => { dcSent.push(userId); return true; });
+    const stats = await wk.runFeedbackWorker(async () => false, now);
+    expect(stats.unreachable).toBe(0);
+    expect(stats.sent).toBe(1);
+    expect(dcSent).toEqual(['444555666777888']);
+  });
+
+  it('DM da plataforma falha (403/DMs fechadas) → failed + attempts, evento permanece', async () => {
+    await seedLeave('telegram', '777888999', 'tg:-100999', 'Grupo TG 2');
+    wk.registerFeedbackSend('telegram', async () => { throw new Error('403 Forbidden'); });
+    const stats = await wk.runFeedbackWorker(async () => false, now);
+    expect(stats.failed).toBe(1);
+    expect(stats.sent).toBe(0);
+  });
+
+  it('plataforma SEM send registrado → cai no send injetado (fallback /lab)', async () => {
+    await seedLeave('slack', 'U123ABC', 'slack:C1', 'Canal Slack');
+    const injected: string[] = [];
+    const stats = await wk.runFeedbackWorker(async (userId) => { injected.push(userId); return true; }, now);
+    expect(stats.sent).toBe(1);
+    expect(injected).toEqual(['U123ABC']);
+  });
+
+  it('registry: getRegisteredFeedbackSend por plataforma e default retrocompat', () => {
+    const fn = async () => true;
+    wk.registerFeedbackSend('whatsapp', fn);
+    expect(wk.getRegisteredFeedbackSend('whatsapp')).toBe(fn);
+    expect(wk.getRegisteredFeedbackSend()).toBe(fn);
+    expect(wk.getRegisteredFeedbackSend('plataforma-que-nao-existe')).toBeNull();
+  });
+});

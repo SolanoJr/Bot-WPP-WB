@@ -18,7 +18,7 @@ import { runPeriodicCleanup } from '../services/autoModEngine';
 import { memoryMonitor } from '../services/memoryMonitor';
 import { startPeriodicCleanup } from '../services/cleanupService';
 import { startNewsScheduler } from '../services/newsScheduler';
-import { startFeedbackWorker } from '../services/feedbackWorker';
+import { startFeedbackWorker, registerFeedbackSend, FeedbackSendFn } from '../services/feedbackWorker';
 import { startBackupScheduler } from '../services/backupService';
 import { setResponseNotifier, formatResponseNotification } from '../services/feedbackService';
 import { createDiscordScreenServiceFromEnv } from '../services/discord-screen/DiscordScreenService';
@@ -89,6 +89,9 @@ export async function initializePlatforms() {
   // Inicializar Telegram (se token configurado e válido)
     const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
     let telegramAdapter: TelegramAdapter | null = null;
+    // INC-024: referência externa para o wiring do feedbackWorker registrar
+    // o send de DM do Discord dentro do onReady.
+    let discordAdapter: DiscordAdapter | null = null;
     if (telegramToken && telegramToken.trim() !== '' && telegramToken !== 'seu_token_aqui' && !telegramToken.startsWith('#')) {
       try {
         telegramAdapter = new TelegramAdapter(telegramToken);
@@ -104,7 +107,7 @@ export async function initializePlatforms() {
   const discordToken = process.env.DISCORD_BOT_TOKEN;
   if (discordToken && discordToken.trim() !== '' && discordToken !== 'seu_token_aqui' && !discordToken.startsWith('#')) {
     try {
-      const discordAdapter = new DiscordAdapter(discordToken);
+      discordAdapter = new DiscordAdapter(discordToken);
       platformManager.registerAdapter(discordAdapter);
     } catch (error) {
       logError('RegisterDiscord', error);
@@ -150,7 +153,12 @@ export async function initializePlatforms() {
         const wpp = platformManager.getAdapter(`whatsapp:${botNum}`);
         const wppClient: any = (wpp as any)?.client;
         if (wppClient?.sendMessage) {
-          startFeedbackWorker(async (userId: string, text: string) => {
+          // ─── INC-024: registry multi-plataforma de envio ──────────────
+          // WhatsApp segue como default (retrocompat de /lab e testes).
+          // Telegram: DM por user_id direto — 403 se a pessoa nunca iniciou
+          // conversa com o bot. Discord: users.fetch + DM — falha se DMs
+          // fechadas. Ambos caem em failed/attemptsCap, auditáveis no DB.
+          const wppSend: FeedbackSendFn = async (userId: string, text: string) => {
             try {
               // Espelho de observabilidade PRIMEIRO (independe do resultado do
               // PV): em E2E o alvo é um fake sem WhatsApp/Telegram reais — o
@@ -173,7 +181,33 @@ export async function initializePlatforms() {
             } catch {
               return false;
             }
-          });
+          };
+          registerFeedbackSend('whatsapp', wppSend);
+          if (telegramAdapter) {
+            registerFeedbackSend('telegram', async (userId: string, text: string) => {
+              try {
+                await telegramAdapter!.bot.telegram.sendMessage(Number(userId), text);
+                return true;
+              } catch (e: any) {
+                logger.warn('[feedbackWorker] DM Telegram falhou', { userId, error: e?.message });
+                return false;
+              }
+            });
+          }
+          if (discordAdapter?.client) {
+            registerFeedbackSend('discord', async (userId: string, text: string) => {
+              try {
+                const user = await (discordAdapter as any).client.users.fetch(userId);
+                if (!user?.send) return false;
+                await user.send(text);
+                return true;
+              } catch (e: any) {
+                logger.warn('[feedbackWorker] DM Discord falhou', { userId, error: e?.message });
+                return false;
+              }
+            });
+          }
+          startFeedbackWorker(wppSend);
         } else {
           logger.warn('[feedbackWorker] client WhatsApp indisponível — worker NÃO iniciado');
         }

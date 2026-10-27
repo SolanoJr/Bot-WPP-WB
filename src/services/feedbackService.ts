@@ -60,6 +60,9 @@ export function formatResponseNotification(ev: any, response: string, refused: b
   const community = ev?.community_name || ev?.community_id || '—';
   return [
     '📩 Feedback respondido',
+    // INC-024: com leaves de Telegram/Discord a plataforma do evento virou
+    // informação essencial (o número só diz algo para WhatsApp).
+    `📱 Plataforma: ${ev?.platform || '—'}`,
     `👤 ${who} (${number})`,
     `📍 Grupo: ${group}`,
     `🏘 Comunidade: ${community}`,

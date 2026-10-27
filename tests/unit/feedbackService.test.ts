@@ -501,3 +501,30 @@ describe('INC-021 BUG2 — display_name do leave com fallback da apresentação'
     expect(ev.display_name).toBe('Alberto do Evento');
   });
 });
+
+// ─── INC-024 (ajuste 1): plataforma do evento na 📩 ao dono ────────────────
+describe('formatResponseNotification — 📱 Plataforma (INC-024)', () => {
+  it('evento do Telegram contém a linha da plataforma', () => {
+    const text = fb.formatResponseNotification(
+      { platform: 'telegram', display_name: 'João', user_id: '111222333', group_name: 'Grupo TG' },
+      'resposta aqui',
+      false,
+    );
+    expect(text).toContain('📱 Plataforma: telegram');
+    expect(text).toContain('👤 João (111222333)');
+  });
+
+  it('evento do Discord contém a linha da plataforma', () => {
+    const text = fb.formatResponseNotification(
+      { platform: 'discord', display_name: 'Maria', user_id: '999888777666' },
+      'resposta aqui',
+      false,
+    );
+    expect(text).toContain('📱 Plataforma: discord');
+  });
+
+  it('sem platform → em dash (retrocompat de eventos legados)', () => {
+    const text = fb.formatResponseNotification({ display_name: 'X', user_id: '1' }, 'r', false);
+    expect(text).toContain('📱 Plataforma: —');
+  });
+});

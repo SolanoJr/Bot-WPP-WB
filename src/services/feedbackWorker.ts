@@ -73,9 +73,13 @@ export async function runFeedbackWorker(
       continue;
     }
 
-    // Sem PN não há DM: Baileys não envia PV para jid @lid isolado.
+    // INC-024: o requisito do PN com sufixo @s.whatsapp.net é do WhatsApp
+    // (Baileys não envia PV para jid @lid isolado). Telegram/Discord mandam
+    // DM pelo user_id direto (numérico/snowflake) — checá-los contra
+    // @s.whatsapp.net expirava o evento como unreachable antes da 1ª tentativa.
+    const platform = ev.platform || 'whatsapp';
     const target = ev.phone_number || ev.user_id;
-    if (!target || !target.includes('@s.whatsapp.net')) {
+    if (!target || (platform === 'whatsapp' && !target.includes('@s.whatsapp.net'))) {
       toExpire.push(ev.event_id);
       stats.unreachable++;
       continue;
@@ -94,7 +98,10 @@ export async function runFeedbackWorker(
       communityName: ev.community_name,
       involvedGroupNames: ev.involved_group_names,
     });
-    const ok = await send(target, text).catch(() => false);
+    // Multi-plataforma: resolve o send da plataforma do evento (INC-024);
+    // o send injetado (/lab/run-feedback-worker, testes) é o fallback global.
+    const fn = getRegisteredFeedbackSend(platform) ?? send;
+    const ok = await fn(target, text).catch(() => false);
     if (ok) {
       await markContacted(ev.event_id, now);
       stats.sent++;
@@ -133,11 +140,20 @@ let workerStarted = false;
 // O send registrado pelo startFeedbackWorker (mesma instância que o worker
 // periódico usa). A rota /lab/run-feedback-worker do testServer dispara
 // runFeedbackWorker com ESTA fn — sem esperar o interval de 6h em teste.
-let registeredSend: FeedbackSendFn | null = null;
+// INC-024 — registry multi-plataforma: uma fn de envio por plataforma.
+// O WhatsApp continua sendo o default retrocompat: o send posicional do
+// startFeedbackWorker e o send injetado por /lab/testes são o fallback.
+const registeredSends = new Map<string, FeedbackSendFn>();
 
-/** Send registrado pelo startFeedbackWorker (ou null se o worker não subiu). */
-export function getRegisteredFeedbackSend(): FeedbackSendFn | null {
-  return registeredSend;
+/** Registra a fn de envio de uma plataforma (wiring do multiPlatform). */
+export function registerFeedbackSend(platform: string, fn: FeedbackSendFn): void {
+  registeredSends.set(platform, fn);
+}
+
+/** Send registrado (do worker ou de teste). Sem plataforma → default. */
+export function getRegisteredFeedbackSend(platform?: string): FeedbackSendFn | null {
+  if (platform) return registeredSends.get(platform) ?? null;
+  return registeredSends.get('whatsapp') ?? registeredSends.values().next().value ?? null;
 }
 
 export function startFeedbackWorker(
@@ -149,7 +165,7 @@ export function startFeedbackWorker(
     return undefined;
   }
   workerStarted = true;
-  registeredSend = send;
+  registeredSends.set('whatsapp', send);
   const tick = async () => {
     try {
       await runFeedbackWorker(send);
