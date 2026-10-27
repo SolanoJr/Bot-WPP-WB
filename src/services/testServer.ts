@@ -382,7 +382,11 @@ export function startTestServer(port: number = 3004): http.Server {
         // opera na GUILD (dc:<guild.id>), não no channel das mensagens.
         if (req.url === '/lab/discord-guilds') {
           const { adapter } = getAdapterAndSock('discord');
-          const guildsCache = (adapter as any)?.client?.guilds?.cache;
+          // adapter = PlatformAdapter wrapper; adapter.client = DiscordClient
+          // (wrapper PlatformClient); o client discord.js REAL, dono de
+          // guilds.cache, é adapter.client.client.
+          const dcClient = (adapter as any)?.client?.client;
+          const guildsCache = dcClient?.guilds?.cache;
           if (!adapter || !guildsCache) {
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Adapter Discord não encontrado (token não configurado ou client sem guilds)' }));
