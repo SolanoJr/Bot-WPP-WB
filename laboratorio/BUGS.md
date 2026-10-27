@@ -852,3 +852,29 @@ info do grupo → abrir PN 639474500179 → remover como admin). Pendente no
 usuário; candidato é conta de teste num grupo de teste (sem risco).
 Prova complementar do comando no chat: $promover @candidato no Grupo Teste
 (exercita o path completo do comando — dispatcher → permissions → adapter).
+
+INC-023 — Sessão WhatsApp revogada pelo server (401 em loop) + re-pareamento
+Data: 27/10/2026 · SHA: 39678d8 · Status: RESOLVIDO (QR scan, bot online)
+Sintoma: às 15:09 o Baileys entrou em loop `Connection Failure (401)` com
+`loggedOut detectado` — 45 falhas em ~4 min, zero reconexão. O adapter,
+por design (INC-011), mantém credenciais e não limpa a sessão em 401, então
+o loop não tinha fim por si só.
+Causa: revogação server-side da sessão companion (o WhatsApp invalidou o
+par de keys do lado de lá). Gatilho exato não determinável pelo log —
+401 persistente sem motivo explícito; hipóteses: limitação de companions
+ao conectar um novo dispositivo, ou invalidação periódica do server.
+Correção (runbook da skill bot-wpp-ops, ~4 min):
+- Backup da sessão morta: `mv sessions/558581344211 /tmp/bw-session-2710`
+- Dir recriado vazio + `pm2 restart bot-wpp` (sourced)
+- Novo QR emitido às 15:37:17 (ASCII no pm2 log E qr.png 512px no authDir)
+- Dono escaneou às 15:37:40 → "Conectado como WarriorBlack" 15:37:42
+Verificação pós-pareamento (tudo verde):
+- creds.json: me ✓ account ✓ | 0 Connection Failure/401 no tail
+- [PM] msgHandler ativo processando mensagens reais (fix INC-016 confirmado
+  em cenário real de re-pareamento, não só teste)
+- pm2 online (↺9), history sync INITIAL_BOOTSTRAP + PUSH_NAME fluindo
+Prevenção: nenhuma ação de código — 401 é evento operacional esperado
+(do lado do WhatsApp). Monitor 5min detecta o estado e alerta o Telegram
+privado; runbook de recuperação está na skill e levou ~4 min executar.
+Lição: o QR além do ASCII do pm2 log também é gravado como
+`sessions/<número>/qr.png` (512px) — dá para scp e entregar como imagem.
