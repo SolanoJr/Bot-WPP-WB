@@ -65,4 +65,16 @@ describe('BaileysChatManager.getChat — retry de metadata (INC-027)', () => {
     expect(chat.participants).toEqual([]);
     expect(chat.name).toBe('');
   });
+
+  it("INC-027 raiz: strip do prefixo 'wpp:' — sock recebe JID puro (bug do ban/kick)", async () => {
+    const gm = vi.fn().mockImplementation((jid: string) => {
+      // Reproduz o wire: query com 'wpp:' nunca obtém resposta do WhatsApp.
+      if (!jid || jid.includes('wpp:')) return Promise.reject(new Error('timed out waiting for message'));
+      return Promise.resolve(META);
+    });
+    const chat = await makeManager(gm as any).getChat('wpp:120363410094452673@g.us');
+    expect(gm).toHaveBeenCalledWith('120363410094452673@g.us');
+    expect(chat.isPermissionsVerified).toBe(true);
+    expect(chat.participants).toHaveLength(2);
+  });
 });

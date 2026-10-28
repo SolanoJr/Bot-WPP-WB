@@ -52,7 +52,11 @@ export class BaileysChatManager {
   }
 
   async getChat(chatId: string): Promise<any> {
-    const jid = chatId; // assumes already normalized
+    // INC-027: o fluxo de comando passa o ID multi-plataforma ('wpp:jid') e o
+    // bug era silencioso — groupMetadata('wpp:...') é query inválida que só
+    // dá timeout (mesmo padrão dos bugs de "parâmetro na forma errada").
+    // normId stripa wpp:/tg:/dc: e o sufixo de device.
+    const jid = normId(String(chatId || ''));
     const withTimeout = <T>(p: Promise<T>, ms: number): Promise<T | null> =>
       Promise.race([
         p,
@@ -108,8 +112,9 @@ export class BaileysChatManager {
   }
 
   async getUser(userId: string): Promise<any> {
-    const jid = userId.includes('@') ? userId : `${userId}@s.whatsapp.net`;
-    const contact = await this.sock.contactFetch?.(jid).catch(() => null);
+    const jid = normId(String(userId || ''));
+    const full = jid.includes('@') ? jid : `${jid}@s.whatsapp.net`;
+    const contact = await this.sock.contactFetch?.(full).catch(() => null);
     return {
       id: jid,
       platform: this.platform,
