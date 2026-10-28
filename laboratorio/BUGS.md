@@ -1007,3 +1007,51 @@ TelegramAdapter 53.14%, DiscordAdapter 20.89%, BaileysAdapter 23.11% —
 arquivos grandes cuja maior parte é integração real (login, voz, screen);
 os handlers novos do INC-024 (leave) estão cobertos por
 feedbackAdaptersLeave.test.ts. Sem ação nesta rodada, conforme plano.
+
+INC-027 — ban/kick "não funcionam": getChat recebia 'wpp:jid' (metadata morto)
+Data: 28/10/2026 · Status: RESOLVIDO (2 fixes + provas end-to-end)
+RELATO: ban/kick sem efeito no Polemic (120363419784760390@g.us).
+F0.1: bot É admin no Polemic (admins: 558898314322 superadmin, 558581344211
+bot/admin, 558189669627). F0.2: out.log truncado às 03:02 por sessão ssh
+externa (banner Tailscale no topo, 4 linhas restantes) — investigação
+via inject. F0.3 (Grupo Teste, 3 injects): TODOS responderam "⏳ Não
+consegui carregar a lista de membros agora" — inclusive sender MASTER.
+Warn do Baileys "timed out waiting for message" com o JID do grupo.
+FIX 1 (ba60b71c): getChat tinha 1 tentativa/5s e o parâmetro ms do
+withTimeout era IGNORADO (hardcoded — mesmo padrão dos bugs anteriores).
+Agora: 3 tentativas (5s cada, backoff 1,5s/3s) + [ERROR] na falha total.
+CAUSA RAIZ REAL (reprodução cirúrgica): /lab/group-info com JID limpo =
+0,4s e 76 participantes; com 'wpp:JID' = 19,5s, participants=[],
+botIsAdmin=false. O fluxo de comando (CommandContext) passa o ID
+multi-plataforma e o BaileysChatManager assumia "already normalized"
+(const jid = chatId) — groupMetadata('wpp:...') é query inválida que só
+dá timeout. 6º bug do padrão "valor na forma errada silenciosamente
+ignorado". normId() (strip wpp:/tg:/dc: + device suffix) já existia —
+getChat/getUser simplesmente não usavam.
+FIX 2 (07f0a277): normId() no getChat e getUser.
+PROVAS (boot 14, Grupo Teste, alvo fake — sem dano a participantes reais):
+- C1 não-admin + $ban @fake → "❌ Você precisa ser administrador..." (AUTH ✓)
+- C2 master + $ban sem alvo → "❌ Marque o usuário a ser banido com @usuario." ✓
+- C3 master + $kick @fake → "✅ 559999999999 foi removido do grupo (Teste)." ✓
+- 4º inject rastreável (lab-...8uib3z): resposta correta em ~5s, sem
+  [ERROR] atrelado ao msgId.
+RESIDUAL (não bloqueia ban/kick): um caller periódico ainda gera [ERROR]
+de metadata intermitente (3x às 03:54-03:55 + 1x às 04:00:11; suspeita:
+varredura de grupos do bomDia às 04:00 — grupo não identificado, jid
+redacted no log). Queries de metadata às vezes demoram >5s mesmo com jid
+correto; o retry cobre a maioria; falha total loga [ERROR] que o check 6
+do wpp-health pega — provado às 04:07 (crit=25 → 🔴 enviado ao dono).
+Gate: 968 passed | 3 skipped. Testes: baileysChatManagerRetry.test.ts
+(4: sucesso na 1ª, recuperação na 3ª, falha total, strip do prefixo).
+
+Nota de infraestrutura (INC-026, complemento): o wpp-health roda via
+crontab do usuário (@reboot sleep 300 + 0 * * * *), NÃO systemd timer.
+Motivo: sudo sem NOPASSWD na sessão SSH e systemd --user sem linger
+(habilitar exige sudo). Cron é equivalente funcional (OnBootSec=5min ≈
+@reboot+300s; OnUnitActiveSec=1h ≈ cron horário). Trade-off: sem restart
+automático se o cron quebrar. Se virar problema: rodar
+sudo -S -p '' loginctl enable-linger solanojr e migrar para timer systemd.
+Check 6 ajustado ao ambiente: o awk do Ubuntu é mawk (sem mktime) —
+a janela de 1h usa comparação lexicográfica de timestamps ISO. Check 7
+(resumo diário 8h): enviado 1x e o state file provou o dedupe (2ª
+rodada no mesmo dia não reenvia). Uptime do processo no CICLO COMPLETO.

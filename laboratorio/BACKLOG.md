@@ -95,3 +95,37 @@ listsService 21.73%, rateLimiter 36.11%, infractions 41.86%,
 metricsService 53.73%, quizService 51.42%, discordScreenService 35.63%,
 retryWithBackoff 63.97%, bomDiaService 69.23% (borderline).
 All files: 24.68% (o total pesa superfícies de integração sem unit).
+
+### Cobertura de testes — adapters (INC-026, 28/10) — detalhe por path
+- **TelegramAdapter** 53.14%: coberto message + command dispatch + leave
+  (INC-024). Descoberto: `sendPhoto`, `kickChatMember`, `banChatMember`,
+  `deleteMessage`, `callApi(setMessageReaction)`, fluxo de reconexão.
+- **DiscordAdapter** 20.89%: coberto messageCreate + guildMemberRemove
+  (INC-024). Descoberto: `sendMessage` para channel, presence, screenshare,
+  voice, bridge, retry de reconexão.
+- **BaileysAdapter** 23.11%: coberto group-participants (welcome/leave) +
+  reply + send. Descoberto: `ban`/`kick` completos (BaileysMemberManager),
+  `sendMedia`, mute, deleteMsg, presence updates, fluxo de reconexão.
+
+Quando priorizar: se um comando desses quebrar em prod sem teste unitário,
+o smoke test (check 6 do wpp-health) detecta — mas sem contexto do que
+quebrou. Um teste E2E no Grupo Teste (ban/kick com alvo fake) cobre os
+paths mais críticos com esforço médio. O INC-027 já adicionou
+baileysChatManagerRetry.test.ts (getChat: retry + strip de prefixo).
+
+### Monitor de comandos críticos — RESOLVIDO (INC-027, 28/10)
+Registro original: "wpp-health não monitora comandos críticos
+($ban/$kick/$noticias). Se quebrarem silenciosamente, o dono só descobre
+por reclamação. Considerar smoke test periódico de 1-2 comandos
+read-only no Grupo Teste."
+→ Implementado como check 6 (critical-commands): conta [ERROR] de
+handlers nas últimas 1h no out.log; alerta 🔴 com cooldown 1h e ✅ na
+recuperação. Provado em 28/10 às 04:07 (crit=25 → 🔴 no PV do dono).
+E2E periódico de comandos continua como opção futura (mais caro).
+
+### Pendência INC-027 (residual): caller dos [ERROR] de metadata
+Um fluxo periódico chama getChat e falha com metadata timeout em grupo
+não identificado (3x às 03:54-03:55, 1x às 04:00:11 — padrão sugere
+varredura do bomDiaService às 04:00). O ban/kick está ok; o wpp-health
+vigia. Investigar: logar o caller no [ERROR] (contexto de stack) ou
+correlacionar com os schedulers.
