@@ -878,3 +878,43 @@ Prevenção: nenhuma ação de código — 401 é evento operacional esperado
 privado; runbook de recuperação está na skill e levou ~4 min executar.
 Lição: o QR além do ASCII do pm2 log também é gravado como
 `sessions/<número>/qr.png` (512px) — dá para scp e entregar como imagem.
+
+INC-024 — Feedback de saída multi-plataforma (Telegram + Discord)
+Data: 27/10/2026 · SHA: c948ddc + fix 38b08d6 · Status: RESOLVIDO (deploy + config)
+Contexto: o fluxo de PV pós-leave era WhatsApp-only (send global único no
+wiring; o worker exigia @s.whatsapp.net no target de TODOS os eventos —
+cada evento TG/DC morria unreachable antes da 1ª tentativa).
+Mudanças (design F1 aprovado pelo arquiteto, 4 ajustes aplicados):
+- feedbackWorker: registry Map platform→sendFn (registerFeedbackSend /
+  getRegisteredFeedbackSend(platform?)); WhatsApp default retrocompat;
+  requisito de PN @s.whatsapp.net agora só para eventos whatsapp; send
+  resolvido POR EVENTO com fallback no send injetado (/lab, testes).
+- TelegramAdapter: launch com allowed_updates explícito incl. chat_member
+  (sem ele o Bot API omite leaves de supergroup); 2 listeners:
+  left_chat_member (service message de grupos basic, com return antes do
+  fluxo de mensagens) + update chat_member (supergroups, left|kicked).
+  Duplo sinal do mesmo leave é absorvido pelo merge idempotente do
+  recordExitEvent (feedbackService).
+- DiscordAdapter: guildMemberRemove com groupId=dc:<guild.id> — a GUILD
+  é o análogo do grupo (chatId de mensagens é o channel, IDs distintos).
+  Boot loga "GuildMembers intent: enabled|disabled" (ajuste 3).
+- multiPlatform: registra whatsapp + telegram (bot.telegram.sendMessage) +
+  discord (client.users.fetch + DM). DM falha (403 TG / DMs fechadas DC)
+  → failed + attempts, auditável no DB, cap existente (MAX_ATTEMPTS).
+- feedbackService: 📩 ao dono ganha linha "📱 Plataforma" (ajuste 1).
+- testServer: POST /lab/discord-guilds (inventário read-only, ajuste 4);
+  bug da 1ª versão corrigido em 38b08d6: adapter.client é o wrapper
+  DiscordClient — o client discord.js real é adapter.client.client (a
+  rota dava 404 com o bot conectado).
+Testes: feedbackAdaptersLeave.test.ts (11 — handlers TG/DC + intent),
+worker multi-plataforma (5 — registry, 403→failed, fallback, retrocompat),
+plataforma na 📩 (3). Suite: 964 passed | 3 skipped.
+Deploy c948ddc4 → 38b08d6b (boot 0 [ERROR], 🎉 1×, intent enabled literal,
+WhatsApp conectado).
+Config (FASE 3): guild Discord "WarriorBlack" (dc:241127281836294144, 336
+membros) → INSERT group_mod feedback=1 (backup
+/tmp/bw-1793142605-feedback-dc.db). Total: 10/10 com feedback=1.
+F0 Telegram: 0 grupos — o bot TG nunca recebeu mensagem de grupo (só
+envia alertas ao PV do dono); varredura em todas as tabelas do DB achou
+apenas 1 chat_id tg: em command_usage_events (PV do dono). Veredito da
+auditoria (execução): ver INC-025.
