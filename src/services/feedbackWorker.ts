@@ -100,6 +100,11 @@ export async function runFeedbackWorker(
     });
     // Multi-plataforma: resolve o send da plataforma do evento (INC-024);
     // o send injetado (/lab/run-feedback-worker, testes) é o fallback global.
+    if (platform !== 'whatsapp' && !getRegisteredFeedbackSend(platform)) {
+      // Sem isso o evento caía no fallback WhatsApp SEM nenhuma linha de log
+      // (o Baileys tentava DM para um ID de outra plataforma e falhava calado).
+      logWarning(`[feedbackWorker] plataforma ${platform} sem send registrado — usando fallback`);
+    }
     const fn = getRegisteredFeedbackSend(platform) ?? send;
     const ok = await fn(target, text).catch(() => false);
     if (ok) {

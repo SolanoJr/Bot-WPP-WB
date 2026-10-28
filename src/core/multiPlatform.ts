@@ -178,15 +178,24 @@ export async function initializePlatforms() {
               // sender (o PV nunca sai e o worker conta failed). Fix INC-021.
               await wppClient.sendMessage(userId, text);
               return true;
-            } catch {
+            } catch (e: any) {
+              // Silent bug INC-024-audit: o catch vazio engolia o motivo do
+              // failed (o worker contava a falha sem NENHUMA linha de log).
+              logger.warn('[feedbackWorker] DM WhatsApp falhou', { userId, error: e?.message });
               return false;
             }
           };
           registerFeedbackSend('whatsapp', wppSend);
           if (telegramAdapter) {
             registerFeedbackSend('telegram', async (userId: string, text: string) => {
+              // Guard: user_id não-numérico (NaN) falharia na API sem log claro.
+              const chatId = Number(userId);
+              if (!Number.isFinite(chatId)) {
+                logger.warn('[feedbackWorker] DM Telegram abortada: user_id não-numérico', { userId });
+                return false;
+              }
               try {
-                await telegramAdapter!.bot.telegram.sendMessage(Number(userId), text);
+                await telegramAdapter!.bot.telegram.sendMessage(chatId, text);
                 return true;
               } catch (e: any) {
                 logger.warn('[feedbackWorker] DM Telegram falhou', { userId, error: e?.message });
@@ -198,7 +207,10 @@ export async function initializePlatforms() {
             registerFeedbackSend('discord', async (userId: string, text: string) => {
               try {
                 const user = await (discordAdapter as any).client.users.fetch(userId);
-                if (!user?.send) return false;
+                if (!user?.send) {
+                  logger.warn('[feedbackWorker] DM Discord impossível: user sem send (bot bloqueado?)', { userId });
+                  return false;
+                }
                 await user.send(text);
                 return true;
               } catch (e: any) {

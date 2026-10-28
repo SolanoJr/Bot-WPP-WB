@@ -918,3 +918,35 @@ F0 Telegram: 0 grupos — o bot TG nunca recebeu mensagem de grupo (só
 envia alertas ao PV do dono); varredura em todas as tabelas do DB achou
 apenas 1 chat_id tg: em command_usage_events (PV do dono). Veredito da
 auditoria (execução): ver INC-025.
+
+INC-025 — Auditoria "0 grupos TG" + silent bugs do INC-024 + dry-run lab
+Data: 28/10/2026 · Status: RESOLVIDO (veredito A; 5 fixes; dry-mode no lab)
+ITEM 2 — Telegram 0 grupos, veredito A (bot realmente não está em grupos):
+- bot.telegram.getMe(): ok, id 8980550439, can_join_groups:true,
+  can_read_all_group_messages:false (privacy mode default do BotFather)
+- getWebhookInfo: {"url":"","pending_update_count":0} (sem webhook)
+- getUpdates: fila vazia (nenhuma update acumulada)
+- grep '[Telegram] Mensagem recebida' em TODO o out.log: 0 ocorrências
+- varredura DB: nenhum chat tg: de grupo em nenhuma tabela
+Conclusão: o bot TG é usado apenas como SAÍDA (alertas/painel/espelho → PV
+do dono 146078742). Nada para ativar; quando entrar num grupo TG, basta
+INSERT tg:<chat_id> feedback=1 em group_mod. Sem bug.
+ITEM 3 — silent bug audit do diff INC-024 (5 achados, 5 corrigidos):
+1. FUNCIONAL: Telegraf lê cfg.allowedUpdates (CAMELCASE, telegraf.js:185);
+   o launch do INC-024 passava allowed_updates (snake) — opção ignorada
+   em silêncio e chat_member NUNCA chegaria (leaves de supergroup cegos).
+   Fix: allowedUpdates. Teste atualizado para o camelCase.
+2. wppSend (multiPlatform): catch {} vazio engolia o motivo do failed
+   (worker contava failed sem NENHUMA linha de log) → agora loga warn.
+3. Send TG: Number(userId) sem guard — user_id não-numérico → NaN →
+   erro 400 sem contexto → guard Number.isFinite + warn explícito.
+4. Send DC: `if (!user?.send) return false` sem log (bot bloqueado
+   parecia "nada aconteceu") → agora loga warn.
+5. Worker: evento de plataforma SEM send no registry caía no fallback
+   WhatsApp calado (Baileys tentava DM com ID de outra plataforma) →
+   agora loga "[feedbackWorker] plataforma X sem send registrado".
+Backlog (não corrigidos, fora do diff): nenhum achado adicional.
+ITEM 4 — dry-run lab: POST /lab/run-feedback-worker agora aceita body
+{dry:true}: troca temporariamente o send das 3 plataformas por um dry
+que só loga ('[TestServer] feedback DRY send') e restaura o registry no
+finally — prova em runtime o resolution por plataforma sem enviar PV.

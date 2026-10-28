@@ -477,10 +477,13 @@ class TelegramClient implements PlatformClient {
       logInfo(`[Telegram] ✅ Pronto como ${this.userName} (${this.userId})`);
       if (this.readyHandler) this.readyHandler();
       this.launchStarted = true;
-      // INC-024: sem allowed_updates explícito o Bot API omite o update
+      // INC-024: SEM allowedUpdates explícito o Bot API omite o update
       // 'chat_member' (leaves silenciosos de supergroup). 'message' cobre
       // grupos basic via service message left_chat_member.
-      void this.bot.launch({ allowed_updates: ['message', 'edited_message', 'callback_query', 'chat_member'] } as any).catch((error: any) => {
+      // ⚠️ A opção do Telegraf é CAMELCASE (telegraf.js:185 lê
+      // cfg.allowedUpdates) — snake_case é ignorado em silêncio (bug achado
+      // na auditoria silent-bug do INC-024).
+      void this.bot.launch({ allowedUpdates: ['message', 'edited_message', 'callback_query', 'chat_member'] } as any).catch((error: any) => {
         this.launchStarted = false;
         this.isReady = false;
         this.disconnectedHandler?.(error?.message || String(error));

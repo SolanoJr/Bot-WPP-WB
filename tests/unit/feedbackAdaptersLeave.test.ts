@@ -197,12 +197,12 @@ describe('INC-024 — TelegramAdapter: leave', () => {
     expect(recordExitEvent).not.toHaveBeenCalled();
   });
 
-  it('launch() pede allowed_updates com chat_member', async () => {
+  it('launch() pede allowedUpdates (camelCase do Telegraf) com chat_member', async () => {
     const adapter: any = new TelegramAdapter('dummy-token');
     await adapter.client.launch();
     const call = (adapter.bot.launch as any).mock.calls[0];
-    expect(call?.[0]?.allowed_updates).toContain('chat_member');
-    expect(call?.[0]?.allowed_updates).toContain('message');
+    expect(call?.[0]?.allowedUpdates).toContain('chat_member');
+    expect(call?.[0]?.allowedUpdates).toContain('message');
   });
 });
 

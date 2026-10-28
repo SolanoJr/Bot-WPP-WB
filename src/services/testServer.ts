@@ -1337,11 +1337,37 @@ export function startTestServer(port: number = 3004): http.Server {
         // valendo: eventos recentes ficam 'young' e não são enviados.
         if (req.url === '/lab/run-feedback-worker') {
           try {
-            const { runFeedbackWorker, getRegisteredFeedbackSend } = await import('./feedbackWorker.js');
+            const { runFeedbackWorker, getRegisteredFeedbackSend, registerFeedbackSend } = await import('./feedbackWorker.js');
             const send = getRegisteredFeedbackSend();
             if (!send) {
               res.writeHead(503, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ error: 'worker de feedback não registrado (bot não iniciou?)' }));
+              return;
+            }
+            // INC-024 ITEM 4: body {dry:true} troca TEMPORARIAMENTE o send de
+            // TODAS as plataformas por um dry (só loga, nunca envia PV real)
+            // e restaura o registry original no finally. Prova em runtime que
+            // o worker resolve o send POR EVENTO/plataforma.
+            if (parsedBody?.dry === true) {
+              const dryFn = async (target: string) => {
+                logInfo('[TestServer] feedback DRY send', { target });
+                return true;
+              };
+              const saved: Array<[string, unknown]> = [];
+              for (const p of ['whatsapp', 'telegram', 'discord']) {
+                const orig = getRegisteredFeedbackSend(p);
+                if (orig) saved.push([p, orig]);
+                registerFeedbackSend(p, dryFn);
+              }
+              let dryStats;
+              try {
+                dryStats = await runFeedbackWorker(dryFn);
+              } finally {
+                for (const [p, fn] of saved) registerFeedbackSend(p, fn as any);
+              }
+              logInfo('[TestServer] /lab/run-feedback-worker', { dry: true, stats: dryStats });
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ ok: true, dry: true, stats: dryStats }, null, 1));
               return;
             }
             const stats = await runFeedbackWorker(send);
