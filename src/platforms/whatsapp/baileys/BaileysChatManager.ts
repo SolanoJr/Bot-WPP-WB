@@ -3,7 +3,7 @@
  * Extraído de BaileysAdapter.
  */
 
-import { logWarning } from '../../../services/loggerService';
+import { logWarning, logError } from '../../../services/loggerService';
 import { normId, toJid } from './util';
 
 export interface BaileysChatManagerDeps {
@@ -56,13 +56,34 @@ export class BaileysChatManager {
     const withTimeout = <T>(p: Promise<T>, ms: number): Promise<T | null> =>
       Promise.race([
         p,
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
       ]);
 
-    const metadata = await withTimeout<any>(
-      this.sock.groupMetadata(jid).catch(() => null),
-      5000
-    );
+    // INC-027: a query de groupMetadata (IQ) é intermitente em produção —
+    // com 1 tentativa/5s o comando morria com "⏳ tente novamente" na 1ª
+    // falha e o usuário reportava "ban/kick não funcionam". Retry curto com
+    // backoff: até 3 tentativas (5s de timeout cada, +1,5s/+3s entre elas).
+    // Sucesso em qualquer tentativa → comando prossegue. Falha total →
+    // verified=false (comando responde "tente novamente") + [ERROR] no log
+    // para o wpp-health (check critical-commands) detectar em <1h.
+    const fetchMetadata = async (): Promise<any | null> => {
+      const delays = [0, 1500, 3000];
+      for (let i = 0; i < delays.length; i++) {
+        if (delays[i] > 0) await new Promise((r) => setTimeout(r, delays[i]));
+        const meta = await withTimeout<any>(
+          this.sock.groupMetadata(jid).catch(() => null),
+          5000,
+        );
+        if (meta && Array.isArray(meta.participants)) return meta;
+      }
+      logError(
+        'BaileysChatManager',
+        `groupMetadata de ${jid} indisponível após 3 tentativas — comandos ban/kick e recursos de grupo vão responder "tente novamente"`,
+      );
+      return null;
+    };
+
+    const metadata = await fetchMetadata();
 
     return {
       id: jid,
