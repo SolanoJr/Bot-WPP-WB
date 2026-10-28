@@ -90,3 +90,4 @@ data.backup/
 /lab-flip.js
 /probe-*.js
 group-lists.json
+coverage/

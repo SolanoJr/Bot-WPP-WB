@@ -950,3 +950,60 @@ ITEM 4 — dry-run lab: POST /lab/run-feedback-worker agora aceita body
 {dry:true}: troca temporariamente o send das 3 plataformas por um dry
 que só loga ('[TestServer] feedback DRY send') e restaura o registry no
 finally — prova em runtime o resolution por plataforma sem enviar PV.
+
+INC-026 — Auditoria snake/camelCase + smoke test funcional (wpp-health)
+Data: 28/10/2026 · Status: RESOLVIDO (0 mismatches novos; health ativo)
+TAREFA A — auditoria de parâmetros snake_case vs camelCase (4 libs):
+REGRA APRENDIDA (origem do bug INC-025): no Telegraf existem DOIS
+domínios — config da LIB é camelCase (allowedUpdates, dropPendingUpdates
+em bot.launch) e PAYLOAD da Bot API é snake_case (parse_mode,
+message_thread_id, disable_web_page_preview no extra de sendMessage —
+telegram.js:107 faz callApi('sendMessage', {chat_id, ...extra}) e o
+extra vai cru pra API). Confundir os domínios = opção ignorada calada.
+Varredura por execução (assinaturas lidas em node_modules, uso em src/):
+- Telegraf: sendMessage/sendPhoto/sendVideo/sendAudio/sendDocument/
+  sendSticker com extra snake ✓ CORRETOS (payload API); launch com
+  allowedUpdates ✓ (fix INC-025); getChat/kickChatMember/banChatMember/
+  deleteMessage/callApi setMessageReaction ✓ assinaturas corretas.
+- discord.js: setPresence({status, activities:[{name,type}]}) ✓;
+  channel.send({content, reply:{messageReference}}) ✓ (v14 camelCase);
+  client.users.fetch(id) → Promise<User> ✓.
+- Baileys: mentions em options de kick/ban ✓ camel; 'quoted' não usado
+  no src. sendMessage já validado exaustivamente em INC-013/016.
+- axios: responseType ('arraybuffer'/'text'), timeout ✓ camelCase
+  corretos; nenhum max_redirects/max_body_length snake no src.
+Resultado: 0 mismatches novos; 0 correções; 0 backlog. O único bug do
+padrão era o allowedUpdates (já corrigido no INC-025).
+TAREFA B — smoke test funcional wpp-health (novo):
+- Script: ~/bin/wpp-health-check.sh na VPS (sudo -S -p '' sem NOPASSWD → user
+  cron, mesmo padrão dos backups; systemd user sem linger não persiste).
+- 5 checks: (1) feedback worker — eventos pending com left_at < now-8h
+  (stuck; worker roda a cada 6h+10min de janela); (2) news scheduler —
+  news_history 0 nas últimas 25h; (3) pm2 jlist status bot-wpp ≠ online;
+  (4) DB SELECT 1 com timeout 3s; (5) WhatsApp vivo — heartbeat real do
+  Baileys (log "Credenciais atualizadas" a cada ~10min; silêncio >30min
+  = desconectado/travado. Melhor que "último Conectado como >2h", que
+  dava falso alerta com bot estável sem reboot).
+- Alerta → Telegram privado do dono, cooldown 1h por check (state em
+  ~/var/wpp-health/), ✅ de recuperação — mesmo padrão do wpp-monitor.
+- Schedule: crontab @reboot+5min (equivalente OnBootSec=5min) e
+  0 * * * * (OnUnitActiveSec=1h). Log: ~/var/log/wpp-health.log.
+- PROVA REAL do canal na primeira execução: bug meu no script inicial
+  (c.fetchone() na Connection em vez do cursor) gerou 2 alertas 🔴
+  falsos às 02:32 → fix (cur = c.execute(...).fetchone()) → ciclo das
+  02:38 mandou os ✅ de recuperação e fechou verde:
+  "CICLO COMPLETO (feedback=0 news=20 pm2=online hb=5min)".
+  O dono viu no PV o par 🔴→✅ — alerta, cooldown e recuperação
+  funcionando end-to-end.
+Limitações conhecidas (aceitas): TG/DC não têm heartbeat próprio no log;
+morte silenciosa só do polling TG sem qualquer linha nova não é detectada
+pelo check 5 (cobre via silêncio geral do processo). Documentado aqui.
+TAREFA C — coverage report (sem novos testes, só report):
+Instalado @vitest/coverage-v8@3.2.7 (devDep). Suite 964 | 3 skipped.
+Focais: feedbackWorker 91.42%, feedbackService 83.89%,
+presentationService 86%, presentationPublisher 77.33% — todos ✓ ≥70%.
+Adapters <70% (documentados no BACKLOG.md como melhoria, não bug):
+TelegramAdapter 53.14%, DiscordAdapter 20.89%, BaileysAdapter 23.11% —
+arquivos grandes cuja maior parte é integração real (login, voz, screen);
+os handlers novos do INC-024 (leave) estão cobertos por
+feedbackAdaptersLeave.test.ts. Sem ação nesta rodada, conforme plano.

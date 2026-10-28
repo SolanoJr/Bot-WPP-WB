@@ -53,3 +53,45 @@ Agora `logger.warn` com groupId (mesma forma dos irmãos `isPresentationEnabled`
 - `newsService.curateSet:166` —  rejeição silenciosa do conjunto curado é o
   guard de qualidade desejado (comentário no ponto); se um dia as notícias
   saírem sempre sem curadoria, vale logar o motivo no debug. Edge opcional.
+
+## Melhorar cobertura de testes (INC-026 tarefa C, 2026-10-28)
+
+Report de coverage (@vitest/coverage-v8@3.2.7, `npx vitest run --coverage`).
+Focais pedidos — serviços CRÍTICOS DO FLUXO estão todos ≥70%:
+
+| Arquivo | Statements | Situação |
+|---|---|---|
+| feedbackWorker.ts | 91.42% | ✓ |
+| feedbackService.ts | 83.89% | ✓ |
+| presentationService.ts | 86.00% | ✓ |
+| presentationPublisher.ts | 77.33% | ✓ |
+| TelegramAdapter.ts | 53.14% | <70 |
+| DiscordAdapter.ts | 20.89% | <70 |
+| BaileysAdapter.ts | 23.11% | <70 |
+
+"Melhorar cobertura em" — os 3 adapters. Contexto (não é descuido): os
+adapters já têm suítes dedicadas (adapters.test, discordAdapter.test,
+baileysReply, feedbackAdaptersLeave — os handlers de leave do INC-024
+estão cobertos), mas o ARQUIVO inclui superfície grande de integração
+real (login/emparelhamento Baileys, gateway de voz/minecraft/screen do
+Discord, presence, polling) que não é unit-testável sem hardware/contas
+reais. Alvos de melhoria com melhor custo/benefício, por adapter:
+
+- TelegramAdapter (53%): getChats/getChatMember/reply/editAdmin —
+  mockar bot.telegram e cobrir os métodos de moderação; faltam os
+  branches de erro do sendMessage (erro de API → false com log).
+- DiscordAdapter (21%): sendMessage com reply/attachment/delete (o
+  block 288-302), getChats, react, kick/ban via guild.members — tudo
+  mockável em client/guild; o handler guildMemberRemove já está coberto
+  (INC-024).
+- BaileysAdapter (23%): os gates de groupMetadata/prefixos do
+  sendMessage, reconnect/restart, e o fluxo de presence. O corpo já é
+  coberto parcialmente por baileysReply; os branches de jid (PV vs
+  grupo vs broadcast) são o próximo alvo.
+
+Outros <70% fora dos focais (registro, sem prioridade definida):
+server.ts 0%, broadcaster.js 0%, reacaoService 7.69%, testServer 16.59%,
+listsService 21.73%, rateLimiter 36.11%, infractions 41.86%,
+metricsService 53.73%, quizService 51.42%, discordScreenService 35.63%,
+retryWithBackoff 63.97%, bomDiaService 69.23% (borderline).
+All files: 24.68% (o total pesa superfícies de integração sem unit).
